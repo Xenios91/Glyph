@@ -1,3 +1,3 @@
-module horus/horus
+module glyph/glyph
 
 go 1.15
