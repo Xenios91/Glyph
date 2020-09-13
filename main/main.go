@@ -1,8 +1,8 @@
 package main
 
 import (
-	"horus/horus/logging"
-	"horus/horus/routing"
+	"glyph/glyph/logging"
+	"glyph/glyph/routing"
 	"net/http"
 )
 
