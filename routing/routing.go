@@ -11,7 +11,7 @@ type pageData struct {
 
 func MainPage(w http.ResponseWriter, r *http.Request) {
 	var data pageData = pageData{
-		Title: "Horus",
+		Title: "Glyph",
 	}
 	template := template.Must(template.ParseFiles("../templates/main.html"))
 	template.Execute(w, data)
