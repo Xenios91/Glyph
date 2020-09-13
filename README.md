@@ -1,2 +1,2 @@
-# horus
+# Glyph
 Thesis Project
