@@ -8,6 +8,7 @@ import (
 
 func loadRoutes() {
 	http.HandleFunc("/", routing.MainPage)
+	http.HandleFunc("/getSymbols", routing.GetSymbolsPage)
 }
 
 func startServer() {
