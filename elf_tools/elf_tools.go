@@ -41,7 +41,8 @@ func GetTextSection(filename string) ([]byte, error) {
 	//make sure binary is an elf file
 	if ident[0] != '\x7f' || ident[1] != 'E' || ident[2] != 'L' || ident[3] != 'F' {
 		fmt.Printf("Bad magic number at %d\n", ident[0:4])
-		panic("invalid binary")
+		error := errors.New("Binary is not an elf")
+		return nil, error
 	}
 
 	var sections = elfFile.Sections

@@ -1,8 +1,6 @@
 package routing
 
 import (
-	"fmt"
-	"glyph/glyph/elf_tools"
 	"html/template"
 	"net/http"
 )
@@ -15,14 +13,22 @@ func MainPage(w http.ResponseWriter, r *http.Request) {
 	var data pageData = pageData{
 		Title: "Glyph",
 	}
-	template := template.Must(template.ParseFiles("../templates/main.html"))
+	template := template.Must(template.ParseFiles("../templates/template.html", "../templates/main.html"))
 	template.Execute(w, data)
 }
 
 func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
-	var text_section, err = elf_tools.GetTextSection("../testbin")
-	if err != nil {
-		fmt.Println("an error has occured")
+	var data pageData = pageData{
+		Title: "Symbols",
 	}
-	fmt.Println(text_section)
+	template := template.Must(template.ParseFiles("../templates/template.html", "../templates/get_symbols.html"))
+	template.Execute(w, data)
+}
+
+func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
+	var data pageData = pageData{
+		Title: "Binary Upload",
+	}
+	template := template.Must(template.ParseFiles("../templates/template.html", "../templates/upload.html"))
+	template.Execute(w, data)
 }

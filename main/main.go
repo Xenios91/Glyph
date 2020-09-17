@@ -8,6 +8,7 @@ import (
 
 func loadRoutes() {
 	http.HandleFunc("/", routing.MainPage)
+	http.HandleFunc("/uploadBinary", routing.UploadBinaryPage)
 	http.HandleFunc("/getSymbols", routing.GetSymbolsPage)
 }
 
