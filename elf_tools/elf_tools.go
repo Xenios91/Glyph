@@ -5,20 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"glyph/glyph/util"
-	"io"
 	"os"
 )
 
-func check(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
+func CheckIfElf(file *os.File) bool {
+	f := util.IOReader(file.Name())
+	var ident [16]uint8
+	_, err := f.ReadAt(ident[0:], 0)
+	util.CheckError(err)
 
-func ioReader(file string) io.ReaderAt {
-	reader, err := os.Open(file)
-	check(err)
-	return reader
+	if ident[0] != '\x7f' || ident[1] != 'E' || ident[2] != 'L' || ident[3] != 'F' {
+		fmt.Printf("Bad magic number at %d\n", ident[0:4])
+		return false
+	}
+	return true
 }
 
 func GetTextSection(filename string) ([]byte, error) {
@@ -29,21 +29,9 @@ func GetTextSection(filename string) ([]byte, error) {
 		return nil, error
 	}
 
-	f := ioReader(filename)
+	f := util.IOReader(filename)
 	elfFile, err := elf.NewFile(f)
-	check(err)
-
-	// Read and decode ELF identifier
-	var ident [16]uint8
-	f.ReadAt(ident[0:], 0)
-	check(err)
-
-	//make sure binary is an elf file
-	if ident[0] != '\x7f' || ident[1] != 'E' || ident[2] != 'L' || ident[3] != 'F' {
-		fmt.Printf("Bad magic number at %d\n", ident[0:4])
-		error := errors.New("Binary is not an elf")
-		return nil, error
-	}
+	util.CheckError(err)
 
 	var sections = elfFile.Sections
 
