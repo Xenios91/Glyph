@@ -14,9 +14,9 @@ func GetInstructions(data []byte) (*[]gapstone.Instruction, error) {
 	)
 
 	instructions, err := engine.Disasm(
-		data,    // code buffer
-		0x10000, // starting address
-		0,       // instructions to disassemble, 0 for all
+		data, // code buffer
+		0x0,  // starting address
+		0,    // instructions to disassemble, 0 for all
 	)
 
 	if err == nil {
