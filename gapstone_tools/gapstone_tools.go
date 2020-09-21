@@ -6,7 +6,7 @@ import (
 	"github.com/knightsc/gapstone"
 )
 
-func GetInstructions(data []byte) ([]gapstone.Instruction, error) {
+func GetInstructions(data []byte) (*[]gapstone.Instruction, error) {
 
 	engine, err := gapstone.New(
 		gapstone.CS_ARCH_X86,
@@ -27,7 +27,7 @@ func GetInstructions(data []byte) ([]gapstone.Instruction, error) {
 			for _, instruction := range instructions {
 				log.Printf("0x%x:\t%s\t\t%s\n", instruction.Address, instruction.Mnemonic, instruction.OpStr)
 			}
-			return instructions, nil
+			return &instructions, nil
 		}
 		log.Fatalf("Disassembly error: %v", err)
 		return nil, err

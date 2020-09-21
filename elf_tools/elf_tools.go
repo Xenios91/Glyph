@@ -21,7 +21,7 @@ func CheckIfElf(file *os.File) bool {
 	return true
 }
 
-func GetTextSection(filename string) ([]byte, error) {
+func GetTextSection(filename string) (*[]byte, error) {
 	var data []byte
 
 	if !util.CheckIfFileExist(filename) {
@@ -40,5 +40,5 @@ func GetTextSection(filename string) ([]byte, error) {
 			data, _ = section.Data()
 		}
 	}
-	return data, nil
+	return &data, nil
 }

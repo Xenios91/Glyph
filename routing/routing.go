@@ -66,7 +66,7 @@ func uploadFile(r *http.Request) bool {
 	dirPath, err := util.CreateDirectory(directoryParent, directoryName)
 	util.CheckError(err)
 
-	tempFile, err := ioutil.TempFile(dirPath, handler.Filename)
+	tempFile, err := ioutil.TempFile(*dirPath, handler.Filename)
 	defer tempFile.Close()
 
 	if err != nil {

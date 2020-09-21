@@ -1,7 +1,6 @@
 package util
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 )
@@ -14,14 +13,14 @@ func CheckIfFileExist(filename string) bool {
 	return !fileInfo.IsDir()
 }
 
-func IOReader(file string) io.ReaderAt {
+func IOReader(file string) *os.File {
 	reader, err := os.Open(file)
 	CheckError(err)
 	return reader
 }
 
-func CreateDirectory(directoryParent string, directoryName string) (string, error) {
+func CreateDirectory(directoryParent string, directoryName string) (*string, error) {
 	dirPath := filepath.Join(directoryParent, directoryName)
 	err := os.MkdirAll(dirPath, os.ModePerm)
-	return dirPath, err
+	return &dirPath, err
 }
