@@ -1,6 +1,7 @@
 package routing
 
 import (
+	"encoding/json"
 	"fmt"
 	"glyph/glyph/elf_tools"
 	"glyph/glyph/util"
@@ -84,5 +85,24 @@ func uploadFile(r *http.Request) bool {
 		return false
 	}
 
+	util.StartGhidraAnalysis(tempFile.Name())
 	return true
+}
+
+func StatusUpdate(w http.ResponseWriter, r *http.Request) {
+	method := r.Method
+	switch method {
+	case "POST":
+		var functionDetails elf_tools.FunctionDetails
+		err := json.NewDecoder(r.Body).Decode(&functionDetails)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+	default:
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Println(w, "POST request required")
+	}
+
 }

@@ -14,12 +14,8 @@ const (
 
 func main() {
 	classifier := bayesian.NewClassifier(Good, Bad, Taco)
-	goodStuff := []string{"tall", "rich", "handsome", "girl"}
-	badStuff := []string{"poor", "smelly", "ugly"}
-	tacoStuff := []string{"cheap", "mexican", "yummy"}
+	goodStuff := []string{}
 	classifier.Learn(goodStuff, Good)
-	classifier.Learn(badStuff, Bad)
-	classifier.Learn(tacoStuff, Taco)
 
 	probs, _, _ := classifier.LogScores(
 		[]string{"yummy", "mexico"},
