@@ -1,4 +1,4 @@
-package gapstone_tools
+package gapstonetools
 
 import (
 	"log"

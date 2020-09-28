@@ -1,1 +1,5 @@
 package machinelearning
+
+func TrainWithData() {
+
+}

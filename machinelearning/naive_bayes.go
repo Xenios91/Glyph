@@ -22,7 +22,7 @@ func main() {
 	)
 
 	var highest int = 0
-	for count, _ := range probs {
+	for count := range probs {
 		if probs[count] > probs[highest] {
 			highest = count
 		}
