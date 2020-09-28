@@ -23,10 +23,10 @@ func (functionDetailsArray FunctionDetailsArray) ProcessFunctionDetailsArray() {
 	var erroredFunctions []FunctionDetails = functionDetailsArray.ErroredFunctions
 
 	for _, function := range functions {
-		fmt.Println(function)
+		fmt.Printf("Function found: \nStarting at %s \nEnding at %s\n Tokens:%s\n\n", function.LowAddress, function.HighAddress, function.Tokens)
 	}
 
 	for _, erroredFunction := range erroredFunctions {
-		fmt.Println(erroredFunction)
+		fmt.Printf("Errored function: \nStarting at %s \nEnding at %s\n Tokens:%s\n\n", erroredFunction.LowAddress, erroredFunction.HighAddress, erroredFunction.Tokens)
 	}
 }
