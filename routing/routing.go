@@ -3,7 +3,7 @@ package routing
 import (
 	"encoding/json"
 	"fmt"
-	"glyph/glyph/elf_tools"
+	"glyph/glyph/elftools"
 	"glyph/glyph/util"
 	"html/template"
 	"io/ioutil"
@@ -80,7 +80,7 @@ func uploadFile(r *http.Request) bool {
 	}
 
 	tempFile.Write(fileBytes)
-	isElf := elf_tools.CheckIfElf(tempFile)
+	isElf := elftools.CheckIfElf(tempFile)
 	if !isElf {
 		return false
 	}
@@ -94,7 +94,7 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	switch method {
 	case "POST":
-		var functionDetailsArray elf_tools.FunctionDetailsArray
+		var functionDetailsArray elftools.FunctionDetailsArray
 		err := json.NewDecoder(r.Body).Decode(&functionDetailsArray)
 		if err != nil {
 			fmt.Println(err)

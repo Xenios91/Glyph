@@ -1,4 +1,4 @@
-package elf_tools
+package elftools
 
 import (
 	"fmt"

@@ -1,4 +1,4 @@
-package elf_tools
+package elftools
 
 import (
 	"debug/elf"
@@ -8,6 +8,7 @@ import (
 	"os"
 )
 
+//CheckIfElf Determines if a binary file is an ELF file.
 func CheckIfElf(file *os.File) bool {
 	f := util.IOReader(file.Name())
 	var ident [16]uint8
@@ -21,6 +22,7 @@ func CheckIfElf(file *os.File) bool {
 	return true
 }
 
+//GetTextSection Obtains the .text section of an ELF binary and returns a pointer to it.
 func GetTextSection(filename string) (*[]byte, error) {
 	var data []byte
 
