@@ -11,7 +11,7 @@ func loadRoutes() {
 	http.HandleFunc("/uploadBinary", routing.UploadBinaryPage)
 	http.HandleFunc("/getSymbols", routing.GetSymbolsPage)
 	http.HandleFunc("/postFunctionDetails", routing.PostFunctionDetails)
-	http.HandleFunc("/StatusUpdate", routing.StatusUpdate)
+	http.HandleFunc("/statusUpdate", routing.StatusUpdate)
 }
 
 func startServer() {
