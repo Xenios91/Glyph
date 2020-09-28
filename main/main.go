@@ -10,7 +10,8 @@ func loadRoutes() {
 	http.HandleFunc("/", routing.MainPage)
 	http.HandleFunc("/uploadBinary", routing.UploadBinaryPage)
 	http.HandleFunc("/getSymbols", routing.GetSymbolsPage)
-	http.HandleFunc("/status", routing.StatusUpdate)
+	http.HandleFunc("/postFunctionDetails", routing.PostFunctionDetails)
+	http.HandleFunc("/StatusUpdate", routing.StatusUpdate)
 }
 
 func startServer() {
@@ -19,7 +20,8 @@ func startServer() {
 }
 
 func main() {
-	var config *Configuration = loadConfig()
+	Setup()
+	var config *Configuration = &configuration
 	if config.enableLogging {
 		logging.CreateLogs()
 	}

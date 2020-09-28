@@ -89,15 +89,18 @@ func uploadFile(r *http.Request) bool {
 	return true
 }
 
-func StatusUpdate(w http.ResponseWriter, r *http.Request) {
+func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	switch method {
 	case "POST":
-		var functionDetails elf_tools.FunctionDetails
-		err := json.NewDecoder(r.Body).Decode(&functionDetails)
+		var functionDetailsArray elf_tools.FunctionDetailsArray
+		err := json.NewDecoder(r.Body).Decode(&functionDetailsArray)
 		if err != nil {
 			fmt.Println(err)
 		}
+
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
 
 	default:
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -105,4 +108,8 @@ func StatusUpdate(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(w, "POST request required")
 	}
 
+}
+
+func StatusUpdate(w http.ResponseWriter, r *http.Request) {
+	//todo
 }
