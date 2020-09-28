@@ -89,6 +89,7 @@ func uploadFile(r *http.Request) bool {
 	return true
 }
 
+//PostFunctionDetails The function that handles the /postFunctionDetails endpoint, it processes a JSON consisting of function details.
 func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	switch method {
@@ -99,6 +100,7 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(err)
 		}
 
+		go functionDetailsArray.ProcessFunctionDetailsArray()
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 
