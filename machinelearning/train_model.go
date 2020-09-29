@@ -1,5 +1,7 @@
 package machinelearning
 
-func TrainWithData() {
+import "glyph/glyph/elftools"
 
+func TrainWithData(binaryDetails *elftools.BinaryDetails) error {
+	return nil
 }

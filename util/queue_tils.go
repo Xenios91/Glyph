@@ -13,3 +13,9 @@ func RemoveFromQueue(binaryName string) {
 func CheckIfTraining(binaryName string) bool {
 	return ghidraAnalysisQueue[binaryName]
 }
+
+func CheckIfTrainingAndRemove(binaryName string) bool {
+	var isTraining bool = ghidraAnalysisQueue[binaryName]
+	delete(ghidraAnalysisQueue, binaryName)
+	return isTraining
+}

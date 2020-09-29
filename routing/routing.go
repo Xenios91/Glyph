@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"glyph/glyph/elftools"
+	"glyph/glyph/machinelearning"
 	"glyph/glyph/util"
 	"html/template"
 	"io/ioutil"
@@ -106,13 +107,19 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	switch method {
 	case "POST":
-		var functionDetailsArray elftools.FunctionDetailsArray
-		err := json.NewDecoder(r.Body).Decode(&functionDetailsArray)
+		body := r.Body
+		fmt.Println(body)
+
+		var binaryDetails elftools.BinaryDetails
+		err := json.NewDecoder(r.Body).Decode(&binaryDetails)
 		if err != nil {
 			fmt.Println(err)
 		}
 
-		go functionDetailsArray.ProcessFunctionDetailsArray()
+		isTraining := util.CheckIfTrainingAndRemove(binaryDetails.BinaryName)
+		if isTraining {
+			machinelearning.TrainWithData(&binaryDetails)
+		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 
@@ -124,6 +131,6 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func StatusUpdate(w http.ResponseWriter, r *http.Request) bool {
+func StatusUpdate(w http.ResponseWriter, r *http.Request) {
 	//todo
 }
