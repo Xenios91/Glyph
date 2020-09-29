@@ -10,7 +10,7 @@ import (
 
 //InsertDB Insert a record into the supplied table.
 func InsertDB(tableName string, lowAddress string, highAddress string, tokens string) {
-	database, err := sql.Open("sqlite3", MLTrainingSetTableLocation)
+	database, err := sql.Open("sqlite3", mlTrainingSetTableLocation)
 	defer database.Close()
 	preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)", tableName, LowAddressColumn, HighAddressColumn, TokensColumn)
 	statement, err := database.Prepare(preparedStatement)

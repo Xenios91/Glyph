@@ -13,7 +13,7 @@ func setupMLTrainingDB() {
 	_, err := util.CreateDirectory(directoryParent, directoryName)
 	util.CheckError(err)
 
-	database, err := sql.Open("sqlite3", MLTrainingSetTableLocation)
+	database, err := sql.Open("sqlite3", mlTrainingSetTableLocation)
 	defer database.Close()
 	util.CheckError(err)
 	preparedStatement := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, %s TEXT, %s TEXT, %s TEXT)", MLTrainingSetTableName, LowAddressColumn, HighAddressColumn, TokensColumn)

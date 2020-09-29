@@ -117,9 +117,10 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 		}
 
 		isTraining := util.CheckIfTrainingAndRemove(binaryDetails.BinaryName)
-		if isTraining {
-			machinelearning.TrainWithData(&binaryDetails)
+		if !isTraining {
+			go machinelearning.TrainWithData(&binaryDetails)
 		}
+
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 
