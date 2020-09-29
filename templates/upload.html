@@ -6,7 +6,10 @@
         </div>
         <div class="card-body">
             <form enctype="multipart/form-data" action="http://localhost:8080/uploadBinary" method="post">
-                <input type="file" name="binaryFile" data-toggle="tooltip" data-placement="top" title="Max File Size 500MB"/>
+                <input type="file" name="binaryFile" data-toggle="tooltip" data-placement="top"
+                    title="Max File Size 500MB" />
+                <input type="checkbox" class="form-check-input" id="training-data-check" name="training-data"></br>
+                <label class="form-check-label" for="training-data-check">Training Data</label>
                 <input type="submit" value="Upload" />
             </form>
         </div>

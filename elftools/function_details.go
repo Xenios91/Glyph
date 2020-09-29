@@ -13,6 +13,7 @@ type FunctionDetails struct {
 
 //FunctionDetailsArray A struct of 2 arrays, ErroredFunctions and Functions.
 type FunctionDetailsArray struct {
+	BinaryName       string            `json:"binaryName"`
 	ErroredFunctions []FunctionDetails `json:"erroredFunctions"`
 	Functions        []FunctionDetails `json:"functions"`
 }

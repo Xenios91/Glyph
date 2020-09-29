@@ -48,28 +48,36 @@ func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func uploadFile(r *http.Request) bool {
+	var trainingData bool = false
+	var directoryParent string = "../binaries_upload"
+	var directoryName string = "elf"
+
 	//500mb limit
 	r.ParseMultipartForm(524288000)
 	file, handler, err := r.FormFile("binaryFile")
 	defer file.Close()
+
 	if err != nil {
 		fmt.Println(err)
 		return false
+	}
+
+	trainingDataChecked := r.Form.Get("training-data")
+
+	if trainingDataChecked == "on" {
+		trainingData = true
+		directoryParent = "../binary_training_upload"
 	}
 
 	if handler.Header.Get("Content-Type") != "application/octet-stream" {
 		return false
 	}
 
-	var directoryParent string = "../binaries_upload"
-	var directoryName string = "elf"
-
 	dirPath, err := util.CreateDirectory(directoryParent, directoryName)
 	util.CheckError(err)
 
 	tempFile, err := ioutil.TempFile(*dirPath, handler.Filename)
 	defer tempFile.Close()
-
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -85,8 +93,12 @@ func uploadFile(r *http.Request) bool {
 		return false
 	}
 
-	util.StartGhidraAnalysis(tempFile.Name())
-	return true
+	analysisStarted := util.StartGhidraAnalysis(tempFile.Name())
+	if analysisStarted {
+		util.AddToQueue(tempFile.Name(), trainingData)
+		return true
+	}
+	return false
 }
 
 //PostFunctionDetails The function that handles the /postFunctionDetails endpoint, it processes a JSON consisting of function details.
@@ -112,6 +124,6 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func StatusUpdate(w http.ResponseWriter, r *http.Request) {
+func StatusUpdate(w http.ResponseWriter, r *http.Request) bool {
 	//todo
 }
