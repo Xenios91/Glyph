@@ -6,16 +6,14 @@ import (
 	"github.com/navossoc/bayesian"
 )
 
-const (
-	Good bayesian.Class = "Good"
-	Bad  bayesian.Class = "Bad"
-	Taco bayesian.Class = "Taco"
-)
+var classMap map[bayesian.Class][]string
 
-func main() {
-	classifier := bayesian.NewClassifier(Good, Bad, Taco)
-	goodStuff := []string{}
-	classifier.Learn(goodStuff, Good)
+func CreateClassifier(classes []bayesian.Class) {
+	classifier := bayesian.NewClassifier(classes[:]...)
+
+	for key, element := range classMap {
+		classifier.Learn(element, key)
+	}
 
 	probs, _, _ := classifier.LogScores(
 		[]string{"yummy", "mexico"},

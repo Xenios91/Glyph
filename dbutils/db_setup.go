@@ -3,11 +3,12 @@ package dbutils
 import (
 	"database/sql"
 	"fmt"
+	"glyph/glyph/elftools"
 	"glyph/glyph/util"
+	"strings"
 )
 
-func setupMLTrainingDB() {
-
+func createMLTrainingDB() {
 	var directoryParent string = "../database"
 	var directoryName string = "ml_training_set"
 	_, err := util.CreateDirectory(directoryParent, directoryName)
@@ -22,9 +23,31 @@ func setupMLTrainingDB() {
 	statement.Exec()
 }
 
+func loadTrainingData() {
+	preparedStatement := fmt.Sprintf("SELECT * FROM %s", MLTrainingSetTableName)
+	result := QueryDB(&preparedStatement)
+	var functionDetailsArray []elftools.FunctionDetails
+
+	for result.Next() {
+		functionDetails := new(elftools.FunctionDetails)
+		var primKey int
+		var tokens string
+
+		result.Scan(&primKey, &functionDetails.LowAddress, &functionDetails.HighAddress, &tokens)
+
+		functionDetails.Tokens = strings.Fields(tokens)
+		functionDetailsArray = append(functionDetailsArray, *functionDetails)
+	}
+}
+
 //SetupDB Sets up the web applications database.
 func SetupDB() {
 	fmt.Println("Setting up database...")
-	setupMLTrainingDB()
+	if util.CheckIfFileExist(mlTrainingSetTableLocation) {
+		loadTrainingData()
+	} else {
+		createMLTrainingDB()
+	}
+
 	fmt.Println("Database setup complete!")
 }

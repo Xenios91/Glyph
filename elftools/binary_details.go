@@ -1,6 +1,6 @@
 package elftools
 
-type functionDetails struct {
+type FunctionDetails struct {
 	LowAddress  string   `json:"lowAddress"`
 	HighAddress string   `json:"highAddress"`
 	Tokens      []string `json:"tokenList"`
@@ -16,7 +16,7 @@ type erroredFunctionDetails struct {
 type BinaryDetails struct {
 	BinaryName   string `json:"binaryName"`
 	FunctionsMap struct {
-		FunctionDetails         []functionDetails        `json:"functions"`
+		FunctionDetails         []FunctionDetails        `json:"functions"`
 		ErroredFunctionsDetails []erroredFunctionDetails `json:"erroredFunctions"`
 	} `json:"functionsMap"`
 }

@@ -107,8 +107,6 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	switch method {
 	case "POST":
-		body := r.Body
-		fmt.Println(body)
 
 		var binaryDetails elftools.BinaryDetails
 		err := json.NewDecoder(r.Body).Decode(&binaryDetails)
