@@ -41,7 +41,6 @@ func loadMLData() {
 	fmt.Print("Loading ML models... ")
 	mlData := db_utils.GetTrainingData()
 	if len(*mlData) > 0 {
-
 		err := ml.CreateClassifier(mlData)
 		if err != nil {
 			panic("ML DATA FAILED TO LOAD!")
