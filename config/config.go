@@ -37,28 +37,12 @@ func loadLogging() {
 	fmt.Printf("Logging enabled: %t\n", configuration.enableLogging)
 }
 
-func loadMLData() {
-	fmt.Print("Loading ML models... ")
-	mlData := db_utils.GetTrainingData()
-	if len(*mlData) > 0 {
-		err := ml.CreateClassifier(mlData)
-		if err != nil {
-			panic("ML DATA FAILED TO LOAD!")
-		}
-		fmt.Print("ML models loaded!")
-
-	} else {
-		fmt.Println("No ML training data found... Starting fresh!")
-	}
-
-}
-
 //Setup Sets up the server
 func Setup() {
 	fmt.Println("Server starting...")
 	loadConfig()
 	loadLogging()
 	db_utils.SetupDB()
-	loadMLData()
+	ml.LoadMLTrainingData()
 	fmt.Println("Server started!")
 }

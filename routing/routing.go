@@ -3,9 +3,9 @@ package glyph
 import (
 	"encoding/json"
 	"fmt"
+	ml "glyph/glyph/machinelearning"
 	utils "glyph/glyph/utils"
 	bin_utils "glyph/glyph/utils/binutils"
-	ml_utils "glyph/glyph/utils/mlutils"
 	"html/template"
 	"io/ioutil"
 	"net/http"
@@ -116,7 +116,7 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 
 		isTraining := utils.CheckIfTrainingAndRemove(binaryDetails.BinaryName)
 		if !isTraining {
-			go ml_utils.InsertTrainingData(&binaryDetails)
+			go ml.InsertTrainingData(&binaryDetails)
 		}
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
