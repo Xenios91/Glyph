@@ -17,8 +17,8 @@ type Configuration struct {
 }
 
 func loadConfig() {
-	fmt.Println("Loading server configurations...\t")
-	file, _ := os.Open("config.json")
+	fmt.Print("Loading server configurations... ")
+	file, _ := os.Open("./config/config.json")
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	configuration = Configuration{}
@@ -30,7 +30,7 @@ func loadConfig() {
 }
 
 func loadLogging() {
-	fmt.Println("Checking logging...\t")
+	fmt.Print("Checking logging... ")
 	if configuration.enableLogging {
 		logging.CreateLogs()
 	}
@@ -38,7 +38,7 @@ func loadLogging() {
 }
 
 func loadMLData() {
-	fmt.Println("Loading ML models...\t")
+	fmt.Print("Loading ML models... ")
 	mlData := db_utils.GetTrainingData()
 	if len(*mlData) > 0 {
 
@@ -49,7 +49,7 @@ func loadMLData() {
 		fmt.Print("ML models loaded!")
 
 	} else {
-		fmt.Println("No ML training data found, starting fresh!")
+		fmt.Println("No ML training data found... Starting fresh!")
 	}
 
 }

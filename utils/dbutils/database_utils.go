@@ -50,7 +50,7 @@ func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 		functionDetailsArray = append(functionDetailsArray, *functionDetails)
 	}
 
-	var classes map[bayesian.Class]bin_utils.FunctionDetails
+	var classes map[bayesian.Class]bin_utils.FunctionDetails = make(map[bayesian.Class]bin_utils.FunctionDetails)
 	for _, function := range functionDetailsArray {
 		classes[bayesian.Class(function.FunctionName)] = function
 	}

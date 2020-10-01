@@ -7,7 +7,7 @@ import (
 )
 
 func createMLTrainingDB() {
-	var directoryParent string = "../database"
+	var directoryParent string = "./database"
 	var directoryName string = "ml_training_set"
 	_, err := utils.CreateDirectory(directoryParent, directoryName)
 	utils.CheckError(err)
@@ -23,7 +23,7 @@ func createMLTrainingDB() {
 
 //SetupDB Sets up the web applications database.
 func SetupDB() {
-	fmt.Println("Setting up database...")
+	fmt.Print("Setting up database... ")
 	if !utils.CheckIfFileExist(mlTrainingSetTableLocation) {
 		createMLTrainingDB()
 	}
