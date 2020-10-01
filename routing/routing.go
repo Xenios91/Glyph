@@ -19,7 +19,7 @@ func MainPage(w http.ResponseWriter, r *http.Request) {
 	var data pageData = pageData{
 		Title: "Glyph",
 	}
-	template := template.Must(template.ParseFiles("../templates/template.html", "../templates/main.html"))
+	template := template.Must(template.ParseFiles("./templates/template.html", "./templates/main.html"))
 	template.Execute(w, data)
 }
 
@@ -27,7 +27,7 @@ func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
 	var data pageData = pageData{
 		Title: "Symbols",
 	}
-	template := template.Must(template.ParseFiles("../templates/template.html", "../templates/get_symbols.html"))
+	template := template.Must(template.ParseFiles("./templates/template.html", "./templates/get_symbols.html"))
 	template.Execute(w, data)
 }
 
@@ -44,7 +44,7 @@ func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
 			//notify success
 		}
 	}
-	template := template.Must(template.ParseFiles("../templates/template.html", "../templates/upload.html"))
+	template := template.Must(template.ParseFiles("./templates/template.html", "./templates/upload.html"))
 	template.Execute(w, data)
 }
 
@@ -115,8 +115,10 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 		}
 
 		isTraining := utils.CheckIfTrainingAndRemove(binaryDetails.BinaryName)
-		if !isTraining {
+		if isTraining {
 			go ml.InsertTrainingData(&binaryDetails)
+		} else {
+			go ml.ClassifyFunctions(&binaryDetails)
 		}
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
