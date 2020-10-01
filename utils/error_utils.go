@@ -1,4 +1,4 @@
-package util
+package glyph
 
 func CheckError(err error) {
 	if err != nil {

@@ -1,4 +1,4 @@
-package elftools
+package glyph
 
 //BinarySymbolTable A struct to represent a symbol table for a binary
 type BinarySymbolTable struct {

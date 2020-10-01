@@ -1,4 +1,4 @@
-package dbutils
+package glyph
 
 const (
 	//MLTrainingSetTableName The table name for ML training sets.
@@ -6,7 +6,8 @@ const (
 	//MLTrainingSetTableLocation This is the location of the sqlite table for this data.
 	mlTrainingSetTableLocation = "../database/ml_training_set/glyph_ml_training_set.db"
 
-	LowAddressColumn  string = "lowAddress"
-	HighAddressColumn string = "highAddress"
-	TokensColumn      string = "tokens"
+	LowAddressColumn   string = "lowAddress"
+	HighAddressColumn  string = "highAddress"
+	TokensColumn       string = "tokens"
+	FunctionNameColumn string = "functionName"
 )

@@ -1,11 +1,11 @@
-package routing
+package glyph
 
 import (
 	"encoding/json"
 	"fmt"
-	"glyph/glyph/elftools"
-	"glyph/glyph/machinelearning"
-	"glyph/glyph/util"
+	utils "glyph/glyph/utils"
+	bin_utils "glyph/glyph/utils/binutils"
+	ml_utils "glyph/glyph/utils/mlutils"
 	"html/template"
 	"io/ioutil"
 	"net/http"
@@ -74,8 +74,8 @@ func uploadFile(r *http.Request) bool {
 		return false
 	}
 
-	dirPath, err := util.CreateDirectory(directoryParent, directoryName)
-	util.CheckError(err)
+	dirPath, err := utils.CreateDirectory(directoryParent, directoryName)
+	utils.CheckError(err)
 
 	tempFile, err := ioutil.TempFile(*dirPath, handler.Filename)
 	defer tempFile.Close()
@@ -89,14 +89,14 @@ func uploadFile(r *http.Request) bool {
 	}
 
 	tempFile.Write(fileBytes)
-	isElf := elftools.CheckIfElf(tempFile)
+	isElf := bin_utils.CheckIfElf(tempFile)
 	if !isElf {
 		return false
 	}
 
-	analysisStarted := util.StartGhidraAnalysis(tempFile.Name())
+	analysisStarted := utils.StartGhidraAnalysis(tempFile.Name())
 	if analysisStarted {
-		util.AddToQueue(tempFile.Name(), trainingData)
+		utils.AddToQueue(tempFile.Name(), trainingData)
 		return true
 	}
 	return false
@@ -108,15 +108,15 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 	switch method {
 	case "POST":
 
-		var binaryDetails elftools.BinaryDetails
+		var binaryDetails bin_utils.BinaryDetails
 		err := json.NewDecoder(r.Body).Decode(&binaryDetails)
 		if err != nil {
 			fmt.Println(err)
 		}
 
-		isTraining := util.CheckIfTrainingAndRemove(binaryDetails.BinaryName)
+		isTraining := utils.CheckIfTrainingAndRemove(binaryDetails.BinaryName)
 		if !isTraining {
-			go machinelearning.TrainWithData(&binaryDetails)
+			go ml_utils.InsertTrainingData(&binaryDetails)
 		}
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")

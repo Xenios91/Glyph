@@ -1,4 +1,4 @@
-package util
+package glyph
 
 var ghidraAnalysisQueue = make(map[string]bool)
 

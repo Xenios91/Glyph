@@ -1,8 +1,8 @@
 package main
 
 import (
-	"glyph/glyph/logging"
-	"glyph/glyph/routing"
+	config "glyph/glyph/config"
+	routing "glyph/glyph/routing"
 	"net/http"
 )
 
@@ -20,10 +20,6 @@ func startServer() {
 }
 
 func main() {
-	Setup()
-	var config *Configuration = &configuration
-	if config.enableLogging {
-		logging.CreateLogs()
-	}
+	config.Setup()
 	startServer()
 }

@@ -1,22 +1,26 @@
-package machinelearning
+package glyph
 
 import (
 	"fmt"
+	bin_utils "glyph/glyph/utils/binutils"
 
 	"github.com/navossoc/bayesian"
 )
 
-var classMap map[bayesian.Class][]string
+func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) error {
+	var trainingClasses []bayesian.Class
+	for key := range *classes {
+		trainingClasses = append(trainingClasses, key)
+	}
 
-func CreateClassifier(classes []bayesian.Class) {
-	classifier := bayesian.NewClassifier(classes[:]...)
+	classifier := bayesian.NewClassifier(trainingClasses[:]...)
 
-	for key, element := range classMap {
-		classifier.Learn(element, key)
+	for key, element := range *classes {
+		classifier.Learn(element.Tokens, key)
 	}
 
 	probs, _, _ := classifier.LogScores(
-		[]string{"yummy", "mexico"},
+		[]string{},
 	)
 
 	var highest int = 0
@@ -26,5 +30,5 @@ func CreateClassifier(classes []bayesian.Class) {
 		}
 	}
 	fmt.Printf("The most likely classifier is: %s", classifier.Classes[highest])
-
+	return nil
 }
