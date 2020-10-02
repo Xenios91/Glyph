@@ -45,13 +45,11 @@ func InsertDB(values ...interface{}) {
 			_, err = statement.Exec(symbolTable.BinaryName, entryPoint, functionName)
 			utils.CheckError(err)
 		}
-
 	}
-
 }
 
-func QueryDB(preparedStatement *string) *sql.Rows {
-	database, err := sql.Open("sqlite3", MLTrainingSetTableLocation)
+func QueryDB(tableLocation string, preparedStatement *string) *sql.Rows {
+	database, err := sql.Open("sqlite3", tableLocation)
 	defer database.Close()
 	statement, err := database.Prepare(*preparedStatement)
 	utils.CheckError(err)
@@ -62,7 +60,7 @@ func QueryDB(preparedStatement *string) *sql.Rows {
 
 func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 	preparedStatement := fmt.Sprintf("SELECT * FROM %s", MLTrainingSetTableName)
-	result := QueryDB(&preparedStatement)
+	result := QueryDB(MLTrainingSetTableLocation, &preparedStatement)
 
 	var functionDetailsArray []bin_utils.FunctionDetails
 
@@ -83,4 +81,20 @@ func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 		classes[bayesian.Class(function.FunctionName)] = function
 	}
 	return &classes
+}
+
+func GetSymbolTables() *bin_utils.BinarySymbolTable {
+	var preparedStatement string = fmt.Sprintf("SELECT * FROM %s", SymbolTablesTableName)
+	results := QueryDB(SymbolTablesTableLocation, &preparedStatement)
+	var primKey int
+	var entryPoint string
+	var functionName string
+
+	var symbolTable *bin_utils.BinarySymbolTable = new(bin_utils.BinarySymbolTable)
+	symbolTable.SymbolsMap = make(map[string]string)
+	for results.Next() {
+		results.Scan(&primKey, &symbolTable.BinaryName, &entryPoint, &functionName)
+		symbolTable.SymbolsMap[entryPoint] = strings.Split(functionName, "_VERSION_")[0]
+	}
+	return symbolTable
 }
