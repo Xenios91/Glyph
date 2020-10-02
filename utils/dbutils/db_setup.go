@@ -12,7 +12,7 @@ func createMLTrainingDB() {
 	_, err := utils.CreateDirectory(directoryParent, directoryName)
 	utils.CheckError(err)
 
-	database, err := sql.Open("sqlite3", mlTrainingSetTableLocation)
+	database, err := sql.Open("sqlite3", MLTrainingSetTableLocation)
 	defer database.Close()
 	utils.CheckError(err)
 	preparedStatement := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, %s TEXT, %s TEXT, %s TEXT, %s TEXT)", MLTrainingSetTableName, FunctionNameColumn, LowAddressColumn, HighAddressColumn, TokensColumn)
@@ -21,11 +21,29 @@ func createMLTrainingDB() {
 	statement.Exec()
 }
 
+func createSymbolTablesDB() {
+	var directoryParent string = "./database"
+	var directoryName string = "symbolTables"
+	_, err := utils.CreateDirectory(directoryParent, directoryName)
+	utils.CheckError(err)
+
+	database, err := sql.Open("sqlite3", SymbolTablesTableLocation)
+	defer database.Close()
+	utils.CheckError(err)
+	preparedStatement := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, %s TEXT, %s TEXT)", SymbolTablesTableName, EntryPointColumn, FunctionNameColumn)
+	statement, err := database.Prepare(preparedStatement)
+	utils.CheckError(err)
+	statement.Exec()
+}
+
 //SetupDB Sets up the web applications database.
 func SetupDB() {
 	fmt.Print("Setting up database... ")
-	if !utils.CheckIfFileExist(mlTrainingSetTableLocation) {
+	if !utils.CheckIfFileExist(MLTrainingSetTableLocation) {
 		createMLTrainingDB()
+	}
+	if !utils.CheckIfFileExist(SymbolTablesTableLocation) {
+		createSymbolTablesDB()
 	}
 	fmt.Println("Database setup complete!")
 }

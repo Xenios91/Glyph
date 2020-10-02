@@ -12,20 +12,46 @@ import (
 )
 
 //InsertDB Insert a record into the supplied table.
-func InsertDB(tableName string, functionName string, lowAddress string, highAddress string, tokens string) {
-	database, err := sql.Open("sqlite3", mlTrainingSetTableLocation)
-	defer database.Close()
-	preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s, %s, %s) VALUES (?, ?, ?, ?)", tableName, FunctionNameColumn, LowAddressColumn, HighAddressColumn, TokensColumn)
-	statement, err := database.Prepare(preparedStatement)
-	utils.CheckError(err)
-	result, err := statement.Exec(functionName, lowAddress, highAddress, tokens)
-	utils.CheckError(err)
-	insertID, _ := result.LastInsertId()
-	fmt.Printf("Function ID: %v inserted to %s with lowAddress of %s and highAddress of %s containing the following tokens: %s\n", insertID, tableName, lowAddress, highAddress, tokens)
+func InsertDB(values ...interface{}) {
+	var tableLocation = values[0].(string)
+	var tableName string = values[1].(string)
+
+	if tableName == MLTrainingSetTableName {
+		var binaryDetails *bin_utils.BinaryDetails = values[2].(*bin_utils.BinaryDetails)
+		for _, function := range binaryDetails.FunctionsMap.FunctionDetails {
+			functionName := function.Tokens[1]
+			lowAddress := function.LowAddress
+			highAddress := function.HighAddress
+			tokens := strings.Join(function.Tokens, " ")
+			preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s, %s, %s) VALUES (?, ?, ?, ?)", tableName, functionName, lowAddress, highAddress, tokens)
+			database, err := sql.Open("sqlite3", tableLocation)
+			defer database.Close()
+
+			statement, err := database.Prepare(preparedStatement)
+			utils.CheckError(err)
+			_, err = statement.Exec(values[2], values[3], values[4], values[5])
+			utils.CheckError(err)
+		}
+
+	} else if tableName == SymbolTablesTableName {
+		var symbolTable map[string]string = values[2].(map[string]string)
+		for entryPoint, functionName := range symbolTable {
+			preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s) VALUES (?, ?)", tableName, EntryPointColumn, FunctionNameColumn)
+			database, err := sql.Open("sqlite3", tableLocation)
+			defer database.Close()
+
+			statement, err := database.Prepare(preparedStatement)
+			utils.CheckError(err)
+			_, err = statement.Exec(entryPoint, functionName)
+			utils.CheckError(err)
+		}
+
+	}
+
 }
 
 func QueryDB(preparedStatement *string) *sql.Rows {
-	database, err := sql.Open("sqlite3", mlTrainingSetTableLocation)
+	database, err := sql.Open("sqlite3", MLTrainingSetTableLocation)
 	defer database.Close()
 	statement, err := database.Prepare(*preparedStatement)
 	utils.CheckError(err)

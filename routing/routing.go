@@ -6,6 +6,7 @@ import (
 	ml "glyph/glyph/machinelearning"
 	utils "glyph/glyph/utils"
 	bin_utils "glyph/glyph/utils/binutils"
+	db_utils "glyph/glyph/utils/dbutils"
 	"html/template"
 	"io/ioutil"
 	"net/http"
@@ -114,11 +115,16 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(err)
 		}
 
+		for _, function := range binaryDetails.FunctionsMap.FunctionDetails {
+			function.Tokens[1] = "UNKNOWN"
+		}
+
 		isTraining := utils.CheckIfTrainingAndRemove(binaryDetails.BinaryName)
 		if isTraining {
 			go ml.InsertTrainingData(&binaryDetails)
 		} else {
-			go ml.ClassifyFunctions(&binaryDetails)
+			symbolTable := ml.ClassifyFunctions(&binaryDetails)
+			db_utils.InsertDB(db_utils.SymbolTablesTableLocation, db_utils.SymbolTablesTableName, symbolTable.SymbolsMap)
 		}
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")

@@ -12,7 +12,7 @@ func StartGhidraAnalysis(fileName string) bool {
 	var ghidraProject string = "glyph"
 	var ghidraScript string = "\\/home/xenios/ghidra_scripts/ClangTokenGenerator.java"
 
-	err := exec.Command(ghidraHeadless, ghidraProjectLocation, ghidraProject, "-import", fileName, "-postScript", ghidraScript, "-overwrite", ">>", "test").Start()
+	err := exec.Command(ghidraHeadless, ghidraProjectLocation, ghidraProject, "-import", fileName, "-postScript", ghidraScript, "-overwrite").Start()
 	if err != nil {
 		fmt.Println(err)
 		return false
