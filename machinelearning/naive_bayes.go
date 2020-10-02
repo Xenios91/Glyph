@@ -25,7 +25,7 @@ func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	}
 }
 
-func ClassifyFunctions(binary *bin_utils.BinaryDetails) {
+func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolTable {
 	var symbolTable *bin_utils.BinarySymbolTable = new(bin_utils.BinarySymbolTable)
 	symbolTable.SymbolsMap = make(map[string]string)
 	var functions []bin_utils.FunctionDetails = binary.FunctionsMap.FunctionDetails
@@ -34,16 +34,17 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) {
 		functionName := classifyFunction(&function)
 		symbolTable.PopulateMap(function.LowAddress, string(functionName))
 	}
+	return symbolTable
 }
 
 func classifyFunction(function *bin_utils.FunctionDetails) bayesian.Class {
 	scores, _, _ := classifier.LogScores(function.Tokens)
 
-	var highest int = 0
+	var highestProb int = 0
 	for counter, score := range scores {
-		if score > scores[highest] {
-			highest = counter
+		if score > scores[highestProb] {
+			highestProb = counter
 		}
 	}
-	return classifier.Classes[highest]
+	return classifier.Classes[highestProb]
 }

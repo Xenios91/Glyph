@@ -37,6 +37,7 @@ func QueryDB(preparedStatement *string) *sql.Rows {
 func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 	preparedStatement := fmt.Sprintf("SELECT * FROM %s", MLTrainingSetTableName)
 	result := QueryDB(&preparedStatement)
+
 	var functionDetailsArray []bin_utils.FunctionDetails
 
 	for result.Next() {
@@ -46,6 +47,7 @@ func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 
 		result.Scan(&primKey, &functionDetails.FunctionName, &functionDetails.LowAddress, &functionDetails.HighAddress, &tokens)
 
+		functionDetails.FunctionName = fmt.Sprintf("%s_VERSION_%d", functionDetails.FunctionName, primKey)
 		functionDetails.Tokens = strings.Fields(tokens)
 		functionDetailsArray = append(functionDetailsArray, *functionDetails)
 	}
