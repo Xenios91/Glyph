@@ -34,15 +34,15 @@ func InsertDB(values ...interface{}) {
 		}
 
 	} else if tableName == SymbolTablesTableName {
-		var symbolTable map[string]string = values[2].(map[string]string)
-		for entryPoint, functionName := range symbolTable {
-			preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s) VALUES (?, ?)", tableName, EntryPointColumn, FunctionNameColumn)
+		var symbolTable *bin_utils.BinarySymbolTable = values[2].(*bin_utils.BinarySymbolTable)
+		for entryPoint, functionName := range symbolTable.SymbolsMap {
+			preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)", tableName, BinaryName, EntryPointColumn, FunctionNameColumn)
 			database, err := sql.Open("sqlite3", tableLocation)
 			defer database.Close()
 
 			statement, err := database.Prepare(preparedStatement)
 			utils.CheckError(err)
-			_, err = statement.Exec(entryPoint, functionName)
+			_, err = statement.Exec(symbolTable.BinaryName, entryPoint, functionName)
 			utils.CheckError(err)
 		}
 

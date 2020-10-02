@@ -34,6 +34,7 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 		functionName := classifyFunction(&function)
 		symbolTable.PopulateMap(function.LowAddress, string(functionName))
 	}
+	symbolTable.BinaryName = binary.BinaryName
 	return symbolTable
 }
 

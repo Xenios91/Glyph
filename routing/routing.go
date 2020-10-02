@@ -68,7 +68,7 @@ func uploadFile(r *http.Request) bool {
 
 	if trainingDataChecked == "on" {
 		trainingData = true
-		directoryParent = "../binary_training_upload"
+		directoryParent = "./binary_training_upload"
 	}
 
 	if handler.Header.Get("Content-Type") != "application/octet-stream" {
@@ -124,7 +124,7 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 			go ml.InsertTrainingData(&binaryDetails)
 		} else {
 			symbolTable := ml.ClassifyFunctions(&binaryDetails)
-			db_utils.InsertDB(db_utils.SymbolTablesTableLocation, db_utils.SymbolTablesTableName, symbolTable.SymbolsMap)
+			db_utils.InsertDB(db_utils.SymbolTablesTableLocation, db_utils.SymbolTablesTableName, symbolTable)
 		}
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")

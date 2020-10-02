@@ -23,14 +23,14 @@ func createMLTrainingDB() {
 
 func createSymbolTablesDB() {
 	var directoryParent string = "./database"
-	var directoryName string = "symbolTables"
+	var directoryName string = "symbol_tables"
 	_, err := utils.CreateDirectory(directoryParent, directoryName)
 	utils.CheckError(err)
 
 	database, err := sql.Open("sqlite3", SymbolTablesTableLocation)
 	defer database.Close()
 	utils.CheckError(err)
-	preparedStatement := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, %s TEXT, %s TEXT)", SymbolTablesTableName, EntryPointColumn, FunctionNameColumn)
+	preparedStatement := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, %s TEXT, %s TEXT, %s TEXT)", SymbolTablesTableName, BinaryName, EntryPointColumn, FunctionNameColumn)
 	statement, err := database.Prepare(preparedStatement)
 	utils.CheckError(err)
 	statement.Exec()

@@ -1,0 +1,4 @@
+github.com/mattn/go-sqlite3 v1.14.3 h1:j7a/xn1U6TKA/PHHxqZuzh64CdtRc7rU9M+AvkOl5bA=
+github.com/mattn/go-sqlite3 v1.14.3/go.mod h1:WVKg1VTActs4Qso6iwGbiFih2UIHo0ENGwNd0Lj+XmI=
+github.com/navossoc/bayesian v0.0.0-20171203014413-18fc5ea11e24 h1:4CbuTHh8VYL6BoZj3sPUsDb4BPB8UEHTN0f5kQTGI2M=
+github.com/navossoc/bayesian v0.0.0-20171203014413-18fc5ea11e24/go.mod h1:P1c1lcW3JeYIRbVw98K6qNHJq/3hX4ru5SCQc84ZbZo=

@@ -8,11 +8,12 @@ const (
 	//MLTrainingSetTableName The table name for ML training sets.
 	SymbolTablesTableName string = "Symbol_Tables"
 	//MLTrainingSetTableLocation This is the location of the sqlite table for this data.
-	SymbolTablesTableLocation = "./database/ml_training_set/glyph_symbol_tables.db"
+	SymbolTablesTableLocation = "./database/symbol_tables/glyph_symbol_tables.db"
 
 	LowAddressColumn   string = "lowAddress"
 	HighAddressColumn  string = "highAddress"
 	TokensColumn       string = "tokens"
 	FunctionNameColumn string = "functionName"
 	EntryPointColumn   string = "entryPoint"
+	BinaryName         string = "binaryName"
 )
