@@ -59,7 +59,7 @@ func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
 
 func uploadFile(r *http.Request) bool {
 	var trainingData bool = false
-	var directoryParent string = "../binaries_upload"
+	var directoryParent string = "./binaries_upload"
 	var directoryName string = "elf"
 
 	//500mb limit
