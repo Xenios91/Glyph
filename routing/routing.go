@@ -18,8 +18,8 @@ type pageData struct {
 }
 
 type symbolPageData struct {
-	Title       string
-	SymbolTable bin_utils.BinarySymbolTable
+	Title        string
+	SymbolTables map[string][]bin_utils.BinarySymbolTable
 }
 
 func MainPage(w http.ResponseWriter, r *http.Request) {
@@ -31,10 +31,11 @@ func MainPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
-	symbolTable := db_utils.GetSymbolTables()
+	symbolTables := db_utils.GetSymbolTables()
 
 	var symbolPageData *symbolPageData = new(symbolPageData)
-	symbolPageData.SymbolTable = *symbolTable
+
+	symbolPageData.SymbolTables = *symbolTables
 	symbolPageData.Title = "Glyph Symbol Tables"
 
 	template := template.Must(template.ParseFiles("./templates/template.html", "./templates/get_symbols.html"))

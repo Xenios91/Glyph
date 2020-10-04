@@ -1,9 +1,9 @@
 {{ define "title" }}{{.Title}}{{ end }} {{ define "content" }}
 <div class="container">
-    {{$binaryName := .SymbolTable.BinaryName}}
+    {{range $key, $value := .SymbolTables}}
     <div class="card m-5 shadow rounded">
         <div class="card-header">
-            File Name: {{$binaryName}}
+            File Name: {{$key}}
         </div>
         <div class="card-body">
             <blockquote class="blockquote mb-0">
@@ -11,24 +11,28 @@
                 <table class="table table-bordered">
                     <thead>
                         <tr>
+                            <th scope="col">#</th>
                             <th scope="col">EntryPoint</th>
                             <th scope="col">Function Name</th>
                         </tr>
                     </thead>
-                    {{range $entryPoint, $functionName := .SymbolTable.SymbolsMap}}
+                    {{range $counter, $symbolTable := $value}}
+                    {{range $entryPoint, $functionName := $symbolTable.SymbolsMap}}
                     <tbody>
                         <tr>
+                            <td>{{$counter}}</td>
                             <td>0x{{$entryPoint}}</td>
                             <td>{{$functionName}}</td>
                         </tr>
                     </tbody>
-                    {{end}}
+                   {{end}}
+                   {{end}}
                 </table>
 
 
             </blockquote>
         </div>
     </div>
-
+    {{end}}
 </div>
 {{ end }}

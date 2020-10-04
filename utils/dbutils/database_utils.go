@@ -83,18 +83,23 @@ func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 	return &classes
 }
 
-func GetSymbolTables() *bin_utils.BinarySymbolTable {
+func GetSymbolTables() *map[string][]bin_utils.BinarySymbolTable {
 	var preparedStatement string = fmt.Sprintf("SELECT * FROM %s", SymbolTablesTableName)
 	results := QueryDB(SymbolTablesTableLocation, &preparedStatement)
+
 	var primKey int
 	var entryPoint string
 	var functionName string
+	var symbolTables map[string][]bin_utils.BinarySymbolTable = make(map[string][]bin_utils.BinarySymbolTable)
 
-	var symbolTable *bin_utils.BinarySymbolTable = new(bin_utils.BinarySymbolTable)
-	symbolTable.SymbolsMap = make(map[string]string)
 	for results.Next() {
+		var symbolTable *bin_utils.BinarySymbolTable = new(bin_utils.BinarySymbolTable)
+		symbolTable.SymbolsMap = make(map[string]string)
+
 		results.Scan(&primKey, &symbolTable.BinaryName, &entryPoint, &functionName)
 		symbolTable.SymbolsMap[entryPoint] = strings.Split(functionName, "_VERSION_")[0]
+		symbolTables[symbolTable.BinaryName] = append(symbolTables[symbolTable.BinaryName], *symbolTable)
 	}
-	return symbolTable
+
+	return &symbolTables
 }
