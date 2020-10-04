@@ -15,5 +15,5 @@ const (
 	TokensColumn       string = "tokens"
 	FunctionNameColumn string = "functionName"
 	EntryPointColumn   string = "entryPoint"
-	BinaryName         string = "binaryName"
+	BinaryNameColumn   string = "binaryName"
 )

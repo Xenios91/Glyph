@@ -1,38 +1,62 @@
 {{ define "title" }}{{.Title}}{{ end }} {{ define "content" }}
-<div class="container">
-    {{range $key, $value := .SymbolTables}}
-    <div class="card m-5 shadow rounded">
-        <div class="card-header">
-            File Name: {{$key}}
+<div class="container-fluid m-5">
+    {{if .SelectionVisible}}
+    <div class="container visible">
+        {{else}}
+        <div class="container d-none">
+            {{end}}
+            <h4>Available Binaries</h4>
+            <div class="input-group">
+                <select class="custom-select " id="binary-dropdown-selection" onchange="binarySelection()">
+                    <option selected>Choose...</option>
+                    {{range $binary := .Binaries}}
+                    <option value="{{$binary}}">{{$binary}}</option>
+                    {{end}}
+                </select>
+            </div>
         </div>
-        <div class="card-body">
-            <blockquote class="blockquote mb-0">
-
-                <table class="table table-bordered">
-                    <thead>
-                        <tr>
-                            <th scope="col">#</th>
-                            <th scope="col">EntryPoint</th>
-                            <th scope="col">Function Name</th>
-                        </tr>
-                    </thead>
-                    {{range $counter, $symbolTable := $value}}
-                    {{range $entryPoint, $functionName := $symbolTable.SymbolsMap}}
-                    <tbody>
-                        <tr>
-                            <td>{{$counter}}</td>
-                            <td>0x{{$entryPoint}}</td>
-                            <td>{{$functionName}}</td>
-                        </tr>
-                    </tbody>
-                   {{end}}
-                   {{end}}
-                </table>
-
-
-            </blockquote>
+        {{if .SelectionVisible}}
+        <div class="container invisible">
+            {{else}}
+            <div class="container visible">
+                {{end}}
+                <div class="card m-5 shadow rounded">
+                    <div class="card-header">
+                        File Name: {{.SymbolTable.BinaryName}}
+                    </div>
+                    <div class="card-body">
+                        <blockquote class="blockquote mb-0">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">EntryPoint</th>
+                                        <th scope="col">Function Name</th>
+                                    </tr>
+                                </thead>
+                                {{range $entryPoint, $functionName := .SymbolTable.SymbolsMap}}
+                                <tbody>
+                                    <tr>
+                                        <td>0x{{$entryPoint}}</td>
+                                        <td>{{$functionName}}</td>
+                                    </tr>
+                                </tbody>
+                                {{end}}
+                            </table>
+                        </blockquote>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-    {{end}}
-</div>
-{{ end }}
+
+        <script>
+            function binarySelection() {
+                var selection = document.getElementById("binary-dropdown-selection").value;
+                var currentURL = window.location.href;
+                var url = currentURL + "?binary=" + selection;
+                if (url) {
+                    window.location = url;
+                }
+            }
+        </script>
+
+        {{ end }}

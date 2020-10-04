@@ -36,7 +36,7 @@ func InsertDB(values ...interface{}) {
 	} else if tableName == SymbolTablesTableName {
 		var symbolTable *bin_utils.BinarySymbolTable = values[2].(*bin_utils.BinarySymbolTable)
 		for entryPoint, functionName := range symbolTable.SymbolsMap {
-			preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)", tableName, BinaryName, EntryPointColumn, FunctionNameColumn)
+			preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)", tableName, BinaryNameColumn, EntryPointColumn, FunctionNameColumn)
 			database, err := sql.Open("sqlite3", tableLocation)
 			defer database.Close()
 
@@ -83,23 +83,34 @@ func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 	return &classes
 }
 
-func GetSymbolTables() *map[string][]bin_utils.BinarySymbolTable {
-	var preparedStatement string = fmt.Sprintf("SELECT * FROM %s", SymbolTablesTableName)
+func GetDistinctBinaries() *[]string {
+	var preparedStatement string = fmt.Sprintf("SELECT DISTINCT %s FROM %s", BinaryNameColumn, SymbolTablesTableName)
+	results := QueryDB(SymbolTablesTableLocation, &preparedStatement)
+
+	var binaryName string
+	var binaryNames []string = *new([]string)
+
+	for results.Next() {
+		results.Scan(&binaryName)
+		binaryNames = append(binaryNames, binaryName)
+	}
+	return &binaryNames
+}
+
+func GetSymbolTable(binaryName string) *bin_utils.BinarySymbolTable {
+	var preparedStatement string = fmt.Sprintf("SELECT * FROM %s WHERE %s='%s'", SymbolTablesTableName, BinaryNameColumn, binaryName)
 	results := QueryDB(SymbolTablesTableLocation, &preparedStatement)
 
 	var primKey int
 	var entryPoint string
 	var functionName string
-	var symbolTables map[string][]bin_utils.BinarySymbolTable = make(map[string][]bin_utils.BinarySymbolTable)
+	var symbolTable *bin_utils.BinarySymbolTable = new(bin_utils.BinarySymbolTable)
+	symbolTable.SymbolsMap = make(map[string]string)
 
 	for results.Next() {
-		var symbolTable *bin_utils.BinarySymbolTable = new(bin_utils.BinarySymbolTable)
-		symbolTable.SymbolsMap = make(map[string]string)
-
 		results.Scan(&primKey, &symbolTable.BinaryName, &entryPoint, &functionName)
 		symbolTable.SymbolsMap[entryPoint] = strings.Split(functionName, "_VERSION_")[0]
-		symbolTables[symbolTable.BinaryName] = append(symbolTables[symbolTable.BinaryName], *symbolTable)
 	}
 
-	return &symbolTables
+	return symbolTable
 }

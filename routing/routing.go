@@ -18,8 +18,10 @@ type pageData struct {
 }
 
 type symbolPageData struct {
-	Title        string
-	SymbolTables map[string][]bin_utils.BinarySymbolTable
+	Title            string
+	SelectionVisible bool
+	Binaries         []string
+	SymbolTable      bin_utils.BinarySymbolTable
 }
 
 func MainPage(w http.ResponseWriter, r *http.Request) {
@@ -31,15 +33,27 @@ func MainPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
-	symbolTables := db_utils.GetSymbolTables()
-
 	var symbolPageData *symbolPageData = new(symbolPageData)
 
-	symbolPageData.SymbolTables = *symbolTables
 	symbolPageData.Title = "Glyph Symbol Tables"
 
-	template := template.Must(template.ParseFiles("./templates/template.html", "./templates/get_symbols.html"))
-	template.Execute(w, symbolPageData)
+	if r.Method == "GET" {
+		keyValues, found := r.URL.Query()["binary"]
+		if !found || len(keyValues[0]) < 1 {
+			symbolPageData.SelectionVisible = true
+			symbolPageData.Binaries = *db_utils.GetDistinctBinaries()
+			template := template.Must(template.ParseFiles("./templates/template.html", "./templates/get_symbols.html"))
+			template.Execute(w, symbolPageData)
+		} else {
+			symbolPageData.SelectionVisible = false
+			symbolPageData.SymbolTable = *db_utils.GetSymbolTable(keyValues[0])
+			template := template.Must(template.ParseFiles("./templates/template.html", "./templates/get_symbols.html"))
+			template.Execute(w, symbolPageData)
+		}
+
+	} else {
+
+	}
 }
 
 func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
