@@ -7,6 +7,7 @@ import (
 	utils "glyph/glyph/utils"
 	bin_utils "glyph/glyph/utils/binutils"
 	db_utils "glyph/glyph/utils/dbutils"
+	ghidra_utils "glyph/glyph/utils/ghidrautils"
 	"html/template"
 	"io/ioutil"
 	"net/http"
@@ -103,9 +104,8 @@ func uploadFile(r *http.Request) bool {
 		return false
 	}
 
-	analysisStarted := utils.StartGhidraAnalysis(tempFile.Name())
+	analysisStarted := ghidra_utils.StartGhidraAnalysis(tempFile.Name(), trainingData)
 	if analysisStarted {
-		utils.AddToQueue(tempFile.Name(), trainingData)
 		return true
 	}
 	return false
@@ -127,7 +127,7 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 			function.Tokens[1] = "UNKNOWN"
 		}
 
-		isTraining := utils.CheckIfTrainingAndRemove(binaryDetails.BinaryName)
+		isTraining := ghidra_utils.CheckIfTrainingAndRemove(binaryDetails.BinaryName)
 		if isTraining {
 			go ml.InsertTrainingData(&binaryDetails)
 		} else {

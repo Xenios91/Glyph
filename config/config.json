@@ -1,3 +1,7 @@
 {
-    "EnableLogging": false
+    "enableLogging": false,
+    "ghidraHeadless": "/home/xenios/ghidra_9.1.2_PUBLIC/support/analyzeHeadless",
+    "ghidraProjectLocation": "\\/home/xenios/ghidra_projects",
+    "ghidraProject": "glyph",
+    "ghidraScript": "\\/home/xenios/ghidra_scripts/ClangTokenGenerator.java"
 }
