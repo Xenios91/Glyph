@@ -46,7 +46,7 @@ func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
 			template.Execute(w, symbolPageData)
 		} else {
 			symbolPageData.SelectionVisible = false
-			symbolPageData.SymbolTable = *db_utils.GetSymbolTable(keyValues[0])
+			symbolPageData.SymbolTable = *db_utils.GetSymbolTable(&keyValues[0])
 			template := template.Must(template.ParseFiles("./templates/template.html", "./templates/get_symbols.html"))
 			template.Execute(w, symbolPageData)
 		}

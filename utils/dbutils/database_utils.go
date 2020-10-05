@@ -2,6 +2,7 @@ package glyph
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	utils "glyph/glyph/utils"
 	bin_utils "glyph/glyph/utils/binutils"
@@ -48,6 +49,19 @@ func InsertDB(values ...interface{}) {
 	}
 }
 
+func QueryDBWithParameter(tableLocation string, preparedStatement *string, parameter *string) (*sql.Rows, error) {
+	if utils.CheckIfFileExist(tableLocation) {
+		database, err := sql.Open("sqlite3", tableLocation)
+		defer database.Close()
+		statement, err := database.Prepare(*preparedStatement)
+		utils.CheckError(err)
+		result, err := statement.Query(parameter)
+		utils.CheckError(err)
+		return result, nil
+	}
+	return nil, errors.New("Database not available")
+}
+
 func QueryDB(tableLocation string, preparedStatement *string) *sql.Rows {
 	database, err := sql.Open("sqlite3", tableLocation)
 	defer database.Close()
@@ -71,7 +85,7 @@ func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 
 		result.Scan(&primKey, &functionDetails.FunctionName, &functionDetails.LowAddress, &functionDetails.HighAddress, &tokens)
 
-		functionDetails.FunctionName = fmt.Sprintf("%s_VERSION_%d", functionDetails.FunctionName, primKey)
+		functionDetails.FunctionName = fmt.Sprintf("%s%s_VERSION_%d%s", functionDetails.FunctionName, "%", primKey, "%")
 		functionDetails.Tokens = strings.Fields(tokens)
 		functionDetailsArray = append(functionDetailsArray, *functionDetails)
 	}
@@ -95,12 +109,13 @@ func GetDistinctBinaries() *[]string {
 		binaryNames = append(binaryNames, binaryName)
 	}
 	return &binaryNames
+
 }
 
-func GetSymbolTable(binaryName string) *bin_utils.BinarySymbolTable {
-	var preparedStatement string = fmt.Sprintf("SELECT * FROM %s WHERE %s='%s'", SymbolTablesTableName, BinaryNameColumn, binaryName)
-	results := QueryDB(SymbolTablesTableLocation, &preparedStatement)
-
+func GetSymbolTable(binaryName *string) *bin_utils.BinarySymbolTable {
+	var preparedStatement string = fmt.Sprintf("SELECT * FROM %s WHERE %s=?", SymbolTablesTableName, BinaryNameColumn)
+	results, err := QueryDBWithParameter(SymbolTablesTableLocation, &preparedStatement, binaryName)
+	utils.CheckError(err)
 	var primKey int
 	var entryPoint string
 	var functionName string
@@ -109,8 +124,7 @@ func GetSymbolTable(binaryName string) *bin_utils.BinarySymbolTable {
 
 	for results.Next() {
 		results.Scan(&primKey, &symbolTable.BinaryName, &entryPoint, &functionName)
-		symbolTable.SymbolsMap[entryPoint] = strings.Split(functionName, "_VERSION_")[0]
+		symbolTable.SymbolsMap[entryPoint] = strings.Split(functionName, "%_VERSION_")[0]
 	}
-
 	return symbolTable
 }
