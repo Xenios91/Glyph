@@ -57,20 +57,15 @@ func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
-	var data pageData = pageData{
-		Title: "Binary Upload",
-	}
 	method := r.Method
 	if method == "POST" {
 		success := uploadFile(r)
 		if !success {
-			//error page
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 		} else {
-			//notify success
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 		}
 	}
-	template := template.Must(template.ParseFiles("./templates/template.html", "./templates/upload.html"))
-	template.Execute(w, data)
 }
 
 func uploadFile(r *http.Request) bool {
@@ -81,12 +76,13 @@ func uploadFile(r *http.Request) bool {
 	//500mb limit
 	r.ParseMultipartForm(524288000)
 	file, handler, err := r.FormFile("binaryFile")
-	defer file.Close()
 
 	if err != nil {
 		fmt.Println(err)
 		return false
 	}
+
+	defer file.Close()
 
 	trainingDataChecked := r.Form.Get("training-data")
 
