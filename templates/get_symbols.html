@@ -1,62 +1,62 @@
 {{ define "title" }}{{.Title}}{{ end }} {{ define "content" }}
-<div class="container-fluid m-5">
-    {{if .SelectionVisible}}
-    <div class="container visible">
-        {{else}}
-        <div class="container d-none">
-            {{end}}
-            <h4>Available Binaries</h4>
-            <div class="input-group">
-                <select class="custom-select " id="binary-dropdown-selection" onchange="binarySelection()">
-                    <option selected>Choose...</option>
-                    {{range $binary := .Binaries}}
-                    <option value="{{$binary}}">{{$binary}}</option>
-                    {{end}}
-                </select>
-            </div>
-        </div>
-        {{if .SelectionVisible}}
-        <div class="container invisible">
-            {{else}}
-            <div class="container visible">
+{{if .SelectionVisible}}
+<div class="uk-margin-small-bottom uk-margin-medium-top uk-text-center">
+    {{else}}
+    <div class="uk-margin-small-bottom uk-margin-medium-top uk-text-center uk-invisible">
+        {{end}}
+        <h1 class="uk-heading-small" style="font-family: 'Press Start 2P', cursive;">Available Binaries</h1>
+        <div class="uk-width-1-3 uk-align-center">
+            <select class="uk-select" id="binary-dropdown-selection" onchange="binarySelection()">
+                <option selected>Choose...</option>
+                {{range $binary := .Binaries}}
+                <option value="{{$binary}}">{{$binary}}</option>
                 {{end}}
-                <div class="card m-5 shadow rounded">
-                    <div class="card-header">
-                        File Name: {{.SymbolTable.BinaryName}}
-                    </div>
-                    <div class="card-body">
-                        <blockquote class="blockquote mb-0">
-                            <table class="table table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">EntryPoint</th>
-                                        <th scope="col">Function Name</th>
-                                    </tr>
-                                </thead>
-                                {{range $entryPoint, $functionName := .SymbolTable.SymbolsMap}}
-                                <tbody>
-                                    <tr>
-                                        <td>0x{{$entryPoint}}</td>
-                                        <td>{{$functionName}}</td>
-                                    </tr>
-                                </tbody>
-                                {{end}}
-                            </table>
-                        </blockquote>
-                    </div>
+            </select>
+        </div>
+    </div>
+    {{if .SelectionVisible}}
+    <div class="uk-invisible">
+        {{else}}
+        <div>
+            {{end}}
+            <div class="uk-position-center">
+                <div class="uk-margin-small-bottom uk-text-medium" style="color:white">
+                    File Name: {{.SymbolTable.BinaryName}}
+                </div>
+                <div>
+                    <blockquote>
+                        <table class="uk-table uk-table-hover uk-table-divider">
+                            <thead>
+                                <tr>
+                                    <th scope="col" style="color:#333333" uk-tooltip="title: The entry point of the function; pos: top">EntryPoint</th>
+                                    <th scope="col" style="color:#333333" uk-tooltip="title: The determined function name; pos: top">Function Name</th>
+                                    <th scope="col" style="color:#333333" uk-tooltip="title: The probability of the function being correct; pos: top">Probability</th>
+                                </tr>
+                            </thead>
+                            {{range $entryPoint, $functionName := .SymbolTable.SymbolsMap}}
+                            <tbody>
+                                <tr>
+                                    <td>0x{{$entryPoint}}</td>
+                                    <td>{{$functionName}}</td>
+                                </tr>
+                            </tbody>
+                            {{end}}
+                        </table>
+                    </blockquote>
                 </div>
             </div>
         </div>
+    </div>
 
-        <script>
-            function binarySelection() {
-                var selection = document.getElementById("binary-dropdown-selection").value;
-                var currentURL = window.location.href;
-                var url = currentURL + "?binary=" + selection;
-                if (url) {
-                    window.location = url;
-                }
+    <script>
+        function binarySelection() {
+            var selection = document.getElementById("binary-dropdown-selection").value;
+            var currentURL = window.location.href;
+            var url = currentURL + "?binary=" + selection;
+            if (url) {
+                window.location = url;
             }
-        </script>
+        }
+    </script>
 
-        {{ end }}
+    {{ end }}

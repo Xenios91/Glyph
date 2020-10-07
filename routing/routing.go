@@ -61,10 +61,16 @@ func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
 	if method == "POST" {
 		success := uploadFile(r)
 		if !success {
-			http.Redirect(w, r, "/", http.StatusSeeOther)
+			http.Redirect(w, r, "/uploadBinary", http.StatusSeeOther)
 		} else {
-			http.Redirect(w, r, "/", http.StatusSeeOther)
+			http.Redirect(w, r, "/uploadBinary", http.StatusSeeOther)
 		}
+	} else {
+		var data pageData = pageData{
+			Title: "Glyph",
+		}
+		template := template.Must(template.ParseFiles("./templates/template.html", "./templates/upload.html"))
+		template.Execute(w, data)
 	}
 }
 

@@ -1,0 +1,80 @@
+{{ define "title" }}{{.Title}}{{ end }}
+{{ define "content" }}
+<div class="uk-flex uk-flex-column uk-width-1-3 uk-align-center">
+    <div class="uk-margin-small-bottom uk-margin-medium-top">
+        <h1 class="uk-heading-medium uk-text-center" style="font-family: 'Press Start 2P', cursive;">Upload</h1>
+        <p class="uk-text-medium uk-text-center" style="color:white">Upload a binary to be analyzed</p>
+    </div>
+    <div>
+        <div class="js-upload uk-placeholder uk-text-center" uk-tooltip="title: Max upload size 500mb; pos: bottom">
+            <span class="uk-text-middle" style="color:white">Attach binaries by dropping them here or</span>
+            <div uk-form-custom>
+                <input type="file" multiple>
+                <span class="uk-link" style="color:rgb(168, 168, 168)">selecting one</span>
+            </div>
+        </div>
+
+        <progress id="js-progressbar" class="uk-progress" value="0" max="100" hidden></progress>
+    </div>
+</div>
+
+<script>
+    var bar = document.getElementById('js-progressbar');
+
+    UIkit.upload('.js-upload', {
+
+        url: '/uploadBinary',
+        multiple: true,
+
+        beforeSend: function () {
+            console.log('beforeSend', arguments);
+        },
+        beforeAll: function () {
+            console.log('beforeAll', arguments);
+        },
+        load: function () {
+            console.log('load', arguments);
+        },
+        error: function () {
+            console.log('error', arguments);
+        },
+        complete: function () {
+            console.log('complete', arguments);
+        },
+
+        loadStart: function (e) {
+            console.log('loadStart', arguments);
+
+            bar.removeAttribute('hidden');
+            bar.max = e.total;
+            bar.value = e.loaded;
+        },
+
+        progress: function (e) {
+            console.log('progress', arguments);
+
+            bar.max = e.total;
+            bar.value = e.loaded;
+        },
+
+        loadEnd: function (e) {
+            console.log('loadEnd', arguments);
+
+            bar.max = e.total;
+            bar.value = e.loaded;
+        },
+
+        completeAll: function () {
+            console.log('completeAll', arguments);
+
+            setTimeout(function () {
+                bar.setAttribute('hidden', 'hidden');
+            }, 1000);
+
+            alert('Upload Completed');
+        }
+
+    });
+</script>
+
+{{ end }}

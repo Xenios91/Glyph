@@ -1,44 +1,52 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" style="background-color: #2590e3;">
 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
-    integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
-  <link href="https://fonts.googleapis.com/css2?family=Mukta&family=Rakkas&display=swap" rel="stylesheet">
-  <title>{{ template "title" . }}</title>
+  <!-- UIkit CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.5.8/dist/css/uikit.min.css" />
 
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm" style="font-family: 'Mukta', sans-serif;">
-    <a class="navbar-brand" href="/">Glyph</a>
-    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
-      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav">
-        <li class="nav-item">
-          <a class="nav-link" href="/getSymbols">Get Symbols</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/viewBinaries">View Binaries</a>
-        </li>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet"> 
+
+  <!-- UIkit JS -->
+  <script src="https://cdn.jsdelivr.net/npm/uikit@3.5.8/dist/js/uikit.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/uikit@3.5.8/dist/js/uikit-icons.min.js"></script>
+
+  <title>{{ template "title" . }}</title>
+  <nav class="uk-navbar-container uk-margin" style="background-color: #FFE6B6;" uk-navbar>
+    <div class="uk-navbar-left">
+
+        <a class="uk-navbar-item uk-logo" href="/" style="font-family: 'Press Start 2P', cursive; color:#333333">Glyph</a>
+
+        <ul class="uk-navbar-nav">
+            <li>
+                <a href="/getSymbols" style="font-family: 'Press Start 2P', cursive;">
+                    <span class="uk-icon uk-margin-small-right"></span>
+                    Get Symbols
+                </a>
+            </li>
+        </ul>
+        <ul class="uk-navbar-nav">
+          <li>
+              <a href="/uploadBinary" style="font-family: 'Press Start 2P', cursive;">
+                  <span class="uk-icon uk-margin-small-right"></span>
+                  Upload
+              </a>
+          </li>
+      </ul>
+        <ul class="uk-navbar-nav">
+          <li>
+              <a href="#" style="font-family: 'Press Start 2P', cursive;">
+                  <span class="uk-icon uk-margin-small-right"></span>
+                  View Binaries
+              </a>
+          </li>
       </ul>
     </div>
-  </nav>
+</nav>
 </head>
-
-<body style="font-family: 'Mukta', sans-serif;">
+<body style="font-family: 'Press Start 2P', cursive;">
   {{ template "content" . }}
-  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
-    integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous">
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"
-    integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous">
-  </script>
-  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
-    integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous">
-  </script>
 </body>
-
 </html>
