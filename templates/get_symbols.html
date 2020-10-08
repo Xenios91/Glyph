@@ -1,36 +1,38 @@
 {{ define "title" }}{{.Title}}{{ end }} {{ define "content" }}
 {{if .SelectionVisible}}
-<div class="uk-margin-small-bottom uk-margin-medium-top uk-text-center">
+<div class="content" style="background-color:#2590e3;">
     {{else}}
-    <div class="uk-margin-small-bottom uk-margin-medium-top uk-text-center uk-invisible">
+    <div hidden>
         {{end}}
-        <h1 class="uk-heading-small" style="font-family: 'Press Start 2P', cursive;">Available Binaries</h1>
-        <div class="uk-width-1-3 uk-align-center">
-            <select class="uk-select" id="binary-dropdown-selection" onchange="binarySelection()">
-                <option selected>Choose...</option>
+        <div style="width: 50%;">
+        <label for="default_select">Select a binary</label>
+        <div class="nes-select">
+            <select required id="binary-dropdown-selection" onchange="binarySelection()">
+                <option value="" disabled selected hidden>Select...</option>
                 {{range $binary := .Binaries}}
                 <option value="{{$binary}}">{{$binary}}</option>
                 {{end}}
             </select>
         </div>
+        </div>
     </div>
     {{if .SelectionVisible}}
-    <div class="uk-invisible">
+    <div hidden>
         {{else}}
         <div>
             {{end}}
-            <div class="uk-position-center">
-                <div class="uk-margin-small-bottom uk-text-medium" style="color:white">
+            <div style="background-color: #2590e3;">
+                <div style="padding: 5px;">
                     File Name: {{.SymbolTable.BinaryName}}
                 </div>
-                <div>
+                <div class="nes-table-responsive content">
                     <blockquote>
-                        <table class="uk-table uk-table-hover uk-table-divider">
+                        <table class="nes-table is-bordered is-centered">
                             <thead>
                                 <tr>
-                                    <th scope="col" style="color:#333333" uk-tooltip="title: The entry point of the function; pos: top">EntryPoint</th>
-                                    <th scope="col" style="color:#333333" uk-tooltip="title: The determined function name; pos: top">Function Name</th>
-                                    <th scope="col" style="color:#333333" uk-tooltip="title: The probability of the function being correct; pos: top">Probability</th>
+                                    <th scope="col" style="color:#333333">EntryPoint</th>
+                                    <th scope="col" style="color:#333333">Function Name</th>
+                                    <th scope="col" style="color:#333333">Probability</th>
                                 </tr>
                             </thead>
                             {{range $entryPoint, $functionName := .SymbolTable.SymbolsMap}}
@@ -38,6 +40,7 @@
                                 <tr>
                                     <td>0x{{$entryPoint}}</td>
                                     <td>{{$functionName}}</td>
+                                    <td>100%</td>
                                 </tr>
                             </tbody>
                             {{end}}

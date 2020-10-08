@@ -2,51 +2,64 @@
 <html lang="en" style="background-color: #2590e3;">
 
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <!-- UIkit CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.5.8/dist/css/uikit.min.css" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet"> 
+    <link href="https://unpkg.com/nes.css/css/nes.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
-  <!-- UIkit JS -->
-  <script src="https://cdn.jsdelivr.net/npm/uikit@3.5.8/dist/js/uikit.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/uikit@3.5.8/dist/js/uikit-icons.min.js"></script>
-
-  <title>{{ template "title" . }}</title>
-  <nav class="uk-navbar-container uk-margin" style="background-color: #FFE6B6;" uk-navbar>
-    <div class="uk-navbar-left">
-
-        <a class="uk-navbar-item uk-logo" href="/" style="font-family: 'Press Start 2P', cursive; color:#333333">Glyph</a>
-
-        <ul class="uk-navbar-nav">
-            <li>
-                <a href="/getSymbols" style="font-family: 'Press Start 2P', cursive;">
-                    <span class="uk-icon uk-margin-small-right"></span>
-                    Get Symbols
-                </a>
-            </li>
-        </ul>
-        <ul class="uk-navbar-nav">
-          <li>
-              <a href="/uploadBinary" style="font-family: 'Press Start 2P', cursive;">
-                  <span class="uk-icon uk-margin-small-right"></span>
-                  Upload
-              </a>
-          </li>
-      </ul>
-        <ul class="uk-navbar-nav">
-          <li>
-              <a href="#" style="font-family: 'Press Start 2P', cursive;">
-                  <span class="uk-icon uk-margin-small-right"></span>
-                  View Binaries
-              </a>
-          </li>
-      </ul>
+    <title>{{ template "title" . }}</title>
+    <div class="navbar">
+        <div class="nav-links">
+            <a href="/" style="color:#333333;" class="nav-links">
+                <h1 style="display: inline;">Glyph</h1>
+            </a>
+            <a href="/getSymbols" class="nav-links">Get
+                Symbols</a>
+            <a href="/uploadBinary" class="nav-links">Upload</a>
+            <a href="/getSymbols" class="nav-links">View
+                Binaries</a>
+        </div>
     </div>
-</nav>
+
 </head>
-<body style="font-family: 'Press Start 2P', cursive;">
-  {{ template "content" . }}
+
+<body>
+    {{ template "content" . }}
 </body>
+
+<style>
+    .nav-links {
+        width: 80%;
+        height: 60px;
+        margin: 10px;
+        padding: 5px;
+    }
+
+    .navbar {
+        width: 100%;
+        height: 100px;
+        background-color: #FFE6B6;
+        border-bottom: 4px solid #333333;
+        display: flex;
+        margin: auto;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: left;
+        align-items: center;
+    }
+
+    .content {
+        width: 100%;
+        height: auto;
+        display: flex;
+        margin: auto;
+        padding: 5%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+    }
+</style>
+
 </html>

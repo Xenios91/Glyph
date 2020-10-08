@@ -1,22 +1,25 @@
 {{ define "title" }}{{.Title}}{{ end }}
 {{ define "content" }}
-
-<div class="uk-flex uk-flex-column uk-width-1-3 uk-align-center">
-    <div class="uk-margin-small-bottom uk-margin-medium-top uk-text-center">
-        <h1 class="uk-heading-large" style="font-family: 'Press Start 2P', cursive;">Glyph</h1>
-        <p class="uk-text-medium uk-text-center" style="color:#FFFFFF">A binary analysis tool for fingerprinting functions</p>
-    </div>
-    <div>
-        <p class="uk-text-medium blink_text uk-text-center"><a href="/uploadBinary" style="color: #FFFFFF">Click here to start</a></p>
+<div class="content" style="background-color: #2590e3;">
+    <div class="nes-container is-rounded is-centered" style="background-color: white;">
+        <div>
+            <h1 class="center-text">Glyph</h1>
+            <p class="nes-text is-primary center-text">A binary analysis tool for fingerprinting functions</p>
+            <button type="button" class="nes-btn is-primary" onclick="location.href='/uploadBinary';">Click here to
+                start</button>
+        </div>
     </div>
 </div>
-
 <style>
+    .center-text {
+        text-align: center;
+    }
+
     .blink_text {
 
-        animation: 2s blinker linear infinite;
-        -webkit-animation: 2s blinker linear infinite;
-        -moz-animation: 2s blinker linear infinite;
+        animation: 3s blinker linear infinite;
+        -webkit-animation: 3s blinker linear infinite;
+        -moz-animation: 3s blinker linear infinite;
     }
 
     @-moz-keyframes blinker {

@@ -1,25 +1,19 @@
 {{ define "title" }}{{.Title}}{{ end }}
 {{ define "content" }}
-<div class="uk-flex uk-flex-column uk-width-1-3 uk-align-center">
-    <div class="uk-margin-small-bottom uk-margin-medium-top">
-        <h1 class="uk-heading-medium uk-text-center" style="font-family: 'Press Start 2P', cursive;">Upload</h1>
-        <p class="uk-text-medium uk-text-center" style="color:white">Upload a binary to be analyzed</p>
-    </div>
-    <div>
-        <div class="js-upload uk-placeholder uk-text-center" uk-tooltip="title: Max upload size 500mb; pos: bottom">
-            <span class="uk-text-middle" style="color:white">Attach binaries by dropping them here or</span>
-            <div uk-form-custom>
-                <input type="file" multiple>
-                <span class="uk-link" style="color:rgb(168, 168, 168)">selecting one</span>
-            </div>
-        </div>
-
-        <progress id="js-progressbar" class="uk-progress" value="0" max="100" hidden></progress>
+<div class="content" style="background-color: #2590e3;">
+    <div class="nes-container with-title is-centered" style="background-color: white;">
+        <p class="title">Upload</p>
+        <p>Upload a binary to be analyzed</p>
+        <label class="nes-btn">
+            <span>Select your file</span>
+            <input type="file">
+        </label>
+        <progress class="nes-progress is-primary" value="80" max="100" hidden></progress>
     </div>
 </div>
 
 <script>
-    var bar = document.getElementById('js-progressbar');
+    var bar = document.getElementById('progress-bar');
 
     UIkit.upload('.js-upload', {
 
