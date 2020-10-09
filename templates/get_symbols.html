@@ -1,6 +1,6 @@
 {{ define "title" }}{{.Title}}{{ end }} {{ define "content" }}
 {{if .SelectionVisible}}
-<div class="content" style="background-color:#2590e3;">
+<div class="content" style="background-color:#20A0F8;">
     {{else}}
     <div hidden>
         {{end}}
@@ -21,7 +21,7 @@
         {{else}}
         <div>
             {{end}}
-            <div style="background-color: #2590e3;">
+            <div style="background-color: #20A0F8;">
                 <div style="padding: 5px;">
                     File Name: {{.SymbolTable.BinaryName}}
                 </div>
@@ -30,9 +30,9 @@
                         <table class="nes-table is-bordered is-centered">
                             <thead>
                                 <tr>
-                                    <th scope="col" style="color:#333333">EntryPoint</th>
-                                    <th scope="col" style="color:#333333">Function Name</th>
-                                    <th scope="col" style="color:#333333">Probability</th>
+                                    <th scope="col" style="color:#282828">EntryPoint</th>
+                                    <th scope="col" style="color:#282828">Function Name</th>
+                                    <th scope="col" style="color:#282828">Probability</th>
                                 </tr>
                             </thead>
                             {{range $entryPoint, $functionName := .SymbolTable.SymbolsMap}}
