@@ -35,12 +35,12 @@
                                     <th scope="col" style="color:#282828">Probability</th>
                                 </tr>
                             </thead>
-                            {{range $entryPoint, $functionName := .SymbolTable.SymbolsMap}}
+                            {{range $entryPoint, $functionData := .SymbolTable.SymbolsMap}}
                             <tbody>
                                 <tr>
                                     <td>0x{{$entryPoint}}</td>
-                                    <td>{{$functionName}}</td>
-                                    <td>100%</td>
+                                    <td>{{index $functionData 1}}</td>
+                                    <td>{{index $functionData 0}}</td>
                                 </tr>
                             </tbody>
                             {{end}}

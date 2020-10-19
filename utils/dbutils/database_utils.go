@@ -36,14 +36,16 @@ func InsertDB(values ...interface{}) {
 
 	} else if tableName == SymbolTablesTableName {
 		var symbolTable *bin_utils.BinarySymbolTable = values[2].(*bin_utils.BinarySymbolTable)
-		for entryPoint, functionName := range symbolTable.SymbolsMap {
-			preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)", tableName, BinaryNameColumn, EntryPointColumn, FunctionNameColumn)
+		for entryPoint, functionData := range symbolTable.SymbolsMap {
+			preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s, %s, %s) VALUES (?, ?, ?, ?)", tableName, BinaryNameColumn, EntryPointColumn, FunctionNameColumn, ProbabilityColumn)
 			database, err := sql.Open("sqlite3", tableLocation)
 			defer database.Close()
 
 			statement, err := database.Prepare(preparedStatement)
 			utils.CheckError(err)
-			_, err = statement.Exec(symbolTable.BinaryName, entryPoint, functionName)
+			probability := functionData[0]
+			functionName := functionData[1]
+			_, err = statement.Exec(symbolTable.BinaryName, entryPoint, functionName, probability)
 			utils.CheckError(err)
 		}
 	}
@@ -133,12 +135,14 @@ func GetSymbolTable(binaryName *string) *bin_utils.BinarySymbolTable {
 	var primKey int
 	var entryPoint string
 	var functionName string
+	var probability string
 	var symbolTable *bin_utils.BinarySymbolTable = new(bin_utils.BinarySymbolTable)
-	symbolTable.SymbolsMap = make(map[string]string)
+	symbolTable.SymbolsMap = make(map[string][]string)
 
 	for results.Next() {
-		results.Scan(&primKey, &symbolTable.BinaryName, &entryPoint, &functionName)
-		symbolTable.SymbolsMap[entryPoint] = strings.Split(functionName, "%_VERSION_")[0]
+		results.Scan(&primKey, &symbolTable.BinaryName, &entryPoint, &functionName, &probability)
+		functionName := strings.Split(functionName, "%_VERSION_")[0]
+		symbolTable.PopulateMap(entryPoint, functionName, probability)
 	}
 	return symbolTable
 }

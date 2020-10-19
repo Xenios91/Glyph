@@ -16,4 +16,5 @@ const (
 	FunctionNameColumn string = "functionName"
 	EntryPointColumn   string = "entryPoint"
 	BinaryNameColumn   string = "binaryName"
+	ProbabilityColumn  string = "probability"
 )

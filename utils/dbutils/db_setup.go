@@ -30,7 +30,7 @@ func createSymbolTablesDB() {
 	database, err := sql.Open("sqlite3", SymbolTablesTableLocation)
 	defer database.Close()
 	utils.CheckError(err)
-	preparedStatement := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, %s TEXT, %s TEXT, %s TEXT)", SymbolTablesTableName, BinaryNameColumn, EntryPointColumn, FunctionNameColumn)
+	preparedStatement := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, %s TEXT, %s TEXT, %s TEXT, %s TEXT)", SymbolTablesTableName, BinaryNameColumn, EntryPointColumn, FunctionNameColumn, ProbabilityColumn)
 	statement, err := database.Prepare(preparedStatement)
 	utils.CheckError(err)
 	statement.Exec()
