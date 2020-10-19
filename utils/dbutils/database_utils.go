@@ -70,8 +70,7 @@ func deleteFromDBWithParameter(tableLocation string, preparedStatement *string, 
 		defer database.Close()
 		statement, err := database.Prepare(*preparedStatement)
 		utils.CheckError(err)
-		result, err := statement.Exec(parameter)
-		fmt.Println(result)
+		_, err = statement.Exec(parameter)
 		utils.CheckError(err)
 		return nil
 	}
