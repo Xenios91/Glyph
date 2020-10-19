@@ -62,6 +62,20 @@ func QueryDBWithParameter(tableLocation string, preparedStatement *string, param
 	return nil, errors.New("Database not available")
 }
 
+func deleteFromDBWithParameter(tableLocation string, preparedStatement *string, parameter *string) error {
+	if utils.CheckIfFileExist(tableLocation) {
+		database, err := sql.Open("sqlite3", tableLocation)
+		defer database.Close()
+		statement, err := database.Prepare(*preparedStatement)
+		utils.CheckError(err)
+		result, err := statement.Exec(parameter)
+		fmt.Println(result)
+		utils.CheckError(err)
+		return nil
+	}
+	return errors.New("Database not available")
+}
+
 func QueryDB(tableLocation string, preparedStatement *string) *sql.Rows {
 	database, err := sql.Open("sqlite3", tableLocation)
 	defer database.Close()
@@ -127,4 +141,10 @@ func GetSymbolTable(binaryName *string) *bin_utils.BinarySymbolTable {
 		symbolTable.SymbolsMap[entryPoint] = strings.Split(functionName, "%_VERSION_")[0]
 	}
 	return symbolTable
+}
+
+func DelSymbolTable(binaryName *string) {
+	var preparedStatement string = fmt.Sprintf("DELETE FROM %s WHERE %s=?", SymbolTablesTableName, BinaryNameColumn)
+	err := deleteFromDBWithParameter(SymbolTablesTableLocation, &preparedStatement, binaryName)
+	utils.CheckError(err)
 }

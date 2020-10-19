@@ -38,21 +38,22 @@ func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
 	symbolPageData.Title = "Glyph Symbol Tables"
 
 	if r.Method == "GET" {
-		keyValues, found := r.URL.Query()["binary"]
-		if !found || len(keyValues[0]) < 1 {
+		binValues, binFound := r.URL.Query()["binary"]
+		delValues, delFound := r.URL.Query()["binaryDel"]
+		if binFound && len(binValues[0]) > 0 {
+			symbolPageData.SelectionVisible = false
+			symbolPageData.SymbolTable = *db_utils.GetSymbolTable(&binValues[0])
+			template := template.Must(template.ParseFiles("./templates/template.html", "./templates/get_symbols.html"))
+			template.Execute(w, symbolPageData)
+		} else if delFound && len(delValues[0]) > 0 {
+			db_utils.DelSymbolTable(&delValues[0])
+			http.Redirect(w, r, "/getSymbols", http.StatusSeeOther)
+		} else {
 			symbolPageData.SelectionVisible = true
 			symbolPageData.Binaries = *db_utils.GetDistinctBinaries()
 			template := template.Must(template.ParseFiles("./templates/template.html", "./templates/get_symbols.html"))
 			template.Execute(w, symbolPageData)
-		} else {
-			symbolPageData.SelectionVisible = false
-			symbolPageData.SymbolTable = *db_utils.GetSymbolTable(&keyValues[0])
-			template := template.Must(template.ParseFiles("./templates/template.html", "./templates/get_symbols.html"))
-			template.Execute(w, symbolPageData)
 		}
-
-	} else {
-
 	}
 }
 

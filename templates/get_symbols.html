@@ -5,15 +5,15 @@
     <div hidden>
         {{end}}
         <div style="width: 50%;">
-        <label for="default_select">Select a binary</label>
-        <div class="nes-select">
-            <select required id="binary-dropdown-selection" onchange="binarySelection()">
-                <option value="" disabled selected hidden>Select...</option>
-                {{range $binary := .Binaries}}
-                <option value="{{$binary}}">{{$binary}}</option>
-                {{end}}
-            </select>
-        </div>
+            <label for="default_select">Select a binary</label>
+            <div class="nes-select">
+                <select required id="binary-dropdown-selection" onchange="binarySelection()">
+                    <option value="" disabled selected hidden>Select...</option>
+                    {{range $binary := .Binaries}}
+                    <option value="{{$binary}}">{{$binary}}</option>
+                    {{end}}
+                </select>
+            </div>
         </div>
     </div>
     {{if .SelectionVisible}}
@@ -23,7 +23,7 @@
             {{end}}
             <div style="background-color: #20A0F8;">
                 <div style="padding: 5px;">
-                    File Name: {{.SymbolTable.BinaryName}}
+                    <span id="file-name">File Name: {{.SymbolTable.BinaryName}}</span>
                 </div>
                 <div class="nes-table-responsive content">
                     <blockquote>
@@ -47,6 +47,8 @@
                         </table>
                     </blockquote>
                 </div>
+                <div class="content"><button type="button" class="nes-btn is-primary" style="margin-right: 50px;" onclick="deleteBinary()">Delete</button> <button type="button" class="nes-btn is-primary"
+                        onclick="location.href='/getSymbols';">Go Back</button></div>
             </div>
         </div>
     </div>
@@ -56,6 +58,16 @@
             var selection = document.getElementById("binary-dropdown-selection").value;
             var currentURL = window.location.href;
             var url = currentURL + "?binary=" + selection;
+            if (url) {
+                window.location = url;
+            }
+        }
+
+        function deleteBinary() {
+            var selection = document.getElementById("file-name").innerText;
+            var binToDelete = selection.split(':')[1].replace(/\s+/, "") ;
+            var currentURL = window.location.href;
+            var url = "/getSymbols" + "?binaryDel=" + binToDelete;
             if (url) {
                 window.location = url;
             }
