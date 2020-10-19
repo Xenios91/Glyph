@@ -42,6 +42,7 @@ func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
 		delValues, delFound := r.URL.Query()["binaryDel"]
 		if binFound && len(binValues[0]) > 0 {
 			symbolPageData.SelectionVisible = false
+
 			symbolPageData.SymbolTable = *db_utils.GetSymbolTable(&binValues[0])
 			template := template.Must(template.ParseFiles("./templates/template.html", "./templates/get_symbols.html"))
 			template.Execute(w, symbolPageData)

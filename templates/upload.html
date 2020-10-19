@@ -1,74 +1,39 @@
 {{ define "title" }}{{.Title}}{{ end }}
 {{ define "content" }}
 <div class="content" style="background-color: #20A0F8;">
-    <div class="nes-container with-title is-centered" style="background-color: #FFFFFF;">
+    <div id="upload-box" class="nes-container with-title is-centered" style="background-color: #FFFFFF;">
         <p class="title">Upload</p>
         <p>Upload a binary to be analyzed</p>
         <label class="nes-btn">
             <span>Select your file</span>
-            <input type="file">
+            <input id="upload-binary" type="file" onchange="uploadBinary()">
         </label>
         <progress class="nes-progress is-primary" value="80" max="100" hidden></progress>
+    </div>
+    <div id="upload-message" class="nes-container with-title is-centered" style="display: none; background-color: #FFFFFF;">
+        <p class="title">Binary Status</p>
+        <p>Your binary is now being processed.</p>
     </div>
 </div>
 
 <script>
-    var bar = document.getElementById('progress-bar');
-
-    UIkit.upload('.js-upload', {
-
-        url: '/uploadBinary',
-        multiple: true,
-
-        beforeSend: function () {
-            console.log('beforeSend', arguments);
-        },
-        beforeAll: function () {
-            console.log('beforeAll', arguments);
-        },
-        load: function () {
-            console.log('load', arguments);
-        },
-        error: function () {
-            console.log('error', arguments);
-        },
-        complete: function () {
-            console.log('complete', arguments);
-        },
-
-        loadStart: function (e) {
-            console.log('loadStart', arguments);
-
-            bar.removeAttribute('hidden');
-            bar.max = e.total;
-            bar.value = e.loaded;
-        },
-
-        progress: function (e) {
-            console.log('progress', arguments);
-
-            bar.max = e.total;
-            bar.value = e.loaded;
-        },
-
-        loadEnd: function (e) {
-            console.log('loadEnd', arguments);
-
-            bar.max = e.total;
-            bar.value = e.loaded;
-        },
-
-        completeAll: function () {
-            console.log('completeAll', arguments);
-
-            setTimeout(function () {
-                bar.setAttribute('hidden', 'hidden');
-            }, 1000);
-
-            alert('Upload Completed');
-        }
-
-    });
+    function uploadBinary() {
+        let binaryFile = document.getElementById("upload-binary").files[0];
+        let formData = new FormData();
+        formData.append("binaryFile", binaryFile);
+        fetch('/uploadBinary', {
+            method: "POST",
+            body: formData
+        });
+        var uploadMessage = document.getElementById("upload-message");
+        var uploadBox = document.getElementById("upload-box");
+        uploadMessage.style.display = "block";
+        uploadBox.style.display = "none";
+        setTimeout(function () {
+            uploadMessage.style.display = "none";
+            uploadBox.style.display = "block";
+        }, 5000);
+    }
 </script>
 
 {{ end }}

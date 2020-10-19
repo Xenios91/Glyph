@@ -1,7 +1,9 @@
 package glyph
 
 import (
+	"fmt"
 	bin_utils "glyph/glyph/utils/binutils"
+	"math"
 
 	"github.com/navossoc/bayesian"
 )
@@ -31,14 +33,16 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 	var functions []bin_utils.FunctionDetails = binary.FunctionsMap.FunctionDetails
 
 	for _, function := range functions {
-		functionName := classifyFunction(&function)
-		symbolTable.PopulateMap(function.LowAddress, string(functionName))
+		functionName, prob := classifyFunction(&function)
+		prob = math.Sqrt(math.Pow(prob, 2))
+		var probability string = fmt.Sprintf("%f", prob)
+		symbolTable.PopulateMap(function.LowAddress, probability+":"+string(functionName))
 	}
 	symbolTable.BinaryName = binary.BinaryName
 	return symbolTable
 }
 
-func classifyFunction(function *bin_utils.FunctionDetails) bayesian.Class {
+func classifyFunction(function *bin_utils.FunctionDetails) (bayesian.Class, float64) {
 	scores, _, _ := classifier.LogScores(function.Tokens)
 
 	var highestProb int = 0
@@ -47,5 +51,5 @@ func classifyFunction(function *bin_utils.FunctionDetails) bayesian.Class {
 			highestProb = counter
 		}
 	}
-	return classifier.Classes[highestProb]
+	return classifier.Classes[highestProb], scores[highestProb]
 }
