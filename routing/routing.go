@@ -92,9 +92,9 @@ func uploadFile(r *http.Request) bool {
 
 	defer file.Close()
 
-	trainingDataChecked := r.Form.Get("training-data")
+	trainingDataChecked := r.Form.Get("trainingData")
 
-	if trainingDataChecked == "on" {
+	if trainingDataChecked == "true" {
 		trainingData = true
 		directoryParent = "./binary_training_upload"
 	}
@@ -142,8 +142,9 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(err)
 		}
 
-		for _, function := range binaryDetails.FunctionsMap.FunctionDetails {
-			function.Tokens[1] = "UNKNOWN"
+		for counter, function := range binaryDetails.FunctionsMap.FunctionDetails {
+			binaryDetails.FunctionsMap.FunctionDetails[counter].FunctionName = function.Tokens[1]
+			function.Tokens[1] = "_"
 		}
 
 		isTraining := ghidra_utils.CheckIfTrainingAndRemove(binaryDetails.BinaryName)

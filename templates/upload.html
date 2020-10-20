@@ -8,19 +8,27 @@
             <span>Select your file</span>
             <input id="upload-binary" type="file" onchange="uploadBinary()">
         </label>
-        <progress class="nes-progress is-primary" value="80" max="100" hidden></progress>
+        <br>
+        <label style="margin-top: 20px;">
+            <input id="training-data-checkbox" type="checkbox" class="nes-checkbox" checked />
+            <span>Training Data</span>
+        </label>
     </div>
-    <div id="upload-message" class="nes-container with-title is-centered" style="display: none; background-color: #FFFFFF;">
+    <div id="upload-message" class="nes-container with-title is-centered"
+        style="display: none; background-color: #FFFFFF;">
         <p class="title">Binary Status</p>
         <p>Your binary is now being processed.</p>
     </div>
 </div>
 
 <script>
+    document.getElementById("training-data-checkbox").checked = false;
     function uploadBinary() {
         let binaryFile = document.getElementById("upload-binary").files[0];
+        let trainingData = document.getElementById("training-data-checkbox").checked;
         let formData = new FormData();
         formData.append("binaryFile", binaryFile);
+        formData.append("trainingData", trainingData);
         fetch('/uploadBinary', {
             method: "POST",
             body: formData

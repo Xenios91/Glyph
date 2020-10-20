@@ -3,6 +3,7 @@ package glyph
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"sync"
 )
 
@@ -23,6 +24,7 @@ var (
 
 //StartGhidraAnalysis Starts analysis on a supplied binary
 func StartGhidraAnalysis(fileName string, trainingData bool) bool {
+	addToQueue(filepath.Base(fileName), trainingData)
 	err := exec.Command(ghidraConfig.ghidraHeadless, ghidraConfig.ghidraProjectLocation, ghidraConfig.ghidraProject, "-import", fileName, "-postScript", ghidraConfig.ghidraScript, "-overwrite").Start()
 	if err != nil {
 		fmt.Println(err)
@@ -43,7 +45,7 @@ func LoadGhidraAnalysis(ghidraHeadless string, ghidraProjectLocation string, ghi
 	})
 }
 
-func AddToQueue(binaryName string, trainingData bool) {
+func addToQueue(binaryName string, trainingData bool) {
 	ghidraQueue[binaryName] = trainingData
 }
 
@@ -57,6 +59,6 @@ func CheckIfTraining(binaryName string) bool {
 
 func CheckIfTrainingAndRemove(binaryName string) bool {
 	var isTraining bool = ghidraQueue[binaryName]
-	delete(ghidraQueue, binaryName)
+	RemoveFromQueue(binaryName)
 	return isTraining
 }

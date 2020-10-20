@@ -42,7 +42,6 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 
 func classifyFunction(function *bin_utils.FunctionDetails) (bayesian.Class, float64) {
 	scores, _, _ := classifier.ProbScores(function.Tokens)
-
 	var highestProb int = 0
 	for counter, score := range scores {
 		if score > scores[highestProb] {

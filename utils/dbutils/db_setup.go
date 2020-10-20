@@ -15,7 +15,7 @@ func createMLTrainingDB() {
 	database, err := sql.Open("sqlite3", MLTrainingSetTableLocation)
 	defer database.Close()
 	utils.CheckError(err)
-	preparedStatement := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, %s TEXT, %s TEXT, %s TEXT, %s TEXT)", MLTrainingSetTableName, FunctionNameColumn, LowAddressColumn, HighAddressColumn, TokensColumn)
+	preparedStatement := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, %s TEXT, %s TEXT)", MLTrainingSetTableName, FunctionNameColumn, TokensColumn)
 	statement, err := database.Prepare(preparedStatement)
 	utils.CheckError(err)
 	statement.Exec()

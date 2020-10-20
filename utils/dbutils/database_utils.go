@@ -20,17 +20,14 @@ func InsertDB(values ...interface{}) {
 	if tableName == MLTrainingSetTableName {
 		var binaryDetails *bin_utils.BinaryDetails = values[2].(*bin_utils.BinaryDetails)
 		for _, function := range binaryDetails.FunctionsMap.FunctionDetails {
-			functionName := function.Tokens[1]
-			lowAddress := function.LowAddress
-			highAddress := function.HighAddress
 			tokens := strings.Join(function.Tokens, " ")
-			preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s, %s, %s) VALUES (?, ?, ?, ?)", tableName, functionName, lowAddress, highAddress, tokens)
+			preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s) VALUES (?, ?)", tableName, FunctionNameColumn, TokensColumn)
 			database, err := sql.Open("sqlite3", tableLocation)
 			defer database.Close()
 
 			statement, err := database.Prepare(preparedStatement)
 			utils.CheckError(err)
-			_, err = statement.Exec(values[2], values[3], values[4], values[5])
+			_, err = statement.Exec(function.FunctionName, tokens)
 			utils.CheckError(err)
 		}
 
@@ -98,9 +95,8 @@ func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 		var primKey int
 		var tokens string
 
-		result.Scan(&primKey, &functionDetails.FunctionName, &functionDetails.LowAddress, &functionDetails.HighAddress, &tokens)
+		result.Scan(&primKey, &functionDetails.FunctionName, &tokens)
 
-		functionDetails.FunctionName = fmt.Sprintf("%s%s_VERSION_%d%s", functionDetails.FunctionName, "%", primKey, "%")
 		functionDetails.Tokens = strings.Fields(tokens)
 		functionDetailsArray = append(functionDetailsArray, *functionDetails)
 	}

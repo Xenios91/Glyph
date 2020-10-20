@@ -20,8 +20,7 @@ func LoadMLTrainingData() {
 }
 
 func InsertTrainingData(binaryDetails *bin_utils.BinaryDetails) {
-	functions := binaryDetails.FunctionsMap.FunctionDetails
-	db_utils.InsertDB(db_utils.MLTrainingSetTableLocation, db_utils.MLTrainingSetTableName, functions)
+	db_utils.InsertDB(db_utils.MLTrainingSetTableLocation, db_utils.MLTrainingSetTableName, binaryDetails)
 	fmt.Print("Reloading training data... ")
 	LoadMLTrainingData()
 	fmt.Println("Training data successfully reloaded!")
