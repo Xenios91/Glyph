@@ -3,6 +3,8 @@ package glyph
 import (
 	"fmt"
 	bin_utils "glyph/glyph/utils/binutils"
+	"math"
+	"strings"
 
 	"github.com/navossoc/bayesian"
 )
@@ -32,11 +34,22 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 	var functions []bin_utils.FunctionDetails = binary.FunctionsMap.FunctionDetails
 
 	for _, function := range functions {
-		functionName, prob := classifyFunction(&function)
-		var probability string = fmt.Sprintf("%.2f%%", (prob * 100))
-		symbolTable.PopulateMap(function.LowAddress, string(functionName), probability)
+		if strings.Contains(function.FunctionName, "FUN_") {
+			functionName, prob := classifyFunction(&function)
+			if math.IsNaN(prob) {
+				fmt.Println("Not a number")
+			} else if prob < 0.45 {
+				fmt.Println("No confidence")
+			} else {
+				var probability string = fmt.Sprintf("%.2f%%", (prob * 100))
+				symbolTable.PopulateMap(function.LowAddress, string(functionName), probability)
+			}
+
+		}
+
 	}
 	symbolTable.BinaryName = binary.BinaryName
+	fmt.Println("Functions Classified!")
 	return symbolTable
 }
 
