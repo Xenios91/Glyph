@@ -24,7 +24,9 @@ func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	classifier = bayesian.NewClassifier(trainingClasses[:]...)
 
 	for key, element := range *classes {
-		classifier.Learn(element.Tokens, key)
+		if !strings.Contains(string(key), "FUN_") {
+			classifier.Learn(element.Tokens, key)
+		}
 	}
 }
 
@@ -36,13 +38,26 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 	for _, function := range functions {
 		if strings.Contains(function.FunctionName, "FUN_") {
 			functionName, prob := classifyFunction(&function)
-			if math.IsNaN(prob) {
-				fmt.Println("Not a number")
-			} else if prob < 0.45 {
-				fmt.Println("No confidence")
-			} else {
-				var probability string = fmt.Sprintf("%.2f%%", (prob * 100))
-				symbolTable.PopulateMap(function.LowAddress, string(functionName), probability)
+			if !math.IsNaN(prob) {
+				var confidence string
+				switch {
+				case prob >= 0.9:
+					confidence = "Very High"
+					break
+				case prob >= 0.75:
+					confidence = "High"
+					break
+				case prob >= 0.5:
+					confidence = "Medium"
+					break
+				case prob >= 0.35:
+					confidence = "Low"
+					break
+				default:
+					confidence = "Very Low"
+					break
+				}
+				symbolTable.PopulateMap(function.LowAddress, string(functionName), confidence)
 			}
 
 		}
@@ -60,6 +75,9 @@ func classifyFunction(function *bin_utils.FunctionDetails) (bayesian.Class, floa
 		if score > scores[highestProb] {
 			highestProb = counter
 		}
+	}
+	if math.IsNaN(scores[highestProb]) {
+		fmt.Println()
 	}
 	return classifier.Classes[highestProb], scores[highestProb]
 }
