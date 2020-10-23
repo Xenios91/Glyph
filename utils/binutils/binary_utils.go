@@ -8,6 +8,7 @@ import (
 
 type FunctionDetails struct {
 	FunctionName string
+	ReturnType   string
 	LowAddress   string   `json:"lowAddress"`
 	HighAddress  string   `json:"highAddress"`
 	Tokens       []string `json:"tokenList"`

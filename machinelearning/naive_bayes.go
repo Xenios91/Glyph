@@ -9,23 +9,39 @@ import (
 	"github.com/navossoc/bayesian"
 )
 
-var classifier *bayesian.Classifier
+var classifier map[string]*bayesian.Classifier = make(map[string]*bayesian.Classifier)
 
 func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
-	var arraySize = len(*classes)
-	var trainingClasses []bayesian.Class = make([]bayesian.Class, arraySize)
+	var returnTypeMap map[string][]bin_utils.FunctionDetails = make(map[string][]bin_utils.FunctionDetails)
+	for _, function := range *classes {
+		returnType := function.Tokens[0]
+		returnTypeMap[returnType] = append(returnTypeMap[returnType], function)
+	}
+	for key, element := range returnTypeMap {
+		var trainingClasses []bayesian.Class
+		var elementLength int = len(element)
 
-	var counter int = 0
-	for key := range *classes {
-		trainingClasses[counter] = key
-		counter++
+		for counter := 0; counter < elementLength; counter++ {
+			trainingClasses = append(trainingClasses, bayesian.Class(element[counter].FunctionName))
+		}
+		if len(trainingClasses) == 1 {
+			trainingClasses = append(trainingClasses, bayesian.Class("Unknown"))
+		}
+		classifier[key] = bayesian.NewClassifier(trainingClasses[:]...)
 	}
 
-	classifier = bayesian.NewClassifier(trainingClasses[:]...)
-
 	for key, element := range *classes {
+		var gramArray []string
 		if !strings.Contains(string(key), "FUN_") {
-			classifier.Learn(element.Tokens, key)
+			tokensLength := len(element.Tokens)
+			for counter := 0; counter < tokensLength; counter++ {
+				if (counter + 1) == tokensLength {
+					gramArray = append(gramArray, fmt.Sprintf("%s", element.Tokens[counter]))
+				} else {
+					gramArray = append(gramArray, fmt.Sprintf("%s %s", element.Tokens[counter], element.Tokens[counter+1]))
+				}
+			}
+			//classifier.Learn(gramArray, key)
 		}
 	}
 }
@@ -36,6 +52,19 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 	var functions []bin_utils.FunctionDetails = binary.FunctionsMap.FunctionDetails
 
 	for _, function := range functions {
+		var gramArray []string
+		var tokensLength = len(function.Tokens)
+		gramArray = append(gramArray, fmt.Sprintf("%s", function.Tokens[0]))
+		for counter := 1; counter < tokensLength; counter++ {
+			if counter+1 == tokensLength {
+				gramArray = append(gramArray, fmt.Sprintf("%s", function.Tokens[counter]))
+			} else {
+				gramArray = append(gramArray, fmt.Sprintf("%s %s", function.Tokens[counter], function.Tokens[counter+1]))
+			}
+		}
+		function.Tokens = gramArray
+		function.ReturnType = gramArray[0]
+
 		if strings.Contains(function.FunctionName, "FUN_") {
 			functionName, prob := classifyFunction(&function)
 			if !math.IsNaN(prob) {
@@ -69,15 +98,8 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 }
 
 func classifyFunction(function *bin_utils.FunctionDetails) (bayesian.Class, float64) {
-	scores, _, _ := classifier.ProbScores(function.Tokens)
-	var highestProb int = 0
-	for counter, score := range scores {
-		if score > scores[highestProb] {
-			highestProb = counter
-		}
-	}
-	if math.IsNaN(scores[highestProb]) {
-		fmt.Println()
-	}
-	return classifier.Classes[highestProb], scores[highestProb]
+	//scores, likely, _ := classifier.ProbScores(function.Tokens)
+
+	//return classifier.Classes[likely], scores[likely]
+	return "test", 0.0
 }
