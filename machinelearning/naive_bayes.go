@@ -25,7 +25,7 @@ func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 			trainingClasses = append(trainingClasses, bayesian.Class(element[counter].FunctionName))
 		}
 		if len(trainingClasses) == 1 {
-			trainingClasses = append(trainingClasses, bayesian.Class("Unknown"))
+			trainingClasses = append(trainingClasses, bayesian.Class("DUMMY_CLASS"))
 		}
 		classifier[key] = bayesian.NewClassifier(trainingClasses[:]...)
 	}
@@ -33,18 +33,20 @@ func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	for key := range classifier {
 		functions := returnTypeMap[key]
 		for _, function := range functions {
-			tokens := function.Tokens
-			var gramArray []string
-			if !strings.Contains(string(key), "FUN_") {
-				tokensLength := len(tokens)
-				for counter := 0; counter < tokensLength; counter++ {
-					if (counter + 1) == tokensLength {
-						gramArray = append(gramArray, fmt.Sprintf("%s", tokens[counter]))
-					} else {
-						gramArray = append(gramArray, fmt.Sprintf("%s %s", tokens[counter], tokens[counter+1]))
+			if !strings.Contains(function.FunctionName, "FUN_") {
+				tokens := function.Tokens
+				var gramArray []string
+				if !strings.Contains(string(key), "FUN_") {
+					tokensLength := len(tokens)
+					for counter := 0; counter < tokensLength; counter++ {
+						if (counter + 1) == tokensLength {
+							gramArray = append(gramArray, fmt.Sprintf("%s", tokens[counter]))
+						} else {
+							gramArray = append(gramArray, fmt.Sprintf("%s %s", tokens[counter], tokens[counter+1]))
+						}
 					}
+					classifier[key].Learn(gramArray, bayesian.Class(function.FunctionName))
 				}
-				classifier[key].Learn(gramArray, bayesian.Class(function.FunctionName))
 			}
 		}
 	}

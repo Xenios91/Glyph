@@ -151,7 +151,9 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 		if isTraining {
 			go ml.InsertTrainingData(&binaryDetails)
 		} else {
+			fmt.Print("Beginning to classify functions...")
 			symbolTable := ml.ClassifyFunctions(&binaryDetails)
+			fmt.Println("Function classification complete!")
 			db_utils.InsertDB(db_utils.SymbolTablesTableLocation, db_utils.SymbolTablesTableName, symbolTable)
 		}
 
