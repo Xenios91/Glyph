@@ -30,18 +30,22 @@ func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 		classifier[key] = bayesian.NewClassifier(trainingClasses[:]...)
 	}
 
-	for key, element := range *classes {
-		var gramArray []string
-		if !strings.Contains(string(key), "FUN_") {
-			tokensLength := len(element.Tokens)
-			for counter := 0; counter < tokensLength; counter++ {
-				if (counter + 1) == tokensLength {
-					gramArray = append(gramArray, fmt.Sprintf("%s", element.Tokens[counter]))
-				} else {
-					gramArray = append(gramArray, fmt.Sprintf("%s %s", element.Tokens[counter], element.Tokens[counter+1]))
+	for key := range classifier {
+		functions := returnTypeMap[key]
+		for _, function := range functions {
+			tokens := function.Tokens
+			var gramArray []string
+			if !strings.Contains(string(key), "FUN_") {
+				tokensLength := len(tokens)
+				for counter := 0; counter < tokensLength; counter++ {
+					if (counter + 1) == tokensLength {
+						gramArray = append(gramArray, fmt.Sprintf("%s", tokens[counter]))
+					} else {
+						gramArray = append(gramArray, fmt.Sprintf("%s %s", tokens[counter], tokens[counter+1]))
+					}
 				}
+				classifier[key].Learn(gramArray, bayesian.Class(function.FunctionName))
 			}
-			//classifier.Learn(gramArray, key)
 		}
 	}
 }
@@ -82,8 +86,10 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 				case prob >= 0.35:
 					confidence = "Low"
 					break
-				default:
+				case prob > 0:
 					confidence = "Very Low"
+				default:
+					confidence = "Unknown"
 					break
 				}
 				symbolTable.PopulateMap(function.LowAddress, string(functionName), confidence)
@@ -97,9 +103,26 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 	return symbolTable
 }
 
-func classifyFunction(function *bin_utils.FunctionDetails) (bayesian.Class, float64) {
-	//scores, likely, _ := classifier.ProbScores(function.Tokens)
+func classifyFunction(function *bin_utils.FunctionDetails) (string, float64) {
+	returnType := function.ReturnType
+	scores, likely, strict, err := classifier[returnType].SafeProbScores(function.Tokens)
+	if err != nil {
+		scores, likely, strict = classifier[returnType].LogScores(function.Tokens)
+	}
+	classDetermined := string(classifier[returnType].Classes[likely])
 
-	//return classifier.Classes[likely], scores[likely]
-	return "test", 0.0
+	if strict != true {
+		for counter := range scores {
+			value := scores[counter]
+			if value == scores[likely] && counter != likely {
+				likelyFunction := string(classifier[returnType].Classes[likely])
+				if !strings.Contains(classDetermined, likelyFunction) {
+					classDetermined = fmt.Sprintf("%s, %s", classDetermined, string(classifier[returnType].Classes[likely]))
+				}
+
+			}
+		}
+	}
+
+	return classDetermined, scores[likely]
 }
