@@ -17,9 +17,7 @@ func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	fmt.Print("Beginning to classify training data...")
 	for _, function := range *classes {
 		returnType := function.Tokens[0]
-		if !strings.Contains(function.FunctionName, "FUN_") {
-			returnTypeMap[returnType] = append(returnTypeMap[returnType], function)
-		}
+		returnTypeMap[returnType] = append(returnTypeMap[returnType], function)
 	}
 	for key, element := range returnTypeMap {
 		var trainingClasses []bayesian.Class
@@ -121,46 +119,70 @@ func classifyFunction(function *bin_utils.FunctionDetails) (string, float64) {
 	var functionRange int = int(float32(functionLength) * 0.25)
 	var highEnd int = functionLength + functionRange
 	var lowEnd int = functionLength - functionRange
-	var classifierArray []bayesian.Class
+	var classifierMap map[string]bin_utils.FunctionDetails = make(map[string]bin_utils.FunctionDetails)
+	var classifierMapKeys []bayesian.Class
 
-	for _, element := range returnTypeMap[returnType] {
+	returnTypeArray := returnTypeMap[returnType]
+
+	for _, element := range returnTypeArray {
 		var tokensLength int = len(element.Tokens)
+		var functionName = element.FunctionName
 		if tokensLength >= lowEnd && tokensLength <= highEnd {
-			classifierArray = append(classifierArray, bayesian.Class(element.FunctionName))
+			classifierMapKeys = append(classifierMapKeys, bayesian.Class(functionName))
+			classifierMap[functionName] = element
 		}
 	}
+	if len(classifierMapKeys) < 2 {
+		classifierMapKeys = append(classifierMapKeys, bayesian.Class("DUMMY_CLASS_01"), bayesian.Class("DUMMY_CLASS_02"))
+	} else if classifierMapKeys == nil {
+		classifierMapKeys = append(classifierMapKeys, bayesian.Class("DUMMY_CLASS_01"), bayesian.Class("DUMMY_CLASS_02"))
+	}
+	rangeClassifier := bayesian.NewClassifier(classifierMapKeys[:]...)
+	for counter := range classifierMapKeys {
+		rangeClassifier.Learn(classifierMap[string(classifierMapKeys[counter])].Tokens, classifierMapKeys[counter])
+	}
 
-	scores, likely, strict, err := classifier[returnType].SafeProbScores(function.Tokens)
+	classes := rangeClassifier.Classes
+	fmt.Println(classes)
+	scores, likely, strict, err := rangeClassifier.SafeProbScores(function.Tokens)
 	if err != nil {
-		scores, likely, strict = classifier[returnType].LogScores(function.Tokens)
+		scores, likely, strict = rangeClassifier.LogScores(function.Tokens)
 	}
-	classDetermined := string(classifier[returnType].Classes[likely])
-
-	for counter := range returnTypeMap[returnType] {
-		nameToCheck := returnTypeMap[returnType][counter].FunctionName
-		if nameToCheck == classDetermined {
-			trainingDataAddress := returnTypeMap[returnType][counter].LowAddress
-			functionAddress := function.LowAddress
-			if trainingDataAddress == functionAddress {
-				trainingDataCheck["correct"]++
-			} else {
-				trainingDataCheck["incorrect"]++
-			}
-		}
-	}
+	classDetermined := string(rangeClassifier.Classes[likely])
 
 	if strict != true {
 		for counter := range scores {
 			value := scores[counter]
 			if value == scores[likely] && counter != likely {
-				likelyFunction := string(classifier[returnType].Classes[likely])
+				likelyFunction := string(rangeClassifier.Classes[counter])
 				if !strings.Contains(classDetermined, likelyFunction) {
-					classDetermined = fmt.Sprintf("%s, %s", classDetermined, string(classifier[returnType].Classes[likely]))
+					classDetermined = fmt.Sprintf("%s, %s", classDetermined, string(rangeClassifier.Classes[counter]))
 				}
 
 			}
 		}
 	}
+	if trainingDataCheck["correct"] >= 23 {
+		fmt.Println()
+	}
+	fmt.Println(classDetermined)
+	addressMatch := false
+	for counter := range returnTypeArray {
+		nameToCheck := returnTypeMap[returnType][counter].FunctionName
+		if strings.Contains(classDetermined, nameToCheck) {
+			functionAddress := function.LowAddress
 
+			if returnTypeArray[counter].LowAddress == functionAddress {
+				addressMatch = true
+				break
+			}
+		}
+	}
+	if addressMatch {
+		trainingDataCheck["correct"]++
+	} else {
+		trainingDataCheck["incorrect"]++
+	}
+	fmt.Println(trainingDataCheck)
 	return classDetermined, scores[likely]
 }
