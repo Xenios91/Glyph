@@ -11,12 +11,23 @@ import (
 
 var classifier map[string]*bayesian.Classifier = make(map[string]*bayesian.Classifier, 10)
 var returnTypeMap map[string][]bin_utils.FunctionDetails = make(map[string][]bin_utils.FunctionDetails, 10)
-var trainingDataCheck map[string]int = make(map[string]int, 2)
+var trainingDataCheck map[string]int = make(map[string]int, 3)
 
 func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	fmt.Print("Beginning to classify training data...")
 	for _, function := range *classes {
 		returnType := function.Tokens[0]
+		var gramArray []string
+		var tokensLength int = len(function.Tokens)
+		var tokens []string = function.Tokens
+		for counter := 0; counter < tokensLength; counter++ {
+			if (counter + 1) == tokensLength {
+				gramArray = append(gramArray, fmt.Sprintf("%s", tokens[counter]))
+			} else {
+				gramArray = append(gramArray, fmt.Sprintf("%s %s", tokens[counter], tokens[counter+1]))
+			}
+		}
+		function.Tokens = gramArray
 		returnTypeMap[returnType] = append(returnTypeMap[returnType], function)
 	}
 	for key, element := range returnTypeMap {
@@ -108,8 +119,8 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 	}
 	symbolTable.BinaryName = binary.BinaryName
 	fmt.Println("Functions Classified!")
-	fmt.Printf("Total functions analyzed: %d Total correct: %d Total incorrect: %d\n", len(functions), int(trainingDataCheck["correct"]), int(trainingDataCheck["incorrect"]))
-	fmt.Printf("%s %d\n", "Training accuracy:", (int(trainingDataCheck["correct"]) / len(functions)))
+	fmt.Printf("Total functions analyzed: %d Total correct: %d Total incorrect: %d Total Errored: %d\n", len(functions), int(trainingDataCheck["correct"]), int(trainingDataCheck["incorrect"]), int(trainingDataCheck["error"]))
+	fmt.Printf("%s %.2f%%\n", "Training accuracy:", (float64(trainingDataCheck["correct"]))/((float64(trainingDataCheck["correct"]))+float64(trainingDataCheck["incorrect"]))*100)
 	return symbolTable
 }
 
@@ -142,8 +153,6 @@ func classifyFunction(function *bin_utils.FunctionDetails) (string, float64) {
 		rangeClassifier.Learn(classifierMap[string(classifierMapKeys[counter])].Tokens, classifierMapKeys[counter])
 	}
 
-	classes := rangeClassifier.Classes
-	fmt.Println(classes)
 	scores, likely, strict, err := rangeClassifier.SafeProbScores(function.Tokens)
 	if err != nil {
 		scores, likely, strict = rangeClassifier.LogScores(function.Tokens)
@@ -162,27 +171,38 @@ func classifyFunction(function *bin_utils.FunctionDetails) (string, float64) {
 			}
 		}
 	}
-	if trainingDataCheck["correct"] >= 23 {
-		fmt.Println()
-	}
-	fmt.Println(classDetermined)
+
 	addressMatch := false
 	for counter := range returnTypeArray {
-		nameToCheck := returnTypeMap[returnType][counter].FunctionName
+		nameToCheck := returnTypeArray[counter].FunctionName
 		if strings.Contains(classDetermined, nameToCheck) {
-			functionAddress := function.LowAddress
-
-			if returnTypeArray[counter].LowAddress == functionAddress {
+			addressToCheck := returnTypeArray[counter].LowAddress
+			if function.LowAddress == addressToCheck {
+				trainingDataCheck["correct"]++
 				addressMatch = true
 				break
 			}
 		}
 	}
-	if addressMatch {
-		trainingDataCheck["correct"]++
-	} else {
-		trainingDataCheck["incorrect"]++
+
+	if !addressMatch {
+		inMap := false
+		for _, element := range returnTypeMap {
+			for _, fnc := range element {
+				if fnc.LowAddress == function.LowAddress {
+					trainingDataCheck["incorrect"]++
+					inMap = true
+					break
+				}
+				if inMap {
+					break
+				}
+			}
+		}
+		if !inMap {
+			trainingDataCheck["error"]++
+		}
 	}
-	fmt.Println(trainingDataCheck)
+
 	return classDetermined, scores[likely]
 }
