@@ -64,6 +64,7 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 
 		if strings.Contains(function.FunctionName, "FUN_") {
 			functionName, prob := classifyFunction(&function)
+
 			if !math.IsNaN(prob) {
 				var confidence string
 				switch {
@@ -124,6 +125,41 @@ func getFunctionRange(function *bin_utils.FunctionDetails) (int, int) {
 	return lowEnd, highEnd
 }
 
+func checkAccuracy(returnTypeArray []bin_utils.FunctionDetails, classDetermined *string, function *bin_utils.FunctionDetails) *map[string]int {
+	addressMatch := false
+	for counter := range returnTypeArray {
+		nameToCheck := returnTypeArray[counter].FunctionName
+		if strings.Contains(*classDetermined, nameToCheck) {
+			addressToCheck := returnTypeArray[counter].LowAddress
+			if function.LowAddress == addressToCheck {
+				trainingDataCheck["correct"]++
+				addressMatch = true
+				break
+			}
+		}
+	}
+
+	if !addressMatch {
+		inMap := false
+		for _, element := range returnTypeMap {
+			for _, fnc := range element {
+				if fnc.LowAddress == function.LowAddress {
+					trainingDataCheck["incorrect"]++
+					inMap = true
+					break
+				}
+				if inMap {
+					break
+				}
+			}
+		}
+		if !inMap {
+			trainingDataCheck["error"]++
+		}
+	}
+	return &trainingDataCheck
+}
+
 func classifyFunction(function *bin_utils.FunctionDetails) (string, float64) {
 	returnType := function.ReturnType
 	lowEnd, highEnd := getFunctionRange(function)
@@ -168,38 +204,7 @@ func classifyFunction(function *bin_utils.FunctionDetails) (string, float64) {
 			}
 		}
 	}
-
-	addressMatch := false
-	for counter := range returnTypeArray {
-		nameToCheck := returnTypeArray[counter].FunctionName
-		if strings.Contains(classDetermined, nameToCheck) {
-			addressToCheck := returnTypeArray[counter].LowAddress
-			if function.LowAddress == addressToCheck {
-				trainingDataCheck["correct"]++
-				addressMatch = true
-				break
-			}
-		}
-	}
-
-	if !addressMatch {
-		inMap := false
-		for _, element := range returnTypeMap {
-			for _, fnc := range element {
-				if fnc.LowAddress == function.LowAddress {
-					trainingDataCheck["incorrect"]++
-					inMap = true
-					break
-				}
-				if inMap {
-					break
-				}
-			}
-		}
-		if !inMap {
-			trainingDataCheck["error"]++
-		}
-	}
+	checkAccuracy(returnTypeArray, &classDetermined, function)
 
 	return classDetermined, scores[likely]
 }
