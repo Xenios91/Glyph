@@ -17,17 +17,7 @@ func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	fmt.Print("Beginning to classify training data...")
 	for _, function := range *classes {
 		returnType := function.Tokens[0]
-		var gramArray []string
-		var tokensLength int = len(function.Tokens)
-		var tokens []string = function.Tokens
-		for counter := 0; counter < tokensLength; counter++ {
-			if (counter + 1) == tokensLength {
-				gramArray = append(gramArray, fmt.Sprintf("%s", tokens[counter]))
-			} else {
-				gramArray = append(gramArray, fmt.Sprintf("%s %s", tokens[counter], tokens[counter+1]))
-			}
-		}
-		function.Tokens = gramArray
+		function.Tokens = getNGrams(&function)
 		returnTypeMap[returnType] = append(returnTypeMap[returnType], function)
 	}
 	for key, element := range returnTypeMap {
@@ -50,17 +40,8 @@ func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 		functions := returnTypeMap[key]
 		for _, function := range functions {
 			if !strings.Contains(function.FunctionName, "FUN_") {
-				tokens := function.Tokens
-				var gramArray []string
 				if !strings.Contains(string(key), "FUN_") {
-					tokensLength := len(tokens)
-					for counter := 0; counter < tokensLength; counter++ {
-						if (counter + 1) == tokensLength {
-							gramArray = append(gramArray, fmt.Sprintf("%s", tokens[counter]))
-						} else {
-							gramArray = append(gramArray, fmt.Sprintf("%s %s", tokens[counter], tokens[counter+1]))
-						}
-					}
+					gramArray := getNGrams(&function)
 					classifier[key].Learn(gramArray, bayesian.Class(function.FunctionName))
 				}
 			}
@@ -76,15 +57,8 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 
 	for _, function := range functions {
 		var gramArray []string
-		var tokensLength = len(function.Tokens)
 		gramArray = append(gramArray, fmt.Sprintf("%s", function.Tokens[0]))
-		for counter := 1; counter < tokensLength; counter++ {
-			if counter+1 == tokensLength {
-				gramArray = append(gramArray, fmt.Sprintf("%s", function.Tokens[counter]))
-			} else {
-				gramArray = append(gramArray, fmt.Sprintf("%s %s", function.Tokens[counter], function.Tokens[counter+1]))
-			}
-		}
+		gramArray = append(gramArray, getNGrams(&function)...)
 		function.Tokens = gramArray
 		function.ReturnType = gramArray[0]
 
@@ -118,18 +92,41 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 
 	}
 	symbolTable.BinaryName = binary.BinaryName
-	fmt.Println("Functions Classified!")
-	fmt.Printf("Total functions analyzed: %d Total correct: %d Total incorrect: %d Total Errored: %d\n", len(functions), int(trainingDataCheck["correct"]), int(trainingDataCheck["incorrect"]), int(trainingDataCheck["error"]))
-	fmt.Printf("%s %.2f%%\n", "Training accuracy:", (float64(trainingDataCheck["correct"]))/((float64(trainingDataCheck["correct"]))+float64(trainingDataCheck["incorrect"]))*100)
+	printClassificationDetails(functions)
 	return symbolTable
 }
 
-func classifyFunction(function *bin_utils.FunctionDetails) (string, float64) {
-	returnType := function.ReturnType
+func getNGrams(function *bin_utils.FunctionDetails) []string {
+	var gramArray []string
+	var tokensLength int = len(function.Tokens)
+	var tokens []string = function.Tokens
+	for counter := 0; counter < tokensLength; counter++ {
+		if (counter + 1) == tokensLength {
+			gramArray = append(gramArray, fmt.Sprintf("%s", tokens[counter]))
+		} else {
+			gramArray = append(gramArray, fmt.Sprintf("%s %s", tokens[counter], tokens[counter+1]))
+		}
+	}
+	return gramArray
+}
+
+func printClassificationDetails(functions []bin_utils.FunctionDetails) {
+	fmt.Println("Functions Classified!")
+	fmt.Printf("Total functions analyzed: %d Total correct: %d Total incorrect: %d Total Errored: %d\n", len(functions), int(trainingDataCheck["correct"]), int(trainingDataCheck["incorrect"]), int(trainingDataCheck["error"]))
+	fmt.Printf("%s %.2f%%\n", "Training accuracy:", (float64(trainingDataCheck["correct"]))/((float64(trainingDataCheck["correct"]))+float64(trainingDataCheck["incorrect"]))*100)
+}
+
+func getFunctionRange(function *bin_utils.FunctionDetails) (int, int) {
 	var functionLength int = len(function.Tokens)
 	var functionRange int = int(float32(functionLength) * 0.25)
 	var highEnd int = functionLength + functionRange
 	var lowEnd int = functionLength - functionRange
+	return lowEnd, highEnd
+}
+
+func classifyFunction(function *bin_utils.FunctionDetails) (string, float64) {
+	returnType := function.ReturnType
+	lowEnd, highEnd := getFunctionRange(function)
 	var classifierMap map[string]bin_utils.FunctionDetails = make(map[string]bin_utils.FunctionDetails)
 	var classifierMapKeys []bayesian.Class
 
