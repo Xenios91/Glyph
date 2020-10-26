@@ -106,9 +106,6 @@ func getNGrams(function *bin_utils.FunctionDetails) []string {
 	for counter := 0; counter < tokensLength; counter++ {
 		var grams strings.Builder
 		for i := 0; i < nGrams; i++ {
-			if counter > (tokensLength - nGrams) {
-				fmt.Println()
-			}
 			if counter < (tokensLength - nGrams) {
 				grams.WriteString(tokens[counter+i])
 				if i != (nGrams - 1) {
