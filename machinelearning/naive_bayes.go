@@ -13,6 +13,8 @@ var classifier map[string]*bayesian.Classifier = make(map[string]*bayesian.Class
 var returnTypeMap map[string][]bin_utils.FunctionDetails = make(map[string][]bin_utils.FunctionDetails, 10)
 var trainingDataCheck map[string]int = make(map[string]int, 3)
 
+const nGrams int = 3
+
 func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	fmt.Print("Beginning to classify training data...")
 	for _, function := range *classes {
@@ -99,14 +101,24 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 
 func getNGrams(function *bin_utils.FunctionDetails) []string {
 	var gramArray []string
-	var tokensLength int = len(function.Tokens)
 	var tokens []string = function.Tokens
+	var tokensLength int = len(tokens)
 	for counter := 0; counter < tokensLength; counter++ {
-		if (counter + 1) == tokensLength {
-			gramArray = append(gramArray, fmt.Sprintf("%s", tokens[counter]))
-		} else {
-			gramArray = append(gramArray, fmt.Sprintf("%s %s", tokens[counter], tokens[counter+1]))
+		var grams strings.Builder
+		for i := 0; i < nGrams; i++ {
+			if counter > (tokensLength - nGrams) {
+				fmt.Println()
+			}
+			if counter < (tokensLength - nGrams) {
+				grams.WriteString(tokens[counter+i])
+				if i != (nGrams - 1) {
+					grams.WriteString(" ")
+				}
+			} else {
+				grams.WriteString(tokens[counter])
+			}
 		}
+		gramArray = append(gramArray, grams.String())
 	}
 	return gramArray
 }
@@ -205,6 +217,5 @@ func classifyFunction(function *bin_utils.FunctionDetails) (string, float64) {
 		}
 	}
 	checkAccuracy(returnTypeArray, &classDetermined, function)
-
 	return classDetermined, scores[likely]
 }
