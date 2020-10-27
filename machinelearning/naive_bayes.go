@@ -24,6 +24,7 @@ func SetNaiveBayesConfig(nGrams int, functionRange float32) {
 	naiveBayesConfig.NGrams = nGrams
 	naiveBayesConfig.FunctionRange = functionRange
 	fmt.Printf("N-Grams set: %d... ", nGrams)
+	fmt.Printf("Function Range set: %f... ", functionRange)
 }
 
 //CreateClassifier used to create a new classifier based off the map of function details provided.
