@@ -24,6 +24,7 @@ type symbolPageData struct {
 	SymbolTable      bin_utils.BinarySymbolTable
 }
 
+//MainPage loads the main page for Glyph.
 func MainPage(w http.ResponseWriter, r *http.Request) {
 	var data pageData = pageData{
 		Title: "Glyph",
@@ -32,6 +33,7 @@ func MainPage(w http.ResponseWriter, r *http.Request) {
 	template.Execute(w, data)
 }
 
+//GetSymbolsPage loads the symbols page for Glyph.
 func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
 	var symbolPageData *symbolPageData = new(symbolPageData)
 
@@ -58,6 +60,7 @@ func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//UploadBinaryPage loads the page to upload a binary for Glyph.
 func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	if method == "POST" {
@@ -168,6 +171,8 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 
 }
 
+
+/StatusUpdate todo, currently does nothing.
 func StatusUpdate(w http.ResponseWriter, r *http.Request) {
 	//todo
 }

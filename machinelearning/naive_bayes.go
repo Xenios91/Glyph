@@ -9,12 +9,21 @@ import (
 	"github.com/navossoc/bayesian"
 )
 
+type naiveBayesConfiguration struct {
+	NGrams int
+}
+
 var classifier map[string]*bayesian.Classifier = make(map[string]*bayesian.Classifier, 10)
 var returnTypeMap map[string][]bin_utils.FunctionDetails = make(map[string][]bin_utils.FunctionDetails, 10)
 var trainingDataCheck map[string]int = make(map[string]int, 3)
+var naiveBayesConfig *naiveBayesConfiguration = new(naiveBayesConfiguration)
 
-const nGrams int = 3
+//SetNaiveBayesConfig used to set the configuration of the naive bayes model used.
+func SetNaiveBayesConfig(nGrams int) {
+	naiveBayesConfig.NGrams = nGrams
+}
 
+//CreateClassifier used to create a new classifier based off the map of function details provided.
 func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	fmt.Print("Beginning to classify training data...")
 	for _, function := range *classes {
@@ -52,6 +61,7 @@ func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	fmt.Println("Training data classification complete!")
 }
 
+//ClassifyFunctions used to classify one or more functions provided to it.
 func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolTable {
 	var symbolTable *bin_utils.BinarySymbolTable = new(bin_utils.BinarySymbolTable)
 	symbolTable.SymbolsMap = make(map[string][]string)
@@ -88,7 +98,7 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 					confidence = "Unknown"
 					break
 				}
-				symbolTable.PopulateMap(function.LowAddress, string(functionName), confidence)
+				symbolTable.PopulateMap(&function.LowAddress, &string(functionName), &confidence)
 			}
 
 		}
@@ -105,10 +115,10 @@ func getNGrams(function *bin_utils.FunctionDetails) []string {
 	var tokensLength int = len(tokens)
 	for counter := 0; counter < tokensLength; counter++ {
 		var grams strings.Builder
-		for i := 0; i < nGrams; i++ {
-			if counter < (tokensLength - nGrams) {
+		for i := 0; i < naiveBayesConfig.NGrams; i++ {
+			if counter < (tokensLength - naiveBayesConfig.NGrams) {
 				grams.WriteString(tokens[counter+i])
-				if i != (nGrams - 1) {
+				if i != (naiveBayesConfig.NGrams - 1) {
 					grams.WriteString(" ")
 				}
 			} else {
@@ -120,53 +130,12 @@ func getNGrams(function *bin_utils.FunctionDetails) []string {
 	return gramArray
 }
 
-func printClassificationDetails(functions []bin_utils.FunctionDetails) {
-	fmt.Println("Functions Classified!")
-	fmt.Printf("Total functions analyzed: %d Total correct: %d Total incorrect: %d Total Errored: %d\n", len(functions), int(trainingDataCheck["correct"]), int(trainingDataCheck["incorrect"]), int(trainingDataCheck["error"]))
-	fmt.Printf("%s %.2f%%\n", "Training accuracy:", (float64(trainingDataCheck["correct"]))/((float64(trainingDataCheck["correct"]))+float64(trainingDataCheck["incorrect"]))*100)
-}
-
 func getFunctionRange(function *bin_utils.FunctionDetails) (int, int) {
 	var functionLength int = len(function.Tokens)
 	var functionRange int = int(float32(functionLength) * 0.25)
 	var highEnd int = functionLength + functionRange
 	var lowEnd int = functionLength - functionRange
 	return lowEnd, highEnd
-}
-
-func checkAccuracy(returnTypeArray []bin_utils.FunctionDetails, classDetermined *string, function *bin_utils.FunctionDetails) *map[string]int {
-	addressMatch := false
-	for counter := range returnTypeArray {
-		nameToCheck := returnTypeArray[counter].FunctionName
-		if strings.Contains(*classDetermined, nameToCheck) {
-			addressToCheck := returnTypeArray[counter].LowAddress
-			if function.LowAddress == addressToCheck {
-				trainingDataCheck["correct"]++
-				addressMatch = true
-				break
-			}
-		}
-	}
-
-	if !addressMatch {
-		inMap := false
-		for _, element := range returnTypeMap {
-			for _, fnc := range element {
-				if fnc.LowAddress == function.LowAddress {
-					trainingDataCheck["incorrect"]++
-					inMap = true
-					break
-				}
-				if inMap {
-					break
-				}
-			}
-		}
-		if !inMap {
-			trainingDataCheck["error"]++
-		}
-	}
-	return &trainingDataCheck
 }
 
 func classifyFunction(function *bin_utils.FunctionDetails) (string, float64) {
@@ -213,6 +182,7 @@ func classifyFunction(function *bin_utils.FunctionDetails) (string, float64) {
 			}
 		}
 	}
+
 	checkAccuracy(returnTypeArray, &classDetermined, function)
 	return classDetermined, scores[likely]
 }

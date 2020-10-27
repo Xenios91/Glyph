@@ -7,10 +7,10 @@ type BinarySymbolTable struct {
 }
 
 //PopulateMap Used to populate the BinarySymbolTable struct's map with entry points and function names.
-func (binarySymbolTable BinarySymbolTable) PopulateMap(entryPoint string, functionName string, confidence string) {
-	if len(binarySymbolTable.SymbolsMap[entryPoint]) == 0 {
-		binarySymbolTable.SymbolsMap[entryPoint] = append(binarySymbolTable.SymbolsMap[entryPoint], confidence)
-		binarySymbolTable.SymbolsMap[entryPoint] = append(binarySymbolTable.SymbolsMap[entryPoint], functionName)
+func (binarySymbolTable BinarySymbolTable) PopulateMap(entryPoint *string, functionName *string, confidence *string) {
+	if len(binarySymbolTable.SymbolsMap[*entryPoint]) == 0 {
+		binarySymbolTable.SymbolsMap[*entryPoint] = append(binarySymbolTable.SymbolsMap[*entryPoint], *confidence)
+		binarySymbolTable.SymbolsMap[*entryPoint] = append(binarySymbolTable.SymbolsMap[*entryPoint], *functionName)
 	}
 
 }

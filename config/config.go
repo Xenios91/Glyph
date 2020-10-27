@@ -15,6 +15,8 @@ var config *configuration
 //Configuration a struct for server configuration settings to be stored.
 type configuration struct {
 	EnableLogging         bool
+	CheckTrainingAccuracy bool
+	NGrams                int
 	GhidraHeadless        string
 	GhidraProjectLocation string
 	GhidraProject         string
@@ -48,13 +50,23 @@ func loadGhidraAnalysis() {
 	fmt.Println("Ghidra Analysis Queue loaded!")
 }
 
+func setupML() {
+	ml.SetTrainingConfig(config.CheckTrainingAccuracy)
+	ml.SetNaiveBayesConfig(config.NGrams)
+	ml.LoadMLTrainingData()
+}
+
+func setupDB() {
+	db_utils.SetupDB()
+}
+
 //Setup Sets up the server
 func Setup() {
 	fmt.Println("Server starting...")
 	loadConfig()
 	loadLogging()
-	db_utils.SetupDB()
-	ml.LoadMLTrainingData()
+	setupDB()
+	setupML()
 	loadGhidraAnalysis()
 	fmt.Println("Server started!")
 }

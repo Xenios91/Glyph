@@ -48,6 +48,7 @@ func InsertDB(values ...interface{}) {
 	}
 }
 
+//QueryDBWithParameter queries the table supplies with the statement provided and returns the results.
 func QueryDBWithParameter(tableLocation string, preparedStatement *string, parameter *string) (*sql.Rows, error) {
 	if utils.CheckIfFileExist(tableLocation) {
 		database, err := sql.Open("sqlite3", tableLocation)
@@ -74,6 +75,7 @@ func deleteFromDBWithParameter(tableLocation string, preparedStatement *string, 
 	return errors.New("Database not available")
 }
 
+//QueryDB queries the database with at the table location provided with the statement and returns the results.
 func QueryDB(tableLocation string, preparedStatement *string) *sql.Rows {
 	database, err := sql.Open("sqlite3", tableLocation)
 	defer database.Close()
@@ -84,6 +86,7 @@ func QueryDB(tableLocation string, preparedStatement *string) *sql.Rows {
 	return result
 }
 
+//GetTrainingData returns all training data from the ml training table
 func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 	preparedStatement := fmt.Sprintf("SELECT * FROM %s", MLTrainingSetTableName)
 	result := QueryDB(MLTrainingSetTableLocation, &preparedStatement)
@@ -110,6 +113,7 @@ func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 	return &classes
 }
 
+//GetDistinctBinaries returns all distinct binary file names from the database.
 func GetDistinctBinaries() *[]string {
 	var preparedStatement string = fmt.Sprintf("SELECT DISTINCT %s FROM %s", BinaryNameColumn, SymbolTablesTableName)
 	results := QueryDB(SymbolTablesTableLocation, &preparedStatement)
@@ -125,6 +129,7 @@ func GetDistinctBinaries() *[]string {
 
 }
 
+//GetSymbolTable returns the symbol table from the database of the binary name supplied.
 func GetSymbolTable(binaryName *string) *bin_utils.BinarySymbolTable {
 	var preparedStatement string = fmt.Sprintf("SELECT * FROM %s WHERE %s=?", SymbolTablesTableName, BinaryNameColumn)
 	results, err := QueryDBWithParameter(SymbolTablesTableLocation, &preparedStatement, binaryName)
@@ -139,11 +144,12 @@ func GetSymbolTable(binaryName *string) *bin_utils.BinarySymbolTable {
 	for results.Next() {
 		results.Scan(&primKey, &symbolTable.BinaryName, &entryPoint, &functionName, &probability)
 		functionName := strings.Split(functionName, "%_VERSION_")[0]
-		symbolTable.PopulateMap(entryPoint, functionName, probability)
+		symbolTable.PopulateMap(&entryPoint, &functionName, &probability)
 	}
 	return symbolTable
 }
 
+//DelSymbolTable deletes the symbol table from the database associated with the binary name supplied.
 func DelSymbolTable(binaryName *string) {
 	var preparedStatement string = fmt.Sprintf("DELETE FROM %s WHERE %s=?", SymbolTablesTableName, BinaryNameColumn)
 	err := deleteFromDBWithParameter(SymbolTablesTableLocation, &preparedStatement, binaryName)

@@ -33,6 +33,7 @@ func StartGhidraAnalysis(fileName string, trainingData bool) bool {
 	return true
 }
 
+//LoadGhidraAnalysis sets all configuration information for ghidra based on arguments supplied.
 func LoadGhidraAnalysis(ghidraHeadless string, ghidraProjectLocation string, ghidraProject string, ghidraScript string) {
 	once.Do(func() {
 		ghidraQueue = make(ghidraAnalysisQueue)
@@ -49,14 +50,17 @@ func addToQueue(binaryName string, trainingData bool) {
 	ghidraQueue[binaryName] = trainingData
 }
 
+//RemoveFromQueue removes a binary name from the queue of binaries being processed by ghidra.
 func RemoveFromQueue(binaryName string) {
 	delete(ghidraQueue, binaryName)
 }
 
+//CheckIfTraining returns true/false if a binary being processed by ghidra currently is training data.
 func CheckIfTraining(binaryName string) bool {
 	return ghidraQueue[binaryName]
 }
 
+//CheckIfTrainingAndRemove returns true/false if a binary being processed by ghidra currently is training data, and removes it from the queue.
 func CheckIfTrainingAndRemove(binaryName string) bool {
 	var isTraining bool = ghidraQueue[binaryName]
 	RemoveFromQueue(binaryName)
