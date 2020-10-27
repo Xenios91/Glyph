@@ -16,6 +16,7 @@ var trainingConfig *trainingConfiguration = new(trainingConfiguration)
 //SetTrainingConfig used to set the configuration for ML training.
 func SetTrainingConfig(checkTrainingAccuracy bool) {
 	trainingConfig.CheckTrainingAccuracy = checkTrainingAccuracy
+	fmt.Printf("Check training accuracy: %t... ", checkTrainingAccuracy)
 }
 
 //LoadMLTrainingData loads all training data in the database and classifies it.
@@ -24,7 +25,7 @@ func LoadMLTrainingData() {
 	mlData := db_utils.GetTrainingData()
 	if len(*mlData) > 0 {
 		CreateClassifier(mlData)
-		fmt.Println("ML models loaded!")
+		fmt.Println("ML models successfully loaded!")
 
 	} else {
 		fmt.Println("No ML training data found... Starting fresh!")

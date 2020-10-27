@@ -40,9 +40,11 @@ func createSymbolTablesDB() {
 func SetupDB() {
 	fmt.Print("Setting up database... ")
 	if !utils.CheckIfFileExist(MLTrainingSetTableLocation) {
+		fmt.Print("Creating machine learning training database...")
 		createMLTrainingDB()
 	}
 	if !utils.CheckIfFileExist(SymbolTablesTableLocation) {
+		fmt.Print("Creating symbol table database...")
 		createSymbolTablesDB()
 	}
 	fmt.Println("Database setup complete!")

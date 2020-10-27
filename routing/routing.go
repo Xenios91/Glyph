@@ -171,8 +171,7 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 
 }
 
-
-/StatusUpdate todo, currently does nothing.
+//StatusUpdate todo, currently does nothing.
 func StatusUpdate(w http.ResponseWriter, r *http.Request) {
 	//todo
 }

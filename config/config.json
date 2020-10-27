@@ -1,7 +1,9 @@
 {
     "enableLogging": false,
+    "serverPort": 8080,
     "checkTrainingAccuracy": true,
-    "NGrams": 3,
+    "nGrams": 3,
+    "functionRange": 0.70,
     "ghidraHeadless": "/home/xenios/ghidra_9.1.2_PUBLIC/support/analyzeHeadless",
     "ghidraProjectLocation": "\\/home/xenios/ghidra_projects",
     "ghidraProject": "glyph",

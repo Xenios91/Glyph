@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	config "glyph/glyph/config"
 	routing "glyph/glyph/routing"
 	"net/http"
@@ -14,12 +15,13 @@ func loadRoutes() {
 	http.HandleFunc("/statusUpdate", routing.StatusUpdate)
 }
 
-func startServer() {
+func startServer(portToBind string) {
 	loadRoutes()
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(portToBind, nil)
 }
 
 func main() {
-	config.Setup()
-	startServer()
+	var port int = config.Setup()
+	var portToBind string = fmt.Sprintf(":%d", port)
+	startServer(portToBind)
 }

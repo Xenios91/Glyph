@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+//CreateLogs creates and performs setup for glyph.log.
 func CreateLogs() {
 	file, err := os.OpenFile("./glyph.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	defer file.Close()
