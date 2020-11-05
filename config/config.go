@@ -14,15 +14,16 @@ var config *configuration
 
 //Configuration a struct for server configuration settings to be stored.
 type configuration struct {
-	EnableLogging         bool
-	ServerPort            int
-	CheckTrainingAccuracy bool
-	NGrams                int
-	FunctionRange         float32
-	GhidraHeadless        string
-	GhidraProjectLocation string
-	GhidraProject         string
-	GhidraScript          string
+	EnableLogging             bool
+	ServerPort                int
+	CheckTrainingAccuracy     bool
+	ClassificationDetailsFile string
+	NGrams                    int
+	FunctionRange             float32
+	GhidraHeadless            string
+	GhidraProjectLocation     string
+	GhidraProject             string
+	GhidraScript              string
 }
 
 func loadConfig() {
@@ -55,7 +56,7 @@ func loadGhidraAnalysis() {
 
 func setupML() {
 	fmt.Print("Setting up ML configurations... ")
-	ml.SetTrainingConfig(config.CheckTrainingAccuracy)
+	ml.SetTrainingConfig(config.CheckTrainingAccuracy, &config.ClassificationDetailsFile)
 	ml.SetNaiveBayesConfig(config.NGrams, config.FunctionRange)
 	fmt.Println("ML configurations successfully loaded!")
 	ml.LoadMLTrainingData()

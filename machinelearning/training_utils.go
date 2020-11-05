@@ -2,20 +2,23 @@ package glyph
 
 import (
 	"fmt"
+	file_utils "glyph/glyph/utils"
 	bin_utils "glyph/glyph/utils/binutils"
 	db_utils "glyph/glyph/utils/dbutils"
 	"strings"
 )
 
 type trainingConfiguration struct {
-	CheckTrainingAccuracy bool
+	CheckTrainingAccuracy     bool
+	classificationDetailsFile string
 }
 
 var trainingConfig *trainingConfiguration = new(trainingConfiguration)
 
 //SetTrainingConfig used to set the configuration for ML training.
-func SetTrainingConfig(checkTrainingAccuracy bool) {
+func SetTrainingConfig(checkTrainingAccuracy bool, classificationDetailsFile *string) {
 	trainingConfig.CheckTrainingAccuracy = checkTrainingAccuracy
+	trainingConfig.classificationDetailsFile = *classificationDetailsFile
 	fmt.Printf("Check training accuracy: %t... ", checkTrainingAccuracy)
 }
 
@@ -77,7 +80,12 @@ func checkAccuracy(returnTypeArray []bin_utils.FunctionDetails, classDetermined 
 }
 
 func printClassificationDetails(functions []bin_utils.FunctionDetails) {
-	fmt.Println("Functions Classified!")
-	fmt.Printf("Total functions analyzed: %d Total correct: %d Total incorrect: %d Total Errored: %d\n", len(functions), int(trainingDataCheck["correct"]), int(trainingDataCheck["incorrect"]), int(trainingDataCheck["error"]))
-	fmt.Printf("%s %.2f%%\n", "Training accuracy:", (float64(trainingDataCheck["correct"]))/((float64(trainingDataCheck["correct"]))+float64(trainingDataCheck["incorrect"]))*100)
+	var classificationDetailsFile string = "./classification_details.txt"
+	var stringBuilder strings.Builder
+	stringBuilder.WriteString(fmt.Sprintf("N-Grams: %d\n", naiveBayesConfig.NGrams))
+	stringBuilder.WriteString(fmt.Sprintf("Function Range: %.2f\n", naiveBayesConfig.FunctionRange))
+	stringBuilder.WriteString(fmt.Sprintf("Total functions analyzed: %d Total correct: %d Total incorrect: %d Total Errored: %d\n", len(functions), int(trainingDataCheck["correct"]), int(trainingDataCheck["incorrect"]), int(trainingDataCheck["error"])))
+	stringBuilder.WriteString(fmt.Sprintf("%s %.2f%%\n", "Training accuracy:", (float64(trainingDataCheck["correct"]))/((float64(trainingDataCheck["correct"]))+float64(trainingDataCheck["incorrect"]))*100))
+	var classificationDetails string = stringBuilder.String()
+	file_utils.CreateAndWriteFile(&classificationDetailsFile, &classificationDetails, false)
 }

@@ -22,8 +22,31 @@ func IOReader(file string) *os.File {
 }
 
 //CreateDirectory will create a directory using the supplied arguments.
-func CreateDirectory(directoryParent string, directoryName string) (*string, error) {
-	dirPath := filepath.Join(directoryParent, directoryName)
+func CreateDirectory(directoryParent *string, directoryName *string) (*string, error) {
+	dirPath := filepath.Join(*directoryParent, *directoryName)
 	err := os.MkdirAll(dirPath, os.ModePerm)
 	return &dirPath, err
+}
+
+//DeleteFile deletes the file located at the path passed as an argument.
+func DeleteFile(fileName *string) {
+	if CheckIfFileExist(*fileName) {
+		var err = os.Remove(*fileName)
+		CheckError(err)
+	}
+}
+
+//CreateAndWriteFile creates a file if it doesn't exist and writes the fileContents argument to the file.
+func CreateAndWriteFile(fileName *string, fileContents *string, append bool) {
+	var file *os.File
+	var err error
+	if !CheckIfFileExist(*fileName) {
+		file, err = os.Create(*fileName)
+		CheckError(err)
+	} else if !append {
+		DeleteFile(fileName)
+		file, err = os.Create(*fileName)
+		CheckError(err)
+	}
+	file.WriteString(*fileContents)
 }

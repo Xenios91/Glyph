@@ -109,7 +109,12 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 
 	}
 	symbolTable.BinaryName = binary.BinaryName
-	printClassificationDetails(functions)
+	fmt.Println("Functions Classified!")
+
+	if trainingConfig.CheckTrainingAccuracy {
+		printClassificationDetails(functions)
+	}
+
 	return symbolTable
 }
 
@@ -187,6 +192,8 @@ func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 		}
 	}
 
-	checkAccuracy(returnTypeArray, &classDetermined, function)
+	if trainingConfig.CheckTrainingAccuracy {
+		checkAccuracy(returnTypeArray, &classDetermined, function)
+	}
 	return &classDetermined, scores[likely]
 }

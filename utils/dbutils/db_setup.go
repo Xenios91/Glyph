@@ -9,7 +9,7 @@ import (
 func createMLTrainingDB() {
 	var directoryParent string = "./database"
 	var directoryName string = "ml_training_set"
-	_, err := utils.CreateDirectory(directoryParent, directoryName)
+	_, err := utils.CreateDirectory(&directoryParent, &directoryName)
 	utils.CheckError(err)
 
 	database, err := sql.Open("sqlite3", MLTrainingSetTableLocation)
@@ -24,7 +24,7 @@ func createMLTrainingDB() {
 func createSymbolTablesDB() {
 	var directoryParent string = "./database"
 	var directoryName string = "symbol_tables"
-	_, err := utils.CreateDirectory(directoryParent, directoryName)
+	_, err := utils.CreateDirectory(&directoryParent, &directoryName)
 	utils.CheckError(err)
 
 	database, err := sql.Open("sqlite3", SymbolTablesTableLocation)
