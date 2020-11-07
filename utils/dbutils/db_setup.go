@@ -4,7 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	utils "glyph/glyph/utils"
+	"sync"
 )
+
+var once sync.Once
 
 func createMLTrainingDB() {
 	var directoryParent string = "./database"
@@ -36,16 +39,19 @@ func createSymbolTablesDB() {
 	statement.Exec()
 }
 
-//SetupDB Sets up the web applications database.
+//SetupDB Sets up the web applications database, can only be run once.
 func SetupDB() {
-	fmt.Print("Setting up database... ")
-	if !utils.CheckIfFileExist(MLTrainingSetTableLocation) {
-		fmt.Print("Creating machine learning training database...")
-		createMLTrainingDB()
-	}
-	if !utils.CheckIfFileExist(SymbolTablesTableLocation) {
-		fmt.Print("Creating symbol table database...")
-		createSymbolTablesDB()
-	}
-	fmt.Println("Database setup complete!")
+	once.Do(func() {
+		fmt.Print("Setting up database... ")
+		if !utils.CheckIfFileExist(MLTrainingSetTableLocation) {
+			fmt.Print("Creating machine learning training database...")
+			createMLTrainingDB()
+		}
+		if !utils.CheckIfFileExist(SymbolTablesTableLocation) {
+			fmt.Print("Creating symbol table database...")
+			createSymbolTablesDB()
+		}
+		fmt.Println("Database setup complete!")
+	})
+
 }

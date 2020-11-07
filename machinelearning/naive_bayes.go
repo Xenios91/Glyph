@@ -19,16 +19,14 @@ var returnTypeMap map[string][]bin_utils.FunctionDetails = make(map[string][]bin
 var trainingDataCheck map[string]int = make(map[string]int, 3)
 var naiveBayesConfig *naiveBayesConfiguration = new(naiveBayesConfiguration)
 
-//SetNaiveBayesConfig used to set the configuration of the naive bayes model used.
-func SetNaiveBayesConfig(nGrams int, functionRange float32) {
+func setNaiveBayesConfig(nGrams int, functionRange float32) {
 	naiveBayesConfig.NGrams = nGrams
 	naiveBayesConfig.FunctionRange = functionRange
 	fmt.Printf("N-Grams set: %d... ", nGrams)
 	fmt.Printf("Function Range set: %.2f... ", functionRange)
 }
 
-//CreateClassifier used to create a new classifier based off the map of function details provided.
-func CreateClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
+func createClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	fmt.Print("Beginning to classify training data... ")
 	for _, function := range *classes {
 		returnType := function.Tokens[0]

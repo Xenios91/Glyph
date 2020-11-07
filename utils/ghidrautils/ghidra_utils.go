@@ -10,10 +10,10 @@ import (
 type ghidraAnalysisQueue map[string]bool
 
 type ghidraAnalysisConfig struct {
-	ghidraHeadless        string
-	ghidraProjectLocation string
-	ghidraProject         string
-	ghidraScript          string
+	ghidraHeadless        *string
+	ghidraProjectLocation *string
+	ghidraProject         *string
+	ghidraScript          *string
 }
 
 var (
@@ -25,7 +25,7 @@ var (
 //StartGhidraAnalysis Starts analysis on a supplied binary
 func StartGhidraAnalysis(fileName string, trainingData bool) bool {
 	addToQueue(filepath.Base(fileName), trainingData)
-	err := exec.Command(ghidraConfig.ghidraHeadless, ghidraConfig.ghidraProjectLocation, ghidraConfig.ghidraProject, "-import", fileName, "-postScript", ghidraConfig.ghidraScript, "-overwrite").Start()
+	err := exec.Command(*ghidraConfig.ghidraHeadless, *ghidraConfig.ghidraProjectLocation, *ghidraConfig.ghidraProject, "-import", fileName, "-postScript", *ghidraConfig.ghidraScript, "-overwrite").Start()
 	if err != nil {
 		fmt.Println(err)
 		return false
@@ -34,7 +34,8 @@ func StartGhidraAnalysis(fileName string, trainingData bool) bool {
 }
 
 //LoadGhidraAnalysis sets all configuration information for ghidra based on arguments supplied.
-func LoadGhidraAnalysis(ghidraHeadless string, ghidraProjectLocation string, ghidraProject string, ghidraScript string) {
+func LoadGhidraAnalysis(ghidraHeadless *string, ghidraProjectLocation *string, ghidraProject *string, ghidraScript *string) {
+	fmt.Print("Loading Ghidra analysis queue... ")
 	once.Do(func() {
 		ghidraQueue = make(ghidraAnalysisQueue)
 		ghidraConfig = new(ghidraAnalysisConfig)
@@ -44,6 +45,7 @@ func LoadGhidraAnalysis(ghidraHeadless string, ghidraProjectLocation string, ghi
 		ghidraConfig.ghidraProject = ghidraProject
 		ghidraConfig.ghidraScript = ghidraScript
 	})
+	fmt.Println("Ghidra Analysis Queue successfully loaded!")
 }
 
 func addToQueue(binaryName string, trainingData bool) {

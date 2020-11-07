@@ -3,7 +3,11 @@ package main
 import (
 	"fmt"
 	config "glyph/glyph/config"
+	ml "glyph/glyph/machinelearning"
 	routing "glyph/glyph/routing"
+	db_utils "glyph/glyph/utils/dbutils"
+	ghidra_utils "glyph/glyph/utils/ghidrautils"
+	logging "glyph/glyph/utils/logging"
 	"net/http"
 )
 
@@ -15,13 +19,24 @@ func loadRoutes() {
 	http.HandleFunc("/statusUpdate", routing.StatusUpdate)
 }
 
-func startServer(portToBind string) {
+func startServer(portToBind *string) {
 	loadRoutes()
-	http.ListenAndServe(portToBind, nil)
+	http.ListenAndServe(*portToBind, nil)
+}
+
+func setup() *string {
+	glyphConfig := config.SetupConfiguration()
+	db_utils.SetupDB()
+	ml.SetupML(glyphConfig.CheckTrainingAccuracy, glyphConfig.ClassificationDetailsFile, glyphConfig.NGrams, glyphConfig.FunctionRange)
+	ghidra_utils.LoadGhidraAnalysis(glyphConfig.GhidraHeadless, glyphConfig.GhidraProjectLocation, glyphConfig.GhidraProject, glyphConfig.GhidraScript)
+	logging.LoadLogging(glyphConfig.EnableLogging)
+	var port int = glyphConfig.ServerPort
+	fmt.Printf("Glyph started on port %d!\n", port)
+	var portToBind string = fmt.Sprintf(":%d", port)
+	return &portToBind
 }
 
 func main() {
-	var port int = config.Setup()
-	var portToBind string = fmt.Sprintf(":%d", port)
+	var portToBind *string = setup()
 	startServer(portToBind)
 }
