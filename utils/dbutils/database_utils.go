@@ -75,7 +75,7 @@ func deleteFromDBWithParameter(tableLocation string, preparedStatement *string, 
 	return errors.New("Database not available")
 }
 
-//QueryDB queries the database with at the table location provided with the statement and returns the results.
+//QueryDB queries the database with at the table location provided with the statement and returns the result rows.
 func QueryDB(tableLocation string, preparedStatement *string) *sql.Rows {
 	database, err := sql.Open("sqlite3", tableLocation)
 	defer database.Close()
@@ -86,7 +86,7 @@ func QueryDB(tableLocation string, preparedStatement *string) *sql.Rows {
 	return result
 }
 
-//GetTrainingData returns all training data from the ml training table
+//GetTrainingData returns all training data from the machine learning training table.
 func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 	preparedStatement := fmt.Sprintf("SELECT * FROM %s", MLTrainingSetTableName)
 	result := QueryDB(MLTrainingSetTableLocation, &preparedStatement)

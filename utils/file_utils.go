@@ -36,7 +36,7 @@ func DeleteFile(fileName *string) {
 	}
 }
 
-//CreateAndWriteFile creates a file if it doesn't exist and writes the fileContents argument to the file.
+//CreateAndWriteFile creates a file if it doesn't exist and writes fileContents to the file.
 func CreateAndWriteFile(fileName *string, fileContents *string, append bool) {
 	var file *os.File
 	defer file.Close()

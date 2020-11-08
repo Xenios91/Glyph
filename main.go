@@ -17,6 +17,7 @@ func loadRoutes() {
 	http.HandleFunc("/getSymbols", routing.GetSymbolsPage)
 	http.HandleFunc("/postFunctionDetails", routing.PostFunctionDetails)
 	http.HandleFunc("/statusUpdate", routing.StatusUpdate)
+	http.HandleFunc("/error", routing.ErrorPage)
 }
 
 func startServer(portToBind *string) {

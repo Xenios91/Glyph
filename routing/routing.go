@@ -14,7 +14,8 @@ import (
 )
 
 type pageData struct {
-	Title string
+	Title   string
+	Message string
 }
 
 type symbolPageData struct {
@@ -60,22 +61,44 @@ func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//UploadBinaryPage loads the page to upload a binary for Glyph.
-func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
-	method := r.Method
-	if method == "POST" {
-		success := uploadFile(r)
-		if !success {
-			http.Redirect(w, r, "/uploadBinary", http.StatusSeeOther)
+//ErrorPage a generic template error page for when request errors occur.
+func ErrorPage(w http.ResponseWriter, r *http.Request) {
+	var data pageData = pageData{
+		Title: "Glyph",
+	}
+	errorType, errorFound := r.URL.Query()["type"]
+	if errorFound {
+		if errorType[0] == "uploadError" {
+			data.Message = "Looks like there was an error uploading your binary!"
+		} else if errorType[0] == "unsupportedMethod" {
+			data.Message = "Unsupported Method!"
 		} else {
-			http.Redirect(w, r, "/uploadBinary", http.StatusSeeOther)
+			data.Message = "Looks like an unknown error occured!"
 		}
 	} else {
+		data.Message = "Looks like an unknown error occured!"
+	}
+
+	template := template.Must(template.ParseFiles("./templates/template.html", "./templates/error.html"))
+	template.Execute(w, data)
+}
+
+//UploadBinaryPage loads the page to upload a binary for Glyph.
+func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		success := uploadFile(r)
+		if !success {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}
+	if r.Method == http.MethodGet {
 		var data pageData = pageData{
 			Title: "Glyph",
 		}
 		template := template.Must(template.ParseFiles("./templates/template.html", "./templates/upload.html"))
 		template.Execute(w, data)
+	} else {
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 

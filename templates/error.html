@@ -1,0 +1,24 @@
+{{ define "title" }}{{.Title}}{{ end }}
+{{ define "content" }}
+
+<div class="content" style="background-color: #20A0F8;">
+        <div class="nes-container is-rounded is-centered" style="background-color: #FFFFFF;">
+                <div>
+                        <h1 class="center-text">Oops!</h1>
+                        <p class="nes-text is-primary center-text">{{.Message}}
+                        </p>
+                        <button type="button" class="nes-btn is-primary" onclick="goBack();">Back</button>
+                </div>
+        </div>
+</div>
+
+
+<script>
+        function goBack() {
+                window.history.back();
+        }
+</script>
+
+
+
+{{ end }}

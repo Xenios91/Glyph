@@ -4,7 +4,7 @@
     <div id="upload-box" class="nes-container with-title is-centered" style="background-color: #FFFFFF;">
         <p class="title">Upload</p>
         <p>Upload a binary to be analyzed</p>
-        <label class="nes-btn">
+        <label class="nes-btn is-primary">
             <span>Select your file</span>
             <input id="upload-binary" type="file" onchange="uploadBinary()">
         </label>
@@ -20,27 +20,42 @@
         <p>Your binary is now being processed.</p>
     </div>
 </div>
-
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script>
     document.getElementById("training-data-checkbox").checked = false;
-    function uploadBinary() {
-        let binaryFile = document.getElementById("upload-binary").files[0];
-        let trainingData = document.getElementById("training-data-checkbox").checked;
-        let formData = new FormData();
-        formData.append("binaryFile", binaryFile);
-        formData.append("trainingData", trainingData);
-        fetch('/uploadBinary', {
-            method: "POST",
-            body: formData
+
+    function uploadBinary(e) {
+        var form = $(this);
+        var url = form.attr('action');
+
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: form.serialize(),
+            success: function (data, status, xhr) {
+                var uploadMessage = document.getElementById("upload-message");
+                var uploadBox = document.getElementById("upload-box");
+                uploadMessage.style.display = "block";
+                uploadBox.style.display = "none";
+                setTimeout(function () {
+                    uploadMessage.style.display = "none";
+                    uploadBox.style.display = "block";
+                }, 5000);
+            },
+            error: function (data, status, xhr) {
+                if (data.status == 400) {
+                    window.location.href = '/error?type=uploadError';
+                } else if (data.status == 405) {
+                    window.location.href = '/error?type=unsupportedMethod';
+                } else {
+                    window.location.href = '/error';
+                }
+
+            },
+            complete: function (xhr, textStatus) {
+                console.log("complete");
+            }
         });
-        var uploadMessage = document.getElementById("upload-message");
-        var uploadBox = document.getElementById("upload-box");
-        uploadMessage.style.display = "block";
-        uploadBox.style.display = "none";
-        setTimeout(function () {
-            uploadMessage.style.display = "none";
-            uploadBox.style.display = "block";
-        }, 5000);
     }
 </script>
 
