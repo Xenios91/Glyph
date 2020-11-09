@@ -1,10 +1,10 @@
 {{ define "title" }}{{.Title}}{{ end }} {{ define "content" }}
 {{if .SelectionVisible}}
-<div class="content" style="background-color:#20A0F8;">
+<div class="content blue-bg">
     {{else}}
     <div hidden>
         {{end}}
-        <div style="width: 50%;">
+        <div>
             <label for="default_select">Select a binary</label>
             <div class="nes-select">
                 <select required id="binary-dropdown-selection" onchange="binarySelection()">
@@ -21,34 +21,37 @@
         {{else}}
         <div>
             {{end}}
-            <div style="background-color: #20A0F8;">
+            <div class="blue-bg">
                 <div style="padding: 5px;">
-                    <span id="file-name">File Name: {{.SymbolTable.BinaryName}}</span>
+                    <span class="file-name" id="file-name">File Name: {{.SymbolTable.BinaryName}}</span>
                 </div>
                 <div class="nes-table-responsive content">
                     <blockquote>
                         <table class="nes-table is-bordered is-centered">
                             <thead>
                                 <tr>
-                                    <th scope="col" style="color:#282828">EntryPoint</th>
-                                    <th scope="col" style="color:#282828">Function Name</th>
-                                    <th scope="col" style="color:#282828">Confidence</th>
+                                    <th scope="col">EntryPoint</th>
+                                    <th scope="col">Function Name</th>
+                                    <th scope="col">Confidence</th>
                                 </tr>
                             </thead>
-                            {{range $entryPoint, $functionData := .SymbolTable.SymbolsMap}}
                             <tbody>
+                                {{range $entryPoint, $functionData := .SymbolTable.SymbolsMap}}
                                 <tr>
                                     <td>0x{{$entryPoint}}</td>
                                     <td>{{index $functionData 1}}</td>
                                     <td>{{index $functionData 0}}</td>
                                 </tr>
+                                {{end}}
                             </tbody>
-                            {{end}}
                         </table>
                     </blockquote>
+                    <div class="center-contents">
+                        <button type="button" class="nes-btn is-primary" style="margin-right: 100px;"
+                            onclick="deleteBinary()">Delete</button> <button type="button" class="nes-btn is-primary"
+                            onclick="location.href='/getSymbols';">Go Back</button>
+                    </div>
                 </div>
-                <div class="content"><button type="button" class="nes-btn is-primary" style="margin-right: 50px;" onclick="deleteBinary()">Delete</button> <button type="button" class="nes-btn is-primary"
-                        onclick="location.href='/getSymbols';">Go Back</button></div>
             </div>
         </div>
     </div>
@@ -65,7 +68,7 @@
 
         function deleteBinary() {
             var selection = document.getElementById("file-name").innerText;
-            var binToDelete = selection.split(':')[1].replace(/\s+/, "") ;
+            var binToDelete = selection.split(':')[1].replace(/\s+/, "");
             var currentURL = window.location.href;
             var url = "/getSymbols" + "?binaryDel=" + binToDelete;
             if (url) {
