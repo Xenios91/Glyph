@@ -174,7 +174,6 @@ func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 	scores, likely, strict, err := rangeClassifier.SafeProbScores(function.Tokens)
 	if err != nil {
 		scores, likely, strict = rangeClassifier.LogScores(function.Tokens)
-		fmt.Println()
 	}
 	classDetermined := string(rangeClassifier.Classes[likely])
 
@@ -186,7 +185,6 @@ func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 				if !strings.Contains(classDetermined, likelyFunction) {
 					classDetermined = fmt.Sprintf("%s, %s", classDetermined, string(rangeClassifier.Classes[counter]))
 				}
-
 			}
 		}
 	}
