@@ -90,8 +90,7 @@ func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
 		if !success {
 			w.WriteHeader(http.StatusBadRequest)
 		}
-	}
-	if r.Method == http.MethodGet {
+	} else if r.Method == http.MethodGet {
 		var data pageData = pageData{
 			Title: "Glyph",
 		}

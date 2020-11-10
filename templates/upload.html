@@ -14,8 +14,7 @@
             <span>Training Data</span>
         </label>
     </div>
-    <div id="upload-message" class="nes-container with-title is-centered white-bg"
-        style="display: none;">
+    <div id="upload-message" class="nes-container with-title is-centered white-bg" style="display: none;">
         <p class="title">Binary Status</p>
         <p>Your binary is now being processed.</p>
     </div>
@@ -24,14 +23,21 @@
 <script>
     document.getElementById("training-data-checkbox").checked = false;
 
-    function uploadBinary(e) {
-        var form = $(this);
-        var url = form.attr('action');
+    function uploadBinary() {
+        var formData = new FormData();
+        const selectedFile = document.getElementById('upload-binary').files[0];
+        const trainingData = document.getElementById('training-data-checkbox').checked;
+        const url = "/uploadBinary";
+
+        formData.append('binaryFile', selectedFile);
+        formData.append('trainingData', trainingData);
 
         $.ajax({
             type: "POST",
             url: url,
-            data: form.serialize(),
+            data: formData,
+            processData: false,
+            contentType: false,
             success: function (data, status, xhr) {
                 var uploadMessage = document.getElementById("upload-message");
                 var uploadBox = document.getElementById("upload-box");
