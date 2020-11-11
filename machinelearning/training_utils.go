@@ -92,7 +92,7 @@ func printClassificationDetails(functions []bin_utils.FunctionDetails) {
 func printFailedClassificationDetails(functionDetails *bin_utils.FunctionDetails) {
 	var failedToClassifyFile string = "./failed_to_classify.txt"
 	var stringBuilder strings.Builder
-	stringBuilder.WriteString(fmt.Sprintf("Function name: %s EntryPoint: %s", functionDetails.FunctionName, functionDetails.LowAddress))
+	stringBuilder.WriteString(fmt.Sprintf("Function name: %s EntryPoint: %s\n", functionDetails.FunctionName, functionDetails.LowAddress))
 	var failedToClassify string = stringBuilder.String()
 	file_utils.CreateAndWriteFile(&failedToClassifyFile, &failedToClassify, true)
 }
