@@ -48,7 +48,10 @@ func CreateAndWriteFile(fileName *string, fileContents *string, append bool) {
 		DeleteFile(fileName)
 		file, err = os.Create(*fileName)
 		CheckError(err)
+	} else {
+		file, err = os.OpenFile(*fileName,
+			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		CheckError(err)
 	}
-
 	file.WriteString(*fileContents)
 }

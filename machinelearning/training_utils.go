@@ -83,7 +83,7 @@ func printClassificationDetails(functions []bin_utils.FunctionDetails) {
 	var stringBuilder strings.Builder
 	stringBuilder.WriteString(fmt.Sprintf("N-Grams: %d\n", naiveBayesConfig.NGrams))
 	stringBuilder.WriteString(fmt.Sprintf("Function Range: %.2f\n", naiveBayesConfig.FunctionRange))
-	stringBuilder.WriteString(fmt.Sprintf("Total functions analyzed: %d\n Total correct: %d\nTotal incorrect: %d\nTotal Errored: %d\n", len(functions), int(trainingDataCheck["correct"]), int(trainingDataCheck["incorrect"]), int(trainingDataCheck["error"])))
+	stringBuilder.WriteString(fmt.Sprintf("Total functions analyzed: %d\nTotal correct: %d\nTotal incorrect: %d\nTotal Errored: %d\n", len(functions), int(trainingDataCheck["correct"]), int(trainingDataCheck["incorrect"]), int(trainingDataCheck["error"])))
 	stringBuilder.WriteString(fmt.Sprintf("%s %.2f%%\n", "Training accuracy:", (float64(trainingDataCheck["correct"]))/((float64(trainingDataCheck["correct"]))+float64(trainingDataCheck["incorrect"]))*100))
 	var classificationDetails string = stringBuilder.String()
 	file_utils.CreateAndWriteFile(&classificationDetailsFile, &classificationDetails, false)

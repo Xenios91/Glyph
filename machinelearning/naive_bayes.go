@@ -63,6 +63,24 @@ func createClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	fmt.Print("Training data classification complete! ")
 }
 
+func filterUnknownFunctions(functions *string) *string {
+	var functionSB strings.Builder
+	var functionsCSV string
+
+	functionsArray := strings.Split(*functions, ",")
+
+	for _, functionName := range functionsArray {
+		if !strings.Contains(functionName, "FUN_") {
+			functionSB.WriteString(fmt.Sprintf("%s, ", functionName))
+		}
+	}
+	functionsCSV = functionSB.String()
+	if len(functionsCSV) > 0 {
+		functionsCSV = functionsCSV[:len(functionsCSV)-1]
+	}
+	return &functionsCSV
+}
+
 //ClassifyFunctions used to classify one or more functions provided to it.
 func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolTable {
 	var symbolTable *bin_utils.BinarySymbolTable = new(bin_utils.BinarySymbolTable)
@@ -79,7 +97,14 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 		if strings.Contains(function.FunctionName, "FUN_") {
 			functionName, prob := classifyFunction(&function)
 
-			if !math.IsNaN(prob) {
+			if strings.Contains(*functionName, ",") {
+				functionName = filterUnknownFunctions(functionName)
+				if len(*functionName) == 0 {
+					break
+				}
+			}
+
+			if !math.IsNaN(prob) && !strings.Contains(*functionName, "FUN_") {
 				var confidence string
 				switch {
 				case prob >= 0.9:
