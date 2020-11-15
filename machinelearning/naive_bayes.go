@@ -30,9 +30,13 @@ func createClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	fmt.Print("Beginning to classify training data... ")
 	for _, function := range *classes {
 		returnType := function.Tokens[0]
+		if strings.Contains(returnType, "Undefined") {
+			returnType = "Undefined"
+		}
 		function.Tokens = getNGrams(&function)
 		returnTypeMap[returnType] = append(returnTypeMap[returnType], function)
 	}
+
 	for key, element := range returnTypeMap {
 		var trainingClasses []bayesian.Class
 		var elementLength int = len(element)
