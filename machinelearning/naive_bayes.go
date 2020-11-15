@@ -103,12 +103,9 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 
 			if strings.Contains(*functionName, ",") {
 				functionName = filterUnknownFunctions(functionName)
-				if len(*functionName) == 0 {
-					break
-				}
 			}
 
-			if !math.IsNaN(prob) && !strings.Contains(*functionName, "FUN_") {
+			if !math.IsNaN(prob) && !strings.Contains(*functionName, "FUN_") && len(*functionName) > 0 {
 				var confidence string
 				switch {
 				case prob >= 0.9:
@@ -131,10 +128,9 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 				}
 				symbolTable.PopulateMap(&function.LowAddress, functionName, &confidence)
 			}
-
 		}
-
 	}
+
 	symbolTable.BinaryName = binary.BinaryName
 	fmt.Println("Functions Classified!")
 
