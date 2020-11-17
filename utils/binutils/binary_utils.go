@@ -6,12 +6,14 @@ import (
 	"os"
 )
 
+//FunctionDetails A struct storing details for a single function.
 type FunctionDetails struct {
-	FunctionName string
-	ReturnType   string
-	LowAddress   string   `json:"lowAddress"`
-	HighAddress  string   `json:"highAddress"`
-	Tokens       []string `json:"tokenList"`
+	FunctionName   string
+	ReturnType     string
+	ParameterCount int      `json:"parameterCount"`
+	LowAddress     string   `json:"lowAddress"`
+	HighAddress    string   `json:"highAddress"`
+	Tokens         []string `json:"tokenList"`
 }
 
 type erroredFunctionDetails struct {
