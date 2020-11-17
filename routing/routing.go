@@ -109,13 +109,12 @@ func uploadFile(r *http.Request) bool {
 	//500mb limit
 	r.ParseMultipartForm(524288000)
 	file, handler, err := r.FormFile("binaryFile")
+	defer file.Close()
 
 	if err != nil {
 		fmt.Println(err)
 		return false
 	}
-
-	defer file.Close()
 
 	trainingDataChecked := r.Form.Get("trainingData")
 
@@ -173,13 +172,18 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 		}
 
 		isTraining := ghidra_utils.CheckIfTrainingAndRemove(binaryDetails.BinaryName)
+
 		if isTraining {
 			go ml.InsertTrainingData(&binaryDetails)
+			fileToDelete := fmt.Sprintf("./binary_training_upload/elf/%s", binaryDetails.BinaryName)
+			utils.DeleteFile(&fileToDelete)
 		} else {
 			fmt.Print("Beginning to classify functions...")
 			symbolTable := ml.ClassifyFunctions(&binaryDetails)
 			fmt.Println("Function classification complete!")
 			db_utils.InsertDB(db_utils.SymbolTablesTableLocation, db_utils.SymbolTablesTableName, symbolTable)
+			fileToDelete := fmt.Sprintf("./binaries_upload/elf/%s", binaryDetails.BinaryName)
+			utils.DeleteFile(&fileToDelete)
 		}
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
