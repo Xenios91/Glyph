@@ -7,7 +7,12 @@ import (
 	"sync"
 )
 
-type ghidraAnalysisQueue map[string]bool
+type ghidraAnalysisQueue map[string]*ghidraQueueValue
+
+type ghidraQueueValue struct {
+	isTrainingData bool
+	status         *string
+}
 
 type ghidraAnalysisConfig struct {
 	ghidraHeadless        *string
@@ -49,7 +54,9 @@ func LoadGhidraAnalysis(ghidraHeadless *string, ghidraProjectLocation *string, g
 }
 
 func addToQueue(binaryName string, trainingData bool) {
-	ghidraQueue[binaryName] = trainingData
+	var queueValue *ghidraQueueValue = new(ghidraQueueValue)
+	queueValue.isTrainingData = trainingData
+	ghidraQueue[binaryName] = queueValue
 }
 
 //RemoveFromQueue removes a binary name from the queue of binaries being processed by ghidra.
@@ -59,12 +66,20 @@ func RemoveFromQueue(binaryName string) {
 
 //CheckIfTraining returns true/false if a binary being processed by ghidra currently is training data.
 func CheckIfTraining(binaryName string) bool {
-	return ghidraQueue[binaryName]
+	return ghidraQueue[binaryName].isTrainingData
 }
 
 //CheckIfTrainingAndRemove returns true/false if a binary being processed by ghidra currently is training data, and removes it from the queue.
 func CheckIfTrainingAndRemove(binaryName string) bool {
-	var isTraining bool = ghidraQueue[binaryName]
+	var isTraining bool = ghidraQueue[binaryName].isTrainingData
 	RemoveFromQueue(binaryName)
 	return isTraining
+}
+
+//UpdateQueue updates the status of a binary currently in the queue.
+func UpdateQueue(binaryName *string, statusUpdate *string) {
+	var queueValue *ghidraQueueValue = ghidraQueue[*binaryName]
+	if queueValue != nil {
+		ghidraQueue[*binaryName].status = statusUpdate
+	}
 }

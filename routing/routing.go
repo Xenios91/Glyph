@@ -25,6 +25,11 @@ type symbolPageData struct {
 	SymbolTable      bin_utils.BinarySymbolTable
 }
 
+type status struct {
+	Name   *string `json:"name"`
+	Status *string `json:"status"`
+}
+
 //MainPage loads the main page for Glyph.
 func MainPage(w http.ResponseWriter, r *http.Request) {
 	var data pageData = pageData{
@@ -197,7 +202,21 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//StatusUpdate todo, currently does nothing.
+//StatusUpdate Accepts status updtes from Ghidra on current analysis being performed.
 func StatusUpdate(w http.ResponseWriter, r *http.Request) {
-	//todo
+	method := r.Method
+	if method == http.MethodPost {
+
+		var statusUpdate status
+		err := json.NewDecoder(r.Body).Decode(&statusUpdate)
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			ghidra_utils.UpdateQueue(statusUpdate.Name, statusUpdate.Status)
+		}
+
+	} else {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
 }
