@@ -1,19 +1,28 @@
 {{ define "title" }}{{.Title}}{{ end }} {{ define "content" }}
 {{if .SelectionVisible}}
 <div class="content blue-bg">
+    <h2 style="padding-bottom: 15px;">Binary Analysis Status</h2>
     {{else}}
     <div hidden>
         {{end}}
-        <div>
-            <label for="default_select">Select a binary</label>
-            <div class="nes-select">
-                <select required id="binary-dropdown-selection" onchange="binarySelection()">
-                    <option value="" disabled selected hidden>Select...</option>
-                    {{range $binary := .Binaries}}
-                    <option value="{{$binary}}">{{$binary}}</option>
+        <div class="nes-table-responsive">
+            <table class="nes-table is-bordered is-centered">
+                <thead>
+                    <tr>
+                        <th>Binary Name</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range $name, $status := .GhidraQueue}}
+                    <tr id="{{$name}}-id" onmouseover="changeBackground(this.id, '#d1d1d1');"
+                        onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
+                        <td>{{$name}}</td>
+                        <td id="{{$name}}-status">{{$status}}</td>
+                    </tr>
                     {{end}}
-                </select>
-            </div>
+                </tbody>
+            </table>
         </div>
     </div>
     {{if .SelectionVisible}}
@@ -57,12 +66,16 @@
     </div>
 
     <script>
-        function binarySelection() {
-            var selection = document.getElementById("binary-dropdown-selection").value;
-            var currentURL = window.location.href;
-            var url = currentURL + "?binary=" + selection;
-            if (url) {
-                window.location = url;
+        function goToURL(id) {
+            var status = document.getElementById(id.slice(0, -3) + "-status");
+            if (status.innerText == "complete") {
+                var currentURL = window.location.href;
+                var url = currentURL + "?binary=" + id.slice(0, -3);
+                if (url) {
+                    window.location = url;
+                }
+            } else {
+                alert('Binary Analysis is not complete!');
             }
         }
 
@@ -74,6 +87,12 @@
             if (url) {
                 window.location = url;
             }
+        }
+
+
+
+        function changeBackground(id, color) {
+            document.getElementById(id).style.background = color;
         }
     </script>
 

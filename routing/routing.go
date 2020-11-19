@@ -23,6 +23,7 @@ type symbolPageData struct {
 	SelectionVisible bool
 	Binaries         []string
 	SymbolTable      bin_utils.BinarySymbolTable
+	GhidraQueue      map[string]*string
 }
 
 type status struct {
@@ -60,6 +61,20 @@ func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
 		} else {
 			symbolPageData.SelectionVisible = true
 			symbolPageData.Binaries = *db_utils.GetDistinctBinaries()
+			symbolPageData.GhidraQueue = make(map[string]*string)
+
+			complete := "complete"
+
+			for _, binaryName := range symbolPageData.Binaries {
+				symbolPageData.GhidraQueue[binaryName] = &complete
+			}
+
+			statusMap := ghidra_utils.GetAllStatus()
+
+			for key, element := range statusMap {
+				symbolPageData.GhidraQueue[key] = element
+			}
+
 			template := template.Must(template.ParseFiles("./templates/template.html", "./templates/get_symbols.html"))
 			template.Execute(w, symbolPageData)
 		}

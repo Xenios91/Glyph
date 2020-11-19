@@ -55,6 +55,8 @@ func LoadGhidraAnalysis(ghidraHeadless *string, ghidraProjectLocation *string, g
 
 func addToQueue(binaryName string, trainingData bool) {
 	var queueValue *ghidraQueueValue = new(ghidraQueueValue)
+	var beginningStatus string = "Waiting on Ghidra"
+	queueValue.status = &beginningStatus
 	queueValue.isTrainingData = trainingData
 	ghidraQueue[binaryName] = queueValue
 }
@@ -64,14 +66,13 @@ func RemoveFromQueue(binaryName string) {
 	delete(ghidraQueue, binaryName)
 }
 
-//CheckIfTraining returns true/false if a binary being processed by ghidra currently is training data.
-func CheckIfTraining(binaryName string) bool {
-	return ghidraQueue[binaryName].isTrainingData
+func checkIfTraining(binaryName *string) bool {
+	return ghidraQueue[*binaryName].isTrainingData
 }
 
 //CheckIfTrainingAndRemove returns true/false if a binary being processed by ghidra currently is training data, and removes it from the queue.
 func CheckIfTrainingAndRemove(binaryName string) bool {
-	var isTraining bool = ghidraQueue[binaryName].isTrainingData
+	var isTraining bool = checkIfTraining(&binaryName)
 	RemoveFromQueue(binaryName)
 	return isTraining
 }
@@ -82,4 +83,25 @@ func UpdateQueue(binaryName *string, statusUpdate *string) {
 	if queueValue != nil {
 		ghidraQueue[*binaryName].status = statusUpdate
 	}
+}
+
+//GetStatus Returns the current status of a binary being processed by Ghidra.
+func GetStatus(binaryName *string) *string {
+	var status string
+	var queueValue *ghidraQueueValue = ghidraQueue[*binaryName]
+	if queueValue != nil {
+		status = *queueValue.status
+	}
+	return &status
+}
+
+//GetAllStatus Returns a map with the status of all binaries being processed by Ghidra.
+func GetAllStatus() map[string]*string {
+	var statusMap map[string]*string = make(map[string]*string)
+
+	for key, element := range ghidraQueue {
+		statusMap[key] = element.status
+	}
+
+	return statusMap
 }
