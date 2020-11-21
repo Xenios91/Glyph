@@ -38,6 +38,6 @@ func setup() *string {
 }
 
 func main() {
-	var portToBind *string = setup()
+	var portToBind = setup()
 	startServer(portToBind)
 }
