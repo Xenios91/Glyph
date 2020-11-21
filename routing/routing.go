@@ -33,7 +33,7 @@ type status struct {
 
 //MainPage loads the main page for Glyph.
 func MainPage(w http.ResponseWriter, r *http.Request) {
-	var data = pageData{
+	data := pageData{
 		Title: "Glyph",
 	}
 	template := template.Must(template.ParseFiles("./templates/template.html", "./templates/main.html"))
@@ -42,7 +42,7 @@ func MainPage(w http.ResponseWriter, r *http.Request) {
 
 //GetSymbolsPage loads the symbols page for Glyph.
 func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
-	var symbolPageData = new(symbolPageData)
+	symbolPageData := new(symbolPageData)
 
 	symbolPageData.Title = "Glyph Symbol Tables"
 
@@ -83,7 +83,7 @@ func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
 
 //ErrorPage a generic template error page for when request errors occur.
 func ErrorPage(w http.ResponseWriter, r *http.Request) {
-	var data pageData = pageData{
+	data := pageData{
 		Title: "Glyph",
 	}
 	errorType, errorFound := r.URL.Query()["type"]
@@ -122,9 +122,9 @@ func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func uploadFile(r *http.Request) bool {
-	var trainingData = false
-	var directoryParent = "./binaries_upload"
-	var directoryName = "elf"
+	trainingData := false
+	directoryParent := "./binaries_upload"
+	directoryName := "elf"
 
 	//500mb limit
 	r.ParseMultipartForm(524288000)

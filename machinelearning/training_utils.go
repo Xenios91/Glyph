@@ -13,7 +13,7 @@ type trainingConfiguration struct {
 	classificationDetailsFile string
 }
 
-var trainingConfig *trainingConfiguration = new(trainingConfiguration)
+var trainingConfig = new(trainingConfiguration)
 
 func setTrainingConfig(checkTrainingAccuracy bool, classificationDetailsFile *string) {
 	trainingConfig.CheckTrainingAccuracy = checkTrainingAccuracy
@@ -79,20 +79,24 @@ func checkAccuracy(returnTypeArray []bin_utils.FunctionDetails, classDetermined 
 }
 
 func printClassificationDetails(functions []bin_utils.FunctionDetails) {
-	var classificationDetailsFile = "./classification_details.txt"
 	var stringBuilder strings.Builder
+	classificationDetailsFile := "./classification_details.txt"
+
 	stringBuilder.WriteString(fmt.Sprintf("N-Grams: %d\n", naiveBayesConfig.NGrams))
 	stringBuilder.WriteString(fmt.Sprintf("Function Range: %.2f\n", naiveBayesConfig.FunctionRange))
 	stringBuilder.WriteString(fmt.Sprintf("Total functions analyzed: %d\nTotal correct: %d\nTotal incorrect: %d\nTotal Errored: %d\n", len(functions), int(trainingDataCheck["correct"]), int(trainingDataCheck["incorrect"]), int(trainingDataCheck["error"])))
 	stringBuilder.WriteString(fmt.Sprintf("%s %.2f%%\n", "Training accuracy:", (float64(trainingDataCheck["correct"]))/((float64(trainingDataCheck["correct"]))+float64(trainingDataCheck["incorrect"]))*100))
-	var classificationDetails = stringBuilder.String()
+	classificationDetails := stringBuilder.String()
+
 	file_utils.CreateAndWriteFile(&classificationDetailsFile, &classificationDetails, false)
 }
 
 func printFailedClassificationDetails(functionDetails *bin_utils.FunctionDetails) {
-	var failedToClassifyFile = "./failed_to_classify.txt"
 	var stringBuilder strings.Builder
+
+	failedToClassifyFile := "./failed_to_classify.txt"
 	stringBuilder.WriteString(fmt.Sprintf("Function name: %s EntryPoint: %s\n", functionDetails.FunctionName, functionDetails.LowAddress))
-	var failedToClassify = stringBuilder.String()
+	failedToClassify := stringBuilder.String()
+
 	file_utils.CreateAndWriteFile(&failedToClassifyFile, &failedToClassify, true)
 }
