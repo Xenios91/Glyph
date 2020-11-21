@@ -125,6 +125,9 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 
 	for _, function := range functions {
 		var gramArray []string
+		if function.ReturnType == "undefined" {
+			function.ReturnType = function.Tokens[0]
+		}
 		gramArray = append(gramArray, getNGrams(&function)...)
 		function.Tokens = gramArray
 
