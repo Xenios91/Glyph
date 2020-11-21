@@ -17,6 +17,7 @@ func createLogs() {
 	log.Print("Glyph Started")
 }
 
+//LoadLogging Loads Glyphs logging capabilities.
 func LoadLogging(enableLogging bool) {
 	fmt.Print("Checking logging... ")
 	if enableLogging {
