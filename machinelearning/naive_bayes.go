@@ -14,10 +14,10 @@ type naiveBayesConfiguration struct {
 	FunctionRange float32
 }
 
-var classifier map[string]*bayesian.Classifier = make(map[string]*bayesian.Classifier, 10)
-var returnTypeMap map[string][]bin_utils.FunctionDetails = make(map[string][]bin_utils.FunctionDetails, 10)
-var trainingDataCheck map[string]int = make(map[string]int, 3)
-var naiveBayesConfig *naiveBayesConfiguration = new(naiveBayesConfiguration)
+var classifier = make(map[string]*bayesian.Classifier, 10)
+var returnTypeMap = make(map[string][]bin_utils.FunctionDetails, 10)
+var trainingDataCheck = make(map[string]int, 3)
+var naiveBayesConfig = new(naiveBayesConfiguration)
 
 func setNaiveBayesConfig(nGrams int, functionRange float32) {
 	naiveBayesConfig.NGrams = nGrams
@@ -39,7 +39,7 @@ func createClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 
 	for key, element := range returnTypeMap {
 		var trainingClasses []bayesian.Class
-		var elementLength int = len(element)
+		var elementLength = len(element)
 
 		for counter := 0; counter < elementLength; counter++ {
 			functionName := element[counter].FunctionName
@@ -144,7 +144,7 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 func getNGrams(function *bin_utils.FunctionDetails) []string {
 	var gramArray []string
 	var tokens []string = function.Tokens
-	var tokensLength int = len(tokens)
+	var tokensLength = len(tokens)
 	for counter := 0; counter < tokensLength; counter++ {
 		var grams strings.Builder
 		for i := 0; i < naiveBayesConfig.NGrams; i++ {
@@ -163,23 +163,23 @@ func getNGrams(function *bin_utils.FunctionDetails) []string {
 }
 
 func getFunctionRange(function *bin_utils.FunctionDetails) (int, int) {
-	var functionLength int = len(function.Tokens)
-	var functionRange int = int(float32(functionLength) * naiveBayesConfig.FunctionRange)
-	var highEnd int = functionLength + functionRange
-	var lowEnd int = functionLength - functionRange
+	var functionLength = len(function.Tokens)
+	var functionRange = int(float32(functionLength) * naiveBayesConfig.FunctionRange)
+	var highEnd = functionLength + functionRange
+	var lowEnd = functionLength - functionRange
 	return lowEnd, highEnd
 }
 
 func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 	returnType := function.ReturnType
 	lowEnd, highEnd := getFunctionRange(function)
-	var classifierMap map[string]bin_utils.FunctionDetails = make(map[string]bin_utils.FunctionDetails)
+	var classifierMap = make(map[string]bin_utils.FunctionDetails)
 	var classifierMapKeys []bayesian.Class
 
 	returnTypeArray := returnTypeMap[returnType]
 
 	for _, element := range returnTypeArray {
-		var tokensLength int = len(element.Tokens)
+		var tokensLength = len(element.Tokens)
 		var functionName = element.FunctionName
 		if tokensLength >= lowEnd && tokensLength <= highEnd {
 			classifierMapKeys = append(classifierMapKeys, bayesian.Class(functionName))
