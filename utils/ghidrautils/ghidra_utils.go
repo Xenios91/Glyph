@@ -67,7 +67,15 @@ func RemoveFromQueue(binaryName string) {
 }
 
 func checkIfTraining(binaryName *string) bool {
-	return ghidraQueue[*binaryName].isTrainingData
+	var isTraining bool
+	queueValue := ghidraQueue[*binaryName]
+
+	if queueValue != nil {
+		isTraining = queueValue.isTrainingData
+	} else {
+		isTraining = false
+	}
+	return isTraining
 }
 
 //CheckIfTrainingAndRemove returns true/false if a binary being processed by ghidra currently is training data, and removes it from the queue.

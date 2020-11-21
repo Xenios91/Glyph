@@ -111,7 +111,7 @@ func UploadBinaryPage(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 		}
 	} else if r.Method == http.MethodGet {
-		var data pageData = pageData{
+		data := pageData{
 			Title: "Glyph",
 		}
 		template := template.Must(template.ParseFiles("./templates/template.html", "./templates/upload.html"))

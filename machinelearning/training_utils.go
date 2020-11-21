@@ -25,7 +25,7 @@ func loadMLTrainingData() {
 	fmt.Print("Loading ML models... ")
 	mlData := db_utils.GetTrainingData()
 	if len(*mlData) > 0 {
-		createClassifier(mlData)
+		classifyTrainingData(mlData)
 		fmt.Println("ML models successfully loaded!")
 
 	} else {

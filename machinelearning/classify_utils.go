@@ -37,7 +37,7 @@ func populateReturnTypeMap(classes *map[bayesian.Class]bin_utils.FunctionDetails
 	}
 }
 
-func createReturnTypeClassifiers() {
+func createTrainingClassifiers() {
 	for key, element := range returnTypeMap {
 		var trainingClasses []bayesian.Class
 
@@ -56,10 +56,10 @@ func createReturnTypeClassifiers() {
 	}
 }
 
-func createClassifiers(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
+func classifyTrainingData(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	fmt.Print("Beginning to classify training data... ")
 	populateReturnTypeMap(classes)
-	createReturnTypeClassifiers()
+	createTrainingClassifiers()
 
 	for key := range classifier {
 		functions := returnTypeMap[key]
@@ -180,14 +180,17 @@ func getFunctionRange(function *bin_utils.FunctionDetails) (int, int) {
 	functionRange := int(float32(functionLength) * naiveBayesConfig.FunctionRange)
 	highEnd := functionLength + functionRange
 	lowEnd := functionLength - functionRange
+	if lowEnd < 0 {
+		lowEnd = 0
+	}
 	return lowEnd, highEnd
 }
 
-func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
-	var classifierMapKeys []bayesian.Class
+func createCandidatesClassifier(function *bin_utils.FunctionDetails) ([]bayesian.Class, map[string]bin_utils.FunctionDetails) {
+	var candidateMapKeys []bayesian.Class
+	candidateMap := make(map[string]bin_utils.FunctionDetails)
 	returnType := function.ReturnType
 	lowEnd, highEnd := getFunctionRange(function)
-	classifierMap := make(map[string]bin_utils.FunctionDetails)
 
 	returnTypeArray := returnTypeMap[returnType]
 
@@ -195,16 +198,22 @@ func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 		tokensLength := len(element.Tokens)
 		functionName := element.FunctionName
 		if tokensLength >= lowEnd && tokensLength <= highEnd {
-			classifierMapKeys = append(classifierMapKeys, bayesian.Class(functionName))
-			classifierMap[functionName] = element
+			candidateMapKeys = append(candidateMapKeys, bayesian.Class(functionName))
+			candidateMap[functionName] = element
 		}
 	}
 
-	if len(classifierMapKeys) < 2 {
-		classifierMapKeys = append(classifierMapKeys, bayesian.Class("DUMMY_CLASS_01"), bayesian.Class("DUMMY_CLASS_02"))
-	} else if classifierMapKeys == nil {
-		classifierMapKeys = append(classifierMapKeys, bayesian.Class("DUMMY_CLASS_01"), bayesian.Class("DUMMY_CLASS_02"))
+	if len(candidateMapKeys) < 2 {
+		candidateMapKeys = append(candidateMapKeys, bayesian.Class("DUMMY_CLASS_01"), bayesian.Class("DUMMY_CLASS_02"))
+	} else if candidateMapKeys == nil {
+		candidateMapKeys = append(candidateMapKeys, bayesian.Class("DUMMY_CLASS_01"), bayesian.Class("DUMMY_CLASS_02"))
 	}
+
+	return candidateMapKeys, candidateMap
+}
+
+func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
+	classifierMapKeys, classifierMap := createCandidatesClassifier(function)
 
 	rangeClassifier := bayesian.NewClassifier(classifierMapKeys[:]...)
 
@@ -232,6 +241,7 @@ func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 	}
 
 	if trainingConfig.CheckTrainingAccuracy {
+		returnTypeArray := returnTypeMap[function.ReturnType]
 		checkAccuracy(returnTypeArray, &classDetermined, function)
 	}
 	return &classDetermined, scores[likely]
