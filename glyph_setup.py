@@ -15,10 +15,10 @@ def make_dir() -> str:
     parent_dir = "{0}/.ghidra/.ghidra_9.1.2_PUBLIC".format(home)
     path = os.path.join(parent_dir, directory) 
     try:
-        os.mkdir(path) 
+        os.mkdir(path)
     except Exception as e:
         print(e)
-    print("Directory created at {0}".format(path)) 
+    print("Directory created at {0}".format(path))
     return path
 
 def install(download_location: str):
