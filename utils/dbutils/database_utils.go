@@ -21,13 +21,13 @@ func InsertDB(values ...interface{}) {
 		var binaryDetails = values[2].(*bin_utils.BinaryDetails)
 		for _, function := range binaryDetails.FunctionsMap.FunctionDetails {
 			tokens := strings.Join(function.Tokens, " ")
-			preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)", tableName, FunctionNameColumn, TokensColumn, EntryPointColumn)
+			preparedStatement := fmt.Sprintf("INSERT INTO %s (%s, %s, %s, %s) VALUES (?, ?, ?, ?)", tableName, FunctionNameColumn, ReturnTypeColumn, TokensColumn, EntryPointColumn)
 			database, err := sql.Open("sqlite3", tableLocation)
 			defer database.Close()
 
 			statement, err := database.Prepare(preparedStatement)
 			utils.CheckError(err)
-			_, err = statement.Exec(function.FunctionName, tokens, function.LowAddress)
+			_, err = statement.Exec(function.FunctionName, function.ReturnType, tokens, function.LowAddress)
 			utils.CheckError(err)
 		}
 
@@ -98,10 +98,12 @@ func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 		var primKey int
 		var tokens string
 		var entryPoint string
+		var returnType string
 
-		result.Scan(&primKey, &functionDetails.FunctionName, &tokens, &entryPoint)
+		result.Scan(&primKey, &functionDetails.FunctionName, &returnType, &tokens, &entryPoint)
 
 		functionDetails.LowAddress = entryPoint
+		functionDetails.ReturnType = returnType
 		functionDetails.Tokens = strings.Fields(tokens)
 		functionDetailsArray = append(functionDetailsArray, *functionDetails)
 	}

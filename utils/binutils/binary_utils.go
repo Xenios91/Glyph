@@ -8,8 +8,8 @@ import (
 
 //FunctionDetails A struct storing details for a single function.
 type FunctionDetails struct {
-	FunctionName   string
-	ReturnType     string
+	FunctionName   string   `json:"functionName"`
+	ReturnType     string   `json:"returnType"`
 	ParameterCount int      `json:"parameterCount"`
 	LowAddress     string   `json:"lowAddress"`
 	HighAddress    string   `json:"highAddress"`

@@ -125,10 +125,8 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 
 	for _, function := range functions {
 		var gramArray []string
-		gramArray = append(gramArray, fmt.Sprintf("%s", function.Tokens[0]))
 		gramArray = append(gramArray, getNGrams(&function)...)
 		function.Tokens = gramArray
-		function.ReturnType = gramArray[0]
 
 		if strings.Contains(function.FunctionName, "FUN_") {
 			functionName, prob := classifyFunction(&function)

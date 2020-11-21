@@ -186,11 +186,6 @@ func PostFunctionDetails(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(err)
 		}
 
-		for counter, function := range binaryDetails.FunctionsMap.FunctionDetails {
-			binaryDetails.FunctionsMap.FunctionDetails[counter].FunctionName = function.Tokens[1]
-			function.Tokens = append(function.Tokens[:1], function.Tokens[2:]...)
-		}
-
 		isTraining := ghidra_utils.CheckIfTrainingAndRemove(binaryDetails.BinaryName)
 
 		if isTraining {

@@ -23,4 +23,6 @@ const (
 	BinaryNameColumn string = "binaryName"
 	//ProbabilityColumn is the column name associated with the confidence level of a functions fingerprinting.
 	ProbabilityColumn string = "probability"
+	//ReturnTypeColumn is the column name associated with return types of functions.
+	ReturnTypeColumn string = "returnType"
 )
