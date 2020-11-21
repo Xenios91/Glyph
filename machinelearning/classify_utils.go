@@ -26,8 +26,7 @@ func setNaiveBayesConfig(nGrams int, functionRange float32) {
 	fmt.Printf("Function Range set: %.2f... ", functionRange)
 }
 
-func createClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
-	fmt.Print("Beginning to classify training data... ")
+func populateReturnTypeMap(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	for _, function := range *classes {
 		returnType := function.Tokens[0]
 		if strings.Contains(returnType, "Undefined") {
@@ -36,7 +35,9 @@ func createClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 		function.Tokens = getNGrams(&function)
 		returnTypeMap[returnType] = append(returnTypeMap[returnType], function)
 	}
+}
 
+func createReturnTypeClassifiers() {
 	for key, element := range returnTypeMap {
 		var trainingClasses []bayesian.Class
 
@@ -53,6 +54,12 @@ func createClassifier(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 		}
 		classifier[key] = bayesian.NewClassifier(trainingClasses[:]...)
 	}
+}
+
+func createClassifiers(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
+	fmt.Print("Beginning to classify training data... ")
+	populateReturnTypeMap(classes)
+	createReturnTypeClassifiers()
 
 	for key := range classifier {
 		functions := returnTypeMap[key]
@@ -86,6 +93,30 @@ func filterUnknownFunctions(functions *string) *string {
 	return &functionsCSV
 }
 
+func getConfidence(prob float64) *string {
+	var confidence string
+	switch {
+	case prob >= 0.9:
+		confidence = "Very High"
+		break
+	case prob >= 0.75:
+		confidence = "High"
+		break
+	case prob >= 0.5:
+		confidence = "Medium"
+		break
+	case prob >= 0.35:
+		confidence = "Low"
+		break
+	case prob > 0:
+		confidence = "Very Low"
+	default:
+		confidence = "Unknown"
+		break
+	}
+	return &confidence
+}
+
 //ClassifyFunctions used to classify one or more functions provided to it.
 func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolTable {
 	symbolTable := new(bin_utils.BinarySymbolTable)
@@ -107,27 +138,8 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 			}
 
 			if !math.IsNaN(prob) && !strings.Contains(*functionName, "FUN_") && len(*functionName) > 0 {
-				var confidence string
-				switch {
-				case prob >= 0.9:
-					confidence = "Very High"
-					break
-				case prob >= 0.75:
-					confidence = "High"
-					break
-				case prob >= 0.5:
-					confidence = "Medium"
-					break
-				case prob >= 0.35:
-					confidence = "Low"
-					break
-				case prob > 0:
-					confidence = "Very Low"
-				default:
-					confidence = "Unknown"
-					break
-				}
-				symbolTable.PopulateMap(&function.LowAddress, functionName, &confidence)
+				confidence := getConfidence(prob)
+				symbolTable.PopulateMap(&function.LowAddress, functionName, confidence)
 			}
 		}
 	}
@@ -172,10 +184,10 @@ func getFunctionRange(function *bin_utils.FunctionDetails) (int, int) {
 }
 
 func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
+	var classifierMapKeys []bayesian.Class
 	returnType := function.ReturnType
 	lowEnd, highEnd := getFunctionRange(function)
 	classifierMap := make(map[string]bin_utils.FunctionDetails)
-	var classifierMapKeys []bayesian.Class
 
 	returnTypeArray := returnTypeMap[returnType]
 
@@ -187,12 +199,15 @@ func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 			classifierMap[functionName] = element
 		}
 	}
+
 	if len(classifierMapKeys) < 2 {
 		classifierMapKeys = append(classifierMapKeys, bayesian.Class("DUMMY_CLASS_01"), bayesian.Class("DUMMY_CLASS_02"))
 	} else if classifierMapKeys == nil {
 		classifierMapKeys = append(classifierMapKeys, bayesian.Class("DUMMY_CLASS_01"), bayesian.Class("DUMMY_CLASS_02"))
 	}
+
 	rangeClassifier := bayesian.NewClassifier(classifierMapKeys[:]...)
+
 	for counter := range classifierMapKeys {
 		rangeClassifier.Learn(classifierMap[string(classifierMapKeys[counter])].Tokens, classifierMapKeys[counter])
 	}
@@ -201,6 +216,7 @@ func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 	if err != nil {
 		scores, likely, strict = rangeClassifier.LogScores(function.Tokens)
 	}
+
 	classDetermined := string(rangeClassifier.Classes[likely])
 
 	if strict != true {
