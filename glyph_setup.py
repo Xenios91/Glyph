@@ -13,7 +13,7 @@ def make_dir() -> str:
     home = expanduser("~")
     directory = "plugins"
     parent_dir = "{0}/.ghidra/.ghidra_9.1.2_PUBLIC".format(home)
-    path = os.path.join(parent_dir, directory) 
+    path = os.path.join(parent_dir, directory)
     try:
         os.mkdir(path)
     except Exception as e:
