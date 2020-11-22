@@ -39,18 +39,30 @@ func populateNGrams(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	}
 }
 
-func populateReturnType(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
-	for _, function := range *classes {
-		tokens := function.Tokens
-		for splitAt, token := range tokens {
-			if strings.EqualFold(function.FunctionName, token) {
-				returnType := strings.Join(tokens[:splitAt], "")
-				if strings.Contains(returnType, "undefined") {
-					returnType = "undefined"
-				}
-				function.ReturnType = returnType
-				break
+func retrieveReturnTypeFromTokens(function *bin_utils.FunctionDetails) {
+	tokens := function.Tokens
+	for splitAt, token := range tokens {
+		if strings.EqualFold(function.FunctionName, token) {
+			returnType := strings.Join(tokens[:splitAt], "")
+			if strings.Contains(returnType, "undefined") {
+				returnType = "undefined"
 			}
+			function.ReturnType = returnType
+			break
+		}
+	}
+}
+
+func populateReturnType(classes interface{}) {
+	switch data := classes.(type) {
+	case *map[bayesian.Class]bin_utils.FunctionDetails:
+		for _, function := range *data {
+			retrieveReturnTypeFromTokens(&function)
+		}
+	case *bin_utils.BinaryDetails:
+		functions := data.FunctionsMap.FunctionDetails
+		for _, function := range functions {
+			retrieveReturnTypeFromTokens(&function)
 		}
 	}
 }
@@ -74,13 +86,24 @@ func createTrainingClassifiers() {
 	}
 }
 
-func removeExtraData(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
-	for key, value := range *classes {
-		for splitAt, token := range value.Tokens {
-			if strings.EqualFold(token, string(key)) {
-				newTokens := value.Tokens[splitAt+1:]
-				value.Tokens = newTokens
-				(*classes)[key] = value
+func removeExtraData(data interface{}) {
+	switch data := data.(type) {
+	case *map[bayesian.Class]bin_utils.FunctionDetails:
+		for key, value := range *data {
+			for splitAt, token := range value.Tokens {
+				if strings.EqualFold(token, string(key)) {
+					newTokens := value.Tokens[splitAt+1:]
+					value.Tokens = newTokens
+					(*data)[key] = value
+					break
+				}
+			}
+		}
+	case *bin_utils.FunctionDetails:
+		for splitAt, token := range data.Tokens {
+			if strings.EqualFold(token, string(data.FunctionName)) {
+				newTokens := data.Tokens[splitAt+1:]
+				data.Tokens = newTokens
 				break
 			}
 		}
@@ -156,11 +179,11 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 	symbolTable.SymbolsMap = make(map[string][]string)
 	functions := binary.FunctionsMap.FunctionDetails
 
-	for _, function := range functions {
+	for counter, function := range functions {
+		fmt.Println(counter)
 		var gramArray []string
-		if function.ReturnType == "undefined" {
-			function.ReturnType = function.Tokens[0]
-		}
+		retrieveReturnTypeFromTokens(&function)
+		removeExtraData(&function)
 		gramArray = append(gramArray, getNGrams(&function)...)
 		function.Tokens = gramArray
 
@@ -248,7 +271,6 @@ func createCandidatesClassifier(function *bin_utils.FunctionDetails) ([]bayesian
 
 func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 	classifierMapKeys, classifierMap := createCandidatesClassifier(function)
-
 	rangeClassifier := bayesian.NewClassifier(classifierMapKeys[:]...)
 
 	for counter := range classifierMapKeys {
