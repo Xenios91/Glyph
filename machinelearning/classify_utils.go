@@ -28,12 +28,30 @@ func setNaiveBayesConfig(nGrams int, functionRange float32) {
 
 func populateReturnTypeMap(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	for _, function := range *classes {
-		returnType := function.Tokens[0]
-		if strings.Contains(returnType, "Undefined") {
-			returnType = "Undefined"
-		}
-		function.Tokens = getNGrams(&function)
+		returnType := function.ReturnType
 		returnTypeMap[returnType] = append(returnTypeMap[returnType], function)
+	}
+}
+
+func populateNGrams(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
+	for _, function := range *classes {
+		function.Tokens = getNGrams(&function)
+	}
+}
+
+func populateReturnType(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
+	for _, function := range *classes {
+		tokens := function.Tokens
+		for splitAt, token := range tokens {
+			if strings.EqualFold(function.FunctionName, token) {
+				returnType := strings.Join(tokens[:splitAt], "")
+				if strings.Contains(returnType, "undefined") {
+					returnType = "undefined"
+				}
+				function.ReturnType = returnType
+				break
+			}
+		}
 	}
 }
 
@@ -56,8 +74,23 @@ func createTrainingClassifiers() {
 	}
 }
 
+func removeExtraData(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
+	for key, value := range *classes {
+		for splitAt, token := range value.Tokens {
+			if strings.EqualFold(token, string(key)) {
+				newTokens := value.Tokens[splitAt+1:]
+				value.Tokens = newTokens
+				(*classes)[key] = value
+				break
+			}
+		}
+	}
+}
+
 func classifyTrainingData(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
 	fmt.Print("Beginning to classify training data... ")
+	populateReturnType(classes)
+	removeExtraData(classes)
 	populateReturnTypeMap(classes)
 	createTrainingClassifiers()
 
