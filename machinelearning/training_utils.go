@@ -42,7 +42,7 @@ func InsertTrainingData(binaryDetails *bin_utils.BinaryDetails) {
 	fmt.Println("Training data successfully reloaded!")
 }
 
-func checkAccuracy(returnTypeArray []bin_utils.FunctionDetails, classDetermined *string, function *bin_utils.FunctionDetails) *map[string]int {
+func checkAccuracy(returnTypeArray []bin_utils.FunctionDetails, classDetermined *string, function *bin_utils.FunctionDetails) {
 	addressMatch := false
 	for counter := range returnTypeArray {
 		nameToCheck := returnTypeArray[counter].FunctionName
@@ -58,24 +58,18 @@ func checkAccuracy(returnTypeArray []bin_utils.FunctionDetails, classDetermined 
 
 	if !addressMatch {
 		inMap := false
-		for _, element := range returnTypeMap {
-			for _, fnc := range element {
-				if fnc.LowAddress == function.LowAddress {
-					trainingDataCheck["incorrect"]++
-					inMap = true
-					printFailedClassificationDetails(&fnc)
-					break
-				}
-				if inMap {
-					break
-				}
+		for _, fnc := range returnTypeArray {
+			if fnc.LowAddress == function.LowAddress {
+				trainingDataCheck["incorrect"]++
+				inMap = true
+				printFailedClassificationDetails(&fnc)
+				break
 			}
 		}
 		if !inMap {
 			trainingDataCheck["error"]++
 		}
 	}
-	return &trainingDataCheck
 }
 
 func printClassificationDetails(functions []bin_utils.FunctionDetails) {
