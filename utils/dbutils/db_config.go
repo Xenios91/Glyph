@@ -21,8 +21,6 @@ const (
 	EntryPointColumn string = "entryPoint"
 	//BinaryNameColumn is the column name associated with the name of a binary a function belongs to.
 	BinaryNameColumn string = "binaryName"
-	//ProbabilityColumn is the column name associated with the confidence level of a functions fingerprinting.
-	ProbabilityColumn string = "probability"
 	//ReturnTypeColumn is the column name associated with return types of functions.
 	ReturnTypeColumn string = "returnType"
 )

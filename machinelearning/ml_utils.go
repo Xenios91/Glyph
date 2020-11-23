@@ -12,7 +12,7 @@ func SetupML(checkTrainingAccuracy bool, classificationDetailsFile *string, nGra
 	once.Do(func() {
 		fmt.Print("Setting up ML configurations... ")
 		setTrainingConfig(checkTrainingAccuracy, classificationDetailsFile)
-		setNaiveBayesConfig(nGrams, functionRange)
+		setClassifierConfig(nGrams, functionRange)
 		fmt.Println("ML configurations successfully loaded!")
 		loadMLTrainingData()
 	})

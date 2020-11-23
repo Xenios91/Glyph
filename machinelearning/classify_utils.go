@@ -9,7 +9,7 @@ import (
 	"github.com/navossoc/bayesian"
 )
 
-type naiveBayesConfiguration struct {
+type classifierConfiguration struct {
 	NGrams        int
 	FunctionRange float32
 }
@@ -17,11 +17,11 @@ type naiveBayesConfiguration struct {
 var classifier = make(map[string]*bayesian.Classifier, 10)
 var returnTypeMap = make(map[string][]bin_utils.FunctionDetails, 10)
 var trainingDataCheck = make(map[string]int, 3)
-var naiveBayesConfig = new(naiveBayesConfiguration)
+var classifierConfig = new(classifierConfiguration)
 
-func setNaiveBayesConfig(nGrams int, functionRange float32) {
-	naiveBayesConfig.NGrams = nGrams
-	naiveBayesConfig.FunctionRange = functionRange
+func setClassifierConfig(nGrams int, functionRange float32) {
+	classifierConfig.NGrams = nGrams
+	classifierConfig.FunctionRange = functionRange
 	fmt.Printf("N-Grams set: %d... ", nGrams)
 	fmt.Printf("Function Range set: %.2f... ", functionRange)
 }
@@ -153,34 +153,10 @@ func filterUnknownFunctions(functions *string) *string {
 	return &functionsCSV
 }
 
-func getConfidence(prob float64) *string {
-	var confidence string
-	switch {
-	case prob >= 0.9:
-		confidence = "Very High"
-		break
-	case prob >= 0.75:
-		confidence = "High"
-		break
-	case prob >= 0.5:
-		confidence = "Medium"
-		break
-	case prob >= 0.35:
-		confidence = "Low"
-		break
-	case prob > 0:
-		confidence = "Very Low"
-	default:
-		confidence = "Unknown"
-		break
-	}
-	return &confidence
-}
-
 //ClassifyFunctions used to classify one or more functions provided to it.
 func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolTable {
 	symbolTable := new(bin_utils.BinarySymbolTable)
-	symbolTable.SymbolsMap = make(map[string][]string)
+	symbolTable.SymbolsMap = make(map[string]string)
 	functions := binary.FunctionsMap.FunctionDetails
 	for _, function := range functions {
 		var gramArray []string
@@ -192,13 +168,12 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 		if strings.Contains(function.FunctionName, "FUN_") {
 			functionName, prob := classifyFunction(&function)
 
-			if strings.Contains(*functionName, ",") {
+			if strings.Contains(*functionName, ",") || strings.Contains(*functionName, "FUN_") {
 				functionName = filterUnknownFunctions(functionName)
 			}
 
 			if !math.IsNaN(prob) && len(*functionName) > 0 {
-				confidence := getConfidence(prob)
-				symbolTable.PopulateMap(&function.LowAddress, functionName, confidence)
+				symbolTable.PopulateMap(&function.LowAddress, functionName)
 			}
 		}
 	}
@@ -219,10 +194,10 @@ func getNGrams(function *bin_utils.FunctionDetails) []string {
 	tokensLength := len(tokens)
 	for counter := 0; counter < tokensLength; counter++ {
 		var grams strings.Builder
-		for i := 0; i < naiveBayesConfig.NGrams; i++ {
-			if counter < (tokensLength - naiveBayesConfig.NGrams) {
+		for i := 0; i < classifierConfig.NGrams; i++ {
+			if counter < (tokensLength - classifierConfig.NGrams) {
 				grams.WriteString(tokens[counter+i])
-				if i != (naiveBayesConfig.NGrams - 1) {
+				if i != (classifierConfig.NGrams - 1) {
 					grams.WriteString(" ")
 				}
 			} else {
@@ -236,7 +211,7 @@ func getNGrams(function *bin_utils.FunctionDetails) []string {
 
 func getFunctionRange(function *bin_utils.FunctionDetails) (int, int) {
 	functionLength := len(function.Tokens)
-	functionRange := int(float32(functionLength) * naiveBayesConfig.FunctionRange)
+	functionRange := int(float32(functionLength) * classifierConfig.FunctionRange)
 	highEnd := functionLength + functionRange
 	lowEnd := functionLength - functionRange
 	if lowEnd < 0 {
@@ -279,10 +254,7 @@ func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 		rangeClassifier.Learn(classifierMap[string(classifierMapKeys[counter])].Tokens, classifierMapKeys[counter])
 	}
 
-	scores, likely, strict, err := rangeClassifier.SafeProbScores(function.Tokens)
-	if err != nil {
-		scores, likely, strict = rangeClassifier.LogScores(function.Tokens)
-	}
+	scores, likely, strict := rangeClassifier.LogScores(function.Tokens)
 
 	classDetermined := string(rangeClassifier.Classes[likely])
 

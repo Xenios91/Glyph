@@ -62,15 +62,22 @@ func GetSymbolsPage(w http.ResponseWriter, r *http.Request) {
 			symbolPageData.SelectionVisible = true
 			symbolPageData.Binaries = *db_utils.GetDistinctBinaries()
 			symbolPageData.GhidraQueue = make(map[string]*string)
+			var complete string
 
-			complete := "complete"
-
-			for _, binaryName := range symbolPageData.Binaries {
-				symbolPageData.GhidraQueue[binaryName] = &complete
+			if symbolPageData.Binaries == nil {
+				symbolPageData.Binaries = make([]string, 1)
+				message := "No Binaries Available"
+				symbolPageData.Binaries[0] = message
+				complete = "N/A"
+				symbolPageData.GhidraQueue[message] = &complete
+			} else {
+				complete = "complete"
+				for _, binaryName := range symbolPageData.Binaries {
+					symbolPageData.GhidraQueue[binaryName] = &complete
+				}
 			}
 
 			statusMap := ghidra_utils.GetAllStatus()
-
 			for key, element := range statusMap {
 				symbolPageData.GhidraQueue[key] = element
 			}

@@ -41,15 +41,13 @@
                                 <tr>
                                     <th scope="col">EntryPoint</th>
                                     <th scope="col">Function Name</th>
-                                    <th scope="col">Confidence</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {{range $entryPoint, $functionData := .SymbolTable.SymbolsMap}}
                                 <tr>
                                     <td>0x{{$entryPoint}}</td>
-                                    <td>{{index $functionData 1}}</td>
-                                    <td>{{index $functionData 0}}</td>
+                                    <td>{{$functionData}}</td>
                                 </tr>
                                 {{end}}
                             </tbody>
@@ -74,6 +72,8 @@
                 if (url) {
                     window.location = url;
                 }
+            } else if (status.innerText == "N/A") {
+                alert('No analysis has been performed yet!');
             } else {
                 alert('Binary Analysis is not complete!');
             }
