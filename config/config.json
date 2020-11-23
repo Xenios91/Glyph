@@ -4,7 +4,6 @@
     "checkTrainingAccuracy": true,
     "ClassificationDetailsFile": "./classification_details.txt",
     "nGrams": 4,
-    "functionRange": 1.0,
     "ghidraHeadless": "/home/xenios/ghidra_9.1.2_PUBLIC/support/analyzeHeadless",
     "ghidraProjectLocation": "\\/home/xenios/ghidra_projects",
     "ghidraProject": "glyph",

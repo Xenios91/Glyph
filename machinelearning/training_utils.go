@@ -77,7 +77,6 @@ func printClassificationDetails(functions []bin_utils.FunctionDetails) {
 	classificationDetailsFile := "./classification_details.txt"
 
 	stringBuilder.WriteString(fmt.Sprintf("N-Grams: %d\n", classifierConfig.NGrams))
-	stringBuilder.WriteString(fmt.Sprintf("Function Range: %.2f\n", classifierConfig.FunctionRange))
 	stringBuilder.WriteString(fmt.Sprintf("Total functions analyzed: %d\nTotal correct: %d\nTotal incorrect: %d\nTotal Errored: %d\n", len(functions), int(trainingDataCheck["correct"]), int(trainingDataCheck["incorrect"]), int(trainingDataCheck["error"])))
 	stringBuilder.WriteString(fmt.Sprintf("NLP accuracy: %.2f%%\n", (float64(trainingDataCheck["correct"]))/((float64(trainingDataCheck["correct"]))+float64(trainingDataCheck["incorrect"]))*100))
 	stringBuilder.WriteString(fmt.Sprintf("Total accuracy %.2f%%\n", (float64(trainingDataCheck["correct"]))/((float64(trainingDataCheck["correct"]))+float64(trainingDataCheck["incorrect"])+float64(trainingDataCheck["error"]))*100))

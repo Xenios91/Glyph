@@ -10,8 +10,7 @@ import (
 )
 
 type classifierConfiguration struct {
-	NGrams        int
-	FunctionRange float32
+	NGrams int
 }
 
 var classifier = make(map[string]*bayesian.Classifier, 10)
@@ -19,11 +18,9 @@ var returnTypeMap = make(map[string][]bin_utils.FunctionDetails, 10)
 var trainingDataCheck = make(map[string]int, 3)
 var classifierConfig = new(classifierConfiguration)
 
-func setClassifierConfig(nGrams int, functionRange float32) {
+func setClassifierConfig(nGrams int) {
 	classifierConfig.NGrams = nGrams
-	classifierConfig.FunctionRange = functionRange
 	fmt.Printf("N-Grams set: %d... ", nGrams)
-	fmt.Printf("Function Range set: %.2f... ", functionRange)
 }
 
 func populateReturnTypeMap(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
@@ -209,32 +206,17 @@ func getNGrams(function *bin_utils.FunctionDetails) []string {
 	return gramArray
 }
 
-func getFunctionRange(function *bin_utils.FunctionDetails) (int, int) {
-	functionLength := len(function.Tokens)
-	functionRange := int(float32(functionLength) * classifierConfig.FunctionRange)
-	highEnd := functionLength + functionRange
-	lowEnd := functionLength - functionRange
-	if lowEnd < 0 {
-		lowEnd = 0
-	}
-	return lowEnd, highEnd
-}
-
 func createCandidatesClassifier(function *bin_utils.FunctionDetails) ([]bayesian.Class, map[string]bin_utils.FunctionDetails) {
 	var candidateMapKeys []bayesian.Class
 	candidateMap := make(map[string]bin_utils.FunctionDetails)
 	returnType := function.ReturnType
-	lowEnd, highEnd := getFunctionRange(function)
-
 	returnTypeArray := returnTypeMap[returnType]
 
 	for _, element := range returnTypeArray {
-		tokensLength := len(element.Tokens)
 		functionName := element.FunctionName
-		if tokensLength >= lowEnd && tokensLength <= highEnd {
-			candidateMapKeys = append(candidateMapKeys, bayesian.Class(functionName))
-			candidateMap[functionName] = element
-		}
+		candidateMapKeys = append(candidateMapKeys, bayesian.Class(functionName))
+		candidateMap[functionName] = element
+
 	}
 
 	if len(candidateMapKeys) < 2 {
