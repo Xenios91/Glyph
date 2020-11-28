@@ -36,9 +36,9 @@ func CheckIfElf(file *os.File) bool {
 	f := glyph.IOReader(file.Name())
 	var ident [16]uint8
 	_, err := f.ReadAt(ident[0:], 0)
-	glyph.CheckError(err)
-
-	if ident[0] != '\x7f' || ident[1] != 'E' || ident[2] != 'L' || ident[3] != 'F' {
+	if err != nil {
+		return false
+	} else if ident[0] != '\x7f' || ident[1] != 'E' || ident[2] != 'L' || ident[3] != 'F' {
 		fmt.Printf("Bad magic number at %d\n", ident[0:4])
 		return false
 	}
