@@ -192,12 +192,15 @@ func getNGrams(function *bin_utils.FunctionDetails) []string {
 	for counter := 0; counter < tokensLength; counter++ {
 		var grams strings.Builder
 		for i := 0; i < classifierConfig.NGrams; i++ {
-			if counter < (tokensLength - classifierConfig.NGrams) {
+			if counter <= (tokensLength - classifierConfig.NGrams) {
 				grams.WriteString(tokens[counter+i])
 				if i != (classifierConfig.NGrams - 1) {
 					grams.WriteString(" ")
 				}
 			} else {
+				if i == (classifierConfig.NGrams - 1) {
+					grams.WriteString(" ")
+				}
 				grams.WriteString(tokens[counter])
 			}
 		}

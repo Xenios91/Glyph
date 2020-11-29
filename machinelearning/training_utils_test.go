@@ -43,3 +43,71 @@ func Test_printFailedClassificationDetails(t *testing.T) {
 		t.Errorf("Contents written by printFailedClassificationDetails are incorrect, got %v want %v", fileContent, expectedContent)
 	}
 }
+
+func Test_printClassificationDetails(t *testing.T) {
+	fileName := "classification_details.txt"
+	defer os.Remove(fileName)
+	functionDetails := make([]bin_utils.FunctionDetails, 0)
+
+	type args struct {
+		functions []bin_utils.FunctionDetails
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "test1",
+			args: args{functions: functionDetails},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			printClassificationDetails(tt.args.functions)
+		})
+	}
+
+	fileContentBytes, err := ioutil.ReadFile(fileName)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fileContent := strings.TrimSuffix(string(fileContentBytes), "\n")
+	expectedContent := "N-Grams: 0\nTotal functions analyzed: 0\nTotal correct: 0\nTotal incorrect: 0\nTotal Errored: 0\nNLP accuracy: NaN%\nTotal accuracy NaN%"
+	if strings.Compare(fileContent, expectedContent) != 0 {
+		t.Errorf("Contents written by printFailedClassificationDetails are incorrect, got %v want %v", fileContent, expectedContent)
+	}
+}
+
+func Test_setTrainingConfig(t *testing.T) {
+	testFileName := "testFileName"
+
+	type args struct {
+		checkTrainingAccuracy     bool
+		classificationDetailsFile *string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "test1",
+			args: args{checkTrainingAccuracy: true, classificationDetailsFile: &testFileName},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setTrainingConfig(tt.args.checkTrainingAccuracy, tt.args.classificationDetailsFile)
+		})
+	}
+	checkAccuracy := trainingConfig.CheckTrainingAccuracy
+	classDetailsFile := trainingConfig.classificationDetailsFile
+
+	if !checkAccuracy {
+		t.Errorf("setTrainingConfig didn't set checkTrainingAccuracy properly, got %v want %v", checkAccuracy, true)
+	}
+	if strings.Compare(classDetailsFile, testFileName) != 0 {
+		t.Errorf("setTrainingConfig didn't set classificationDetailsFile properly, got %v want %v", classDetailsFile, testFileName)
+	}
+}
