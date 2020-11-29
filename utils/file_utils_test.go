@@ -140,3 +140,34 @@ func TestCreateDirectory(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteFile(t *testing.T) {
+	testFile, err := ioutil.TempFile("./", "testFile")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	testFileName := testFile.Name()
+	defer os.Remove(testFile.Name())
+	type args struct {
+		fileName *string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "test1",
+			args: args{
+				fileName: &testFileName,
+			}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			DeleteFile(tt.args.fileName)
+		})
+		_, err := os.Stat(*tt.args.fileName)
+		if !os.IsNotExist(err) {
+			t.Errorf("File [%v] was not deleted", tt.args.fileName)
+		}
+	}
+}
