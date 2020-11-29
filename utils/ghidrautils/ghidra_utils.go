@@ -29,12 +29,12 @@ var (
 
 //StartGhidraAnalysis Starts analysis on a supplied binary and returns a boolean value indicating if the analysis was successfully started.
 func StartGhidraAnalysis(fileName string, trainingData bool) bool {
-	addToQueue(filepath.Base(fileName), trainingData)
 	err := exec.Command(*ghidraConfig.ghidraHeadless, *ghidraConfig.ghidraProjectLocation, *ghidraConfig.ghidraProject, "-import", fileName, "-postScript", *ghidraConfig.ghidraScript, "-overwrite").Start()
 	if err != nil {
 		fmt.Println(err)
 		return false
 	}
+	addToQueue(filepath.Base(fileName), trainingData)
 	return true
 }
 
