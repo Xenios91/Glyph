@@ -12,6 +12,7 @@ import (
 func Test_printFailedClassificationDetails(t *testing.T) {
 	fileName := "failed_to_classify.txt"
 	defer os.Remove(fileName)
+	classifierConfig.NGrams = 2
 	functionDetails := new(bin_utils.FunctionDetails)
 	functionDetails.FunctionName = "testfunction"
 	functionDetails.LowAddress = "0x012345"
@@ -37,9 +38,9 @@ func Test_printFailedClassificationDetails(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fileContent := string(fileContentBytes)
-	expectedContent := "Function name: testfunction EntryPoint: 0x012345\n"
-	if strings.Compare(fileContent, expectedContent) != 0 {
+	fileContent := strings.TrimSuffix(string(fileContentBytes), "\n")
+	expectedContent := "Function name: testfunction EntryPoint: 0x012345"
+	if !strings.Contains(fileContent, expectedContent) {
 		t.Errorf("Contents written by printFailedClassificationDetails are incorrect, got %v want %v", fileContent, expectedContent)
 	}
 }
@@ -47,6 +48,7 @@ func Test_printFailedClassificationDetails(t *testing.T) {
 func Test_printClassificationDetails(t *testing.T) {
 	fileName := "classification_details.txt"
 	defer os.Remove(fileName)
+	classifierConfig.NGrams = 2
 	functionDetails := make([]bin_utils.FunctionDetails, 0)
 
 	type args struct {
@@ -74,8 +76,8 @@ func Test_printClassificationDetails(t *testing.T) {
 	}
 
 	fileContent := strings.TrimSuffix(string(fileContentBytes), "\n")
-	expectedContent := "N-Grams: 0\nTotal functions analyzed: 0\nTotal correct: 0\nTotal incorrect: 0\nTotal Errored: 0\nNLP accuracy: NaN%\nTotal accuracy NaN%"
-	if strings.Compare(fileContent, expectedContent) != 0 {
+	expectedContent := "N-Grams: 2\nTotal functions analyzed: 0\nTotal correct: 0\nTotal incorrect: 0\nTotal Errored: 0\nNLP accuracy: NaN%\nTotal accuracy NaN%"
+	if !strings.Contains(fileContent, expectedContent) {
 		t.Errorf("Contents written by printFailedClassificationDetails are incorrect, got %v want %v", fileContent, expectedContent)
 	}
 }
