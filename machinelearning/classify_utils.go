@@ -13,119 +13,78 @@ type classifierConfiguration struct {
 	NGrams int
 }
 
-var classifier = make(map[string]*bayesian.Classifier, 10)
-var returnTypeMap = make(map[string][]bin_utils.FunctionDetails, 10)
+var classifier bayesian.Classifier
 var trainingDataCheck = make(map[string]int, 3)
 var classifierConfig = new(classifierConfiguration)
+var trainingData []bin_utils.FunctionDetails
 
 func setClassifierConfig(nGrams int) {
 	classifierConfig.NGrams = nGrams
 	fmt.Printf("N-Grams set: %d... ", nGrams)
 }
 
-func populateReturnTypeMap(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
-	for _, function := range *classes {
-		returnType := function.ReturnType
-		returnTypeMap[returnType] = append(returnTypeMap[returnType], function)
-	}
-}
-
-func populateNGrams(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
-	for key, function := range *classes {
-		function.Tokens = getNGrams(&function)
-		(*classes)[key] = function
-	}
-}
-
-func retrieveReturnTypeFromTokens(function *bin_utils.FunctionDetails) *string {
-	tokens := function.Tokens
-	var returnType string
-	for splitAt, token := range tokens {
-		if strings.EqualFold(function.FunctionName, token) {
-			returnType = strings.Join(tokens[:splitAt], "")
-			if strings.Contains(returnType, "undefined") {
-				returnType = "undefined"
-			}
-			break
-		}
-	}
-	return &returnType
-}
-
-func populateReturnType(classes interface{}) {
-	switch data := classes.(type) {
-	case *map[bayesian.Class]bin_utils.FunctionDetails:
-		for key, function := range *data {
-			returnType := retrieveReturnTypeFromTokens(&function)
-			function.ReturnType = *returnType
-			(*data)[key] = function
-		}
-	case *bin_utils.BinaryDetails:
-		functions := data.FunctionsMap.FunctionDetails
-		for _, function := range functions {
-			retrieveReturnTypeFromTokens(&function)
-		}
-	}
-}
-
-func createTrainingClassifiers() {
-	for key, element := range returnTypeMap {
-		var trainingClasses []bayesian.Class
-
-		elementLength := len(element)
-
-		for counter := 0; counter < elementLength; counter++ {
-			functionName := element[counter].FunctionName
-			if !strings.Contains(functionName, "FUN_") {
-				trainingClasses = append(trainingClasses, bayesian.Class(element[counter].FunctionName))
-			}
-		}
-		if len(trainingClasses) == 1 {
-			trainingClasses = append(trainingClasses, bayesian.Class("DUMMY_CLASS"))
-		}
-		classifier[key] = bayesian.NewClassifier(trainingClasses[:]...)
+func populateNGrams(functionDetails *[]bin_utils.FunctionDetails) {
+	for counter, function := range *functionDetails {
+		(*functionDetails)[counter].Tokens = getNGrams(&function)
 	}
 }
 
 func removeExtraData(data interface{}) {
-	switch data := data.(type) {
-	case *map[bayesian.Class]bin_utils.FunctionDetails:
-		for key, value := range *data {
-			for splitAt, token := range value.Tokens {
-				if strings.EqualFold(token, string(key)) {
-					newTokens := value.Tokens[splitAt+1:]
-					value.Tokens = newTokens
-					(*data)[key] = value
+	switch functionDetails := data.(type) {
+	case *[]bin_utils.FunctionDetails:
+		for counter, function := range *functionDetails {
+			for splitAt, token := range function.Tokens {
+				if strings.EqualFold(token, function.FunctionName) {
+					newTokens := append(function.Tokens[:splitAt])
+					newTokens = append(newTokens, function.Tokens[splitAt+1:]...)
+					(*functionDetails)[counter].Tokens = newTokens
 					break
 				}
 			}
 		}
 	case *bin_utils.FunctionDetails:
-		for splitAt, token := range data.Tokens {
-			if strings.EqualFold(token, data.FunctionName) {
-				data.Tokens = data.Tokens[splitAt+1:]
+		for splitAt, token := range functionDetails.Tokens {
+			if strings.EqualFold(token, functionDetails.FunctionName) {
+				newTokens := append(functionDetails.Tokens[:splitAt])
+				newTokens = append(newTokens, functionDetails.Tokens[splitAt+1:]...)
+				functionDetails.Tokens = newTokens
 				return
 			}
 		}
 	}
 }
 
-func classifyTrainingData(classes *map[bayesian.Class]bin_utils.FunctionDetails) {
-	fmt.Print("Beginning to classify training data... ")
-	populateReturnType(classes)
-	removeExtraData(classes)
-	populateNGrams(classes)
-	populateReturnTypeMap(classes)
-	createTrainingClassifiers()
+func createClassifier(functions *[]bin_utils.FunctionDetails) {
+	classes := make(map[bayesian.Class]bool)
+	for _, function := range *functions {
+		classifierName := bayesian.Class(function.FunctionName)
+		classes[classifierName] = true
+	}
 
-	for key := range classifier {
-		functions := returnTypeMap[key]
-		for _, function := range functions {
-			if !strings.Contains(function.FunctionName, "FUN_") {
-				if !strings.Contains(string(key), "FUN_") {
-					classifier[key].Learn(function.Tokens, bayesian.Class(function.FunctionName))
-				}
-			}
+	size := len(classes)
+	classesSlice := make([]bayesian.Class, size)
+	counter := 0
+	for className := range classes {
+		classesSlice[counter] = className
+		counter++
+	}
+
+	classifier = *bayesian.NewClassifier(classesSlice[:]...)
+}
+
+func classifyTrainingData(functions *[]bin_utils.FunctionDetails) {
+	fmt.Print("Beginning to classify training data... ")
+	removeExtraData(functions)
+	populateNGrams(functions)
+	createClassifier(functions)
+
+	if trainingConfig.CheckTrainingAccuracy {
+		trainingData = *functions
+	}
+
+	for _, function := range *functions {
+		if !strings.Contains(function.FunctionName, "FUN_") {
+			classifier.Learn(function.Tokens, bayesian.Class(function.FunctionName))
 		}
 	}
 	fmt.Print("Training data classification complete! ")
@@ -158,8 +117,6 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 	functions := binary.FunctionsMap.FunctionDetails
 	for _, function := range functions {
 		var gramArray []string
-		returnType := retrieveReturnTypeFromTokens(&function)
-		function.ReturnType = *returnType
 		removeExtraData(&function)
 		function.Tokens = append(gramArray, getNGrams(&function)...)
 
@@ -214,55 +171,25 @@ func getNGrams(function *bin_utils.FunctionDetails) []string {
 	return gramArray
 }
 
-func createCandidatesClassifier(function *bin_utils.FunctionDetails) ([]bayesian.Class, map[string]bin_utils.FunctionDetails) {
-	var candidateMapKeys []bayesian.Class
-	candidateMap := make(map[string]bin_utils.FunctionDetails)
-	returnType := function.ReturnType
-	returnTypeArray := returnTypeMap[returnType]
-
-	for _, element := range returnTypeArray {
-		functionName := element.FunctionName
-		candidateMapKeys = append(candidateMapKeys, bayesian.Class(functionName))
-		candidateMap[functionName] = element
-
-	}
-
-	if len(candidateMapKeys) < 2 {
-		candidateMapKeys = append(candidateMapKeys, bayesian.Class("DUMMY_CLASS_01"), bayesian.Class("DUMMY_CLASS_02"))
-	} else if candidateMapKeys == nil {
-		candidateMapKeys = append(candidateMapKeys, bayesian.Class("DUMMY_CLASS_01"), bayesian.Class("DUMMY_CLASS_02"))
-	}
-
-	return candidateMapKeys, candidateMap
-}
-
 func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
-	classifierMapKeys, classifierMap := createCandidatesClassifier(function)
-	rangeClassifier := bayesian.NewClassifier(classifierMapKeys[:]...)
+	scores, likely, strict := classifier.LogScores(function.Tokens)
 
-	for counter := range classifierMapKeys {
-		rangeClassifier.Learn(classifierMap[string(classifierMapKeys[counter])].Tokens, classifierMapKeys[counter])
-	}
-
-	scores, likely, strict := rangeClassifier.LogScores(function.Tokens)
-
-	classDetermined := string(rangeClassifier.Classes[likely])
+	classDetermined := string(classifier.Classes[likely])
 
 	if strict != true {
 		for counter := range scores {
 			value := scores[counter]
 			if value == scores[likely] && counter != likely {
-				likelyFunction := string(rangeClassifier.Classes[counter])
+				likelyFunction := string(classifier.Classes[counter])
 				if !strings.Contains(classDetermined, likelyFunction) {
-					classDetermined = fmt.Sprintf("%s, %s", classDetermined, string(rangeClassifier.Classes[counter]))
+					classDetermined = fmt.Sprintf("%s, %s", classDetermined, string(classifier.Classes[counter]))
 				}
 			}
 		}
 	}
 
 	if trainingConfig.CheckTrainingAccuracy {
-		returnTypeArray := returnTypeMap[function.ReturnType]
-		checkAccuracy(returnTypeArray, &classDetermined, function)
+		checkAccuracy(&classDetermined, function)
 	}
 	return &classDetermined, scores[likely]
 }

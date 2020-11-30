@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/navossoc/bayesian"
 )
 
 //InsertDB Insert a record into the supplied table.
@@ -85,7 +84,7 @@ func QueryDB(tableLocation string, preparedStatement *string) *sql.Rows {
 }
 
 //GetTrainingData returns all training data from the machine learning training table.
-func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
+func GetTrainingData() *[]bin_utils.FunctionDetails {
 	preparedStatement := fmt.Sprintf("SELECT * FROM %s", MLTrainingSetTableName)
 	result := QueryDB(MLTrainingSetTableLocation, &preparedStatement)
 
@@ -106,11 +105,7 @@ func GetTrainingData() *map[bayesian.Class]bin_utils.FunctionDetails {
 		functionDetailsArray = append(functionDetailsArray, *functionDetails)
 	}
 
-	var classes map[bayesian.Class]bin_utils.FunctionDetails = make(map[bayesian.Class]bin_utils.FunctionDetails)
-	for _, function := range functionDetailsArray {
-		classes[bayesian.Class(function.FunctionName)] = function
-	}
-	return &classes
+	return &functionDetailsArray
 }
 
 //GetDistinctBinaries returns all distinct binary file names from the database.
