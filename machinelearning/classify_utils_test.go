@@ -131,11 +131,11 @@ func Test_populateNGrams(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			populateNGrams(tt.args.classes)
 		})
-	}
-	obtainedSlice := classes[class]
-	expectedSlice := []string{"well hello", "hello there", "there there"}
-	if !reflect.DeepEqual(obtainedSlice.Tokens, expectedSlice) {
-		t.Errorf("populateNGrams create the wrong tokens list, got %v want %v", functionDetails.Tokens, expectedSlice)
+		obtainedSlice := classes[class]
+		expectedSlice := []string{"well hello", "hello there", "there there"}
+		if !reflect.DeepEqual(obtainedSlice.Tokens, expectedSlice) {
+			t.Errorf("populateNGrams create the wrong tokens list, got %v want %v", functionDetails.Tokens, expectedSlice)
+		}
 	}
 }
 
@@ -149,16 +149,15 @@ func Test_setClassifierConfig(t *testing.T) {
 	}{
 		{name: "test1", args: args{nGrams: 2}},
 	}
-	for _, tt := range tests {
+	for counter, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			setClassifierConfig(tt.args.nGrams)
 		})
-	}
-
-	got := classifierConfig.NGrams
-	want := 2
-	if got != want {
-		t.Errorf("Classifier Config has incorrect N-Grams, got %v want %v", got, want)
+		got := classifierConfig.NGrams
+		want := tests[counter].args.nGrams
+		if got != want {
+			t.Errorf("Classifier Config has incorrect N-Grams, got %v want %v", got, want)
+		}
 	}
 }
 
@@ -179,20 +178,21 @@ func Test_populateReturnTypeMap(t *testing.T) {
 	}{
 		{name: "test1", args: args{classes: &classes}},
 	}
-	for _, tt := range tests {
+	for counter, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			populateReturnTypeMap(tt.args.classes)
 		})
+		returnTypeMapLength := len(returnTypeMap)
+		if returnTypeMapLength != 1 {
+			t.Errorf("ReturnTypeMap is unexpected size, got %v want %v", returnTypeMapLength, 1)
+		}
+		returnTypeVoidSlice := returnTypeMap["void"]
+		obtainedFunction := returnTypeVoidSlice[counter]
+		if !reflect.DeepEqual(obtainedFunction, *function) {
+			t.Errorf("ReturnTypeMap stored incorrect function with return type %v got %v want %v", function.ReturnType, obtainedFunction, *function)
+		}
 	}
-	returnTypeMapLength := len(returnTypeMap)
-	if returnTypeMapLength != 1 {
-		t.Errorf("ReturnTypeMap is unexpected size, got %v want %v", returnTypeMapLength, 1)
-	}
-	returnTypeVoidSlice := returnTypeMap["void"]
-	obtainedFunction := returnTypeVoidSlice[0]
-	if !reflect.DeepEqual(obtainedFunction, *function) {
-		t.Errorf("ReturnTypeMap stored incorrect function with return type %v got %v want %v", function.ReturnType, obtainedFunction, *function)
-	}
+
 }
 
 func Test_retrieveReturnTypeFromTokens(t *testing.T) {
@@ -243,12 +243,13 @@ func Test_populateReturnType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			populateReturnType(tt.args.classes)
+			functionReturnType := classes[bayesian.Class(function.FunctionName)].ReturnType
+			expectedType := "undefined"
+			if strings.Compare(functionReturnType, expectedType) != 0 {
+				t.Errorf("populateReturnType obtained the wrong return type, got %v want %v", functionReturnType, expectedType)
+			}
 		})
-		functionReturnType := classes[bayesian.Class(function.FunctionName)].ReturnType
-		expectedType := "undefined"
-		if strings.Compare(functionReturnType, expectedType) != 0 {
-			t.Errorf("populateReturnType obtained the wrong return type, got %v want %v", functionReturnType, expectedType)
-		}
+
 	}
 }
 
@@ -264,14 +265,49 @@ func Test_createTrainingClassifiers(t *testing.T) {
 	}{
 		{name: "test1"},
 	}
-	for _, tt := range tests {
+	for counter, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			createTrainingClassifiers()
 		})
+		classifier := classifier[functionDetails.ReturnType]
+		class := string(classifier.Classes[counter])
+		if strings.Compare(class, functionDetails.FunctionName) != 0 {
+			t.Errorf("Classifier[0] has %v but should have %v", class, functionDetails.FunctionName)
+		}
 	}
-	classifier := classifier[functionDetails.ReturnType]
-	class := string(classifier.Classes[0])
-	if strings.Compare(class, functionDetails.FunctionName) != 0 {
-		t.Errorf("Classifier[0] has %v but should have %v", class, functionDetails.FunctionName)
+
+}
+
+func Test_removeExtraData(t *testing.T) {
+	functionDetails := new(bin_utils.FunctionDetails)
+	functionName := "testFunction"
+	functionTokens := []string{"void", "testFunction", "well", "hello", "there"}
+	functionDetails.FunctionName = functionName
+	functionDetails.Tokens = functionTokens
+	data := make(map[bayesian.Class]bin_utils.FunctionDetails)
+	data[bayesian.Class(functionDetails.FunctionName)] = *functionDetails
+	data2 := new(bin_utils.FunctionDetails)
+	data2.FunctionName = functionName
+	data2.Tokens = functionTokens
+
+	type args struct {
+		data interface{}
 	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "test1", args: args{data: &data}}, {name: "test2", args: args{data: data2}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			removeExtraData(tt.args.data)
+		})
+		expectedTokens := []string{"well", "hello", "there"}
+		gotTokens := data[bayesian.Class(functionDetails.FunctionName)].Tokens
+		if !reflect.DeepEqual(gotTokens, expectedTokens) {
+			t.Errorf("removeExtraData didn't work as expected, got %v want %v ", functionDetails.Tokens, expectedTokens)
+		}
+	}
+
 }
