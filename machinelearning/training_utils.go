@@ -6,6 +6,7 @@ import (
 	bin_utils "glyph/glyph/utils/binutils"
 	db_utils "glyph/glyph/utils/dbutils"
 	"strings"
+	"sync"
 )
 
 type trainingConfiguration struct {
@@ -14,6 +15,7 @@ type trainingConfiguration struct {
 }
 
 var trainingConfig = new(trainingConfiguration)
+var lock sync.Mutex
 
 func setTrainingConfig(checkTrainingAccuracy bool, classificationDetailsFile *string) {
 	trainingConfig.CheckTrainingAccuracy = checkTrainingAccuracy
@@ -42,6 +44,20 @@ func InsertTrainingData(binaryDetails *bin_utils.BinaryDetails) {
 	fmt.Println("Training data successfully reloaded!")
 }
 
+func updateTrainingDataCheck(value string) {
+	lock.Lock()
+	defer lock.Unlock()
+
+	switch value {
+	case "correct":
+		trainingDataCheck["correct"]++
+	case "incorrect":
+		trainingDataCheck["incorrect"]++
+	case "error":
+		trainingDataCheck["error"]++
+	}
+}
+
 func checkAccuracy(classDetermined *string, function *bin_utils.FunctionDetails) {
 	addressMatch := false
 	for counter := range trainingData {
@@ -49,7 +65,7 @@ func checkAccuracy(classDetermined *string, function *bin_utils.FunctionDetails)
 		if strings.Contains(*classDetermined, nameToCheck) {
 			addressToCheck := trainingData[counter].LowAddress
 			if function.LowAddress == addressToCheck {
-				trainingDataCheck["correct"]++
+				updateTrainingDataCheck("correct")
 				addressMatch = true
 				break
 			}
@@ -60,14 +76,14 @@ func checkAccuracy(classDetermined *string, function *bin_utils.FunctionDetails)
 		inMap := false
 		for _, fnc := range trainingData {
 			if fnc.LowAddress == function.LowAddress {
-				trainingDataCheck["incorrect"]++
+				updateTrainingDataCheck("incorrect")
 				inMap = true
 				printFailedClassificationDetails(&fnc)
 				break
 			}
 		}
 		if !inMap {
-			trainingDataCheck["error"]++
+			updateTrainingDataCheck("error")
 		}
 	}
 }

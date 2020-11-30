@@ -5,6 +5,7 @@ import (
 	bin_utils "glyph/glyph/utils/binutils"
 	"math"
 	"strings"
+	"sync"
 
 	"github.com/navossoc/bayesian"
 )
@@ -14,7 +15,7 @@ type classifierConfiguration struct {
 }
 
 var classifier bayesian.Classifier
-var trainingDataCheck = make(map[string]int, 3)
+var trainingDataCheck = make(map[string]int32, 3)
 var classifierConfig = new(classifierConfiguration)
 var trainingData []bin_utils.FunctionDetails
 
@@ -113,27 +114,32 @@ func filterUnknownFunctions(functions *string) *string {
 
 //ClassifyFunctions used to classify one or more functions provided to it.
 func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolTable {
+	var wg sync.WaitGroup
 	symbolTable := new(bin_utils.BinarySymbolTable)
 	symbolTable.SymbolsMap = make(map[string]string)
 	functions := binary.FunctionsMap.FunctionDetails
 	for _, function := range functions {
-		var gramArray []string
-		removeExtraData(&function)
-		function.Tokens = append(gramArray, getNGrams(&function)...)
+		go func(function bin_utils.FunctionDetails, wg *sync.WaitGroup) {
+			wg.Add(1)
+			defer wg.Done()
+			var gramArray []string
+			removeExtraData(&function)
+			function.Tokens = append(gramArray, getNGrams(&function)...)
 
-		if strings.Contains(function.FunctionName, "FUN_") {
-			functionName, prob := classifyFunction(&function)
+			if strings.Contains(function.FunctionName, "FUN_") {
+				functionName, prob := classifyFunction(&function)
 
-			if strings.Contains(*functionName, ",") || strings.Contains(*functionName, "FUN_") {
-				functionName = filterUnknownFunctions(functionName)
+				if strings.Contains(*functionName, ",") || strings.Contains(*functionName, "FUN_") {
+					functionName = filterUnknownFunctions(functionName)
+				}
+
+				if !math.IsNaN(prob) && len(*functionName) > 0 {
+					symbolTable.PopulateMap(&function.LowAddress, functionName)
+				}
 			}
-
-			if !math.IsNaN(prob) && len(*functionName) > 0 {
-				symbolTable.PopulateMap(&function.LowAddress, functionName)
-			}
-		}
+		}(function, &wg)
 	}
-
+	wg.Wait()
 	symbolTable.BinaryName = binary.BinaryName
 	fmt.Println("Functions Classified!")
 

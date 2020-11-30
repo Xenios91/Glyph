@@ -15,6 +15,9 @@ func SetupML(checkTrainingAccuracy bool, classificationDetailsFile *string, nGra
 		setClassifierConfig(nGrams)
 		fmt.Println("ML configurations successfully loaded!")
 		loadMLTrainingData()
+		trainingDataCheck["correct"] = 0
+		trainingDataCheck["incorrect"] = 0
+		trainingDataCheck["error"] = 0
 	})
 
 }
