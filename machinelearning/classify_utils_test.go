@@ -162,10 +162,12 @@ func Test_setClassifierConfig(t *testing.T) {
 }
 
 func Test_populateReturnTypeMap(t *testing.T) {
+	returnTypeMap = make(map[string][]bin_utils.FunctionDetails)
 	classes := make(map[bayesian.Class]bin_utils.FunctionDetails)
 	function := new(bin_utils.FunctionDetails)
 	function.FunctionName = "testfunction"
 	function.ReturnType = "void"
+
 	classes[bayesian.Class(function.FunctionName)] = *function
 	type args struct {
 		classes *map[bayesian.Class]bin_utils.FunctionDetails
@@ -188,7 +190,7 @@ func Test_populateReturnTypeMap(t *testing.T) {
 	returnTypeVoidSlice := returnTypeMap["void"]
 	obtainedFunction := returnTypeVoidSlice[0]
 	if !reflect.DeepEqual(obtainedFunction, *function) {
-		t.Errorf("ReturnTypeMap stored incorrect function with return type %v got %v want %v", function.ReturnType, obtainedFunction, function)
+		t.Errorf("ReturnTypeMap stored incorrect function with return type %v got %v want %v", function.ReturnType, obtainedFunction, *function)
 	}
 }
 
