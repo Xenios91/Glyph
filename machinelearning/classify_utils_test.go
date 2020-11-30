@@ -311,3 +311,41 @@ func Test_removeExtraData(t *testing.T) {
 	}
 
 }
+
+func Test_classifyTrainingData(t *testing.T) {
+	classifierConfig.NGrams = 2
+	functionDetails := new(bin_utils.FunctionDetails)
+	functionDetails.FunctionName = "testFunction"
+	functionDetails.ReturnType = "void"
+	functionDetails.Tokens = []string{"void", "testFunction", "well", "hello", "there"}
+	classes := make(map[bayesian.Class]bin_utils.FunctionDetails)
+	classes[bayesian.Class(functionDetails.FunctionName)] = *functionDetails
+
+	type args struct {
+		classes *map[bayesian.Class]bin_utils.FunctionDetails
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "test1", args: args{classes: &classes}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			classifyTrainingData(tt.args.classes)
+		})
+
+		classifiedType := classifier[functionDetails.ReturnType]
+		classes := classifiedType.Classes
+		found := false
+		for _, class := range classes {
+			if strings.Compare(string(class), functionDetails.FunctionName) == 0 {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("classifyTrainingData() didn't work properly, class %v was not in the created classifier", functionDetails.FunctionName)
+		}
+	}
+}

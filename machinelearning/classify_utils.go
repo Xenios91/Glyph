@@ -123,7 +123,6 @@ func classifyTrainingData(classes *map[bayesian.Class]bin_utils.FunctionDetails)
 		for _, function := range functions {
 			if !strings.Contains(function.FunctionName, "FUN_") {
 				if !strings.Contains(string(key), "FUN_") {
-					function.Tokens = getNGrams(&function)
 					classifier[key].Learn(function.Tokens, bayesian.Class(function.FunctionName))
 				}
 			}
@@ -188,6 +187,10 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 }
 
 func getNGrams(function *bin_utils.FunctionDetails) []string {
+	if classifierConfig.NGrams == 1 {
+		return function.Tokens
+	}
+
 	var gramArray []string
 	tokens := function.Tokens
 	tokensLength := len(tokens)
