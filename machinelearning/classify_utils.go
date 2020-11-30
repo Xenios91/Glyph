@@ -36,6 +36,7 @@ func removeExtraData(data interface{}) {
 			for splitAt, token := range function.Tokens {
 				if strings.EqualFold(token, function.FunctionName) {
 					newTokens := append(function.Tokens[:splitAt])
+					(*functionDetails)[counter].ReturnType = strings.Join(newTokens, "")
 					newTokens = append(newTokens, function.Tokens[splitAt+1:]...)
 					(*functionDetails)[counter].Tokens = newTokens
 					break
