@@ -313,6 +313,8 @@ func Test_removeExtraData(t *testing.T) {
 }
 
 func Test_classifyTrainingData(t *testing.T) {
+	classifier = make(map[string]*bayesian.Classifier)
+	returnTypeMap = make(map[string][]bin_utils.FunctionDetails, 10)
 	classifierConfig.NGrams = 2
 	functionDetails := new(bin_utils.FunctionDetails)
 	functionDetails.FunctionName = "testFunction"
