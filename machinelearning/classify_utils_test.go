@@ -238,7 +238,7 @@ func Test_populateReturnType(t *testing.T) {
 		args args
 	}{
 		{name: "test1", args: args{classes: &classes}},
-		{name: "test2", args: args{classes: &classes2}},
+		{name: "test2", args: args{classes: classes2}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -249,5 +249,29 @@ func Test_populateReturnType(t *testing.T) {
 		if strings.Compare(functionReturnType, expectedType) != 0 {
 			t.Errorf("populateReturnType obtained the wrong return type, got %v want %v", functionReturnType, expectedType)
 		}
+	}
+}
+
+func Test_createTrainingClassifiers(t *testing.T) {
+	functionDetails := new(bin_utils.FunctionDetails)
+	functionDetails.FunctionName = "testFunction"
+	functionDetails.ReturnType = "void"
+	returnTypeMap = make(map[string][]bin_utils.FunctionDetails)
+	returnTypeMap[functionDetails.ReturnType] = append(make([]bin_utils.FunctionDetails, 0), *functionDetails)
+
+	tests := []struct {
+		name string
+	}{
+		{name: "test1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			createTrainingClassifiers()
+		})
+	}
+	classifier := classifier[functionDetails.ReturnType]
+	class := string(classifier.Classes[0])
+	if strings.Compare(class, functionDetails.FunctionName) != 0 {
+		t.Errorf("Classifier[0] has %v but should have %v", class, functionDetails.FunctionName)
 	}
 }
