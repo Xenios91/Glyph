@@ -3,6 +3,7 @@ package glyph
 import (
 	bin_utils "glyph/glyph/utils/binutils"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/navossoc/bayesian"
@@ -197,8 +198,8 @@ func Test_populateReturnTypeMap(t *testing.T) {
 func Test_retrieveReturnTypeFromTokens(t *testing.T) {
 	function := new(bin_utils.FunctionDetails)
 	function.FunctionName = "testFunction"
-	function.Tokens = []string{"void", "testFunction", "something", "something", "darkside"}
-	want := "void"
+	function.Tokens = []string{"undefined", "testFunction", "something", "something", "darkside"}
+	want := "undefined"
 	type args struct {
 		function *bin_utils.FunctionDetails
 	}
@@ -215,5 +216,38 @@ func Test_retrieveReturnTypeFromTokens(t *testing.T) {
 				t.Errorf("retrieveReturnTypeFromTokens() = %v, want %v", *got, *tt.want)
 			}
 		})
+	}
+}
+
+func Test_populateReturnType(t *testing.T) {
+	classifierConfig.NGrams = 2
+	classes := make(map[bayesian.Class]bin_utils.FunctionDetails)
+	function := new(bin_utils.FunctionDetails)
+	function.FunctionName = "testFunction"
+	function.Tokens = []string{"undefined", "testFunction", "something", "something", "darkside"}
+	classes[bayesian.Class(function.FunctionName)] = *function
+	classes2 := new(bin_utils.BinaryDetails)
+	classes2.FunctionsMap.FunctionDetails = make([]bin_utils.FunctionDetails, 1)
+	classes2.FunctionsMap.FunctionDetails[0] = *function
+
+	type args struct {
+		classes interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "test1", args: args{classes: &classes}},
+		{name: "test2", args: args{classes: &classes2}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			populateReturnType(tt.args.classes)
+		})
+		functionReturnType := classes[bayesian.Class(function.FunctionName)].ReturnType
+		expectedType := "undefined"
+		if strings.Compare(functionReturnType, expectedType) != 0 {
+			t.Errorf("populateReturnType obtained the wrong return type, got %v want %v", functionReturnType, expectedType)
+		}
 	}
 }
