@@ -140,13 +140,15 @@ func filterUnknownFunctions(functions *string) *string {
 
 	for _, functionName := range functionsArray {
 		if !strings.Contains(functionName, "FUN_") {
-			functionSB.WriteString(fmt.Sprintf("%s, ", functionName))
+			functionSB.WriteString(fmt.Sprintf("%s,", functionName))
 		}
 	}
 	functionsCSV = functionSB.String()
 	if len(functionsCSV) > 0 {
 		functionsCSV = functionsCSV[:len(functionsCSV)-1]
 	}
+	functionsCSV = strings.TrimPrefix(functionsCSV, " ")
+	functionsCSV = strings.TrimSuffix(functionsCSV, ",")
 	return &functionsCSV
 }
 
