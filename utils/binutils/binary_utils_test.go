@@ -24,13 +24,7 @@ func TestCheckIfElf(t *testing.T) {
 		args args
 		want bool
 	}{
-		{
-			name: "test1",
-			args: args{
-				file: file,
-			},
-			want: false,
-		},
+		{name: "test1", args: args{file: file}, want: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

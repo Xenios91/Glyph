@@ -10,6 +10,8 @@ import (
 )
 
 func TestCreateAndWriteFile(t *testing.T) {
+	existFile := "testFileExist"
+	os.Create(existFile)
 	fileName := "testFile"
 	fileText := "test contents"
 
@@ -22,20 +24,14 @@ func TestCreateAndWriteFile(t *testing.T) {
 		name string
 		args args
 	}{
-		{
-			name: "test1",
-			args: args{
-				fileName:     &fileName,
-				fileContents: &fileText,
-				append:       false,
-			},
-		},
+		{name: "test1", args: args{fileName: &fileName, fileContents: &fileText, append: false}},
+		{name: "test2", args: args{fileName: &existFile, fileContents: &fileText, append: true}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defer os.Remove(fileName)
+			defer os.Remove(*tt.args.fileName)
 			CreateAndWriteFile(tt.args.fileName, tt.args.fileContents, tt.args.append)
-			fileInfo, err := os.Stat(fileName)
+			fileInfo, err := os.Stat(*tt.args.fileName)
 			if os.IsNotExist(err) {
 				t.Errorf("The file was not created and written to")
 			} else {
@@ -43,7 +39,7 @@ func TestCreateAndWriteFile(t *testing.T) {
 				if isDirectory {
 					t.Errorf("A directory was created instead")
 				} else {
-					file, err := os.Open(fileName)
+					file, err := os.Open(*tt.args.fileName)
 					if err != nil {
 						log.Fatal(err)
 					}
