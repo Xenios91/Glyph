@@ -62,7 +62,7 @@ func checkAccuracy(classDetermined *string, function *bin_utils.FunctionDetails)
 	addressMatch := false
 	for counter := range trainingData {
 		nameToCheck := trainingData[counter].FunctionName
-		if strings.Contains(*classDetermined, nameToCheck) {
+		if strings.Contains(*classDetermined, nameToCheck) && len(nameToCheck) > 0 {
 			addressToCheck := trainingData[counter].LowAddress
 			if function.LowAddress == addressToCheck {
 				updateTrainingDataCheck("correct")

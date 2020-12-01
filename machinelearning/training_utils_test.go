@@ -113,3 +113,49 @@ func Test_setTrainingConfig(t *testing.T) {
 		t.Errorf("setTrainingConfig didn't set classificationDetailsFile properly, got %v want %v", classDetailsFile, testFileName)
 	}
 }
+
+func Test_checkAccuracy(t *testing.T) {
+	defer os.Remove("./failed_to_classify.txt")
+	classDetermined := "testFunction"
+	functionDetails := new(bin_utils.FunctionDetails)
+	functionDetails2 := new(bin_utils.FunctionDetails)
+	functionDetails3 := new(bin_utils.FunctionDetails)
+	functionDetails.LowAddress = "0x012345"
+	functionDetails2.LowAddress = "0x112345"
+	functionDetails3.LowAddress = "0x212345"
+	functionDetails.FunctionName = "testFunction"
+
+	trainingData = make([]bin_utils.FunctionDetails, 3)
+	trainingData[0] = *functionDetails
+	trainingData[1] = *functionDetails2
+
+	type args struct {
+		classDetermined *string
+		function        *bin_utils.FunctionDetails
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "test1", args: args{classDetermined: &classDetermined, function: functionDetails}},
+		{name: "test2", args: args{classDetermined: &classDetermined, function: functionDetails2}},
+		{name: "test3", args: args{classDetermined: &classDetermined, function: functionDetails3}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			checkAccuracy(tt.args.classDetermined, tt.args.function)
+		})
+	}
+	correct := trainingDataCheck["correct"]
+	incorrect := trainingDataCheck["incorrect"]
+	err := trainingDataCheck["error"]
+	if correct != 1 {
+		t.Errorf("checkAccuracy gave the wrong numbers, correct got %v want %v", correct, 1)
+	}
+	if incorrect != 1 {
+		t.Errorf("checkAccuracy gave the wrong numbers, incorrect got %v want %v", incorrect, 1)
+	}
+	if err != 1 {
+		t.Errorf("checkAccuracy gave the wrong numbers, error got %v want %v", err, 1)
+	}
+}

@@ -196,6 +196,7 @@ func Test_classifyTrainingData(t *testing.T) {
 }
 
 func TestClassifyFunctions(t *testing.T) {
+	trainingConfig.CheckTrainingAccuracy = false
 	tokens := []string{"void", "testFunction", "tokens"}
 	classes := []bayesian.Class{bayesian.Class("testFunction"), bayesian.Class("DUMMY_CLASS")}
 	classifier = bayesian.NewClassifier(classes[:]...)
