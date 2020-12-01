@@ -14,7 +14,7 @@ type classifierConfiguration struct {
 	NGrams int
 }
 
-var classifier bayesian.Classifier
+var classifier *bayesian.Classifier
 var trainingDataCheck = make(map[string]int32, 3)
 var classifierConfig = new(classifierConfiguration)
 var trainingData []bin_utils.FunctionDetails
@@ -76,7 +76,7 @@ func createClassifier(functions *[]bin_utils.FunctionDetails) {
 	if len(classesSlice) < 2 {
 		classesSlice = append(classesSlice, "DUMMY_CLASS_02")
 	}
-	classifier = *bayesian.NewClassifier(classesSlice[:]...)
+	classifier = bayesian.NewClassifier(classesSlice[:]...)
 }
 
 func classifyTrainingData(functions *[]bin_utils.FunctionDetails) {
@@ -124,8 +124,8 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 	symbolTable.SymbolsMap = make(map[string]string)
 	functions := binary.FunctionsMap.FunctionDetails
 	for _, function := range functions {
+		wg.Add(1)
 		go func(function bin_utils.FunctionDetails, wg *sync.WaitGroup) {
-			wg.Add(1)
 			defer wg.Done()
 			var gramArray []string
 			removeExtraData(&function)

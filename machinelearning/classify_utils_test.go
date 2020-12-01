@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/navossoc/bayesian"
 )
 
 func Test_getNGrams(t *testing.T) {
@@ -190,5 +192,41 @@ func Test_classifyTrainingData(t *testing.T) {
 
 		})
 
+	}
+}
+
+func TestClassifyFunctions(t *testing.T) {
+	tokens := []string{"void", "testFunction", "tokens"}
+	classes := []bayesian.Class{bayesian.Class("testFunction"), bayesian.Class("DUMMY_CLASS")}
+	classifier = bayesian.NewClassifier(classes[:]...)
+	classifier.Learn(tokens, classes[0])
+	classifier.Learn([]string{"other function"}, classes[1])
+	testBin := new(bin_utils.BinaryDetails)
+	testBin.BinaryName = "testbin"
+	testBin.FunctionsMap.FunctionDetails = make([]bin_utils.FunctionDetails, 1)
+	functionDetail := new(bin_utils.FunctionDetails)
+	functionDetail.FunctionName = "FUN_test"
+	functionDetail.LowAddress = "0x012345"
+	functionDetail.Tokens = tokens
+	testBin.FunctionsMap.FunctionDetails[0] = *functionDetail
+
+	type args struct {
+		binary *bin_utils.BinaryDetails
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{name: "test1", args: args{binary: testBin}, want: "testFunction"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ClassifyFunctions(tt.args.binary)
+			element := got.SymbolsMap["0x012345"]
+			if strings.Compare(element, "testFunction") != 0 {
+				t.Errorf("Element returned nil from ClassifiyFunctions")
+			}
+		})
 	}
 }
