@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/navossoc/bayesian"
 )
 
 func Test_getNGrams(t *testing.T) {
@@ -31,48 +29,6 @@ func Test_getNGrams(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getNGrams(tt.args.function); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("getNGrams() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_createCandidatesClassifier(t *testing.T) {
-	function := new(bin_utils.FunctionDetails)
-	function.ReturnType = "void"
-	function.FunctionName = "testFunction"
-	function.LowAddress = "0x012345"
-	functions := make([]bin_utils.FunctionDetails, 1)
-	functions[0] = *function
-	returnTypeMap["void"] = functions
-	expectedMap := make(map[string]bin_utils.FunctionDetails)
-	expectedMap[function.FunctionName] = *function
-
-	type args struct {
-		function *bin_utils.FunctionDetails
-	}
-	tests := []struct {
-		name  string
-		args  args
-		want  []bayesian.Class
-		want1 map[string]bin_utils.FunctionDetails
-	}{
-		{
-			name: "test1",
-			args: args{
-				function: function,
-			},
-			want:  []bayesian.Class{"testFunction", "DUMMY_CLASS_01", "DUMMY_CLASS_02"},
-			want1: expectedMap,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := createCandidatesClassifier(tt.args.function)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("createCandidatesClassifier() got = %v, want %v", got, tt.want)
-			}
-			if !reflect.DeepEqual(got1, tt.want1) {
-				t.Errorf("createCandidatesClassifier() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}
@@ -110,13 +66,12 @@ func Test_populateNGrams(t *testing.T) {
 	functionDetails.FunctionName = "testFunction"
 	functionDetails.ReturnType = "void"
 	functionDetails.Tokens = []string{"well", "hello", "there"}
-	classes := make(map[bayesian.Class]bin_utils.FunctionDetails)
-	class := bayesian.Class(functionDetails.FunctionName)
-	classes[class] = *functionDetails
+	classes := make([]bin_utils.FunctionDetails, 1)
+	classes[0] = *functionDetails
 	classifierConfig.NGrams = 2
 
 	type args struct {
-		classes *map[bayesian.Class]bin_utils.FunctionDetails
+		classes *[]bin_utils.FunctionDetails
 	}
 	tests := []struct {
 		name string
@@ -131,7 +86,7 @@ func Test_populateNGrams(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			populateNGrams(tt.args.classes)
 		})
-		obtainedSlice := classes[class]
+		obtainedSlice := classes[0]
 		expectedSlice := []string{"well hello", "hello there", "there there"}
 		if !reflect.DeepEqual(obtainedSlice.Tokens, expectedSlice) {
 			t.Errorf("populateNGrams create the wrong tokens list, got %v want %v", functionDetails.Tokens, expectedSlice)
@@ -161,42 +116,17 @@ func Test_setClassifierConfig(t *testing.T) {
 	}
 }
 
-func Test_createTrainingClassifiers(t *testing.T) {
-	functionDetails := new(bin_utils.FunctionDetails)
-	functionDetails.FunctionName = "testFunction"
-	functionDetails.ReturnType = "void"
-	returnTypeMap = make(map[string][]bin_utils.FunctionDetails)
-	returnTypeMap[functionDetails.ReturnType] = append(make([]bin_utils.FunctionDetails, 0), *functionDetails)
-
-	tests := []struct {
-		name string
-	}{
-		{name: "test1"},
-	}
-	for counter, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			createTrainingClassifiers()
-		})
-		classifier := classifier[functionDetails.ReturnType]
-		class := string(classifier.Classes[counter])
-		if strings.Compare(class, functionDetails.FunctionName) != 0 {
-			t.Errorf("Classifier[0] has %v but should have %v", class, functionDetails.FunctionName)
-		}
-	}
-
-}
-
 func Test_removeExtraData(t *testing.T) {
 	functionDetails := new(bin_utils.FunctionDetails)
 	functionName := "testFunction"
 	functionTokens := []string{"void", "testFunction", "well", "hello", "there"}
 	functionDetails.FunctionName = functionName
-	functionDetails.Tokens = functionTokens
-	data := make(map[bayesian.Class]bin_utils.FunctionDetails)
-	data[bayesian.Class(functionDetails.FunctionName)] = *functionDetails
-	data2 := new(bin_utils.FunctionDetails)
-	data2.FunctionName = functionName
-	data2.Tokens = functionTokens
+	functionDetails.Tokens = append(*new([]string), functionTokens[:]...)
+	data := make([]bin_utils.FunctionDetails, 2)
+	data[0] = *functionDetails
+	functionDetails2 := new(bin_utils.FunctionDetails)
+	functionDetails2.FunctionName = functionName
+	functionDetails2.Tokens = append(*new([]string), functionTokens[:]...)
 
 	type args struct {
 		data interface{}
@@ -205,14 +135,21 @@ func Test_removeExtraData(t *testing.T) {
 		name string
 		args args
 	}{
-		{name: "test1", args: args{data: &data}}, {name: "test2", args: args{data: data2}},
+		{name: "test1", args: args{data: &data}}, {name: "test2", args: args{data: functionDetails2}},
 	}
-	for _, tt := range tests {
+	for counter, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			removeExtraData(tt.args.data)
 		})
-		expectedTokens := []string{"well", "hello", "there"}
-		gotTokens := data[bayesian.Class(functionDetails.FunctionName)].Tokens
+		expectedTokens := []string{"void", "well", "hello", "there"}
+		dataType := reflect.TypeOf(tt.args.data).String()
+
+		var gotTokens []string
+		if strings.Compare(dataType, "*glyph.FunctionDetails") == 0 {
+			gotTokens = functionDetails2.Tokens
+		} else {
+			gotTokens = data[counter].Tokens
+		}
 		if !reflect.DeepEqual(gotTokens, expectedTokens) {
 			t.Errorf("removeExtraData didn't work as expected, got %v want %v ", functionDetails.Tokens, expectedTokens)
 		}
@@ -221,41 +158,37 @@ func Test_removeExtraData(t *testing.T) {
 }
 
 func Test_classifyTrainingData(t *testing.T) {
-	classifier = make(map[string]*bayesian.Classifier)
-	returnTypeMap = make(map[string][]bin_utils.FunctionDetails, 10)
+	functionDetails := make([]bin_utils.FunctionDetails, 1)
+	functionDetails[0] = *new(bin_utils.FunctionDetails)
 	classifierConfig.NGrams = 2
-	functionDetails := new(bin_utils.FunctionDetails)
-	functionDetails.FunctionName = "testFunction"
-	functionDetails.ReturnType = "void"
-	functionDetails.Tokens = []string{"void", "testFunction", "well", "hello", "there"}
-	classes := make(map[bayesian.Class]bin_utils.FunctionDetails)
-	classes[bayesian.Class(functionDetails.FunctionName)] = *functionDetails
+	functionDetails[0].FunctionName = "testFunction"
+	functionDetails[0].ReturnType = "void"
+	functionDetails[0].Tokens = []string{"void", "testFunction", "well", "hello", "there"}
 
 	type args struct {
-		classes *map[bayesian.Class]bin_utils.FunctionDetails
+		functionDetails *[]bin_utils.FunctionDetails
 	}
 	tests := []struct {
 		name string
 		args args
 	}{
-		{name: "test1", args: args{classes: &classes}},
+		{name: "test1", args: args{functionDetails: &functionDetails}},
 	}
-	for _, tt := range tests {
+	for counter, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			classifyTrainingData(tt.args.classes)
+			classifyTrainingData(tt.args.functionDetails)
+			found := false
+			for _, class := range classifier.Classes {
+				if strings.Compare(string(class), functionDetails[counter].FunctionName) != 0 {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("Classifier doesn't contain correct class, should have %v", functionDetails[counter].FunctionName)
+			}
+
 		})
 
-		classifiedType := classifier[functionDetails.ReturnType]
-		classes := classifiedType.Classes
-		found := false
-		for _, class := range classes {
-			if strings.Compare(string(class), functionDetails.FunctionName) == 0 {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("classifyTrainingData() didn't work properly, class %v was not in the created classifier", functionDetails.FunctionName)
-		}
 	}
 }

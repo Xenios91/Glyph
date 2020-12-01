@@ -70,7 +70,12 @@ func createClassifier(functions *[]bin_utils.FunctionDetails) {
 		classesSlice[counter] = className
 		counter++
 	}
-
+	if len(classesSlice) < 1 {
+		classesSlice = append(classesSlice, "DUMMY_CLASS_01")
+	}
+	if len(classesSlice) < 2 {
+		classesSlice = append(classesSlice, "DUMMY_CLASS_02")
+	}
 	classifier = *bayesian.NewClassifier(classesSlice[:]...)
 }
 
