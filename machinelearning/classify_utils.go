@@ -2,9 +2,7 @@ package glyph
 
 import (
 	"fmt"
-	error_utils "glyph/glyph/utils"
 	bin_utils "glyph/glyph/utils/binutils"
-	db_utils "glyph/glyph/utils/dbutils"
 	"math"
 	"strings"
 	"sync"
@@ -189,48 +187,29 @@ func getNGrams(function *bin_utils.FunctionDetails) []string {
 	return gramArray
 }
 
-func getProbability(classDetermined string, classScore float64) float64 {
+func getProbability(classDetermined string, classScore float64, tokens []string) float64 {
 	var probability float64
-	preparedStatement := fmt.Sprintf("SELECT * FROM %s WHERE %s=?", db_utils.MLTrainingSetTableName, db_utils.FunctionNameColumn)
-	databaseLocation := "./database/ml_training_set/glyph_ml_training_set.db"
 
-	classifierLock.Lock()
-	defer classifierLock.Unlock()
-	results, err := db_utils.QueryDBWithParameter(databaseLocation, &preparedStatement, &classDetermined)
-	error_utils.CheckError(err)
-	functionDetails := new(bin_utils.FunctionDetails)
-	for results.Next() {
-		var primKey int
-		var functionName string
-		var tokens string
-		var entryPoint string
-		var returnType string
-
-		results.Scan(&primKey, &functionName, &returnType, &tokens, &entryPoint)
-		functionDetails.Tokens = strings.Split(tokens, " ")
-	}
-
-	tokensArray := getNGrams(functionDetails)
 	newClassifierValues := make([]bayesian.Class, 2)
 	newClassifierValues[0] = bayesian.Class(classDetermined)
 	newClassifierValues[1] = bayesian.Class("other")
 	probClassifier := bayesian.NewClassifier(newClassifierValues[:]...)
-	probClassifier.Learn(tokensArray, bayesian.Class(classDetermined))
-	arrayLength := len(tokensArray)
-	zeroProbArray := make([]string, arrayLength)
+	probClassifier.Learn(tokens, bayesian.Class(classDetermined))
+	tokensLength := len(tokens)
+	zeroProbArray := make([]string, tokensLength)
 
-	for i := 0; i < arrayLength; i++ {
-		zeroProbArray[i] = "SOMEVALUE"
+	for i := 0; i < tokensLength; i++ {
+		zeroProbArray[i] = fmt.Sprintf("SOMEVALUE%d", i)
 	}
 
-	scores, likely, _ := probClassifier.LogScores(tokensArray)
+	scores, likely, _ := probClassifier.LogScores(tokens)
 	exactMatch := scores[likely]
 
 	scores, likely, _ = probClassifier.LogScores(zeroProbArray)
 	zeroMatch := scores[likely]
 
-	exactMatchAdjusted := math.Abs(zeroMatch) - math.Abs(exactMatch)
-	probability = math.Abs(classScore) / exactMatchAdjusted
+	exactMatchAdjusted := exactMatch - zeroMatch
+	probability = (1 - (math.Abs(classScore) / exactMatchAdjusted))
 	return probability
 }
 
@@ -239,7 +218,7 @@ func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 
 	classScore := scores[likely]
 	classDetermined := string(classifier.Classes[likely])
-	probability := getProbability(classDetermined, classScore)
+	probability := getProbability(classDetermined, classScore, function.Tokens)
 
 	if strict != true {
 		for counter := range scores {
