@@ -2,7 +2,9 @@ package glyph
 
 import (
 	"fmt"
+	error_utils "glyph/glyph/utils"
 	bin_utils "glyph/glyph/utils/binutils"
+	db_utils "glyph/glyph/utils/dbutils"
 	"math"
 	"strings"
 	"sync"
@@ -11,17 +13,21 @@ import (
 )
 
 type classifierConfiguration struct {
-	NGrams int
+	NGrams               int
+	ProbabilityThreshold float64
 }
 
 var classifier *bayesian.Classifier
 var trainingDataCheck = make(map[string]int32, 3)
 var classifierConfig = new(classifierConfiguration)
 var trainingData []bin_utils.FunctionDetails
+var classifierLock sync.Mutex
 
-func setClassifierConfig(nGrams int) {
+func setClassifierConfig(nGrams int, probabilityThreshold float64) {
 	classifierConfig.NGrams = nGrams
+	classifierConfig.ProbabilityThreshold = probabilityThreshold
 	fmt.Printf("N-Grams set: %d... ", nGrams)
+	fmt.Printf("Probability Threshhold set at %d", probabilityThreshold)
 }
 
 func populateNGrams(functionDetails *[]bin_utils.FunctionDetails) {
@@ -138,7 +144,7 @@ func ClassifyFunctions(binary *bin_utils.BinaryDetails) *bin_utils.BinarySymbolT
 					functionName = filterUnknownFunctions(functionName)
 				}
 
-				if !math.IsNaN(prob) && len(*functionName) > 0 {
+				if !math.IsNaN(prob) && len(*functionName) > 0 && prob >= classifierConfig.ProbabilityThreshold {
 					symbolTable.PopulateMap(&function.LowAddress, functionName)
 				}
 			}
@@ -183,10 +189,57 @@ func getNGrams(function *bin_utils.FunctionDetails) []string {
 	return gramArray
 }
 
+func getProbability(classDetermined string, classScore float64) float64 {
+	var probability float64
+	preparedStatement := fmt.Sprintf("SELECT * FROM %s WHERE %s=?", db_utils.MLTrainingSetTableName, db_utils.FunctionNameColumn)
+	databaseLocation := "./database/ml_training_set/glyph_ml_training_set.db"
+
+	classifierLock.Lock()
+	defer classifierLock.Unlock()
+	results, err := db_utils.QueryDBWithParameter(databaseLocation, &preparedStatement, &classDetermined)
+	error_utils.CheckError(err)
+	functionDetails := new(bin_utils.FunctionDetails)
+	for results.Next() {
+		var primKey int
+		var functionName string
+		var tokens string
+		var entryPoint string
+		var returnType string
+
+		results.Scan(&primKey, &functionName, &returnType, &tokens, &entryPoint)
+		functionDetails.Tokens = strings.Split(tokens, " ")
+	}
+
+	tokensArray := getNGrams(functionDetails)
+	newClassifierValues := make([]bayesian.Class, 2)
+	newClassifierValues[0] = bayesian.Class(classDetermined)
+	newClassifierValues[1] = bayesian.Class("other")
+	probClassifier := bayesian.NewClassifier(newClassifierValues[:]...)
+	probClassifier.Learn(tokensArray, bayesian.Class(classDetermined))
+	arrayLength := len(tokensArray)
+	zeroProbArray := make([]string, arrayLength)
+
+	for i := 0; i < arrayLength; i++ {
+		zeroProbArray[i] = "SOMEVALUE"
+	}
+
+	scores, likely, _ := probClassifier.LogScores(tokensArray)
+	exactMatch := scores[likely]
+
+	scores, likely, _ = probClassifier.LogScores(zeroProbArray)
+	zeroMatch := scores[likely]
+
+	exactMatchAdjusted := math.Abs(zeroMatch) - math.Abs(exactMatch)
+	probability = math.Abs(classScore) / exactMatchAdjusted
+	return probability
+}
+
 func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 	scores, likely, strict := classifier.LogScores(function.Tokens)
 
+	classScore := scores[likely]
 	classDetermined := string(classifier.Classes[likely])
+	probability := getProbability(classDetermined, classScore)
 
 	if strict != true {
 		for counter := range scores {
@@ -203,5 +256,5 @@ func classifyFunction(function *bin_utils.FunctionDetails) (*string, float64) {
 	if trainingConfig.CheckTrainingAccuracy {
 		checkAccuracy(&classDetermined, function)
 	}
-	return &classDetermined, scores[likely]
+	return &classDetermined, probability
 }

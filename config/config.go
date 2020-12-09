@@ -15,6 +15,7 @@ type Configuration struct {
 	CheckTrainingAccuracy     bool
 	ClassificationDetailsFile *string
 	NGrams                    int
+	ProbabilityThreshHold     float64
 	GhidraHeadless            *string
 	GhidraProjectLocation     *string
 	GhidraProject             *string

@@ -1,9 +1,10 @@
 {
     "enableLogging": false,
     "serverPort": 8080,
-    "checkTrainingAccuracy": false,
+    "checkTrainingAccuracy": true,
     "ClassificationDetailsFile": "./classification_details.txt",
     "nGrams": 4,
+    "probabilityThreshHold": 0.7,
     "ghidraHeadless": "/home/xenios/ghidra_9.1.2_PUBLIC/support/analyzeHeadless",
     "ghidraProjectLocation": "\\/home/xenios/ghidra_projects",
     "ghidraProject": "glyph",

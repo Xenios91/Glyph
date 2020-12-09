@@ -28,7 +28,7 @@ func startServer(portToBind *string) {
 func setup() *string {
 	glyphConfig := config.SetupConfiguration()
 	db_utils.SetupDB()
-	ml.SetupML(glyphConfig.CheckTrainingAccuracy, glyphConfig.ClassificationDetailsFile, glyphConfig.NGrams)
+	ml.SetupML(glyphConfig.CheckTrainingAccuracy, glyphConfig.ClassificationDetailsFile, glyphConfig.NGrams, glyphConfig.ProbabilityThreshHold)
 	ghidra_utils.LoadGhidraAnalysis(glyphConfig.GhidraHeadless, glyphConfig.GhidraProjectLocation, glyphConfig.GhidraProject, glyphConfig.GhidraScript)
 	logging.LoadLogging(glyphConfig.EnableLogging)
 	var port int = glyphConfig.ServerPort

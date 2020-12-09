@@ -8,11 +8,11 @@ import (
 var once sync.Once
 
 //SetupML loads configuration data into the machine learning structs.
-func SetupML(checkTrainingAccuracy bool, classificationDetailsFile *string, nGrams int) {
+func SetupML(checkTrainingAccuracy bool, classificationDetailsFile *string, nGrams int, probabilityThreshHold float64) {
 	once.Do(func() {
 		fmt.Print("Setting up ML configurations... ")
 		setTrainingConfig(checkTrainingAccuracy, classificationDetailsFile)
-		setClassifierConfig(nGrams)
+		setClassifierConfig(nGrams, probabilityThreshHold)
 		fmt.Println("ML configurations successfully loaded!")
 		loadMLTrainingData()
 		trainingDataCheck["correct"] = 0
