@@ -18,9 +18,9 @@ More info: https://github.com/Xenios91/Glyph
 """
 
 def download() -> str:
-    os.system("wget https://search.maven.org/remotecontent?filepath=com/google/code/gson/gson/2.8.6/gson-2.8.6.jar")
+    os.system("wget https://repo1.maven.org/maven2/com/google/code/gson/gson/2.8.6/gson-2.8.6.jar")
     get_pwd = subprocess.Popen(["pwd"], stdout=subprocess.PIPE)
-    download_location = get_pwd.communicate()[0].decode("utf-8").strip()
+    download_location = "{0}/{1}".format(get_pwd.communicate()[0].decode("utf-8").strip(), "gson-2.8.6.jar")
     return download_location
 
 def make_dir(ghidra_version: str) -> str:
