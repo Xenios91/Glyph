@@ -7,4 +7,14 @@ Thesis Project
 Binary analysis tool for fingerprinting functions through NLP.
 
 
-![alt text](https://i.imgur.com/BmpTN3M.png)
+Glyph Main Page
+
+![Main Page](https://i.imgur.com/BmpTN3M.png)
+
+Glyph Upload Binary
+
+![Main Page](https://i.imgur.com/jF9Q5QP.png)
+
+Glyph Symbol Table Generation
+
+![Main Page](https://i.imgur.com/SQni1yx.png)
