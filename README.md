@@ -7,7 +7,5 @@
 
 Glyph allows you to upload an ELF binary (32 & 64 bit) for function fingerprinting, upon analysis, a web based function symbol table will be created.
 
-Glyph Symbol Table Generation
-
 
 ![Main Page](https://i.imgur.com/SQni1yx.png)
