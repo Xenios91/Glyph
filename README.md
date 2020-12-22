@@ -16,7 +16,7 @@ Deciding how we wanted instructions represented was one of the biggest difficult
 
 
 
-## Why not IR?
+## Why not intermediary representation?
 
 Often during compilation IR (intermediary representation) is utilized to make it easier to convert a high-level language into a lower level language. In reverse engineering this also occurs, tools like SLEIGH in Ghidra convert assembly instructions into IR (Ghidra refers to it as Pcode) which allows for it to then convert IR into C for its decompilation capabilities. IR can be incredibly powerful and removes the issue shown above when it comes to instruction sets being drastically different, it also increases data about a function giving our machine learning model more to work with, which could, and most likely would increase accuracy of function fingerprinting. There is one issue however, IR is not offset independent. When IR is generated and observed, offsets and addresses of the instructions will be included in the data, which will essentially add data that is dependent on the binary being examined, the architecture, and even the compiler being utilized. While offsets in IR do not muddy up our data as much as analyzing disassembled binaries would, it still leaves enough data that can potentially create chaos in the instructions being analyzed, ensuring some instructions when tokenized are never ever found again in similar functions.
 
