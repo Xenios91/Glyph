@@ -27,3 +27,7 @@ Multiple candidates can be chosen to be the identity of a function that underwen
 ## Glyph Issues
 
 Most of Glyphs issues currently stem from Ghidra’s results, and while we find Ghidra to be a great tool, it’s not without issue when it comes to both identifying functions and performing decompilation. Ghidra at times may fail to decompile code properly, resulting in either partially decompiled functions, improper values identified such as incorrect return types (as discussed previously), incorrect parameters, or functions not decompiling at all. When some of these issues occur, decompilation will leave an error message stating the issue, which will be then utilized by Glyph for its machine learning model. Due to this error message being sometimes placed in a functions token list along with C code and being utilized for identifying functions, it results in inaccuracies occurring. 
+
+## Glyph Results
+
+Unfortunately, Glyphs reliance on Ghidra to properly decompile functions is its main weakness, resulting in lower than preferable accuracy. Using our NLP model with 97.58% accuracy, Glyph was able to obtain 82.89% accuracy, this is due to some problematic results Glyph obtains from Ghidra. 
