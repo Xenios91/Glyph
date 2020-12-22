@@ -6,17 +6,15 @@ Thesis Project
 
 Binary analysis tool for fingerprinting functions through NLP.
 
+Glyph allows you to upload an ELF binary (32 & 64 bit) for fingerprinting, upon analysis, a web based symbol table will be created.
+
 
 Glyph Main Page
 
 ![Main Page](https://i.imgur.com/BmpTN3M.png)
 
-Glyph allows you to upload an ELF binary (32 & 64 bit) for fingerprinting.
-
-![Main Page](https://i.imgur.com/jF9Q5QP.png)
 
 Glyph Symbol Table Generation
 
-Upon analysis, a web based symbol table will be created.
 
 ![Main Page](https://i.imgur.com/SQni1yx.png)
