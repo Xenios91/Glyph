@@ -5,7 +5,7 @@
 
 ## A binary analysis tool for fingerprinting functions through NLP.
 
-Glyph allows you to upload an ELF binary (32 & 64 bit) for fingerprinting, upon analysis, a web based symbol table will be created.
+Glyph allows you to upload an ELF binary (32 & 64 bit) for function fingerprinting, upon analysis, a web based function symbol table will be created.
 
 
 Glyph Main Page
