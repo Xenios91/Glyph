@@ -30,4 +30,4 @@ Most of Glyphs issues currently stem from Ghidra’s results, and while we find 
 
 ## Glyph Results
 
-Unfortunately, Glyphs reliance on Ghidra to properly decompile functions is its main weakness, resulting in lower than preferable accuracy. Using our NLP model with 97.58% accuracy, Glyph was able to obtain 82.89% accuracy, this is due to some problematic results Glyph obtains from Ghidra. 
+Unfortunately, Glyphs reliance on Ghidra to properly decompile functions is its main weakness, resulting in lower than preferable accuracy. Using our NLP model with 97.58% accuracy (with 538 functions analyzed after errors filtered), Glyph was able to obtain 82.89% accuracy when 707 libc and bootstrap functions were analyzed, this is due to some problematic results Glyph obtains from Ghidra. 
