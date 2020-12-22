@@ -5,3 +5,6 @@
 Thesis Project
 
 Binary analysis tool for fingerprinting functions through NLP.
+
+
+![alt text](https://i.imgur.com/BmpTN3M.png)
