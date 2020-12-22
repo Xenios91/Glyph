@@ -5,6 +5,9 @@
 
 ## An architecture independant binary analysis tool for fingerprinting functions through NLP.
 
+Ghidra Script
+https://github.com/Xenios91/Glyph-Ghidra
+
 Glyph allows you to upload an ELF binary (32 & 64 bit) for function fingerprinting, upon analysis, a web based function symbol table will be created.
 
 
