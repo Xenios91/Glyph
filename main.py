@@ -3,9 +3,7 @@ import threading
 from flask import Flask, jsonify, request
 
 import _version
-from training import Trainer
-from training_request import TrainingRequest
-from training_service import TrainingService
+from training import Trainer, TrainingRequest, TrainingService
 
 app = Flask(__name__)
 
@@ -26,6 +24,7 @@ def train_model():
         Trainer().start_training(training_request)
         return jsonify(uuid=training_request.uuid), 201
     except Exception as tr_exception:
+        print(tr_exception)
         return jsonify("error"), 400
 
 
@@ -33,9 +32,12 @@ def train_model():
 def get_status():
     args = request.args
     status: str
+    status_code: int
     if 'uuid' in args:
         job_uuid: str = args['uuid']
         status = Trainer().get_status(job_uuid)
+        status_code = 200
     else:
         status = "invalid request"
-    return jsonify(status=status), 400
+        status_code = 400
+    return jsonify(status=status), status_code
