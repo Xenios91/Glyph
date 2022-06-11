@@ -36,7 +36,10 @@ def get_status():
     if 'uuid' in args:
         job_uuid: str = args['uuid']
         status = Trainer().get_status(job_uuid)
-        status_code = 200
+        if status == "UUID Not Found":
+            status_code = 404
+        else:
+            status_code = 200
     else:
         status = "invalid request"
         status_code = 400
