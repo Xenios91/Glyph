@@ -3,11 +3,14 @@ import threading
 from flask import Flask, jsonify, request
 
 import _version
-from training import Trainer, TrainingRequest, TrainingService
+from request_handler import PredictionRequest, TrainingRequest
+
+from services import TaskService
+from task_management import Predictor, Trainer
 
 app = Flask(__name__)
 
-threading.Thread(target=TrainingService().start_service, daemon=True).start()
+threading.Thread(target=TaskService().start_service, daemon=True).start()
 
 
 @app.route("/")
@@ -18,14 +21,28 @@ def home():
 @app.route("/train", methods=["POST"])
 def train_model():
     data: str = request.get_data().decode()
-    trainer: Trainer = Trainer()
     try:
         training_request: TrainingRequest = TrainingRequest(
-            trainer.get_uuid(), data)
+            Trainer().get_uuid(), data)
         Trainer().start_training(training_request)
         return jsonify(uuid=training_request.uuid), 201
     except Exception as tr_exception:
         print(tr_exception)
+        return jsonify("error"), 400
+
+
+@app.route("/predict", methods=["POST"])
+def predict_tokens():
+    request_values = request.get_json()
+    model_name = request_values.get("model_name")
+    data = request_values.get("data")
+    try:
+        prediction_request: PredictionRequest = PredictionRequest(
+            Predictor().get_uuid(), model_name, data)
+        predictions = Predictor().run_prediction(prediction_request)
+        return jsonify(predictions=""), 200
+    except Exception as p_exception:
+        print(p_exception)
         return jsonify("error"), 400
 
 
