@@ -18,9 +18,9 @@ def home():
 @app.route("/train", methods=["POST"])
 def train_model():
     data: str = request.get_data().decode()
-    trainer = Trainer()
+    trainer: Trainer = Trainer()
     try:
-        training_request = TrainingRequest(trainer.get_uuid(), data)
+        training_request: TrainingRequest = TrainingRequest(trainer.get_uuid(), data)
         Trainer().start_training(training_request)
         return jsonify(uuid=training_request.uuid), 201
     except Exception as tr_exception:

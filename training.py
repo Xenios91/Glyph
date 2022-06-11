@@ -21,7 +21,7 @@ class TrainingRequest():
 
     def check_training_data(self, data: str) -> pd.DataFrame:
         try:
-            contents = StringIO(data)
+            contents: StringIO = StringIO(data)
             data_frame: pd.DataFrame = pd.DataFrame(contents)
             return data_frame
         except Exception as tr_exception:
@@ -39,7 +39,7 @@ class Trainer():
 
     @classmethod
     def get_uuid(cls) -> str:
-        value = str(uuid.uuid4())
+        value: str = str(uuid.uuid4())
         if value in list(TrainingService().service_queue.queue):
             value = cls.get_uuid()
         return value
@@ -53,8 +53,8 @@ class Trainer():
     def train_model(cls, training_request: TrainingRequest):
         pipeline: Pipeline = MLTask.get_multi_class_pipeline()
         try:
-            X = training_request.data["instructions"]
-            y = training_request.data["label"]
+            X: pd.Series = training_request.data["instructions"]
+            y: pd.Series = training_request.data["label"]
 
             pipeline.fit(X, y)
             training_request.status = "complete"
@@ -63,10 +63,10 @@ class Trainer():
 
     @classmethod
     def get_status(cls, job_uuid: str) -> str:
-        status = "UUID Not Found"
-        queue_list = list(TrainingService().service_queue.queue)
+        status: str = "UUID Not Found"
+        queue_list: list = list(TrainingService().service_queue.queue)
         for task in queue_list:
-            queued_uuid = task[0].uuid
+            queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
                 status = "In Progress"
                 break
