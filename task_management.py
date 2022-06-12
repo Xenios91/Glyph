@@ -38,6 +38,16 @@ class TaskManager():
                 break
         return status
 
+    @classmethod
+    def set_status(cls, job_uuid: str, status: str) -> bool:
+        queue_list: list = list(TaskService().service_queue.queue)
+        for task in queue_list:
+            queued_uuid: str = task[0].uuid
+            if job_uuid == queued_uuid:
+                task[0].status = status
+                break
+        return status
+
 
 class Trainer(TaskManager):
 
@@ -74,7 +84,8 @@ class Predictor(TaskManager):
         try:
             model = MLPersistanceUtil.load_model(prediction_request.model_name)
             predictions = model.predict(prediction_request.data)
-            FunctionPersistanceUtil.add_functions(prediction_request, predictions)
+            FunctionPersistanceUtil.add_functions(
+                prediction_request, predictions)
             return predictions
         except Exception as e:
             print(e)
