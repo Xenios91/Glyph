@@ -129,10 +129,10 @@ def upload_binary():
         return render_template("upload.html")
 
     if request.method == "POST":
-        if "bin" not in request.files:
+        if "binaryFile" not in request.files:
             return jsonify(error="no file found"), 400
 
-        file = request.files["bin"]
+        file = request.files["binaryFile"]
         if len(file.filename) == 0:
             return jsonify(error="no file found"), 400
 
