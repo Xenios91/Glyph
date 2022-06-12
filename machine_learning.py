@@ -41,5 +41,10 @@ class MLPersistanceUtil():
 
     @staticmethod
     def get_models_list() -> list[str]:
-        models_list: list[str] = SQLUtil.get_models_list()
+        models_list: set[str] = SQLUtil.get_models_list()
         return models_list
+
+    @staticmethod
+    def check_name(model_name: str) -> bool:
+        models_list: set[str] = SQLUtil.get_models_list()
+        return model_name in models_list

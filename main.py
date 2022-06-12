@@ -21,7 +21,13 @@ def home():
 
 @app.route("/train", methods=["POST"])
 def train_model():
-    data: dict = request.get_json()
+    request_values: dict = request.get_json()
+    model_name = request_values.get("model_name")
+    data = request_values.get("data")
+
+    if MLPersistanceUtil.check_name(model_name):
+        return jsonify(error="model name already taken"), 400
+
     try:
         training_request: TrainingRequest = TrainingRequest(
             Trainer().get_uuid(), data)
