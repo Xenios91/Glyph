@@ -3,6 +3,7 @@ import threading
 from flask import Flask, jsonify, request
 
 import _version
+from machine_learning import MLPersistanceUtil
 from request_handler import PredictionRequest, TrainingRequest
 
 from services import TaskService
@@ -62,3 +63,8 @@ def get_status():
         status = "invalid request"
         status_code = 400
     return jsonify(status=status), status_code
+
+@app.route("/list_models", methods=["GET"])
+def get_list_models():
+    models: set[str] = MLPersistanceUtil.get_models_list()
+    return jsonify(models=list(models)), 200

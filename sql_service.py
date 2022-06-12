@@ -8,7 +8,8 @@ class SQLUtil():
         with sqlite3.connect('models.db') as con:
             try:
                 cur = con.cursor()
-                cur.execute("CREATE TABLE IF NOT EXISTS models(model_name VARCHAR(64), model BLOB)")
+                cur.execute(
+                    "CREATE TABLE IF NOT EXISTS models(model_name VARCHAR(64), model BLOB)")
 
                 sql = "INSERT INTO models (model_name, model) VALUES (?, ?)"
                 cur.execute(sql, (model_name, sqlite3.Binary(model)))
@@ -16,15 +17,17 @@ class SQLUtil():
                 print(e)
 
     @staticmethod
-    def get_models_list() -> list[str]:
+    def get_models_list() -> set[str]:
+        models_set: set[str] = set()
         with sqlite3.connect('models.db') as con:
             try:
                 cur = con.cursor()
-
                 sql = "SELECT * FROM MODELS"
-                models = cur.execute(sql)
+                models = cur.execute(sql).fetchall()
                 for model in models:
-                    print(model)
+                    models_set.add(model[0])
+
+                return models_set
             except Exception as e:
                 print(e)
 
@@ -33,7 +36,6 @@ class SQLUtil():
         with sqlite3.connect('models.db') as con:
             try:
                 cur = con.cursor()
-
                 sql = "SELECT * FROM MODELS WHERE model_name=?"
                 model = cur.execute(sql, (model_name,)).fetchone()
                 return model

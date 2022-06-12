@@ -74,5 +74,5 @@ class Predictor(TaskManager):
             model = MLPersistanceUtil.load_model(prediction_request.model_name)
             predictions = model.predict(prediction_request.data)
             return predictions
-        except:
-            pass
+        except Exception as e:
+            print(e)
