@@ -61,3 +61,16 @@ class PredictionRequest(DataHandler):
         except Exception as p_exception:
             print(p_exception)
             raise Exception("invalid dataset") from p_exception
+
+
+class GhidraRequest():
+    file_name: str
+    is_training: bool
+    model_name: str
+    ml_class_type: int
+
+    def __init__(self, filename: str, istraining: bool, modelname: str, mlclasstype: str) -> None:
+        self.file_name = filename
+        self.is_training = istraining
+        self.model_name = modelname
+        self.ml_class_type = mlclasstype
