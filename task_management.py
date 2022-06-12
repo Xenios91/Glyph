@@ -4,6 +4,7 @@ import pandas as pd
 from sklearn import preprocessing
 
 from sklearn.pipeline import Pipeline
+from functions import FunctionPersistanceUtil
 from machine_learning import MLPersistanceUtil, MLTask
 from request_handler import PredictionRequest, TrainingRequest
 
@@ -73,6 +74,7 @@ class Predictor(TaskManager):
         try:
             model = MLPersistanceUtil.load_model(prediction_request.model_name)
             predictions = model.predict(prediction_request.data)
+            FunctionPersistanceUtil.add_functions(prediction_request, predictions)
             return predictions
         except Exception as e:
             print(e)
