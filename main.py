@@ -1,16 +1,21 @@
+import json
+import os
 import threading
 
 from flask import Flask, jsonify, request
+from werkzeug.utils import secure_filename
 
 import _version
 from functions import FunctionPersistanceUtil
 from machine_learning import MLPersistanceUtil
 from request_handler import PredictionRequest, TrainingRequest
-
 from services import TaskService
 from task_management import Predictor, Trainer
 
 app = Flask(__name__)
+UPLOAD_FOLDER = './binaries'
+app.config['MAX_CONTENT_LENGTH'] = 512 * 1000 * 1000
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 threading.Thread(target=TaskService().start_service, daemon=True).start()
 
@@ -99,4 +104,58 @@ def delete_function():
     args = request.args
     function_name = args.get("function_name")
     FunctionPersistanceUtil.delete_function(function_name)
+    return jsonify(), 200
+
+
+@app.route("/uploadBinary", methods=["POST"])
+def upload_binary():
+    if "bin" not in request.files:
+        return jsonify(error="no file found"), 400
+
+    file = request.files["bin"]
+    if len(file.filename) == 0:
+        return jsonify(error="no file found"), 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        if not os.path.exists(app.config["UPLOAD_FOLDER"]):
+            os.mkdir(app.config["UPLOAD_FOLDER"])
+        file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+        return jsonify(), 200
+
+
+@app.route("/listBins", methods=["GET"])
+def list_bins():
+    files: set = set()
+    directory_path = app.config['UPLOAD_FOLDER']
+    files_iter = os.walk(directory_path)
+    for (_, _, file) in files_iter:
+        files.add(file[0])
+    return jsonify(files=list(files)), 200
+
+
+@app.route("/deleteBin", methods=["GET"])
+def delete_bin():
+    args = request.args
+    filename = secure_filename(args.get("filename"))
+    directory_path = app.config['UPLOAD_FOLDER']
+    file_to_delete = os.path.join(directory_path, filename)
+    os.remove(file_to_delete)
+    return jsonify(), 200
+
+
+@app.route("/getSymbols", methods=["GET"])
+def get_symbols():
+    args = request.args
+    model_name = args.get("model_name")
+    functions: list = FunctionPersistanceUtil.get_functions(model_name)
+    return jsonify(functions=functions), 200
+
+
+@app.route("/statusUpdate", methods=["POST"])
+def update_status():
+    args = request.args
+    status = args.get("status")
+    uuid = args.get("uuid")
+    Trainer().set_status(uuid, status)
     return jsonify(), 200
