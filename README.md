@@ -1,5 +1,5 @@
-# Glyph-Training-Service
+# Glyph
 
-v0.1
+v0.0.1
 
-On going project to create a microservice to run training on for Glyph. This will replace the current library implementation Glyph currently uses.
+On going project to replace the current Glyph tool with one more ML friendly.
