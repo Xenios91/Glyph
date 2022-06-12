@@ -47,9 +47,58 @@ class SQLUtil():
     def delete_model(model_name: str):
         with sqlite3.connect('models.db') as con:
             try:
+                SQLUtil.delete_functions(model_name)
+
                 cur = con.cursor()
                 sql = "DELETE FROM MODELS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
+                con.commit()
+            except Exception as e:
+                print(e)
+
+    @staticmethod
+    def save_tokens(model_name: str, function_name: str, tokens: str):
+        with sqlite3.connect('functions.db') as con:
+            try:
+                cur = con.cursor()
+                cur.execute(
+                    "CREATE TABLE IF NOT EXISTS functions(model_name VARCHAR(64), function_name VARCHAR(64), tokens TEXT)")
+
+                sql = "INSERT INTO functions (model_name, function_name, tokens) VALUES (?, ?, ?)"
+                cur.execute(sql, (model_name, function_name, tokens, ))
+                con.commit()
+            except Exception as e:
+                print(e)
+
+    @staticmethod
+    def get_functions(model_name: str) -> list:
+        with sqlite3.connect('functions.db') as con:
+            try:
+                cur = con.cursor()
+                sql = "SELECT * FROM FUNCTIONS WHERE model_name=?"
+                functions: list = cur.execute(sql, (model_name,)).fetchall()
+                return functions
+            except Exception as e:
+                print(e)
+
+    @staticmethod
+    def delete_functions(model_name: str):
+        with sqlite3.connect('functions.db') as con:
+            try:
+                cur = con.cursor()
+                sql = "DELETE FROM FUNCTIONS WHERE model_name=?"
+                cur.execute(sql, (model_name,))
+                con.commit()
+            except Exception as e:
+                print(e)
+
+    @staticmethod
+    def delete_function(function_name: str):
+        with sqlite3.connect('functions.db') as con:
+            try:
+                cur = con.cursor()
+                sql = "DELETE FROM FUNCTIONS WHERE function_name=?"
+                cur.execute(sql, (function_name,))
                 con.commit()
             except Exception as e:
                 print(e)

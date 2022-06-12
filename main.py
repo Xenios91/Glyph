@@ -3,6 +3,7 @@ import threading
 from flask import Flask, jsonify, request
 
 import _version
+from functions import FunctionPersistanceUtil
 from machine_learning import MLPersistanceUtil
 from request_handler import PredictionRequest, TrainingRequest
 
@@ -82,4 +83,20 @@ def delete_model():
     args = request.args
     model_name = args.get("model_name")
     MLPersistanceUtil.delete_model(model_name)
+    return jsonify(), 200
+
+
+@app.route("/get_functions", methods=["GET"])
+def get_functions():
+    args = request.args
+    model_name = args.get("model_name")
+    functions: list = FunctionPersistanceUtil.get_functions(model_name)
+    return jsonify(functions=functions), 200
+
+
+@app.route("/delete_function", methods=["DELETE"])
+def delete_function():
+    args = request.args
+    function_name = args.get("function_name")
+    FunctionPersistanceUtil.delete_function(function_name)
     return jsonify(), 200
