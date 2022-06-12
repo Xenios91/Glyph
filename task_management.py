@@ -1,13 +1,14 @@
-from concurrent.futures import ProcessPoolExecutor
 import uuid
+from concurrent.futures import ProcessPoolExecutor
+
 import pandas as pd
 from sklearn import preprocessing
-
 from sklearn.pipeline import Pipeline
+
+from config import GlyphConfig
 from functions import FunctionPersistanceUtil
 from machine_learning import MLPersistanceUtil, MLTask
-from request_handler import PredictionRequest, TrainingRequest
-
+from request_handler import GhidraRequest, PredictionRequest, TrainingRequest
 from services import TaskService
 
 
@@ -34,7 +35,7 @@ class TaskManager():
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
-                status = "In Progress"
+                status = task[0].uuid
                 break
         return status
 
@@ -53,11 +54,11 @@ class Trainer(TaskManager):
 
     @classmethod
     def start_training(cls, training_request: TrainingRequest):
-        future = cls.exec_pool.submit(cls.train_model, training_request)
+        future = cls.exec_pool.submit(cls._train_model, training_request)
         TaskService().service_queue.put((training_request, future))
 
     @classmethod
-    def train_model(cls, training_request: TrainingRequest):
+    def _train_model(cls, training_request: TrainingRequest):
         pipeline: Pipeline = MLTask.get_multi_class_pipeline()
         try:
             X: pd.Series = training_request.data["tokens"]
@@ -76,11 +77,11 @@ class Predictor(TaskManager):
 
     @classmethod
     def start_prediction(cls, prediction_request: PredictionRequest):
-        future = cls.exec_pool.submit(cls.run_prediction, prediction_request)
+        future = cls.exec_pool.submit(cls._run_prediction, prediction_request)
         TaskService().service_queue.put((prediction_request, future))
 
     @classmethod
-    def run_prediction(cls, prediction_request: PredictionRequest):
+    def _run_prediction(cls, prediction_request: PredictionRequest):
         try:
             model = MLPersistanceUtil.load_model(prediction_request.model_name)
             predictions = model.predict(prediction_request.data)
@@ -89,3 +90,15 @@ class Predictor(TaskManager):
             return predictions
         except Exception as e:
             print(e)
+
+
+class Ghidra(TaskManager):
+
+    @classmethod
+    def start_task(cls, ghidra_request: GhidraRequest):
+        future = cls.exec_pool.submit(cls._run_analysis, ghidra_request)
+        TaskService().service_queue.put((ghidra_request, future))
+
+    @classmethod
+    def _run_analysis(cls, ghidra_request: GhidraRequest):
+        ghidra_location = GlyphConfig.get_config_value("ghidra_loction")

@@ -1,0 +1,92 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="content blue-bg">
+    <div id="upload-box" class="nes-container with-title is-centered white-bg">
+        <p class="title">Upload</p>
+        <p>Upload a binary to be analyzed</p>
+        <label class="nes-btn is-primary">
+            <span>Select your file</span>
+            <input id="upload-binary" type="file" onchange="uploadBinary()">
+        </label>
+        <br>
+        <label style="margin-top: 20px;">
+            <input id="generate-model-checkbox" type="checkbox" class="nes-checkbox" checked onclick="hideMLConfig()" />
+            <span>Generate Model</span>
+        </label>
+
+        <div id="ml-config" class="nes-container with-title is-centered" style="margin: 25px; display: none;">
+            <p class="title">Model Configuration</p>
+            <div style="margin:7%">
+                <div class="nes-field" style="margin:7%">
+                    <label for="name_field">Model Name</label>
+                    <input type="text" id="model_name" class="nes-input">
+                </div>
+                <label for="default_select">Select ML Class Type</label>
+                <div class="nes-select">
+                    <select required id="ml_class_type">
+                        <option value="" disabled selected hidden>Class Type</option>
+                        <option value="0">Single Class</option>
+                        <option value="1">Multi Class</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="upload-message" class="nes-container with-title is-centered white-bg" style="display: none;">
+        <p class="title">Binary Status</p>
+        <p>Your binary is now being processed.</p>
+    </div>
+</div>
+<script>
+    document.getElementById("generate-model-checkbox").checked = false;
+
+    function hideMLConfig() {
+        var x = document.getElementById("ml-config");
+        if (x.style.display === "none") {
+            x.style.display = "block";
+        } else {
+            x.style.display = "none";
+        }
+    }
+
+    function uploadBinary() {
+        var formData = new FormData();
+        const selectedFile = document.getElementById('upload-binary').files[0];
+        const trainingData = document.getElementById('generate-model-checkbox').checked;
+        const modelName = document.getElementById('model_name').value;
+        const mlClassType = document.getElementById('ml_class_type').value;
+        const url = "/uploadBinary";
+
+        formData.append('binaryFile', selectedFile);
+        formData.append('trainingData', trainingData);
+        formData.append('modelName', modelName);
+        formData.append('mlClassType', mlClassType);
+
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function (data, status, xhr) {
+                var uploadMessage = document.getElementById("upload-message");
+                var uploadBox = document.getElementById("upload-box");
+                uploadMessage.style.display = "block";
+                uploadBox.style.display = "none";
+                setTimeout(function () {
+                    uploadMessage.style.display = "none";
+                    uploadBox.style.display = "block";
+                    const trainingData = document.getElementById('generate-model-checkbox').checked = false;
+                    const modelName = document.getElementById('model_name').value = "";
+                    const mlClassType = document.getElementById('ml_class_type').value = "";
+                    hideMLConfig();
+                }, 5000);
+            },
+            complete: function (xhr, textStatus) {
+                console.log("upload complete");
+            }
+        });
+    }
+</script>
+
+{% endblock %}
