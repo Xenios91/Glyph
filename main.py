@@ -64,6 +64,7 @@ def get_status():
         status_code = 400
     return jsonify(status=status), status_code
 
+
 @app.route("/list_models", methods=["GET"])
 def get_list_models():
     models: set[str] = MLPersistanceUtil.get_models_list()

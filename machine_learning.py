@@ -38,7 +38,7 @@ class MLPersistanceUtil():
         model: bytes = SQLUtil.get_model(model_name)
         loaded_model = pickle.loads(model[1])
         return loaded_model
-    
+
     @staticmethod
     def get_models_list() -> list[str]:
         models_list: list[str] = SQLUtil.get_models_list()
