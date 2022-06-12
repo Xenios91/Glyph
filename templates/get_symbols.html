@@ -1,0 +1,97 @@
+{{ define "title" }}{{.Title}}{{ end }} {{ define "content" }}
+{{if .SelectionVisible}}
+<div class="content blue-bg">
+    <h2 style="padding-bottom: 15px;">Binary Analysis Status</h2>
+    {{else}}
+    <div hidden>
+        {{end}}
+        <div class="nes-table-responsive">
+            <table class="nes-table is-bordered is-centered">
+                <thead>
+                    <tr>
+                        <th>Binary Name</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range $name, $status := .GhidraQueue}}
+                    <tr id="{{$name}}-id" onmouseover="changeBackground(this.id, '#d1d1d1');"
+                        onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
+                        <td>{{$name}}</td>
+                        <td id="{{$name}}-status">{{$status}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {{if .SelectionVisible}}
+    <div hidden>
+        {{else}}
+        <div>
+            {{end}}
+            <div class="blue-bg">
+                <div style="padding: 5px;">
+                    <span class="file-name" id="file-name">File Name: {{.SymbolTable.BinaryName}}</span>
+                </div>
+                <div class="nes-table-responsive content">
+                    <blockquote>
+                        <table class="nes-table is-bordered is-centered">
+                            <thead>
+                                <tr>
+                                    <th scope="col">EntryPoint</th>
+                                    <th scope="col">Function Name</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{range $entryPoint, $functionData := .SymbolTable.SymbolsMap}}
+                                <tr>
+                                    <td>0x{{$entryPoint}}</td>
+                                    <td>{{$functionData}}</td>
+                                </tr>
+                                {{end}}
+                            </tbody>
+                        </table>
+                    </blockquote>
+                    <div class="center-contents">
+                        <button type="button" class="nes-btn is-primary" style="margin-right: 100px;"
+                            onclick="deleteBinary()">Delete</button> <button type="button" class="nes-btn is-primary"
+                            onclick="location.href='/getSymbols';">Go Back</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function goToURL(id) {
+            var status = document.getElementById(id.slice(0, -3) + "-status");
+            if (status.innerText == "complete") {
+                var currentURL = window.location.href;
+                var url = currentURL + "?binary=" + id.slice(0, -3);
+                if (url) {
+                    window.location = url;
+                }
+            } else if (status.innerText == "N/A") {
+                alert('No analysis has been performed yet!');
+            } else {
+                alert('Binary Analysis is not complete!');
+            }
+        }
+
+        function deleteBinary() {
+            var selection = document.getElementById("file-name").innerText;
+            var binToDelete = selection.split(':')[1].replace(/\s+/, "");
+            var currentURL = window.location.href;
+            var url = "/getSymbols" + "?binaryDel=" + binToDelete;
+            if (url) {
+                window.location = url;
+            }
+        }
+
+        function changeBackground(id, color) {
+            document.getElementById(id).style.background = color;
+        }
+    </script>
+
+    {{ end }}

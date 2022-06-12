@@ -1,8 +1,7 @@
-import json
 import os
 import threading
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 from werkzeug.utils import secure_filename
 
 import _version
@@ -22,7 +21,11 @@ threading.Thread(target=TaskService().start_service, daemon=True).start()
 
 @app.route("/")
 def home():
-    return jsonify(version=_version.__version__)
+    headers = request.headers
+    user_agent = headers.get("User-Agent")
+    if not user_agent:
+        return jsonify(version=_version)
+    return render_template("main.html")
 
 
 @app.route("/train", methods=["POST"])
@@ -59,28 +62,36 @@ def predict_tokens():
         return jsonify("error"), 400
 
 
-@app.route("/status", methods=["GET"])
+@app.route("/getStatus", methods=["GET"])
 def get_status():
     args = request.args
     status: str
     status_code: int
     if 'uuid' in args:
         job_uuid: str = args['uuid']
-        status = Trainer().get_status(job_uuid)
-        if status == "UUID Not Found":
-            status_code = 404
-        else:
+        if job_uuid == "all":
+            status = "test"
             status_code = 200
+        else:
+            status = Trainer().get_status(job_uuid)
+            if status == "UUID Not Found":
+                status_code = 404
+            else:
+                status_code = 200
     else:
         status = "invalid request"
         status_code = 400
     return jsonify(status=status), status_code
 
 
-@app.route("/list_models", methods=["GET"])
+@app.route("/get_models", methods=["GET"])
 def get_list_models():
+    headers = request.headers
+    user_agent = headers.get("User-Agent")
     models: set[str] = MLPersistanceUtil.get_models_list()
-    return jsonify(models=list(models)), 200
+    if not user_agent:
+        return jsonify(models=list(models)), 200
+    return render_template("get_models.html", title="Models List", models=models)
 
 
 @app.route("/delete_model", methods=["DELETE"])
@@ -107,21 +118,31 @@ def delete_function():
     return jsonify(), 200
 
 
-@app.route("/uploadBinary", methods=["POST"])
+@app.route("/uploadBinary", methods=["GET", "POST"])
 def upload_binary():
-    if "bin" not in request.files:
-        return jsonify(error="no file found"), 400
+    headers = request.headers
+    user_agent = headers.get("User-Agent")
 
-    file = request.files["bin"]
-    if len(file.filename) == 0:
-        return jsonify(error="no file found"), 400
+    if request.method == "GET":
+        if not user_agent:
+            return jsonify(error="API calls can only be POST"), 200
+        return render_template("upload.html")
 
-    if file:
-        filename = secure_filename(file.filename)
-        if not os.path.exists(app.config["UPLOAD_FOLDER"]):
-            os.mkdir(app.config["UPLOAD_FOLDER"])
-        file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
-        return jsonify(), 200
+    if request.method == "POST":
+        if "bin" not in request.files:
+            return jsonify(error="no file found"), 400
+
+        file = request.files["bin"]
+        if len(file.filename) == 0:
+            return jsonify(error="no file found"), 400
+
+        if file:
+            filename = secure_filename(file.filename)
+            if not os.path.exists(app.config["UPLOAD_FOLDER"]):
+                os.mkdir(app.config["UPLOAD_FOLDER"])
+            file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+        if user_agent:
+            return render_template("upload.html")
 
 
 @app.route("/listBins", methods=["GET"])
