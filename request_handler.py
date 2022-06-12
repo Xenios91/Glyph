@@ -3,7 +3,8 @@ import pandas as pd
 
 class DataHandler():
     uuid: str
-    json_dict: dict
+    json_dict: str
+    bin_dictionary: dict
     data: pd.DataFrame
     status: str
 
@@ -21,7 +22,7 @@ class TrainingRequest(DataHandler):
 
     def __init__(self, uuid: str, data: str):
         super().__init__(uuid, data)
-        super().load_data()
+        self.load_data()
 
     def load_data(self):
         try:

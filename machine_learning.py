@@ -5,6 +5,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
 
+from sql_service import SQLUtil
+
 
 class MLTask():
 
@@ -28,11 +30,11 @@ class MLPersistanceUtil():
 
     @staticmethod
     def save_model(model_name: str, pipeline: Pipeline):
-        # need to save to sqlite
-        pickle.dump(pipeline, open(model_name, 'wb'))
+        serialized_model: bytes = pickle.dumps(pipeline)
+        SQLUtil.save_model(model_name, serialized_model)
 
     @staticmethod
     def load_model(model_name: str) -> Pipeline:
-        # need to load from sqlite
-        loaded_model = pickle.load(open(model_name, 'rb'))
+        model: bytes = SQLUtil.get_model(model_name)
+        loaded_model = pickle.loads(model[1])
         return loaded_model

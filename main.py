@@ -20,7 +20,7 @@ def home():
 
 @app.route("/train", methods=["POST"])
 def train_model():
-    data: str = request.get_data().decode()
+    data: dict = request.get_json()
     try:
         training_request: TrainingRequest = TrainingRequest(
             Trainer().get_uuid(), data)
