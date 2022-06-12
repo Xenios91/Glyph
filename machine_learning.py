@@ -48,3 +48,7 @@ class MLPersistanceUtil():
     def check_name(model_name: str) -> bool:
         models_list: set[str] = SQLUtil.get_models_list()
         return model_name in models_list
+
+    @staticmethod
+    def delete_model(model_name: str):
+        SQLUtil.delete_model(model_name)

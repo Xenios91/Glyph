@@ -75,3 +75,11 @@ def get_status():
 def get_list_models():
     models: set[str] = MLPersistanceUtil.get_models_list()
     return jsonify(models=list(models)), 200
+
+
+@app.route("/delete_model", methods=["DELETE"])
+def delete_model():
+    args = request.args
+    model_name = args.get("model_name")
+    MLPersistanceUtil.delete_model(model_name)
+    return jsonify(), 200
