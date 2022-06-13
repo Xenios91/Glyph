@@ -77,7 +77,7 @@ class SQLUtil():
                 print(e)
 
     @staticmethod
-    def get_functions(model_name: str) -> list:
+    def get_functions(model_name: str) -> set:
         with sqlite3.connect('functions.db') as con:
             try:
                 cur = con.cursor()

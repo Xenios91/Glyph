@@ -1,3 +1,4 @@
+from operator import itemgetter
 import os
 import threading
 
@@ -44,7 +45,7 @@ def train_model():
 
     if overwrite_model is None and MLPersistanceUtil.check_name(model_name):
         return jsonify(error="model name already taken"), 400
-    
+
     try:
         training_request: TrainingRequest = TrainingRequest(
             Trainer().get_uuid(), data, model_name)
@@ -118,13 +119,13 @@ def get_list_models():
     return render_template("get_models.html", title="Models List", models=models_status)
 
 
-@app.route("/delete_model", methods=["DELETE"])
+@app.route("/deleteModel", methods=["GET"])
 def delete_model():
     '''
-    Handles a DELETE request to delete a supplied model by name
+    Handles a GET request to delete a supplied model by name
     '''
     args = request.args
-    model_name = args.get("model_name")
+    model_name = args.get("modelName")
     MLPersistanceUtil.delete_model(model_name)
     return jsonify(), 200
 
@@ -134,15 +135,17 @@ def get_functions():
     '''
     Handles a GET request to return all identified functions associated with a model
     '''
+    headers = request.headers
+    user_agent = headers.get("User-Agent")
+
     args = request.args
     model_name = args.get("modelName")
     functions: list = FunctionPersistanceUtil.get_functions(model_name)
-    headers = request.headers
-    user_agent = headers.get("User-Agent")
     if not user_agent:
         return jsonify(functions=functions), 200
-    
-    return render_template("get_symbols.html")
+
+    return render_template("get_symbols.html", bin_name="test",
+                           model_name=model_name, functions=functions)
 
 
 @app.route("/deleteFunction", methods=["DELETE"])

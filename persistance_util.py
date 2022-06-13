@@ -58,6 +58,14 @@ class MLPersistanceUtil():
 class FunctionPersistanceUtil():
 
     @staticmethod
+    def remove_duplicates(functions: dict) -> set:
+        functions_cleaned: list = []
+        for function in functions:
+            if function not in functions_cleaned:
+                functions_cleaned.append(function)
+        return functions_cleaned
+
+    @staticmethod
     def get_functions(model_name: str) -> list:
         functions: list = SQLUtil.get_functions(model_name)
         return functions
@@ -68,14 +76,16 @@ class FunctionPersistanceUtil():
 
     @staticmethod
     def add_model_functions(training_request: TrainingRequest):
-        functions = training_request.json_dict['functionsMap']["functions"]
+        functions: list = training_request.json_dict['functionsMap']["functions"]
         if functions is not None:
+            functions = FunctionPersistanceUtil.remove_duplicates(functions)
             SQLUtil.save_functions(training_request.model_name, functions)
 
     @staticmethod
     def add_prediction_functions(prediction_request: PredictionRequest, predictions):
         functions = prediction_request.json_dict['functionsMap']["functions"]
         if functions is not None:
+            functions = FunctionPersistanceUtil.remove_duplicates(functions)
             for (ctr, function) in enumerate(functions):
                 function["functionName"] = predictions[ctr]
             SQLUtil.save_functions(prediction_request.model_name, functions)
