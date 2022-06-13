@@ -11,13 +11,13 @@
                 </tr>
             </thead>
             <tbody>
-                <tr id="-id" onmouseover="changeBackground(this.id, '#d1d1d1');"
+                {% for model, status in models.items() %}
+                <tr id="{{ model }}-id" onmouseover="changeBackground(this.id, '#d1d1d1');"
                     onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
-                    {% for model in models %}
-                    <td>{{ model }}</td>
-                    <td id="-status">{{ model }}</td>
-                    {% endfor %}
+                    <td id="td-model-name">{{ model }}</td>
+                    <td id="{{ model }}-status">{{ status }}</td>
                 </tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>
@@ -36,10 +36,12 @@
     {% endif %}
     <script>
         function goToURL(id) {
-            var status = document.getElementById(id.slice(0, -3) + "-status");
+            const modelName = id.slice(0, -3);
+            const status = document.getElementById(modelName + "-status");
             if (status.innerText == "complete") {
-                var currentURL = window.location.href;
-                var url = currentURL + "?binary=" + id.slice(0, -3);
+                const currentURL = window.location.href;
+                const splitIndex = currentURL.lastIndexOf("/");
+                const url = currentURL.substring(splitIndex, 0) + "/getFunctions?modelName=" + modelName;
                 if (url) {
                     window.location = url;
                 }
