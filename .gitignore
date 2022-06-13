@@ -212,3 +212,6 @@ cython_debug/
 
 #sqlite
 *.db
+
+#binaries folder
+./binaries
