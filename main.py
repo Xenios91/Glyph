@@ -6,8 +6,7 @@ from werkzeug.utils import secure_filename
 
 import _version
 from config import GlyphConfig
-from functions import FunctionPersistanceUtil
-from machine_learning import MLPersistanceUtil
+from persistance_util import FunctionPersistanceUtil, MLPersistanceUtil
 from request_handler import GhidraRequest, PredictionRequest, TrainingRequest
 from services import TaskService
 from task_management import Ghidra, Predictor, Trainer

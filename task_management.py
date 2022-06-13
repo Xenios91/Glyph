@@ -1,3 +1,6 @@
+from asyncio import subprocess
+import os
+from tabnanny import check
 import uuid
 from concurrent.futures import ProcessPoolExecutor
 
@@ -6,8 +9,7 @@ from sklearn import preprocessing
 from sklearn.pipeline import Pipeline
 
 from config import GlyphConfig
-from functions import FunctionPersistanceUtil
-from machine_learning import MLPersistanceUtil, MLTask
+from persistance_util import FunctionPersistanceUtil, MLPersistanceUtil, MLTask
 from request_handler import GhidraRequest, PredictionRequest, TrainingRequest
 from services import TaskService
 
@@ -88,8 +90,8 @@ class Predictor(TaskManager):
             FunctionPersistanceUtil.add_functions(
                 prediction_request, predictions)
             return predictions
-        except Exception as e:
-            print(e)
+        except Exception as exception:
+            print(exception)
 
 
 class Ghidra(TaskManager):
@@ -102,3 +104,14 @@ class Ghidra(TaskManager):
     @classmethod
     def _run_analysis(cls, ghidra_request: GhidraRequest):
         ghidra_location = GlyphConfig.get_config_value("ghidra_loction")
+        ghidra_project_name = GlyphConfig.get_config_value("ghidra_project")
+        ghidra_project_location = GlyphConfig.get_config_value(
+            "ghidra_project_location")
+        glyph_script_location = GlyphConfig.get_config_value(
+            "glyph_script_location")
+
+        ghidra_headless_location = os.path.join(
+            ghidra_location, f"support{os.sep}analyzeHeadless")
+
+        subprocess.run([ghidra_headless_location, ghidra_project_location,
+                        ghidra_project_name, "-import", os.path.join("./binaries", ghidra_request.file_name), "-overwrite", "-postscript", os.path.join(glyph_script_location, "ClangTokenGenerator.java")], check=True)
