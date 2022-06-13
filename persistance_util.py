@@ -4,7 +4,7 @@ import pickle
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
-from request_handler import PredictionRequest
+from request_handler import PredictionRequest, TrainingRequest
 
 from sql_service import SQLUtil
 
@@ -67,9 +67,15 @@ class FunctionPersistanceUtil():
         SQLUtil.delete_function(function_name)
 
     @staticmethod
-    def add_functions(prediction_request: PredictionRequest, predictions):
+    def add_model_functions(training_request: TrainingRequest):
+        functions = training_request.json_dict['functionsMap']["functions"]
+        if functions is not None:
+            SQLUtil.save_functions(training_request.model_name, functions)
+
+    @staticmethod
+    def add_prediction_functions(prediction_request: PredictionRequest, predictions):
         functions = prediction_request.json_dict['functionsMap']["functions"]
         if functions is not None:
             for (ctr, function) in enumerate(functions):
                 function["functionName"] = predictions[ctr]
-            SQLUtil.save_functions(prediction_request.model_name, function)
+            SQLUtil.save_functions(prediction_request.model_name, functions)

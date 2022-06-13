@@ -42,6 +42,16 @@ class TaskManager():
         return status
 
     @classmethod
+    def get_all_status(cls) -> dict:
+        status_list: dict = {}
+        queue_list: list = list(TaskService().service_queue.queue)
+        for task in queue_list:
+            status: str = task[0].status
+            model_name: str = task[0].model_name
+            status_list[model_name] = status
+        return status_list
+
+    @classmethod
     def set_status(cls, job_uuid: str, status: str) -> bool:
         queue_list: list = list(TaskService().service_queue.queue)
         for task in queue_list:
@@ -87,7 +97,7 @@ class Predictor(TaskManager):
         try:
             model = MLPersistanceUtil.load_model(prediction_request.model_name)
             predictions = model.predict(prediction_request.data)
-            FunctionPersistanceUtil.add_functions(
+            FunctionPersistanceUtil.add_prediction_functions(
                 prediction_request, predictions)
             return predictions
         except Exception as exception:

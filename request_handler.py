@@ -3,13 +3,15 @@ import pandas as pd
 
 class DataHandler():
     uuid: str
+    model_name: str
     json_dict: str
     bin_dictionary: dict
     data: pd.DataFrame
     status: str
 
-    def __init__(self, uuid: str, data: dict):
+    def __init__(self, uuid: str, data: dict, model_name: str):
         self.uuid = uuid
+        self.model_name = model_name
         self.json_dict = data
         self.status = "starting"
 
@@ -20,8 +22,8 @@ class DataHandler():
 class TrainingRequest(DataHandler):
     bin_name: str
 
-    def __init__(self, uuid: str, data: str):
-        super().__init__(uuid, data)
+    def __init__(self, uuid: str, data: str, model_name: str):
+        super().__init__(uuid, data, model_name)
         self.load_data()
 
     def load_data(self):
@@ -39,15 +41,13 @@ class TrainingRequest(DataHandler):
 
 class PredictionRequest(DataHandler):
     task_name: str
-    model_name: str
     uuid: str
     json_dict: dict
     data: pd.DataFrame
     status: str
 
     def __init__(self, uuid: str, model_name: str,  data: str):
-        super().__init__(uuid, data)
-        self.model_name = model_name
+        super().__init__(uuid, data, model_name)
         self.load_data()
 
     def load_data(self):

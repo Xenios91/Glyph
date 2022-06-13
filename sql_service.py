@@ -1,3 +1,4 @@
+import os
 import sqlite3
 
 
@@ -20,17 +21,19 @@ class SQLUtil():
     @staticmethod
     def get_models_list() -> set[str]:
         models_set: set[str] = set()
-        with sqlite3.connect('models.db') as con:
-            try:
-                cur = con.cursor()
-                sql = "SELECT * FROM MODELS"
-                models = cur.execute(sql).fetchall()
-                for model in models:
-                    models_set.add(model[0])
+        if os.path.exists("models.db"):
+            with sqlite3.connect('models.db') as con:
+                try:
+                    cur = con.cursor()
+                    sql = "SELECT * FROM MODELS"
+                    models = cur.execute(sql).fetchall()
+                    for model in models:
+                        models_set.add(model[0])
 
-                return models_set
-            except Exception as e:
-                print(e)
+                except Exception as e:
+                    print(e)
+
+        return models_set
 
     @staticmethod
     def get_model(model_name: str) -> bytes:
@@ -65,8 +68,9 @@ class SQLUtil():
                     "CREATE TABLE IF NOT EXISTS functions(model_name VARCHAR(64), function_name VARCHAR(64), entrypoint VARCHAR(16), tokens TEXT)")
                 for function in functions:
                     sql = "INSERT INTO functions (model_name, function_name, entrypoint, tokens) VALUES (?, ?, ?, ?)"
-                    cur.execute(sql, (model_name, functions["functionName"], function["entrypoint"], " ".join(
-                        function["tokens"])))
+                    tokens = function["tokens"]
+                    cur.execute(
+                        sql, (model_name, function["functionName"], function["lowAddress"], tokens))
 
                 con.commit()
             except Exception as e:

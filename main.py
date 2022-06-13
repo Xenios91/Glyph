@@ -9,7 +9,7 @@ from config import GlyphConfig
 from persistance_util import FunctionPersistanceUtil, MLPersistanceUtil
 from request_handler import GhidraRequest, PredictionRequest, TrainingRequest
 from services import TaskService
-from task_management import Ghidra, Predictor, Trainer
+from task_management import Ghidra, Predictor, TaskManager, Trainer
 
 app = Flask(__name__)
 UPLOAD_FOLDER = './binaries'
@@ -40,14 +40,17 @@ def train_model():
     request_values: dict = request.get_json()
     model_name = request_values.get("model_name")
     data = request_values.get("data")
+    overwrite_model = request_values.get("overwrite_model")
 
-    if MLPersistanceUtil.check_name(model_name):
+    if overwrite_model is None and MLPersistanceUtil.check_name(model_name):
         return jsonify(error="model name already taken"), 400
-
+    
     try:
         training_request: TrainingRequest = TrainingRequest(
-            Trainer().get_uuid(), data)
+            Trainer().get_uuid(), data, model_name)
         Trainer().start_training(training_request)
+        FunctionPersistanceUtil.add_model_functions(training_request)
+
         return jsonify(uuid=training_request.uuid), 201
     except Exception as tr_exception:
         print(tr_exception)
@@ -105,9 +108,14 @@ def get_list_models():
     headers = request.headers
     user_agent = headers.get("User-Agent")
     models: set[str] = MLPersistanceUtil.get_models_list()
+
     if not user_agent:
         return jsonify(models=list(models)), 200
-    return render_template("get_models.html", title="Models List", models=models)
+
+    models_status: dict = TaskManager.get_all_status()
+    for model in models:
+        models_status[model] = "complete"
+    return render_template("get_models.html", title="Models List", models=models_status)
 
 
 @app.route("/delete_model", methods=["DELETE"])
@@ -121,18 +129,23 @@ def delete_model():
     return jsonify(), 200
 
 
-@app.route("/get_functions", methods=["GET"])
+@app.route("/getFunctions", methods=["GET"])
 def get_functions():
     '''
     Handles a GET request to return all identified functions associated with a model
     '''
     args = request.args
-    model_name = args.get("model_name")
+    model_name = args.get("modelName")
     functions: list = FunctionPersistanceUtil.get_functions(model_name)
-    return jsonify(functions=functions), 200
+    headers = request.headers
+    user_agent = headers.get("User-Agent")
+    if not user_agent:
+        return jsonify(functions=functions), 200
+    
+    return render_template("get_symbols.html")
 
 
-@app.route("/delete_function", methods=["DELETE"])
+@app.route("/deleteFunction", methods=["DELETE"])
 def delete_function():
     '''
     Handles a DELETE request to delete a function from a model
