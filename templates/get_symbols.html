@@ -2,54 +2,48 @@
 {% block content %}
 <div class="content blue-bg">
     <div>
-        <div>
-            <div style="padding: 5px;">
-                <span class="file-name" id="file-name">File Name: {{ bin_name }}</span>
-                <br>
-                <span class="file-name" id="model-name">Model Name: {{ model_name }}</span>
-            </div>
-            <div class="nes-table-responsive content">
-                <blockquote>
-                    <table class="nes-table is-bordered is-centered">
-                        <thead>
-                            <tr>
-                                <td scope="col">Function Name</td>
-                                <th scope="col">EntryPoint</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for functionInfo in functions %}
-                            <tr id="{{ functionInfo[1] }}-id" onmouseover="changeBackground(this.id, '#d1d1d1');"
-                                onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
-                                <td>{{ functionInfo[1] }}</td>
-                                <td>0x{{ functionInfo[2] }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </blockquote>
-                <div class="center-contents">
-                    <button type="button" class="nes-btn is-primary" style="margin-right: 100px;"
-                        onclick="deleteBinary()">Delete</button> <button type="button" class="nes-btn is-primary"
-                        onclick="location.href='/getSymbols';">Go Back</button>
-                </div>
+        <div class="center-contents">
+            <span id="file-name">File Name: {{ bin_name }}</span>
+        </div>
+        <div class="center-contents">
+            <span id="model-name">Model Name: {{ model_name }}</span>
+        </div>
+        <div class="nes-table-responsive content">
+            <blockquote>
+                <table class="nes-table is-bordered is-centered">
+                    <thead>
+                        <tr>
+                            <td scope="col">Function Name</td>
+                            <th scope="col">EntryPoint</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for functionInfo in functions %}
+                        <tr id="{{ functionInfo[1] }}-id" onmouseover="changeBackground(this.id, '#d1d1d1');"
+                            onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
+                            <td>{{ functionInfo[1] }}</td>
+                            <td>0x{{ functionInfo[2] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </blockquote>
+            <div class="center-contents">
+                <button type="button" class="nes-btn is-primary" style="margin-right: 100px;"
+                    onclick="deleteBinary()">Delete</button> <button type="button" class="nes-btn is-primary"
+                    onclick="location.href='/getModels';">Go Back</button>
             </div>
         </div>
     </div>
 
     <script>
         function goToURL(id) {
-            var status = document.getElementById(id.slice(0, -3) + "-status");
-            if (status.innerText == "complete") {
-                var currentURL = window.location.href;
-                var url = currentURL + "?binary=" + id.slice(0, -3);
-                if (url) {
-                    window.location = url;
-                }
-            } else if (status.innerText == "N/A") {
-                alert('No analysis has been performed yet!');
-            } else {
-                alert('Binary Analysis is not complete!');
+            const functionName = id.slice(0, -3);
+            const currentURL = window.location.href;
+            const splitIndex = currentURL.lastIndexOf("/");
+            const url = currentURL.substring(splitIndex, 0) + "/getFunction?functionName=" + functionName;
+            if (url) {
+                window.location = url;
             }
         }
 

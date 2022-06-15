@@ -100,7 +100,7 @@ def get_status():
     return jsonify(status=status), status_code
 
 
-@app.route("/get_models", methods=["GET"])
+@app.route("/getModels", methods=["GET"])
 def get_list_models():
     '''
     Handles a GET request to obtain all models available
@@ -146,6 +146,23 @@ def get_functions():
     return render_template("get_symbols.html", bin_name="test",
                            model_name=model_name, functions=functions)
 
+#todo
+@app.route("/getFunction", methods=["GET"])
+def get_function():
+    '''
+    Handles a GET request to return all identified functions associated with a model
+    '''
+    headers = request.headers
+    user_agent = headers.get("User-Agent")
+
+    args = request.args
+    model_name = args.get("functionName")
+    function: str = FunctionPersistanceUtil.get_functions(model_name)
+    if not user_agent:
+        return jsonify(functions=function), 200
+
+    return render_template("get_function.html", bin_name="test",
+                           model_name=model_name, functions=function)
 
 @app.route("/deleteFunction", methods=["DELETE"])
 def delete_function():
