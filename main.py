@@ -10,6 +10,7 @@ from persistance_util import FunctionPersistanceUtil, MLPersistanceUtil
 from request_handler import GhidraRequest, PredictionRequest, TrainingRequest
 from services import TaskService
 from task_management import Ghidra, Predictor, TaskManager, Trainer
+from templates.utils import format_code
 
 app = Flask(__name__)
 UPLOAD_FOLDER = './binaries'
@@ -146,7 +147,7 @@ def get_functions():
     return render_template("get_symbols.html", bin_name="test",
                            model_name=model_name, functions=functions)
 
-#todo
+
 @app.route("/getFunction", methods=["GET"])
 def get_function():
     '''
@@ -156,13 +157,22 @@ def get_function():
     user_agent = headers.get("User-Agent")
 
     args = request.args
-    model_name = args.get("functionName")
-    function: str = FunctionPersistanceUtil.get_functions(model_name)
-    if not user_agent:
-        return jsonify(functions=function), 200
+    function_name = args.get("functionName")
+    model_name = args.get("modelName")
 
-    return render_template("get_function.html", bin_name="test",
-                           model_name=model_name, functions=function)
+    function_information: str = FunctionPersistanceUtil.get_function(
+        model_name, function_name)
+
+    function_name = function_information[1]
+    function_entry: str = function_information[2]
+    function_tokens: str = function_information[3]
+    function_tokens = format_code(function_tokens)
+    if not user_agent:
+        return jsonify(functions=function_information), 200
+
+    return render_template("get_function.html", model_name=model_name, function_name=function_name,
+                           function_entry=function_entry, tokens=function_tokens)
+
 
 @app.route("/deleteFunction", methods=["DELETE"])
 def delete_function():
@@ -186,7 +196,10 @@ def upload_binary():
     if request.method == "GET":
         if not user_agent:
             return jsonify(error="API calls can only be POST"), 200
-        return render_template("upload.html")
+
+        models: set[str] = MLPersistanceUtil.get_models_list()
+        allow_prediction = len(models) > 0
+        return render_template("upload.html", allow_prediction=allow_prediction)
 
     if request.method == "POST":
         if "binaryFile" not in request.files:

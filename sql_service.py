@@ -88,6 +88,17 @@ class SQLUtil():
                 print(e)
 
     @staticmethod
+    def get_function(model_name: str, function_name: str) -> str:
+        with sqlite3.connect('functions.db') as con:
+            try:
+                cur = con.cursor()
+                sql = "SELECT * FROM FUNCTIONS WHERE model_name=? and function_name=?"
+                function_information: list = cur.execute(sql, (model_name, function_name,)).fetchone()
+                return function_information
+            except Exception as e:
+                print(e)
+
+    @staticmethod
     def delete_functions(model_name: str):
         with sqlite3.connect('functions.db') as con:
             try:

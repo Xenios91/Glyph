@@ -69,6 +69,11 @@ class FunctionPersistanceUtil():
     def get_functions(model_name: str) -> list:
         functions: list = SQLUtil.get_functions(model_name)
         return functions
+    
+    @staticmethod
+    def get_function(model_name: str, function_name : str) -> str:
+        function: str = SQLUtil.get_function(model_name, function_name)
+        return function
 
     @staticmethod
     def delete_function(function_name: str):

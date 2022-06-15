@@ -2,8 +2,10 @@
 {% block content %}
 <div class="content blue-bg">
     {% if models is defined and models|length > 0 %}
-    <h3>Available Models:</h3>
-    <div class="nes-table-responsive">
+    <div>
+        <span>Available Models:</span>
+    </div>
+    <div class="nes-table-responsive content">
         <table class="nes-table is-bordered is-centered">
             <thead>
                 <tr>
@@ -23,7 +25,7 @@
         </table>
     </div>
     {% else %}
-    <div class="blue-bg" style="margin:0 auto;">
+    <div class="blue-bg" style="margin: auto;">
         <section class="message-list">
             <section class="message -left">
                 <div class="nes-balloon from-left">

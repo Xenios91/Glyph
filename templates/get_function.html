@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="content blue-bg">
+    <div>
+        <span>Model: {{ model_name }}</span>
+    </div>
+    <div>
+        <span>Function: {{ function_name }}</span>
+    </div>
+    <div class="nes-container is-rounded white-bg">
+        <pre id="tokens-display" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
+    </div>
+    <div class="center-contents" style="margin-top: 2%;">
+        <button type="button" class="nes-btn is-primary mr-25" onclick="deleteFunction()">Delete</button> <button
+            type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+    </div>
+</div>
+
+<script>
+    function deleteFunction() {
+        var selection = document.getElementById("file-name").innerText;
+        var binToDelete = selection.split(':')[1].replace(/\s+/, "");
+        var currentURL = window.location.href;
+        var url = "/getSymbols" + "?binaryDel=" + binToDelete;
+        if (url) {
+            window.location = url;
+        }
+    }
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@500&display=swap" rel="stylesheet">
+
+{% endblock %}

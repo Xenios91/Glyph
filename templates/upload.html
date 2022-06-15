@@ -8,29 +8,34 @@
             <span>Select your file</span>
             <input id="upload-binary" type="file" onchange="uploadBinary()">
         </label>
-        <br>
-        <label style="margin-top: 20px;">
-            <input id="generate-model-checkbox" type="checkbox" class="nes-checkbox" checked onclick="hideMLConfig()" />
-            <span>Generate Model</span>
-        </label>
 
-        <div id="ml-config" class="nes-container with-title is-centered" style="margin: 25px; display: none;">
-            <p class="title">Model Configuration</p>
-            <div style="margin:7%">
-                <div class="nes-field" style="margin:7%">
-                    <label for="name_field">Model Name</label>
-                    <input type="text" id="model_name" class="nes-input">
-                </div>
-                <label for="default_select">Select ML Class Type</label>
-                <div class="nes-select">
-                    <select required id="ml_class_type">
-                        <option value="" disabled selected hidden>Class Type</option>
-                        <option value="0">Single Class</option>
-                        <option value="1">Multi Class</option>
-                    </select>
+        {% if allow_prediction %}
+        <div>
+            <label class="mt-2">
+                <input id="generate-model-checkbox" type="checkbox" class="nes-checkbox" checked
+                    onclick="hideMLConfig()" />
+                <span>Generate Model</span>
+            </label>
+
+            <div id="ml-config" class="nes-container with-title is-centered" style="margin: 25px; display: none;">
+                <p class="title">Model Configuration</p>
+                <div style="margin: 7%">
+                    <div class="nes-field" style="margin: 7%">
+                        <label for="name_field">Model Name</label>
+                        <input type="text" id="model_name" class="nes-input">
+                    </div>
+                    <label for="default_select">Select ML Class Type</label>
+                    <div class="nes-select">
+                        <select required id="ml_class_type">
+                            <option value="" disabled selected hidden>Class Type</option>
+                            <option value="0">Single Class</option>
+                            <option value="1">Multi Class</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
     <div id="upload-message" class="nes-container with-title is-centered white-bg" style="display: none;">
         <p class="title">Binary Status</p>
