@@ -82,6 +82,15 @@
                     hideMLConfig();
                 }, 5000);
             },
+            error: function (data, status, xhr) {
+                if (data.status == 400) {
+                    window.location.href = '/error?type=uploadError';
+                }
+                else {
+                    window.location.href = '/error';
+                }
+
+            },
             complete: function (xhr, textStatus) {
                 console.log("upload complete");
             }

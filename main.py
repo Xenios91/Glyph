@@ -1,4 +1,3 @@
-from operator import itemgetter
 import os
 import threading
 
@@ -183,6 +182,10 @@ def upload_binary():
 
         file = request.files["binaryFile"]
 
+        magic_num = file.read()[:4]
+        if magic_num == b'\x7fELF':
+            return jsonify(error="incorrect magic number"), 400
+
         if len(file.filename) == 0:
             return jsonify(error="no file found"), 400
 
@@ -245,3 +248,17 @@ def update_status():
     uuid = args.get("uuid")
     Trainer().set_status(uuid, status)
     return jsonify(), 200
+
+
+@app.route("/error", methods=["GET"])
+def error_page():
+    '''
+    Used for displaying errors
+    '''
+    args = request.args
+    error_type = args.get("type")
+    message = "Uh oh! An unknown error has occured"
+
+    if error_type == "uploadError":
+        message = "Uh oh! It looks like the binary file is not of type ELF, if it's PE don't worry, we are working on implementing PE capabilities."
+    return render_template("error.html", message=message)
