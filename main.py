@@ -183,7 +183,7 @@ def upload_binary():
         file = request.files["binaryFile"]
 
         magic_num = file.read()[:4]
-        if magic_num == b'\x7fELF':
+        if magic_num != b'\x7fELF':
             return jsonify(error="incorrect magic number"), 400
 
         if len(file.filename) == 0:
