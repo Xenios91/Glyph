@@ -77,8 +77,10 @@ class Trainer(TaskManager):
             y = preprocessing.LabelEncoder().fit_transform(
                 training_request.data["functionName"])
 
+            labels = ",".join(list(training_request.data["functionName"]))
+
             pipeline.fit(X, y)
-            MLPersistanceUtil.save_model("test_pipeline", pipeline)
+            MLPersistanceUtil.save_model("test_pipeline", labels, pipeline)
             training_request.status = "complete"
         except Exception as e:
             print(e)
@@ -95,11 +97,12 @@ class Predictor(TaskManager):
     @classmethod
     def _run_prediction(cls, prediction_request: PredictionRequest):
         try:
-            model = MLPersistanceUtil.load_model(prediction_request.model_name)
-            predictions = model.predict(prediction_request.data)
+            model, labels = MLPersistanceUtil.load_model(prediction_request.model_name)
+            predictions = model.predict(prediction_request.data["tokens"])
+            predicted_labels = [labels[prediction] for prediction in predictions]
             FunctionPersistanceUtil.add_prediction_functions(
-                prediction_request, predictions)
-            return predictions
+                prediction_request, predicted_labels)
+            return predicted_labels
         except Exception as exception:
             print(exception)
 

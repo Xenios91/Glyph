@@ -5,15 +5,15 @@ import sqlite3
 class SQLUtil():
 
     @staticmethod
-    def save_model(model_name: str, model: bytes):
+    def save_model(model_name: str, labels: str, model: bytes):
         with sqlite3.connect('models.db') as con:
             try:
                 cur = con.cursor()
                 cur.execute(
-                    "CREATE TABLE IF NOT EXISTS models(model_name VARCHAR(64), model BLOB)")
+                    "CREATE TABLE IF NOT EXISTS models(model_name VARCHAR(64), model BLOB, labels TEXT)")
 
-                sql = "INSERT INTO models (model_name, model) VALUES (?, ?)"
-                cur.execute(sql, (model_name, sqlite3.Binary(model)))
+                sql = "INSERT INTO models (model_name, model, labels) VALUES (?, ?, ?)"
+                cur.execute(sql, (model_name, sqlite3.Binary(model), labels))
                 con.commit()
             except Exception as e:
                 print(e)
@@ -93,7 +93,8 @@ class SQLUtil():
             try:
                 cur = con.cursor()
                 sql = "SELECT * FROM FUNCTIONS WHERE model_name=? and function_name=?"
-                function_information: list = cur.execute(sql, (model_name, function_name,)).fetchone()
+                function_information: list = cur.execute(
+                    sql, (model_name, function_name,)).fetchone()
                 return function_information
             except Exception as e:
                 print(e)

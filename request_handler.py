@@ -29,7 +29,13 @@ class TrainingRequest(DataHandler):
     def load_data(self):
         try:
             self.bin_name = self.json_dict["binaryName"]
-            functions: dict = self.json_dict['functionsMap']["functions"]
+            functions: list = []
+            functions_temp: list = list(
+                self.json_dict['functionsMap']["functions"])
+            for function in functions_temp:
+                if function not in functions:
+                    functions.append(function)
+
             for function in functions:
                 token_list = function['tokenList']
                 tokens = " ".join(token_list)
@@ -52,7 +58,13 @@ class PredictionRequest(DataHandler):
 
     def load_data(self):
         try:
-            functions: dict = self.json_dict['functionsMap']["functions"]
+            functions: list = []
+            functions_temp: list = list(
+                self.json_dict['functionsMap']["functions"])
+            for function in functions_temp:
+                if function not in functions:
+                    functions.append(function)
+                    
             for function in functions:
                 token_list = function['tokenList']
                 tokens = " ".join(token_list)

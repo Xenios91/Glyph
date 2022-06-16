@@ -30,15 +30,16 @@ class MLTask():
 class MLPersistanceUtil():
 
     @staticmethod
-    def save_model(model_name: str, pipeline: Pipeline):
+    def save_model(model_name: str, labels: str, pipeline: Pipeline):
         serialized_model: bytes = pickle.dumps(pipeline)
-        SQLUtil.save_model(model_name, serialized_model)
+        SQLUtil.save_model(model_name, labels, serialized_model)
 
     @staticmethod
-    def load_model(model_name: str) -> Pipeline:
+    def load_model(model_name: str):
         model: bytes = SQLUtil.get_model(model_name)
         loaded_model = pickle.loads(model[1])
-        return loaded_model
+        labels = model[2].split(",")
+        return loaded_model, labels
 
     @staticmethod
     def get_models_list() -> list[str]:
@@ -87,7 +88,7 @@ class FunctionPersistanceUtil():
             SQLUtil.save_functions(training_request.model_name, functions)
 
     @staticmethod
-    def add_prediction_functions(prediction_request: PredictionRequest, predictions):
+    def add_prediction_functions(prediction_request: PredictionRequest, predictions: list[str]):
         functions = prediction_request.json_dict['functionsMap']["functions"]
         if functions is not None:
             functions = FunctionPersistanceUtil.remove_duplicates(functions)
