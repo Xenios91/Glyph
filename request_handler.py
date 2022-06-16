@@ -14,9 +14,22 @@ class DataHandler():
         self.model_name = model_name
         self.json_dict = data
         self.status = "starting"
+        self._clean_dict()
 
-    def load_data(self):
+    def _clean_dict(self):
+        functions: list = []
+        functions_temp: list = list(
+            self.get_functions())
+        for function in functions_temp:
+            if function not in functions:
+                functions.append(function)
+        self.json_dict["functionsMap"]["functions"] = functions
+
+    def _load_data(self):
         pass
+
+    def get_functions(self) -> list:
+        return self.json_dict["functionsMap"]["functions"]
 
 
 class TrainingRequest(DataHandler):
@@ -24,14 +37,14 @@ class TrainingRequest(DataHandler):
 
     def __init__(self, uuid: str, data: str, model_name: str):
         super().__init__(uuid, data, model_name)
-        self.load_data()
+        self._load_data()
 
-    def load_data(self):
+    def _load_data(self):
         try:
             self.bin_name = self.json_dict["binaryName"]
             functions: list = []
             functions_temp: list = list(
-                self.json_dict['functionsMap']["functions"])
+                self.get_functions())
             for function in functions_temp:
                 if function not in functions:
                     functions.append(function)
@@ -54,17 +67,18 @@ class PredictionRequest(DataHandler):
 
     def __init__(self, uuid: str, model_name: str,  data: str):
         super().__init__(uuid, data, model_name)
-        self.load_data()
+        self.task_name = data["binaryName"]
+        self._load_data()
 
-    def load_data(self):
+    def _load_data(self):
         try:
             functions: list = []
             functions_temp: list = list(
-                self.json_dict['functionsMap']["functions"])
+                self.get_functions())
             for function in functions_temp:
                 if function not in functions:
                     functions.append(function)
-                    
+
             for function in functions:
                 token_list = function['tokenList']
                 tokens = " ".join(token_list)
@@ -73,6 +87,11 @@ class PredictionRequest(DataHandler):
         except Exception as p_exception:
             print(p_exception)
             raise Exception("invalid dataset") from p_exception
+
+    def set_prediction_values(self, labels: list[str]):
+        functions = self.get_functions()
+        for ctr, function in enumerate(functions):
+            function["functionName"] = labels[ctr]
 
 
 class GhidraRequest():

@@ -27,6 +27,14 @@ class MLTask():
         return pipeline
 
 
+class PredictionPersistanceUtil():
+
+    @staticmethod
+    def get_predictions_list() -> list[str]:
+        predictions_list: set[str] = SQLUtil.get_predictions_list()
+        return predictions_list
+
+
 class MLPersistanceUtil():
 
     @staticmethod
@@ -59,20 +67,12 @@ class MLPersistanceUtil():
 class FunctionPersistanceUtil():
 
     @staticmethod
-    def remove_duplicates(functions: dict) -> set:
-        functions_cleaned: list = []
-        for function in functions:
-            if function not in functions_cleaned:
-                functions_cleaned.append(function)
-        return functions_cleaned
-
-    @staticmethod
     def get_functions(model_name: str) -> list:
         functions: list = SQLUtil.get_functions(model_name)
         return functions
-    
+
     @staticmethod
-    def get_function(model_name: str, function_name : str) -> str:
+    def get_function(model_name: str, function_name: str) -> str:
         function: str = SQLUtil.get_function(model_name, function_name)
         return function
 
@@ -82,16 +82,17 @@ class FunctionPersistanceUtil():
 
     @staticmethod
     def add_model_functions(training_request: TrainingRequest):
-        functions: list = training_request.json_dict['functionsMap']["functions"]
+        functions: list = training_request.get_functions()
         if functions is not None:
-            functions = FunctionPersistanceUtil.remove_duplicates(functions)
             SQLUtil.save_functions(training_request.model_name, functions)
 
     @staticmethod
     def add_prediction_functions(prediction_request: PredictionRequest, predictions: list[str]):
-        functions = prediction_request.json_dict['functionsMap']["functions"]
+        functions = prediction_request.get_functions()
+        task_name = prediction_request.task_name
+
         if functions is not None:
-            functions = FunctionPersistanceUtil.remove_duplicates(functions)
             for (ctr, function) in enumerate(functions):
                 function["functionName"] = predictions[ctr]
-            SQLUtil.save_functions(prediction_request.model_name, functions)
+            SQLUtil.save_predictions(
+                task_name, prediction_request.model_name, functions)

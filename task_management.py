@@ -95,14 +95,18 @@ class Predictor(TaskManager):
         TaskService().service_queue.put((prediction_request, future))
 
     @classmethod
-    def _run_prediction(cls, prediction_request: PredictionRequest):
+    def _run_prediction(cls, prediction_request: PredictionRequest) -> PredictionRequest:
         try:
-            model, labels = MLPersistanceUtil.load_model(prediction_request.model_name)
+            model, labels = MLPersistanceUtil.load_model(
+                prediction_request.model_name)
             predictions = model.predict(prediction_request.data["tokens"])
-            predicted_labels = [labels[prediction] for prediction in predictions]
+            predicted_labels = [labels[prediction]
+                                for prediction in predictions]
             FunctionPersistanceUtil.add_prediction_functions(
                 prediction_request, predicted_labels)
-            return predicted_labels
+
+            prediction_request.set_prediction_values(labels)
+            return prediction_request
         except Exception as exception:
             print(exception)
 

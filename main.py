@@ -6,7 +6,7 @@ from werkzeug.utils import secure_filename
 
 import _version
 from config import GlyphConfig
-from persistance_util import FunctionPersistanceUtil, MLPersistanceUtil
+from persistance_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
 from request_handler import GhidraRequest, PredictionRequest, TrainingRequest
 from services import TaskService
 from task_management import Ghidra, Predictor, TaskManager, Trainer
@@ -69,8 +69,9 @@ def predict_tokens():
     try:
         prediction_request: PredictionRequest = PredictionRequest(
             Predictor().get_uuid(), model_name, data)
-        predictions = Predictor().start_prediction(prediction_request)
-        return jsonify(predictions=""), 200
+        Predictor().start_prediction(prediction_request)
+
+        return jsonify(uuid=prediction_request.uuid), 201
     except Exception as p_exception:
         print(p_exception)
         return jsonify("error"), 400
@@ -117,6 +118,21 @@ def get_list_models():
     for model in models:
         models_status[model] = "complete"
     return render_template("get_models.html", title="Models List", models=models_status)
+
+
+@app.route("/getPredictions", methods=["GET"])
+def get_list_predictions():
+    '''
+    Handles a GET request to obtain all models available
+    '''
+    headers = request.headers
+    user_agent = headers.get("User-Agent")
+    predictions: set[str] = PredictionPersistanceUtil.get_predictions_list()
+
+    if not user_agent:
+        return jsonify(predictions=list(predictions)), 200
+
+    return render_template("get_predictions.html", title="Predictions List", predictions=predictions)
 
 
 @app.route("/deleteModel", methods=["GET"])
@@ -255,17 +271,6 @@ def delete_bin():
     file_to_delete = os.path.join(directory_path, filename)
     os.remove(file_to_delete)
     return jsonify(), 200
-
-
-@app.route("/getSymbols", methods=["GET"])
-def get_symbols():
-    '''
-    Handles a GET request to return all symbols associated with a model
-    '''
-    args = request.args
-    model_name = args.get("model_name")
-    functions: list = FunctionPersistanceUtil.get_functions(model_name)
-    return jsonify(functions=functions), 200
 
 
 @app.route("/statusUpdate", methods=["POST"])

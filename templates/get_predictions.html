@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="content blue-bg">
+    {% if predictions is defined and predictions|length > 0 %}
+    <div>
+        <span>Available Predictions:</span>
+    </div>
+    <div class="nes-table-responsive content">
+        <table class="nes-table is-bordered is-centered">
+            <thead>
+                <tr>
+                    <th>Task Name</th>
+                    <th>Model Utilized</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task_name, model_name in predictions.items() %}
+                <tr id="{{ model }}-id" onmouseover="changeBackground(this.id, '#d1d1d1');"
+                    onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
+                    <td id="td-model-name">{{ task_name }}</td>
+                    <td id="{{ model }}-status">{{ model_name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="blue-bg" style="margin: auto;">
+        <section class="message-list">
+            <section class="message -left">
+                <div class="nes-balloon from-left">
+                    <p class="nes-text is-error blink_text">Uh oh! it looks like no predictions have been generated! Try
+                        going to upload to start!</p>
+                </div>
+            </section>
+            <i style="float: left;" class="nes-octocat animate"></i>
+        </section>
+    </div>
+    {% endif %}
+    <script>
+        function goToURL(id) {
+            const modelName = id.slice(0, -3);
+            const status = document.getElementById(modelName + "-status");
+            const currentURL = window.location.href;
+            const splitIndex = currentURL.lastIndexOf("/");
+            const url = currentURL.substring(splitIndex, 0) + "/getFunctions?modelName=" + modelName;
+            if (url) {
+                window.location = url;
+            }
+
+        }
+
+        function deleteModel() {
+            var selection = document.getElementById("file-name").innerText;
+            var binToDelete = selection.split(':')[1].replace(/\s+/, "");
+            var currentURL = window.location.href;
+            var url = "/getSymbols" + "?binaryDel=" + binToDelete;
+            if (url) {
+                window.location = url;
+            }
+        }
+
+        function changeBackground(id, color) {
+            document.getElementById(id).style.background = color;
+        }
+    </script>
+    {% endblock %}
