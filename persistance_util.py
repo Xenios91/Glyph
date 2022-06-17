@@ -44,16 +44,17 @@ class PredictionPersistanceUtil():
 class MLPersistanceUtil():
 
     @staticmethod
-    def save_model(model_name: str, labels: str, pipeline: Pipeline):
+    def save_model(model_name: str, label_encoder, pipeline: Pipeline):
         serialized_model: bytes = pickle.dumps(pipeline)
-        SQLUtil.save_model(model_name, labels, serialized_model)
+        serialized_encoder: bytes = pickle.dumps(label_encoder)
+        SQLUtil.save_model(model_name, serialized_encoder, serialized_model)
 
     @staticmethod
     def load_model(model_name: str):
         model: bytes = SQLUtil.get_model(model_name)
         loaded_model = pickle.loads(model[1])
-        labels = model[2].split(",")
-        return loaded_model, labels
+        label_encoder = pickle.loads(model[2])
+        return loaded_model, label_encoder
 
     @staticmethod
     def get_models_list() -> list[str]:

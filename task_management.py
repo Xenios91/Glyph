@@ -1,4 +1,5 @@
 from asyncio import subprocess
+from cProfile import label
 import os
 from tabnanny import check
 import uuid
@@ -72,15 +73,17 @@ class Trainer(TaskManager):
     @classmethod
     def _train_model(cls, training_request: TrainingRequest):
         pipeline: Pipeline = MLTask.get_multi_class_pipeline()
+        label_encoder = preprocessing.LabelEncoder()
         try:
             X: pd.Series = training_request.data["tokens"]
-            y = preprocessing.LabelEncoder().fit_transform(
+            fit_encoder = label_encoder.fit(
+                training_request.data["functionName"])
+            y = fit_encoder.transform(
                 training_request.data["functionName"])
 
-            labels = ",".join(list(training_request.data["functionName"]))
-
             pipeline.fit(X, y)
-            MLPersistanceUtil.save_model("test_pipeline", labels, pipeline)
+            MLPersistanceUtil.save_model(
+                "test_pipeline", label_encoder, pipeline)
             training_request.status = "complete"
         except Exception as e:
             print(e)
@@ -97,15 +100,14 @@ class Predictor(TaskManager):
     @classmethod
     def _run_prediction(cls, prediction_request: PredictionRequest) -> PredictionRequest:
         try:
-            model, labels = MLPersistanceUtil.load_model(
+            model, label_encoder = MLPersistanceUtil.load_model(
                 prediction_request.model_name)
             predictions = model.predict(prediction_request.data["tokens"])
-            predicted_labels = [labels[prediction]
-                                for prediction in predictions]
+            predicted_labels = label_encoder.inverse_transform(predictions)
             FunctionPersistanceUtil.add_prediction_functions(
                 prediction_request, predicted_labels)
 
-            prediction_request.set_prediction_values(labels)
+            prediction_request.set_prediction_values(predicted_labels)
             return prediction_request
         except Exception as exception:
             print(exception)

@@ -8,15 +8,16 @@ from request_handler import Prediction
 class SQLUtil():
 
     @staticmethod
-    def save_model(model_name: str, labels: str, model: bytes):
+    def save_model(model_name: str, label_encoder, model: bytes):
         with sqlite3.connect('models.db') as con:
             try:
                 cur = con.cursor()
                 cur.execute(
-                    "CREATE TABLE IF NOT EXISTS models(model_name VARCHAR(64), model BLOB, labels TEXT)")
+                    "CREATE TABLE IF NOT EXISTS models(model_name VARCHAR(64), model BLOB, label_encoder BLOB)")
 
-                sql = "INSERT INTO models (model_name, model, labels) VALUES (?, ?, ?)"
-                cur.execute(sql, (model_name, sqlite3.Binary(model), labels))
+                sql = "INSERT INTO models (model_name, model, label_encoder) VALUES (?, ?, ?)"
+                cur.execute(sql, (model_name, sqlite3.Binary(
+                    model), sqlite3.Binary(label_encoder)))
                 con.commit()
             except Exception as e:
                 print(e)
