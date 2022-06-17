@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 import _version
 from config import GlyphConfig
 from persistance_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
-from request_handler import GhidraRequest, PredictionRequest, TrainingRequest
+from request_handler import GhidraRequest, Prediction, PredictionRequest, TrainingRequest
 from services import TaskService
 from task_management import Ghidra, Predictor, TaskManager, Trainer
 from templates.utils import format_code
@@ -123,7 +123,7 @@ def get_list_models():
 @app.route("/getPredictions", methods=["GET"])
 def get_list_predictions():
     '''
-    Handles a GET request to obtain all models available
+    Handles a GET request to obtain all predictions available
     '''
     headers = request.headers
     user_agent = headers.get("User-Agent")
@@ -133,6 +133,26 @@ def get_list_predictions():
         return jsonify(predictions=list(predictions)), 200
 
     return render_template("get_predictions.html", title="Predictions List", predictions=predictions)
+
+
+@app.route("/getPrediction", methods=["GET"])
+def get_predictions():
+    '''
+    Handles a GET request to obtain all predictions from one task available
+    '''
+    headers = request.headers
+    user_agent = headers.get("User-Agent")
+
+    args = request.args
+    model_name = args["modelName"]
+    task_name = args["taskName"]
+    prediction: Prediction = PredictionPersistanceUtil.get_predictions(
+        task_name, model_name)
+
+    if not user_agent:
+        return jsonify(prediction=prediction), 200
+
+    return render_template("get_prediction.html", title="Prediction", model_name=prediction.model_name, task_name=prediction.task_name, prediction=prediction)
 
 
 @app.route("/deleteModel", methods=["GET"])

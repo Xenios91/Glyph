@@ -14,11 +14,14 @@
                 </tr>
             </thead>
             <tbody>
-                {% for task_name, model_name in predictions.items() %}
-                <tr id="{{ model }}-id" onmouseover="changeBackground(this.id, '#d1d1d1');"
+                {% for prediction in predictions %}
+                {% set taskName = prediction["task_name"] %}
+                {% set modelName = prediction["model_name"] %}
+                {% set id = taskName + ":" + modelName %}
+                <tr id="{{ id }}" onmouseover="changeBackground(this.id, '#d1d1d1');"
                     onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
-                    <td id="td-model-name">{{ task_name }}</td>
-                    <td id="{{ model }}-status">{{ model_name }}</td>
+                    <td>{{ prediction["task_name"] }}</td>
+                    <td>{{ prediction["model_name"] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -39,11 +42,10 @@
     {% endif %}
     <script>
         function goToURL(id) {
-            const modelName = id.slice(0, -3);
-            const status = document.getElementById(modelName + "-status");
+            const split = id.split(":");
             const currentURL = window.location.href;
             const splitIndex = currentURL.lastIndexOf("/");
-            const url = currentURL.substring(splitIndex, 0) + "/getFunctions?modelName=" + modelName;
+            const url = currentURL.substring(splitIndex, 0) + "/getPrediction?taskName=" + split[0] + "&modelName=" + split[1];
             if (url) {
                 window.location = url;
             }

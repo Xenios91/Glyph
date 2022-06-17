@@ -105,3 +105,14 @@ class GhidraRequest():
         self.is_training = istraining
         self.model_name = modelname
         self.ml_class_type = mlclasstype
+
+
+class Prediction():
+    model_name: str
+    task_name: str
+    predictions: dict
+
+    def __init__(self, modelName: str, taskName: str, pred: dict) -> None:
+        self.model_name = modelName
+        self.task_name = taskName
+        self.predictions = pred

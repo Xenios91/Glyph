@@ -2,7 +2,7 @@
 {% block content %}
 <div class="content blue-bg">
     <div class="center-contents">
-        <span id="file-name">File Name: {{ bin_name }}</span>
+        <span id="file-name">Task Name: {{ task_name }}</span>
     </div>
     <div class="center-contents">
         <span id="model-name">Model Name: {{ model_name }}</span>
@@ -17,35 +17,24 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for functionInfo in functions %}
-                    <tr id="{{ functionInfo[1] }}-id" onmouseover="changeBackground(this.id, '#d1d1d1');"
-                        onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
-                        <td>{{ functionInfo[1] }}</td>
-                        <td>0x{{ functionInfo[2] }}</td>
+                    {% for functionInfo in prediction["predictions"] %}
+                    <tr>
+                        <td>{{ functionInfo["functionName"] }}</td>
+                        <td>0x{{ functionInfo["lowAddress"] }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </blockquote>
         <div class="center-contents">
-            <button type="button" class="nes-btn is-primary mr-25" onclick="deleteBinary()">Delete</button> <button
+            <button type="button" class="nes-btn is-primary mr-25" onclick="deletePrediction()">Delete</button> <button
                 type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
         </div>
     </div>
 </div>
 
 <script>
-    function goToURL(id) {
-        const functionName = id.slice(0, -3);
-        const currentURL = window.location.href;
-        const splitIndex = currentURL.lastIndexOf("/");
-        const url = currentURL.substring(splitIndex, 0) + "/getFunction?" + "functionName=" + functionName + "&modelName=" + "{{ model_name }}";
-        if (url) {
-            window.location = url;
-        }
-    }
-
-    function deleteBinary() {
+    function deletePrediction() {
         var selection = document.getElementById("model-name").innerText;
         var modelToDelete = selection.split(':')[1].replace(/\s+/, "");
         var currentURL = window.location.href;
@@ -53,10 +42,6 @@
         if (url) {
             window.location = "/";
         }
-    }
-
-    function changeBackground(id, color) {
-        document.getElementById(id).style.background = color;
     }
 </script>
 

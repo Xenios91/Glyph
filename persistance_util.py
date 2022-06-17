@@ -4,7 +4,7 @@ import pickle
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
-from request_handler import PredictionRequest, TrainingRequest
+from request_handler import Prediction, PredictionRequest, TrainingRequest
 
 from sql_service import SQLUtil
 
@@ -33,6 +33,12 @@ class PredictionPersistanceUtil():
     def get_predictions_list() -> list[str]:
         predictions_list: set[str] = SQLUtil.get_predictions_list()
         return predictions_list
+
+    @staticmethod
+    def get_predictions(task_name: str, model_name: str) -> Prediction:
+        predictions: Prediction = SQLUtil.get_predictions(
+            task_name, model_name)
+        return predictions
 
 
 class MLPersistanceUtil():
