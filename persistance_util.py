@@ -102,3 +102,9 @@ class FunctionPersistanceUtil():
                 function["functionName"] = predictions[ctr]
             SQLUtil.save_predictions(
                 task_name, prediction_request.model_name, functions)
+
+    @staticmethod
+    def get_prediction_function(task_name: str, model_name: str, function_name: str) -> dict:
+        prediction_function: dict = SQLUtil.get_prediction_function(
+            task_name, model_name, function_name)
+        return prediction_function

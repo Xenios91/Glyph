@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="full-content blue-bg">
+    <div>
+        <span>Task Name: {{ task_name }}</span>
+    </div>
+    <div>
+        <span>Model: {{ model_name }}</span>
+    </div>
+    <div>
+        <span>Function: {{ function_name }}</span>
+    </div>
+    <div class="mt-2" style="display: flex">
+        <div style="width: 50%;">
+            <div style="text-align: center;">
+                <span style="text-align: center;">Model Function: </span>
+            </div>
+            <div id="model_tokens_div" class="nes-container is-rounded white-bg" style="margin: 2%;">
+                <pre style="font-family: 'Source Code Pro', monospace;">{{ model_tokens }}</pre>
+            </div>
+        </div>
+        <div style="width: 50%;">
+            <div style="text-align: center;">
+                <span>Predicted Function: </span>
+            </div>
+            <div id="prediction_tokens_div" class="nes-container is-rounded white-bg" style="margin: 2%;">
+                <pre style="font-family: 'Source Code Pro', monospace;">{{ prediction_tokens }}</pre>
+            </div>
+        </div>
+    </div>
+    <pre id="tokens-display" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
+    <pre id="tokens-display" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
+    <div class="center-contents" style="margin-top: 2%;">
+        <button type="button" class="nes-btn is-primary mr-25" onclick="deleteFunction()">Delete</button> <button
+            type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+    </div>
+</div>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@500&display=swap" rel="stylesheet">
+
+{% endblock %}

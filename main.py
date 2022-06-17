@@ -317,3 +317,25 @@ def error_page():
     if error_type == "uploadError":
         message = "Uh oh! It looks like the binary file is not of type ELF, if it's PE don't worry, we are working on implementing PE capabilities."
     return render_template("error.html", message=message)
+
+
+@app.route("/getPredictionDetails", methods=["GET"])
+def get_prediction_details():
+    '''
+    Used for displaying details of a prediction
+    '''
+    args = request.args
+    model_name = args["modelName"]
+    function_name = args["functionName"]
+    task_name = args["taskName"]
+
+    model_function_information: str = FunctionPersistanceUtil.get_function(
+        model_name, function_name)
+    prediction = FunctionPersistanceUtil.get_prediction_function(
+        task_name, model_name, function_name)
+
+    model_tokens = format_code(model_function_information[3])
+    prediction_tokens = format_code(prediction["tokens"])
+
+    return render_template("prediction_function_details.html", task_name=task_name, model_name=model_name, function_name=function_name,
+                           model_tokens=model_tokens, prediction_tokens=prediction_tokens)

@@ -18,7 +18,10 @@
                 </thead>
                 <tbody>
                     {% for functionInfo in prediction["predictions"] %}
-                    <tr>
+                    {% set functionName = functionInfo["functionName"] %}
+                    {% set id = functionName + ":" + model_name + ":" + task_name %}
+                    <tr id="{{ id }}" onmouseover="changeBackground(this.id, '#d1d1d1');"
+                        onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
                         <td>{{ functionInfo["functionName"] }}</td>
                         <td>0x{{ functionInfo["lowAddress"] }}</td>
                     </tr>
@@ -34,6 +37,17 @@
 </div>
 
 <script>
+    function goToURL(id) {
+        const split = id.split(":");
+        const currentURL = window.location.href;
+        const splitIndex = currentURL.lastIndexOf("/");
+        const url = currentURL.substring(splitIndex, 0) + "/getPredictionDetails?functionName=" + split[0] + "&modelName=" + split[1] + "&taskName=" + split[2];
+        if (url) {
+            window.location = url;
+        }
+
+    }
+
     function deletePrediction() {
         var selection = document.getElementById("model-name").innerText;
         var modelToDelete = selection.split(':')[1].replace(/\s+/, "");
@@ -42,6 +56,10 @@
         if (url) {
             window.location = "/";
         }
+    }
+
+    function changeBackground(id, color) {
+        document.getElementById(id).style.background = color;
     }
 </script>
 

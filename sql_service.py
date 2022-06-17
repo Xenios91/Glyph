@@ -115,6 +115,22 @@ class SQLUtil():
                 print(e)
 
     @staticmethod
+    def get_prediction_function(task_name: str, model_name: str, function_name: str) -> dict:
+        with sqlite3.connect('predictions.db') as con:
+            try:
+                cur = con.cursor()
+                sql = "SELECT * FROM PREDICTIONS WHERE model_name=? and name=?"
+                result = cur.execute(
+                    sql, (model_name, task_name,)).fetchone()
+                predictions = pickle.loads(result[2])
+                for function in predictions:
+                    if function["functionName"] == function_name:
+                        return function
+                return {}
+            except Exception as e:
+                print(e)
+
+    @staticmethod
     def save_functions(model_name: str, functions: dict):
         with sqlite3.connect('functions.db') as con:
             try:
