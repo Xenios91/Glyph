@@ -112,7 +112,7 @@ class Prediction():
     task_name: str
     predictions: dict
 
-    def __init__(self, modelName: str, taskName: str, pred: dict) -> None:
-        self.model_name = modelName
+    def __init__(self, taskName: str, modelName: str, pred: dict) -> None:
         self.task_name = taskName
+        self.model_name = modelName
         self.predictions = pred
