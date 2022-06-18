@@ -1,5 +1,6 @@
 import os
 import threading
+from typing import Type
 
 from flask import Flask, jsonify, render_template, request
 from werkzeug.utils import secure_filename
@@ -53,9 +54,9 @@ def train_model():
         FunctionPersistanceUtil.add_model_functions(training_request)
 
         return jsonify(uuid=training_request.uuid), 201
-    except Exception as tr_exception:
-        print(tr_exception)
-        return jsonify("error"), 400
+    except TypeError as type_error:
+        print(type_error)
+        return jsonify(error="type error"), 400
 
 
 @app.route("/predict", methods=["POST"])
@@ -72,9 +73,9 @@ def predict_tokens():
         Predictor().start_prediction(prediction_request)
 
         return jsonify(uuid=prediction_request.uuid), 201
-    except Exception as p_exception:
-        print(p_exception)
-        return jsonify("error"), 400
+    except TypeError as type_error:
+        print(type_error)
+        return jsonify(error="type error"), 400
 
 
 @app.route("/getStatus", methods=["GET"])
