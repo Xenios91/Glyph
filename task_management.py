@@ -71,9 +71,6 @@ class Trainer(TaskManager):
             cls.__instance = super().__new__(cls)
         return cls.__instance
 
-    def __init__(self) -> None:
-        super().__init__()
-
     @classmethod
     def start_training(cls, training_request: TrainingRequest):
         future = cls.exec_pool.submit(cls._train_model, training_request)
