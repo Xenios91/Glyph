@@ -1,9 +1,8 @@
-from asyncio import subprocess
-from cProfile import label
 import os
-from tabnanny import check
 import uuid
+from asyncio import subprocess
 from concurrent.futures import ProcessPoolExecutor
+from typing import Any, Optional
 
 import pandas as pd
 from sklearn import preprocessing
@@ -59,8 +58,8 @@ class TaskManager():
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
                 task[0].status = status
-                break
-        return status
+                return True
+        return False
 
 
 class Trainer(TaskManager):
@@ -107,8 +106,12 @@ class Predictor(TaskManager):
 
     def __init__(self) -> None:
         super().__init__()
-        self.probability_limit_threshold = GlyphConfig(
-        ).get_config_value("prediction_probability_threshold")
+        threshold_value: Optional[Any] = GlyphConfig().get_config_value(
+            "prediction_probability_threshold")
+        if not isinstance(threshold_value, float):
+            raise TypeError(
+                "ERROR: prediction_probability_threshold is not type float or int in config.yml")
+        self.probability_limit_threshold = threshold_value
 
     @classmethod
     def start_prediction(cls, prediction_request: PredictionRequest):
@@ -131,9 +134,10 @@ class Predictor(TaskManager):
                 prediction_request, predicted_labels)
 
             prediction_request.set_prediction_values(predicted_labels)
-            return prediction_request
         except Exception as exception:
             print(exception)
+
+        return prediction_request
 
     @classmethod
     def _filter_uncertainty(cls, prediction_probability, predicted_labels):
@@ -151,12 +155,17 @@ class Ghidra(TaskManager):
 
     @classmethod
     def _run_analysis(cls, ghidra_request: GhidraRequest):
-        ghidra_location = GlyphConfig.get_config_value("ghidra_loction")
-        ghidra_project_name = GlyphConfig.get_config_value("ghidra_project")
-        ghidra_project_location = GlyphConfig.get_config_value(
+        ghidra_location: Optional[Any] = GlyphConfig.get_config_value(
+            "ghidra_loction")
+        ghidra_project_name: Optional[Any] = GlyphConfig.get_config_value(
+            "ghidra_project")
+        ghidra_project_location: Optional[Any] = GlyphConfig.get_config_value(
             "ghidra_project_location")
         glyph_script_location = GlyphConfig.get_config_value(
             "glyph_script_location")
+
+        if len(ghidra_location) == 0 or len(ghidra_project_name) == 0 or len(ghidra_project_location) == 0 or len(glyph_script_location) == 0:
+            raise ValueError("ERROR: Config.yml cannot have empty values")
 
         ghidra_headless_location = os.path.join(
             ghidra_location, f"support{os.sep}analyzeHeadless")

@@ -4,7 +4,7 @@ import pandas as pd
 class DataHandler():
     uuid: str
     model_name: str
-    json_dict: str
+    json_dict: dict
     bin_dictionary: dict
     data: pd.DataFrame
     status: str
@@ -35,7 +35,7 @@ class DataHandler():
 class TrainingRequest(DataHandler):
     bin_name: str
 
-    def __init__(self, uuid: str, data: str, model_name: str):
+    def __init__(self, uuid: str, model_name: str,  data: dict):
         super().__init__(uuid, data, model_name)
         self._load_data()
 
@@ -65,7 +65,7 @@ class PredictionRequest(DataHandler):
     data: pd.DataFrame
     status: str
 
-    def __init__(self, uuid: str, model_name: str,  data: str):
+    def __init__(self, uuid: str, model_name: str,  data: dict):
         super().__init__(uuid, data, model_name)
         self.task_name = data["binaryName"]
         self._load_data()
@@ -98,7 +98,7 @@ class GhidraRequest():
     file_name: str
     is_training: bool
     model_name: str
-    ml_class_type: int
+    ml_class_type: str
 
     def __init__(self, filename: str, istraining: bool, modelname: str, mlclasstype: str) -> None:
         self.file_name = filename

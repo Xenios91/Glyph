@@ -6,8 +6,10 @@ from werkzeug.utils import secure_filename
 
 import _version
 from config import GlyphConfig
-from persistance_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
-from request_handler import GhidraRequest, Prediction, PredictionRequest, TrainingRequest
+from persistance_util import (FunctionPersistanceUtil, MLPersistanceUtil,
+                              PredictionPersistanceUtil)
+from request_handler import (GhidraRequest, Prediction, PredictionRequest,
+                             TrainingRequest)
 from services import TaskService
 from task_management import Ghidra, Predictor, TaskManager, Trainer
 from templates.utils import format_code
@@ -27,9 +29,10 @@ def home():
     Loads the homepage of Glyph
     '''
     headers = request.headers
-    user_agent = headers.get("User-Agent")
-    if not user_agent:
+    accept = headers.get("Accept")
+    if "text/html" not in accept:
         return jsonify(version=_version)
+
     return render_template("main.html")
 
 
@@ -48,7 +51,7 @@ def train_model():
 
     try:
         training_request: TrainingRequest = TrainingRequest(
-            Trainer().get_uuid(), data, model_name)
+            Trainer().get_uuid(), model_name, data)
         Trainer().start_training(training_request)
         FunctionPersistanceUtil.add_model_functions(training_request)
 
@@ -107,11 +110,11 @@ def get_list_models():
     '''
     Handles a GET request to obtain all models available
     '''
-    headers = request.headers
-    user_agent = headers.get("User-Agent")
     models: set[str] = MLPersistanceUtil.get_models_list()
 
-    if not user_agent:
+    headers = request.headers
+    accept = headers.get("Accept")
+    if "text/html" not in accept:
         return jsonify(models=list(models)), 200
 
     models_status: dict = TaskManager.get_all_status()
@@ -125,11 +128,11 @@ def get_list_predictions():
     '''
     Handles a GET request to obtain all predictions available
     '''
-    headers = request.headers
-    user_agent = headers.get("User-Agent")
     predictions: set[str] = PredictionPersistanceUtil.get_predictions_list()
 
-    if not user_agent:
+    headers = request.headers
+    accept = headers.get("Accept")
+    if "text/html" not in accept:
         return jsonify(predictions=list(predictions)), 200
 
     return render_template("get_predictions.html", title="Predictions List", predictions=predictions)
@@ -140,8 +143,6 @@ def get_predictions():
     '''
     Handles a GET request to obtain all predictions from one task available
     '''
-    headers = request.headers
-    user_agent = headers.get("User-Agent")
 
     args = request.args
     model_name = args["modelName"]
@@ -149,7 +150,9 @@ def get_predictions():
     prediction: Prediction = PredictionPersistanceUtil.get_predictions(
         task_name, model_name)
 
-    if not user_agent:
+    headers = request.headers
+    accept = headers.get("Accept")
+    if "text/html" not in accept:
         return jsonify(prediction=prediction), 200
 
     return render_template("get_prediction.html", title="Prediction", model_name=prediction.model_name, task_name=prediction.task_name, prediction=prediction)
@@ -171,13 +174,13 @@ def get_functions():
     '''
     Handles a GET request to return all identified functions associated with a model
     '''
-    headers = request.headers
-    user_agent = headers.get("User-Agent")
-
     args = request.args
     model_name = args.get("modelName")
     functions: list = FunctionPersistanceUtil.get_functions(model_name)
-    if not user_agent:
+
+    headers = request.headers
+    accept = headers.get("Accept")
+    if "text/html" not in accept:
         return jsonify(functions=functions), 200
 
     return render_template("get_symbols.html", bin_name="test",
@@ -189,9 +192,6 @@ def get_function():
     '''
     Handles a GET request to return all identified functions associated with a model
     '''
-    headers = request.headers
-    user_agent = headers.get("User-Agent")
-
     args = request.args
     function_name = args.get("functionName")
     model_name = args.get("modelName")
@@ -203,7 +203,10 @@ def get_function():
     function_entry: str = function_information[2]
     function_tokens: str = function_information[3]
     function_tokens = format_code(function_tokens)
-    if not user_agent:
+
+    headers = request.headers
+    accept = headers.get("Accept")
+    if "text/html" not in accept:
         return jsonify(functions=function_information), 200
 
     return render_template("get_function.html", model_name=model_name, function_name=function_name,
@@ -227,10 +230,10 @@ def upload_binary():
     Handles GET and POST request to load the webpage and to handle binary file uploads
     '''
     headers = request.headers
-    user_agent = headers.get("User-Agent")
+    accept = headers.get("Accept")
 
     if request.method == "GET":
-        if not user_agent:
+        if "text/html" not in accept:
             return jsonify(error="API calls can only be POST"), 200
 
         models: set[str] = MLPersistanceUtil.get_models_list()
@@ -263,7 +266,8 @@ def upload_binary():
             ghidra_task: GhidraRequest = GhidraRequest(
                 filename, is_training_data, model_name, ml_class_type)
             Ghidra().start_task(ghidra_task)
-        if user_agent:
+
+        if "text/html" in accept:
             return render_template("upload.html")
 
 

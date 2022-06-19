@@ -4,8 +4,8 @@ import pickle
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
-from request_handler import Prediction, PredictionRequest, TrainingRequest
 
+from request_handler import Prediction, PredictionRequest, TrainingRequest
 from sql_service import SQLUtil
 
 
@@ -30,8 +30,8 @@ class MLTask():
 class PredictionPersistanceUtil():
 
     @staticmethod
-    def get_predictions_list() -> list[str]:
-        predictions_list: set[str] = SQLUtil.get_predictions_list()
+    def get_predictions_list() -> list[Prediction]:
+        predictions_list: list[Prediction] = SQLUtil.get_predictions_list()
         return predictions_list
 
     @staticmethod
@@ -57,7 +57,7 @@ class MLPersistanceUtil():
         return loaded_model, label_encoder
 
     @staticmethod
-    def get_models_list() -> list[str]:
+    def get_models_list() -> set[str]:
         models_list: set[str] = SQLUtil.get_models_list()
         return models_list
 
@@ -79,8 +79,8 @@ class FunctionPersistanceUtil():
         return functions
 
     @staticmethod
-    def get_function(model_name: str, function_name: str) -> str:
-        function: str = SQLUtil.get_function(model_name, function_name)
+    def get_function(model_name: str, function_name: str) -> list:
+        function: list = SQLUtil.get_function(model_name, function_name)
         return function
 
     @staticmethod

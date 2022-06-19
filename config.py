@@ -1,3 +1,4 @@
+from typing import Any, Optional
 import yaml
 
 
@@ -16,6 +17,5 @@ class GlyphConfig():
             cls._config = yaml.safe_load(config)
 
     @classmethod
-    def get_config_value(cls, value: str) -> str:
+    def get_config_value(cls, value: str) -> Optional[Any]:
         return cls._config.get(value)
-
