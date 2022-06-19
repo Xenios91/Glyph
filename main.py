@@ -1,6 +1,5 @@
 import os
 import threading
-from typing import Type
 
 from flask import Flask, jsonify, render_template, request
 from werkzeug.utils import secure_filename

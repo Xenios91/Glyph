@@ -91,10 +91,23 @@ class Trainer(TaskManager):
 
 
 class Predictor(TaskManager):
+    __instance = None
+    probability_limit_threshold: float
+
+    def __new__(cls):
+        if cls.__instance is None:
+            cls.__instance = super().__new__(cls)
+        return cls.__instance
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.probability_limit_threshold = GlyphConfig(
+        ).get_config_value("prediction_probability_threshold")
 
     @classmethod
     def start_prediction(cls, prediction_request: PredictionRequest):
-        future = cls.exec_pool.submit(cls._run_prediction, prediction_request)
+        future = Predictor.exec_pool.submit(
+            Predictor._run_prediction, prediction_request)
         TaskService().service_queue.put((prediction_request, future))
 
     @classmethod
@@ -103,7 +116,11 @@ class Predictor(TaskManager):
             model, label_encoder = MLPersistanceUtil.load_model(
                 prediction_request.model_name)
             predictions = model.predict(prediction_request.data["tokens"])
+            prediction_probability = model.predict_proba(
+                prediction_request.data["tokens"]) * 100
             predicted_labels = label_encoder.inverse_transform(predictions)
+            Predictor._filter_uncertainty(
+                prediction_probability, predicted_labels)
             FunctionPersistanceUtil.add_prediction_functions(
                 prediction_request, predicted_labels)
 
@@ -111,6 +128,12 @@ class Predictor(TaskManager):
             return prediction_request
         except Exception as exception:
             print(exception)
+
+    @classmethod
+    def _filter_uncertainty(cls, prediction_probability, predicted_labels):
+        for ctr, probability in enumerate(prediction_probability):
+            if probability.max() < Predictor().probability_limit_threshold:
+                predicted_labels[ctr] = 'Unknown'
 
 
 class Ghidra(TaskManager):

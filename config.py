@@ -18,3 +18,4 @@ class GlyphConfig():
     @classmethod
     def get_config_value(cls, value: str) -> str:
         return cls._config.get(value)
+
