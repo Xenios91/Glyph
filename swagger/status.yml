@@ -1,0 +1,18 @@
+parameters:
+  - name: uuid
+    in: query
+    type: string
+    required: true
+definitions:
+  uuid:
+    type: string
+    example: bd65600d-8669-4903-8a14-af88203add38
+responses:
+  200:
+    description: The status of the requested UUID.
+  400:
+    description: Invalid request.
+  404:
+    description: UUID Not found.
+schema:
+  $ref: '#/definitions/UUID'

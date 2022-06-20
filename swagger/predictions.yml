@@ -1,0 +1,49 @@
+definitions:
+  predictions:
+    type: list[dict]
+    example: {
+  "predictions": [
+    {
+      "model_name": "test_pipeline",
+      "predictions": [
+        {
+          "functionName": "_init",
+          "highAddress": "0010101a",
+          "lowAddress": "00101000",
+          "parameterCount": 1,
+          "returnType": "int",
+          "tokenList": [
+            "int",
+            "_init",
+            "(",
+            "EVP_PKEY_CTX",
+            "*",
+            "ctx",
+            ")",
+            "{",
+            "int",
+            "iVar1",
+            ";",
+            "iVar1",
+            "=",
+            "__gmon_start__",
+            "(",
+            ")",
+            ";",
+            "return",
+            "iVar1",
+            ";",
+            "}"
+          ],
+          "tokens": "int _init ( EVP_PKEY_CTX * ctx ) { int iVar1 ; iVar1 = __gmon_start__ ( ) ; return iVar1 ; }"
+        }
+      ],
+      "task_name": "test"
+    }
+  ]
+}
+responses:
+  200:
+    description: A list of all predictions
+schema:
+  $ref: '#/definitions/predictions'

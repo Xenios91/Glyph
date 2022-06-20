@@ -1,6 +1,7 @@
 import os
 import threading
 
+from flasgger import Swagger, swag_from
 from flask import Flask, jsonify, render_template, request
 from werkzeug.utils import secure_filename
 
@@ -19,6 +20,7 @@ UPLOAD_FOLDER = './binaries'
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1000 * 1000  # max file size 500mb
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+swagger = Swagger(app)
 threading.Thread(target=TaskService().start_service, daemon=True).start()
 GlyphConfig.load_config()
 
@@ -81,6 +83,7 @@ def predict_tokens():
 
 
 @app.route("/getStatus", methods=["GET"])
+@swag_from("swagger/status.yml")
 def get_status():
     '''
     Handles a GET request to obtain the supplied uuid task status
@@ -106,6 +109,7 @@ def get_status():
 
 
 @app.route("/getModels", methods=["GET"])
+@swag_from("swagger/models.yml")
 def get_list_models():
     '''
     Handles a GET request to obtain all models available
@@ -124,6 +128,7 @@ def get_list_models():
 
 
 @app.route("/getPredictions", methods=["GET"])
+@swag_from("swagger/predictions.yml")
 def get_list_predictions():
     '''
     Handles a GET request to obtain all predictions available
@@ -133,12 +138,17 @@ def get_list_predictions():
     headers = request.headers
     accept = headers.get("Accept")
     if "text/html" not in accept:
-        return jsonify(predictions=list(predictions)), 200
+        predictions_list: list[dict] = []
+        for prediction in predictions:
+            predictions_list.append(prediction.__dict__)
+
+        return jsonify(predictions=list(predictions_list)), 200
 
     return render_template("get_predictions.html", title="Predictions List", predictions=predictions)
 
 
 @app.route("/getPrediction", methods=["GET"])
+@swag_from("swagger/prediction.yml")
 def get_predictions():
     '''
     Handles a GET request to obtain all predictions from one task available
@@ -147,13 +157,18 @@ def get_predictions():
     args = request.args
     model_name = args["modelName"]
     task_name = args["taskName"]
+
+    if len(model_name) == 0 or len(task_name) == 0:
+        return jsonify(error="invalid request"), 400
+
     prediction: Prediction = PredictionPersistanceUtil.get_predictions(
         task_name, model_name)
 
     headers = request.headers
     accept = headers.get("Accept")
     if "text/html" not in accept:
-        return jsonify(prediction=prediction), 200
+        pred: dict = prediction.__dict__
+        return jsonify(prediction=pred), 200
 
     return render_template("get_prediction.html", title="Prediction", model_name=prediction.model_name, task_name=prediction.task_name, prediction=prediction)
 

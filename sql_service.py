@@ -84,6 +84,7 @@ class SQLUtil():
 
     @staticmethod
     def get_predictions(task_name: str, model_name: str) -> Prediction:
+        pred: Prediction = None
         if os.path.exists("predictions.db"):
             with sqlite3.connect('predictions.db') as con:
                 try:
@@ -92,7 +93,7 @@ class SQLUtil():
                     prediction = cur.execute(
                         sql, (task_name, model_name,)).fetchone()
                     prediction_unserialized = pickle.loads(prediction[2])
-                    pred: Prediction = Prediction(
+                    pred = Prediction(
                         model_name, task_name, prediction_unserialized)
                 except Exception as e:
                     print(e)
