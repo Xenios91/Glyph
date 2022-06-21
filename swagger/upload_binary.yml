@@ -1,0 +1,34 @@
+post:
+    consumes:
+      - multipart/form-data
+    parameters:
+      - in: formData
+        name: binaryFile
+        type: file
+        description: The ELF binary file to upload.
+      - modelName:
+        name: modelName
+        type: string
+        description: The name for the model to be generated.
+      - mlClassType:
+        name: mlClassType
+        type: string
+        description: The type of model to generated.
+        enum: ["0"]
+      - trainingData:
+        name: trainingData
+        type: boolean
+        description: True/False is training data.
+    required: true
+definitions:
+  modelName:
+    type: str
+    example: "model_1"
+responses:
+  200:
+    description: success
+  400:
+    description: Invalid request.
+schema:
+  $ref: '#/definitions/modelName'
+  $ref: '#/definitions/functionName'

@@ -44,9 +44,14 @@ def train_model():
     Handles a POST request to start a training job
     '''
     request_values: dict = request.get_json()
-    model_name = request_values.get("model_name")
-    data = request_values.get("data")
-    overwrite_model = request_values.get("overwrite_model")
+
+    try:
+        model_name = request_values.get("model_name")
+        data = request_values.get("data")
+        overwrite_model = request_values.get("overwrite_model")
+    except KeyError as key_error:
+        print(key_error)
+        return key_error
 
     if overwrite_model is None and MLPersistanceUtil.check_name(model_name):
         return jsonify(error="model name already taken"), 400
@@ -69,8 +74,14 @@ def predict_tokens():
     Creates a job to predict a function name based on the tokens supplied
     '''
     request_values = request.get_json()
-    model_name = request_values.get("model_name")
-    data = request_values.get("data")
+
+    try:
+        model_name = request_values.get("model_name")
+        data = request_values.get("data")
+    except KeyError as key_error:
+        print(key_error)
+        return key_error
+
     try:
         prediction_request: PredictionRequest = PredictionRequest(
             Predictor().get_uuid(), model_name, data)
@@ -91,7 +102,8 @@ def get_status():
     args = request.args
     status: str
     status_code: int
-    if 'uuid' in args:
+
+    try:
         job_uuid: str = args['uuid']
         if job_uuid == "all":
             status = "test"
@@ -102,9 +114,10 @@ def get_status():
                 status_code = 404
             else:
                 status_code = 200
-    else:
-        status = "invalid request"
-        status_code = 400
+    except KeyError as key_error:
+        print(key_error)
+        return key_error
+
     return jsonify(status=status), status_code
 
 
@@ -137,6 +150,7 @@ def get_list_predictions():
 
     headers = request.headers
     accept = headers.get("Accept")
+
     if "text/html" not in accept:
         predictions_list: list[dict] = []
         for prediction in predictions:
@@ -155,10 +169,15 @@ def get_predictions():
     '''
 
     args = request.args
-    model_name = args["modelName"]
-    task_name = args["taskName"]
 
-    if len(model_name) == 0 or len(task_name) == 0:
+    try:
+        model_name = args["modelName"]
+        task_name = args["taskName"]
+    except KeyError as key_error:
+        print(key_error)
+        return key_error
+
+    if not model_name or not task_name:
         return jsonify(error="invalid request"), 400
 
     prediction: Prediction = PredictionPersistanceUtil.get_predictions(
@@ -173,24 +192,43 @@ def get_predictions():
     return render_template("get_prediction.html", title="Prediction", model_name=prediction.model_name, task_name=prediction.task_name, prediction=prediction)
 
 
-@app.route("/deleteModel", methods=["GET"])
+@app.route("/deleteModel", methods=["DELETE"])
+@swag_from("swagger/delete_model.yml")
 def delete_model():
     '''
     Handles a GET request to delete a supplied model by name
     '''
     args = request.args
-    model_name = args.get("modelName")
+
+    try:
+        model_name = args.get("modelName").strip()
+    except KeyError as key_error:
+        print(key_error)
+        return key_error
+
+    if not model_name:
+        return jsonify(error="invalid model name"), 400
+
     MLPersistanceUtil.delete_model(model_name)
     return jsonify(), 200
 
 
 @app.route("/getFunctions", methods=["GET"])
+@swag_from("swagger/get_functions.yml")
 def get_functions():
     '''
     Handles a GET request to return all identified functions associated with a model
     '''
     args = request.args
-    model_name = args.get("modelName")
+    try:
+        model_name = args.get("modelName").strip()
+    except KeyError as key_error:
+        print(key_error)
+        return key_error
+
+    if not model_name:
+        return jsonify(error="invalid model name"), 400
+
     functions: list = FunctionPersistanceUtil.get_functions(model_name)
 
     headers = request.headers
@@ -203,13 +241,21 @@ def get_functions():
 
 
 @app.route("/getFunction", methods=["GET"])
+@swag_from("swagger/get_function.yml")
 def get_function():
     '''
     Handles a GET request to return all identified functions associated with a model
     '''
     args = request.args
-    function_name = args.get("functionName")
-    model_name = args.get("modelName")
+    try:
+        function_name = args.get("functionName").strip()
+        model_name = args.get("modelName").strip()
+    except KeyError as key_error:
+        print(key_error)
+        return key_error
+
+    if not model_name or not function_name:
+        return jsonify(error="invalid model or function name"), 400
 
     function_information: str = FunctionPersistanceUtil.get_function(
         model_name, function_name)
@@ -229,18 +275,27 @@ def get_function():
 
 
 @app.route("/deleteFunction", methods=["DELETE"])
+@swag_from("swagger/delete_function.yml")
 def delete_function():
     '''
     Handles a DELETE request to delete a function from a model
     '''
     args = request.args
-    function_name = args.get("function_name")
+    try:
+        function_name = args.get("functionName").strip()
+    except KeyError as key_error:
+        print(key_error)
+        return key_error
+
+    if not function_name:
+        return jsonify(error="invalid function name"), 400
+
     FunctionPersistanceUtil.delete_function(function_name)
     return jsonify(), 200
 
 
-@app.route("/uploadBinary", methods=["GET", "POST"])
-def upload_binary():
+@app.route("/uploadBinary", methods=["GET"])
+def get_upload_binary():
     '''
     Handles GET and POST request to load the webpage and to handle binary file uploads
     '''
@@ -255,14 +310,32 @@ def upload_binary():
         allow_prediction = len(models) > 0
         return render_template("upload.html", allow_prediction=allow_prediction)
 
+
+@app.route("/uploadBinary", methods=["POST"])
+@swag_from("swagger/upload_binary.yml")
+def post_upload_binary():
+    '''
+    Handles GET and POST request to load the webpage and to handle binary file uploads
+    '''
+    headers = request.headers
+    accept = headers.get("Accept")
+
     if request.method == "POST":
         if "binaryFile" not in request.files:
             return jsonify(error="no file found"), 400
 
         args = request.form
-        is_training_data: bool = args.get("trainingData")
-        model_name: str = args.get("modelName")
-        ml_class_type: str = args.get("mlClassType")
+
+        try:
+            is_training_data: bool = args.get("trainingData")
+            model_name: str = args.get("modelName").strip()
+            ml_class_type: str = args.get("mlClassType").strip()
+        except KeyError as key_error:
+            print(key_error)
+            return key_error
+
+        if not model_name or not ml_class_type:
+            return jsonify(error="invalid request, missing query strings"), 400
 
         file = request.files["binaryFile"]
 
@@ -287,25 +360,38 @@ def upload_binary():
 
 
 @app.route("/listBins", methods=["GET"])
+@swag_from("swagger/list_bins.yml")
 def list_bins():
     '''
     Handles a GET request to retrieve all available binaries
     '''
-    files: set = set()
+    files: list[str] = []
     directory_path = app.config['UPLOAD_FOLDER']
-    files_iter = os.walk(directory_path)
-    for (_, _, file) in files_iter:
-        files.add(file[0])
-    return jsonify(files=list(files)), 200
+    for _, _, files_found in os.walk(directory_path):
+        if files_found:
+            for file in files_found:
+                files.append(file[0])
+    return jsonify(files=files), 200
 
 
-@app.route("/deleteBin", methods=["GET"])
+@app.route("/deleteBin", methods=["DELETE"])
+@swag_from("swagger/delete_bin.yml")
 def delete_bin():
     '''
     Handles a GET request to delete a binary file
     '''
     args = request.args
-    filename = secure_filename(args.get("filename"))
+
+    try:
+        filename = args.get("filename").strip()
+    except KeyError as key_error:
+        print(key_error)
+        return key_error
+
+    if not filename:
+        return jsonify(error="invalid filename"), 400
+
+    filename = secure_filename(filename)
     directory_path = app.config['UPLOAD_FOLDER']
     file_to_delete = os.path.join(directory_path, filename)
     os.remove(file_to_delete)
@@ -313,14 +399,27 @@ def delete_bin():
 
 
 @app.route("/statusUpdate", methods=["POST"])
+@swag_from("swagger/status_update.yml")
 def update_status():
     '''
     Handles a POST request from Ghidra to update the current status of a task
     '''
     args = request.args
-    status = args.get("status")
-    uuid = args.get("uuid")
-    Trainer().set_status(uuid, status)
+
+    try:
+        status = args.get("status").strip()
+        uuid = args.get("uuid").strip()
+    except KeyError as key_error:
+        print(key_error)
+        return key_error
+
+    if not status or not uuid:
+        return jsonify(error="Invalid request, missing query strings"), 400
+
+    updated: bool = Trainer().set_status(uuid, status)
+    if not updated:
+        return jsonify(error="UUID not found"), 404
+
     return jsonify(), 200
 
 
@@ -339,22 +438,33 @@ def error_page():
 
 
 @app.route("/getPredictionDetails", methods=["GET"])
+@swag_from("swagger/get_prediction_details.yml")
 def get_prediction_details():
     '''
     Used for displaying details of a prediction
     '''
     args = request.args
-    model_name = args["modelName"]
-    function_name = args["functionName"]
-    task_name = args["taskName"]
 
-    model_function_information: str = FunctionPersistanceUtil.get_function(
-        model_name, function_name)
-    prediction = FunctionPersistanceUtil.get_prediction_function(
-        task_name, model_name, function_name)
+    try:
+        model_name = args["modelName"].strip()
+        function_name = args["functionName"].strip()
+        task_name = args["taskName"].strip()
+    except KeyError as key_error:
+        return key_error
 
-    model_tokens = format_code(model_function_information[3])
-    prediction_tokens = format_code(prediction["tokens"])
+    if not model_name or not function_name or not task_name:
+        return jsonify(error="Invalid model, task, or function name"), 400
+
+    try:
+        model_function_information: str = FunctionPersistanceUtil.get_function(
+            model_name, function_name)
+        prediction = FunctionPersistanceUtil.get_prediction_function(
+            task_name, model_name, function_name)
+
+        model_tokens = format_code(model_function_information[3])
+        prediction_tokens = format_code(prediction["tokens"])
+    except TypeError as type_error:
+        print(type_error)
 
     return render_template("prediction_function_details.html", task_name=task_name, model_name=model_name, function_name=function_name,
                            model_tokens=model_tokens, prediction_tokens=prediction_tokens)

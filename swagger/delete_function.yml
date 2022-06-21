@@ -1,0 +1,16 @@
+parameters:
+  - name: functionName
+    in: query
+    type: string
+    required: true
+definitions:
+  functionName:
+    type: str
+    example: "function_1"
+responses:
+  200:
+    description: The function was successfully deleted
+  400:
+    description: Invalid function name.
+schema:
+  $ref: '#/definitions/functionName'

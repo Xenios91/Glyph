@@ -1,0 +1,16 @@
+parameters:
+  - name: filename
+    in: query
+    type: string
+    required: true
+definitions:
+  filename:
+    type: str
+    example: "file_1"
+responses:
+  200:
+    description: The file was successfully deleted
+  400:
+    description: Invalid filename.
+schema:
+  $ref: '#/definitions/filename'

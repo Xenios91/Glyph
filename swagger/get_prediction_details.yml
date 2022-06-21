@@ -1,0 +1,32 @@
+parameters:
+  - name: modelName
+    in: query
+    type: string
+    required: true
+  - name: functionName
+    in: query
+    type: string
+    required: true
+  - name: taskName
+    in: query
+    type: string
+    required: true
+definitions:
+  modelName:
+    type: str
+    example: "model_1"
+  functionName:
+    type: str
+    example: "function_1"
+  taskName:
+    type: str
+    example: "task_1"
+responses:
+  200:
+    description: success
+  400:
+    description: Invalid model, task, or function name.
+schema:
+  $ref: '#/definitions/modelName'
+  $ref: '#/definitions/functionName'
+  $ref: '#/definitions/taskName'

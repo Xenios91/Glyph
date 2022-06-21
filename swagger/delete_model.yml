@@ -1,0 +1,16 @@
+parameters:
+  - name: modelName
+    in: query
+    type: string
+    required: true
+definitions:
+  modelName:
+    type: str
+    example: "model_1"
+responses:
+  200:
+    description: The model was successfully deleted
+  400:
+    description: Invalid model name.
+schema:
+  $ref: '#/definitions/modelName'

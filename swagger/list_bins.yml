@@ -1,0 +1,9 @@
+definitions:
+  bins:
+    type: list[str]
+    example: ["binary_1", "binary_2"]
+responses:
+  200:
+    description: A list of all available model names
+schema:
+  $ref: '#/definitions/bins'
