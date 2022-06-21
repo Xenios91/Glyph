@@ -1,7 +1,10 @@
+#ghidra config
+
 ghidra_location: #ghidra root location
 ghidra_project_location: # location of the ghidra project to run analysis under
 ghidra_project_name: # ghidra project to run analysis under
 glyph_script_location: # location of ClangTokenGenerator.java
 
 #probability config
+
 prediction_probability_threshold: 50.0 # must be a value between 0-100
