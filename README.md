@@ -1,6 +1,6 @@
 # Glyph
 
-Version 0.0.1
+Version 1.0.0
 
 On going project to replace the current Glyph tool with one more ML friendly.
 
