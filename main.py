@@ -1,3 +1,4 @@
+import logging
 import os
 import threading
 
@@ -22,7 +23,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 swagger = Swagger(app)
 threading.Thread(target=TaskService().start_service, daemon=True).start()
-GlyphConfig.load_config()
+GlyphConfig().load_config()
 
 
 @app.route("/")
@@ -50,7 +51,7 @@ def train_model():
         data = request_values.get("data")
         overwrite_model = request_values.get("overwrite_model")
     except KeyError as key_error:
-        print(key_error)
+        logging.error(key_error)
         return key_error
 
     if overwrite_model is None and MLPersistanceUtil.check_name(model_name):
@@ -64,7 +65,7 @@ def train_model():
 
         return jsonify(uuid=training_request.uuid), 201
     except TypeError as type_error:
-        print(type_error)
+        logging.error(type_error)
         return jsonify(error="type error"), 400
 
 
@@ -79,7 +80,7 @@ def predict_tokens():
         model_name = request_values.get("model_name")
         data = request_values.get("data")
     except KeyError as key_error:
-        print(key_error)
+        logging.error(key_error)
         return key_error
 
     try:
@@ -89,7 +90,7 @@ def predict_tokens():
 
         return jsonify(uuid=prediction_request.uuid), 201
     except TypeError as type_error:
-        print(type_error)
+        logging.error(type_error)
         return jsonify(error="type error"), 400
 
 
@@ -115,7 +116,7 @@ def get_status():
             else:
                 status_code = 200
     except KeyError as key_error:
-        print(key_error)
+        logging.error(key_error)
         return key_error
 
     return jsonify(status=status), status_code
@@ -174,7 +175,7 @@ def get_predictions():
         model_name = args["modelName"]
         task_name = args["taskName"]
     except KeyError as key_error:
-        print(key_error)
+        logging.error(key_error)
         return key_error
 
     if not model_name or not task_name:
@@ -203,7 +204,7 @@ def delete_model():
     try:
         model_name = args.get("modelName").strip()
     except KeyError as key_error:
-        print(key_error)
+        logging.error(key_error)
         return key_error
 
     if not model_name:
@@ -223,7 +224,7 @@ def get_functions():
     try:
         model_name = args.get("modelName").strip()
     except KeyError as key_error:
-        print(key_error)
+        logging.error(key_error)
         return key_error
 
     if not model_name:
@@ -251,7 +252,7 @@ def get_function():
         function_name = args.get("functionName").strip()
         model_name = args.get("modelName").strip()
     except KeyError as key_error:
-        print(key_error)
+        logging.error(key_error)
         return key_error
 
     if not model_name or not function_name:
@@ -284,7 +285,7 @@ def delete_function():
     try:
         function_name = args.get("functionName").strip()
     except KeyError as key_error:
-        print(key_error)
+        logging.error(key_error)
         return key_error
 
     if not function_name:
@@ -331,7 +332,7 @@ def post_upload_binary():
             model_name: str = args.get("modelName").strip()
             ml_class_type: str = args.get("mlClassType").strip()
         except KeyError as key_error:
-            print(key_error)
+            logging.error(key_error)
             return key_error
 
         if not model_name or not ml_class_type:
@@ -385,7 +386,7 @@ def delete_bin():
     try:
         filename = args.get("filename").strip()
     except KeyError as key_error:
-        print(key_error)
+        logging.error(key_error)
         return key_error
 
     if not filename:
@@ -410,7 +411,7 @@ def update_status():
         status = args.get("status").strip()
         uuid = args.get("uuid").strip()
     except KeyError as key_error:
-        print(key_error)
+        logging.error(key_error)
         return key_error
 
     if not status or not uuid:
@@ -464,7 +465,7 @@ def get_prediction_details():
         model_tokens = format_code(model_function_information[3])
         prediction_tokens = format_code(prediction["tokens"])
     except TypeError as type_error:
-        print(type_error)
+        logging.error(type_error)
 
     return render_template("prediction_function_details.html", task_name=task_name, model_name=model_name, function_name=function_name,
                            model_tokens=model_tokens, prediction_tokens=prediction_tokens)

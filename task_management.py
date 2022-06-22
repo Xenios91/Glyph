@@ -1,3 +1,4 @@
+import logging
 import os
 import uuid
 from asyncio import subprocess
@@ -91,7 +92,7 @@ class Trainer(TaskManager):
                 "test_pipeline", label_encoder, pipeline)
             training_request.status = "complete"
         except Exception as e:
-            print(e)
+            logging.error(e)
             training_request.status = "error"
 
 
@@ -135,7 +136,7 @@ class Predictor(TaskManager):
 
             prediction_request.set_prediction_values(predicted_labels)
         except Exception as exception:
-            print(exception)
+            logging.error(exception)
 
         return prediction_request
 

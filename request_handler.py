@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 
 
@@ -84,9 +85,9 @@ class PredictionRequest(DataHandler):
                 tokens = " ".join(token_list)
                 function["tokens"] = tokens
             self.data = pd.DataFrame(functions)
-        except Exception as p_exception:
-            print(p_exception)
-            raise Exception("invalid dataset") from p_exception
+        except Exception as unknown_exception:
+            logging.error(unknown_exception)
+            raise Exception("invalid dataset") from unknown_exception
 
     def set_prediction_values(self, labels: list[str]):
         functions = self.get_functions()

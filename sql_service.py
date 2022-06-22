@@ -1,3 +1,4 @@
+import logging
 import os
 import pickle
 import sqlite3
@@ -20,7 +21,7 @@ class SQLUtil():
                     model), sqlite3.Binary(label_encoder)))
                 con.commit()
             except Exception as e:
-                print(e)
+                logging.error(e)
 
     @staticmethod
     def get_models_list() -> set[str]:
@@ -35,7 +36,7 @@ class SQLUtil():
                         models_set.add(model[0])
 
                 except Exception as e:
-                    print(e)
+                    logging.error(e)
 
         return models_set
 
@@ -48,7 +49,7 @@ class SQLUtil():
                 sql = "SELECT * FROM MODELS WHERE model_name=?"
                 model = cur.execute(sql, (model_name,)).fetchone()
             except Exception as e:
-                print(e)
+                logging.error(e)
         return model
 
     @staticmethod
@@ -62,7 +63,7 @@ class SQLUtil():
                 cur.execute(sql, (model_name,))
                 con.commit()
             except Exception as e:
-                print(e)
+                logging.error(e)
 
     @staticmethod
     def get_predictions_list() -> list[Prediction]:
@@ -78,7 +79,7 @@ class SQLUtil():
                         prediction_results.append(Prediction(
                             prediction[0], prediction[1], preds))
                 except Exception as e:
-                    print(e)
+                    logging.error(e)
 
         return prediction_results
 
@@ -96,7 +97,7 @@ class SQLUtil():
                     pred = Prediction(
                         model_name, task_name, prediction_unserialized)
                 except Exception as e:
-                    print(e)
+                    logging.error(e)
 
         return pred
 
@@ -115,7 +116,7 @@ class SQLUtil():
 
                 con.commit()
             except Exception as e:
-                print(e)
+                logging.error(e)
 
     @staticmethod
     def get_prediction_function(task_name: str, model_name: str, function_name: str) -> dict:
@@ -130,7 +131,7 @@ class SQLUtil():
                     if function["functionName"] == function_name:
                         return function
             except Exception as e:
-                print(e)
+                logging.error(e)
 
         return {}
 
@@ -149,7 +150,7 @@ class SQLUtil():
 
                 con.commit()
             except Exception as e:
-                print(e)
+                logging.error(e)
 
     @staticmethod
     def get_functions(model_name: str) -> list:
@@ -160,7 +161,7 @@ class SQLUtil():
                 sql = "SELECT * FROM FUNCTIONS WHERE model_name=?"
                 functions = cur.execute(sql, (model_name,)).fetchall()
             except Exception as e:
-                print(e)
+                logging.error(e)
 
         return functions
 
@@ -174,7 +175,7 @@ class SQLUtil():
                 function_information = cur.execute(
                     sql, (model_name, function_name,)).fetchone()
             except Exception as e:
-                print(e)
+                logging.error(e)
 
             return function_information
 
@@ -187,7 +188,7 @@ class SQLUtil():
                 cur.execute(sql, (model_name,))
                 con.commit()
             except Exception as e:
-                print(e)
+                logging.error(e)
 
     @staticmethod
     def delete_function(function_name: str):
@@ -198,4 +199,4 @@ class SQLUtil():
                 cur.execute(sql, (function_name,))
                 con.commit()
             except Exception as e:
-                print(e)
+                logging.error(e)

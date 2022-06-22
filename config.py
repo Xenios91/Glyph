@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Optional
 import yaml
 
@@ -10,6 +11,10 @@ class GlyphConfig():
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
         return cls.__instance
+
+    def __init__(self) -> None:
+        logging.basicConfig(filename="glyph_log.log",
+                            encoding="utf-8", level=logging.INFO)
 
     @classmethod
     def load_config(cls):

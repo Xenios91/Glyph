@@ -1,3 +1,4 @@
+import logging
 import queue
 
 
@@ -16,4 +17,4 @@ class TaskService():
             task = cls.service_queue.get(block=True)
             job_uuid: str = task[0].uuid
             task[1].result()
-            print(f"Processing job: {job_uuid}")
+            logging.info("Processing job: job_uuid=%s", job_uuid)
