@@ -68,7 +68,7 @@ class PredictionRequest(DataHandler):
 
     def __init__(self, uuid: str, model_name: str,  data: dict):
         super().__init__(uuid, data, model_name)
-        self.task_name = data["binaryName"]
+        self.task_name = data["taskName"]
         self._load_data()
 
     def _load_data(self):
