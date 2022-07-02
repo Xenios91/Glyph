@@ -322,7 +322,7 @@ def get_upload_binary():
 
         models: set[str] = MLPersistanceUtil.get_models_list()
         allow_prediction = len(models) > 0
-        return render_template("upload.html", allow_prediction=allow_prediction)
+        return render_template("upload.html", allow_prediction=allow_prediction, models=models)
 
 
 @app.route("/uploadBinary", methods=["POST"])
@@ -343,6 +343,7 @@ def post_upload_binary():
         try:
             is_training_data: bool = args.get("trainingData")
             model_name: str = args.get("modelName").strip()
+            task_name: str = args.get("taskName").strip()
             ml_class_type: str = args.get("mlClassType").strip()
         except KeyError as key_error:
             logging.error(key_error)
@@ -366,7 +367,7 @@ def post_upload_binary():
                 os.mkdir(app.config["UPLOAD_FOLDER"])
             file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
             ghidra_task: GhidraRequest = GhidraRequest(
-                filename, is_training_data, model_name, ml_class_type)
+                filename, is_training_data, model_name, task_name, ml_class_type)
             Ghidra().start_task(ghidra_task)
 
         if "text/html" in accept:

@@ -4,15 +4,13 @@
     <div id="upload-box" class="nes-container with-title is-centered white-bg">
         <p class="title">Upload</p>
 
-
-        {% if allow_prediction %}
         <div>
             <label class="mt-2">
-                <input id="generate-model-checkbox" type="checkbox" class="nes-checkbox" />
+                <input id="generate-model-checkbox" type="checkbox" class="nes-checkbox" onclick="changeMlType()" />
                 <span>Generate Model</span>
             </label>
 
-            <div id="ml-config" class="nes-container with-title is-centered" style="margin: 25px;">
+            <div id="training-config" class="nes-container with-title is-centered" style="margin: 25px;">
                 <p class="title">Model Configuration</p>
                 <div style="margin: 7%">
                     <div class="nes-field" style="margin: 7%">
@@ -22,21 +20,45 @@
                     <label for="default_select">Select ML Class Type</label>
                     <div class="nes-select">
                         <select required id="ml_class_type">
-                            <option value="" disabled selected hidden>Class Type</option>
-                            <!-- <option value="0">Single Class</option> -->
                             <option value="1">Multi Class</option>
                         </select>
                     </div>
                 </div>
             </div>
 
+            {% if allow_prediction %}
+            <div id="prediction-config" class="nes-container with-title is-centered"
+                style="margin: 25px; display: none;">
+                <p class="title">Prediction Configuration</p>
+                <div style="margin: 7%">
+                    <div class="nes-field" style="margin: 7%">
+                        <label for="task_name">Task Name</label>
+                        <input type="text" id="task_name" class="nes-input">
+                        <label for="default_select">Select Model</label>
+                        <div class="nes-select">
+                            <select required id="prediction_model_selection">
+                                <option value="" disabled selected hidden>Model Name</option>
+                                {% for model in models %}
+                                <option selected>{{ model }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <label for="default_select">Select ML Class Type</label>
+                    <div class="nes-select">
+                        <select required id="ml_class_type">
+                            <option value="1">Multi Class</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <label class="nes-btn is-primary">
                 <span>Select your file</span>
                 <input id="upload-binary" type="file" onchange="uploadBinary()">
             </label>
         </div>
-        {% endif %}
     </div>
     <div id="upload-message" class="nes-container with-title is-centered white-bg" style="display: none;">
         <p class="title">Binary Status</p>
@@ -44,20 +66,44 @@
     </div>
 </div>
 <script>
-    document.getElementById("generate-model-checkbox").checked = false;
 
+    const generate_model_box = document.getElementById("generate-model-checkbox");
+    generate_model_box.checked = true;
+
+    function changeMlType() {
+        const prediction_div = document.getElementById("prediction-config");
+        const training_div = document.getElementById("training-config");
+
+        if (generate_model_box.checked) {
+            prediction_div.style.display = "none";
+            training_div.style.display = "block";
+        } else {
+            prediction_div.style.display = "block";
+            training_div.style.display = "none";
+        }
+    }
 
     function uploadBinary() {
         var formData = new FormData();
         const selectedFile = document.getElementById('upload-binary').files[0];
         const trainingData = document.getElementById('generate-model-checkbox').checked;
-        const modelName = document.getElementById('model_name').value;
+        var modelName;
+
+        if(trainingData){
+            modelName = document.getElementById('model_name').value;
+        } else{
+            modelName = document.getElementById('prediction_model_selection').value;
+        }
+        
+        const taskName = document.getElementById('task_name').value;
         const mlClassType = document.getElementById('ml_class_type').value;
+
         const url = "/uploadBinary";
 
         formData.append('binaryFile', selectedFile);
         formData.append('trainingData', trainingData);
         formData.append('modelName', modelName);
+        formData.append('taskName', taskName);
         formData.append('mlClassType', mlClassType);
 
         $.ajax({
