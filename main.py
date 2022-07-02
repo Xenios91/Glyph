@@ -3,7 +3,7 @@ import os
 import threading
 
 from flasgger import Swagger, swag_from
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request
 from werkzeug.utils import secure_filename
 
 import _version
@@ -39,12 +39,26 @@ def home():
     return render_template("main.html")
 
 
-@app.route("/train", methods=["POST"])
-def train_model():
+@app.route("/task", methods=["POST"])
+def handle_task():
     '''
-    Handles a POST request to start a training job
+    Handles a train/predict task
     '''
     request_values: dict = request.get_json()
+    request_type = request_values.get("type")
+    
+    if request_type == "train":
+        response = train_model(request_values)
+    else:
+        response = predict_tokens(request_values)
+
+    return response
+
+
+def train_model(request_values: dict) -> Response:
+    '''
+    Creates a job to train an ml model on the tokens supplied
+    '''
 
     try:
         model_name = request_values.get("modelName")
@@ -69,8 +83,7 @@ def train_model():
         return jsonify(error="type error"), 400
 
 
-@app.route("/predict", methods=["POST"])
-def predict_tokens():
+def predict_tokens(request_values: dict) -> Response:
     '''
     Creates a job to predict a function name based on the tokens supplied
     '''
