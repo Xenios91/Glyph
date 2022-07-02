@@ -89,7 +89,7 @@ class Trainer(TaskManager):
 
             pipeline.fit(X, y)
             MLPersistanceUtil.save_model(
-                "test_pipeline", label_encoder, pipeline)
+                training_request.model_name, label_encoder, pipeline)
             training_request.status = "complete"
         except Exception as e:
             logging.error(e)

@@ -47,9 +47,9 @@ def train_model():
     request_values: dict = request.get_json()
 
     try:
-        model_name = request_values.get("model_name")
+        model_name = request_values.get("modelName")
         data = request_values.get("data")
-        overwrite_model = request_values.get("overwrite_model")
+        overwrite_model = request_values.get("overwriteModel")
     except KeyError as key_error:
         logging.error(key_error)
         return key_error
@@ -77,7 +77,7 @@ def predict_tokens():
     request_values = request.get_json()
 
     try:
-        model_name = request_values.get("model_name")
+        model_name = request_values.get("modelName")
         data = request_values.get("data")
     except KeyError as key_error:
         logging.error(key_error)
