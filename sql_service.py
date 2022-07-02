@@ -95,7 +95,7 @@ class SQLUtil():
                         sql, (task_name, model_name,)).fetchone()
                     prediction_unserialized = pickle.loads(prediction[2])
                     pred = Prediction(
-                        model_name, task_name, prediction_unserialized)
+                        task_name, model_name, prediction_unserialized)
                 except Exception as e:
                     logging.error(e)
 

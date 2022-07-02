@@ -41,7 +41,7 @@
         const split = id.split(":");
         const currentURL = window.location.href;
         const splitIndex = currentURL.lastIndexOf("/");
-        const url = currentURL.substring(splitIndex, 0) + "/getPredictionDetails?functionName=" + split[0] + "&taskName=" + split[1] + "&modelName=" + split[2];
+        const url = currentURL.substring(splitIndex, 0) + "/getPredictionDetails?functionName=" + split[0] + "&taskName=" + split[2] + "&modelName=" + split[1];
         if (url) {
             window.location = url;
         }
