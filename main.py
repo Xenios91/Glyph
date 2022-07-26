@@ -46,7 +46,7 @@ def handle_task():
     '''
     request_values: dict = request.get_json()
     request_type = request_values.get("type")
-    
+
     if request_type == "train":
         response = train_model(request_values)
     else:
@@ -223,7 +223,11 @@ def delete_model():
     if not model_name:
         return jsonify(error="invalid model name"), 400
 
-    MLPersistanceUtil.delete_model(model_name)
+    try:
+        MLPersistanceUtil.delete_model(model_name)
+        PredictionPersistanceUtil.delete_model_predictions(model_name)
+    except Exception as e:
+        logging.error(e)
     return jsonify(), 200
 
 
@@ -389,27 +393,24 @@ def list_bins():
     return jsonify(files=files), 200
 
 
-@app.route("/deleteBin", methods=["DELETE"])
-@swag_from("swagger/delete_bin.yml")
+@app.route("/deletePrediction", methods=["DELETE"])
+@swag_from("swagger/delete_prediction.yml")
 def delete_bin():
     '''
-    Handles a GET request to delete a binary file
+    Handles a GET request to delete a prediction
     '''
     args = request.args
 
     try:
-        filename = args.get("filename").strip()
+        task_name = args.get("taskName").strip()
     except KeyError as key_error:
         logging.error(key_error)
         return key_error
 
-    if not filename:
-        return jsonify(error="invalid filename"), 400
+    if not task_name:
+        return jsonify(error="invalid task name"), 400
 
-    filename = secure_filename(filename)
-    directory_path = app.config['UPLOAD_FOLDER']
-    file_to_delete = os.path.join(directory_path, filename)
-    os.remove(file_to_delete)
+    PredictionPersistanceUtil.delete_prediction(task_name)
     return jsonify(), 200
 
 

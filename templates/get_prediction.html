@@ -2,7 +2,7 @@
 {% block content %}
 <div class="content blue-bg">
     <div class="center-contents">
-        <span id="file-name">Task Name: {{ task_name }}</span>
+        <span id="task-name">Task Name: {{ task_name }}</span>
     </div>
     <div class="center-contents">
         <span id="model-name">Model Name: {{ model_name }}</span>
@@ -49,13 +49,21 @@
     }
 
     function deletePrediction() {
-        var selection = document.getElementById("model-name").innerText;
-        var modelToDelete = selection.split(':')[1].replace(/\s+/, "");
+        var selection = document.getElementById("task-name").innerText;
+        var taskToDelete = selection.split(':')[1].replace(/\s+/, "");
         var currentURL = window.location.href;
-        var url = "/deleteModel" + "?modelName=" + modelToDelete;
+        var url = "/deletePrediction" + "?taskName=" + taskToDelete;
+
         if (url) {
             window.location = "/";
         }
+
+        fetch(url, {
+            method: 'DELETE',
+            headers: {
+                'Content-type': 'application/json'
+            }
+        });
     }
 
     function changeBackground(id, color) {

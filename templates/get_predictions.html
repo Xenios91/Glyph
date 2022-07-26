@@ -52,16 +52,6 @@
 
         }
 
-        function deleteModel() {
-            var selection = document.getElementById("file-name").innerText;
-            var binToDelete = selection.split(':')[1].replace(/\s+/, "");
-            var currentURL = window.location.href;
-            var url = "/getSymbols" + "?binaryDel=" + binToDelete;
-            if (url) {
-                window.location = url;
-            }
-        }
-
         function changeBackground(id, color) {
             document.getElementById(id).style.background = color;
         }

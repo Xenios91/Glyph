@@ -40,6 +40,14 @@ class PredictionPersistanceUtil():
             task_name, model_name)
         return predictions
 
+    @staticmethod
+    def delete_prediction(task_name: str):
+        SQLUtil.delete_prediction(task_name)
+
+    @staticmethod
+    def delete_model_predictions(model_name: str):
+        SQLUtil.delete_model_predictions(model_name)
+
 
 class MLPersistanceUtil():
 

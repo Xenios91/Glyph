@@ -2,6 +2,7 @@ import logging
 import os
 import pickle
 import sqlite3
+from unittest.util import strclass
 
 from request_handler import Prediction
 
@@ -197,6 +198,28 @@ class SQLUtil():
                 cur = con.cursor()
                 sql = "DELETE FROM FUNCTIONS WHERE function_name=?"
                 cur.execute(sql, (function_name,))
+                con.commit()
+            except Exception as e:
+                logging.error(e)
+
+    @staticmethod
+    def delete_prediction(task_name: str):
+        with sqlite3.connect('predictions.db') as con:
+            try:
+                cur = con.cursor()
+                sql = "DELETE FROM PREDICTIONS WHERE name=?"
+                cur.execute(sql, (task_name,))
+                con.commit()
+            except Exception as e:
+                logging.error(e)
+
+    @staticmethod
+    def delete_model_predictions(model_name: str):
+        with sqlite3.connect('predictions.db') as con:
+            try:
+                cur = con.cursor()
+                sql = "DELETE FROM PREDICTIONS WHERE model_name=?"
+                cur.execute(sql, (model_name,))
                 con.commit()
             except Exception as e:
                 logging.error(e)

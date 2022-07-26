@@ -50,9 +50,17 @@
         var modelToDelete = selection.split(':')[1].replace(/\s+/, "");
         var currentURL = window.location.href;
         var url = "/deleteModel" + "?modelName=" + modelToDelete;
+
         if (url) {
             window.location = "/";
         }
+
+        fetch(url, {
+            method: 'DELETE',
+            headers: {
+                'Content-type': 'application/json'
+            }
+        });
     }
 
     function changeBackground(id, color) {
