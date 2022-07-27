@@ -7,12 +7,12 @@
     <div class="center-contents">
         <span id="model-name">Model Name: {{ model_name }}</span>
     </div>
-    <div class="nes-table-responsive content m-table">
+    <div class="nes-table-responsive content m-table center-contents">
         <blockquote>
             <table class="nes-table is-bordered is-centered">
                 <thead>
                     <tr>
-                        <td scope="col">Function Name</td>
+                        <td scope="col">Predicted Function</td>
                         <th scope="col">EntryPoint</th>
                     </tr>
                 </thead>
@@ -29,10 +29,8 @@
                 </tbody>
             </table>
         </blockquote>
-        <div class="center">
-            <button type="button" class="nes-btn is-primary mr-25" onclick="deletePrediction()">Delete</button> <button
-                type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
-        </div>
+        <button type="button" class="nes-btn is-primary mr-25" onclick="deletePrediction()">Delete</button>
+        <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
     </div>
 </div>
 

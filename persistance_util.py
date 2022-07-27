@@ -92,10 +92,6 @@ class FunctionPersistanceUtil():
         return function
 
     @staticmethod
-    def delete_function(function_name: str):
-        SQLUtil.delete_function(function_name)
-
-    @staticmethod
     def add_model_functions(training_request: TrainingRequest):
         functions: list = training_request.get_functions()
         if functions is not None:

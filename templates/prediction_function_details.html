@@ -2,7 +2,7 @@
 {% block content %}
 <div class="full-content blue-bg">
     <div>
-        <span>Task Name: {{ task_name }}</span>
+        <span id="task-name">Task Name: {{ task_name }}</span>
     </div>
     <div>
         <span>Model: {{ model_name }}</span>
@@ -31,13 +31,15 @@
     <pre id="tokens-display" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
     <pre id="tokens-display" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
     <div class="center-contents" style="margin-top: 2%;">
-        <button type="button" class="nes-btn is-primary mr-25" onclick="deleteFunction()">Delete</button> <button
-            type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+        <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
     </div>
 </div>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@500&display=swap" rel="stylesheet">
+
+<script>
+</script>
 
 {% endblock %}

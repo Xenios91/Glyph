@@ -5,26 +5,33 @@
         <span>Model: {{ model_name }}</span>
     </div>
     <div>
-        <span>Function: {{ function_name }}</span>
+        <span id="function-name">Function: {{ function_name }}</span>
     </div>
-    <div class="nes-container is-rounded white-bg">
+    <div class="nes-container is-rounded white-bg" style="margin-top: 2%;">
         <pre id="tokens-display" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
     </div>
     <div class="center-contents" style="margin-top: 2%;">
-        <button type="button" class="nes-btn is-primary mr-25" onclick="deleteFunction()">Delete</button> <button
-            type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+        <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
     </div>
 </div>
 
 <script>
     function deleteFunction() {
-        var selection = document.getElementById("file-name").innerText;
-        var binToDelete = selection.split(':')[1].replace(/\s+/, "");
+        var selection = document.getElementById("function-name").innerText;
+        var functionToDelete = selection.split(':')[1].replace(/\s+/, "");
         var currentURL = window.location.href;
-        var url = "/getSymbols" + "?binaryDel=" + binToDelete;
+        var url = "/deleteFunction" + "?functionName=" + functionToDelete;
+
         if (url) {
-            window.location = url;
+            window.location = '/';
         }
+
+        fetch(url, {
+            method: 'DELETE',
+            headers: {
+                'Content-type': 'application/json'
+            }
+        });
     }
 </script>
 

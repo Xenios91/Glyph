@@ -292,26 +292,6 @@ def get_function():
                            function_entry=function_entry, tokens=function_tokens)
 
 
-@app.route("/deleteFunction", methods=["DELETE"])
-@swag_from("swagger/delete_function.yml")
-def delete_function():
-    '''
-    Handles a DELETE request to delete a function from a model
-    '''
-    args = request.args
-    try:
-        function_name = args.get("functionName").strip()
-    except KeyError as key_error:
-        logging.error(key_error)
-        return key_error
-
-    if not function_name:
-        return jsonify(error="invalid function name"), 400
-
-    FunctionPersistanceUtil.delete_function(function_name)
-    return jsonify(), 200
-
-
 @app.route("/uploadBinary", methods=["GET"])
 def get_upload_binary():
     '''
@@ -395,7 +375,7 @@ def list_bins():
 
 @app.route("/deletePrediction", methods=["DELETE"])
 @swag_from("swagger/delete_prediction.yml")
-def delete_bin():
+def delete_prediction():
     '''
     Handles a GET request to delete a prediction
     '''
