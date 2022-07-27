@@ -2,8 +2,6 @@
 
 Version 1.0.0
 
-On going project to replace the current Glyph tool with one more ML friendly.
-
 ## An architecture independent binary analysis tool for fingerprinting functions through NLP
 
 Ghidra Script
