@@ -178,4 +178,4 @@ class Ghidra(TaskManager):
             ghidra_type = "prediction"
 
         subprocess.run([ghidra_headless_location, ghidra_project_location,
-                        ghidra_project_name, "-import", os.path.join("./binaries", ghidra_request.file_name), "-overwrite", "-postscript", os.path.join(glyph_script_location, "ClangTokenGenerator.java"), f"--uuid={Ghidra.get_uuid()}", f"--task={ghidra_type}"], check=True)
+                        ghidra_project_name, "-import", os.path.join("./binaries", ghidra_request.file_name), "-overwrite", "-postscript", os.path.join(glyph_script_location, "ClangTokenGenerator.java"), f"type={ghidra_type}", f"model={ghidra_request.model_name}", f"task={ghidra_request.task_name}", f"uuid={Ghidra.get_uuid()}"], check=True)
