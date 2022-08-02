@@ -171,5 +171,11 @@ class Ghidra(TaskManager):
         ghidra_headless_location = os.path.join(
             ghidra_location, f"support{os.sep}analyzeHeadless")
 
+        ghidra_type: str = None
+        if ghidra_request.is_training:
+            ghidra_type = "training"
+        else:
+            ghidra_type = "prediction"
+
         subprocess.run([ghidra_headless_location, ghidra_project_location,
-                        ghidra_project_name, "-import", os.path.join("./binaries", ghidra_request.file_name), "-overwrite", "-postscript", os.path.join(glyph_script_location, "ClangTokenGenerator.java")], check=True)
+                        ghidra_project_name, "-import", os.path.join("./binaries", ghidra_request.file_name), "-overwrite", "-postscript", os.path.join(glyph_script_location, "ClangTokenGenerator.java"), f"--uuid={Ghidra.get_uuid()}", f"--task={ghidra_type}"], check=True)

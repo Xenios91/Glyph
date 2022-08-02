@@ -49,9 +49,10 @@ def handle_task():
 
     if request_type == "train":
         response = train_model(request_values)
-    else:
+    elif request_type == "prediction":
         response = predict_tokens(request_values)
-
+    else:
+        response = jsonify(error="Invalid request type"), 400
     return response
 
 
@@ -62,6 +63,9 @@ def train_model(request_values: dict) -> Response:
 
     try:
         model_name = request_values.get("modelName")
+        uuid = request_values.get("uuid")
+        if uuid == "" or uuid is None:
+            uuid = Trainer().get_uuid()
         data = request_values
         overwrite_model = request_values.get("overwriteModel")
     except KeyError as key_error:
@@ -73,7 +77,7 @@ def train_model(request_values: dict) -> Response:
 
     try:
         training_request: TrainingRequest = TrainingRequest(
-            Trainer().get_uuid(), model_name, data)
+            uuid, model_name, data)
         Trainer().start_training(training_request)
         FunctionPersistanceUtil.add_model_functions(training_request)
 
@@ -91,6 +95,9 @@ def predict_tokens(request_values: dict) -> Response:
 
     try:
         model_name = request_values.get("modelName")
+        uuid = request_values.get("uuid")
+        if uuid == "" or uuid is None:
+            uuid = Trainer().get_uuid()
         data = request_values
     except KeyError as key_error:
         logging.error(key_error)
@@ -98,7 +105,7 @@ def predict_tokens(request_values: dict) -> Response:
 
     try:
         prediction_request: PredictionRequest = PredictionRequest(
-            Predictor().get_uuid(), model_name, data)
+            uuid, model_name, data)
         Predictor().start_prediction(prediction_request)
 
         return jsonify(uuid=prediction_request.uuid), 201
