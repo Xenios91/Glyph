@@ -1,17 +1,20 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="content blue-bg">
-    <div>
-        <span>Model: {{ model_name }}</span>
-    </div>
-    <div>
-        <span id="function-name">Function: {{ function_name }}</span>
-    </div>
-    <div class="nes-container is-rounded white-bg" style="margin-top: 2%;">
-        <pre id="tokens-display" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
-    </div>
-    <div class="center-contents" style="margin-top: 2%;">
-        <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+    <div class="overflow">
+        <div>
+            <span>Model: {{ model_name }}</span>
+        </div>
+        <div>
+            <span id="function-name">Function: {{ function_name }}</span>
+        </div>
+
+        <div class="nes-container is-rounded white-bg" style="margin-top: 2%;">
+            <pre id="tokens-display" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
+        </div>
+        <div class="center-contents" style="margin-top: 2%;">
+            <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+        </div>
     </div>
 </div>
 

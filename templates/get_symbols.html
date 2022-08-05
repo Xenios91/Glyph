@@ -7,28 +7,30 @@
     <div class="center-contents">
         <span id="model-name">Model Name: {{ model_name }}</span>
     </div>
-    <div class="nes-table-responsive content m-table center-contents">
-        <blockquote>
-            <table class="nes-table is-bordered is-centered">
-                <thead>
-                    <tr>
-                        <td scope="col">Function Name</td>
-                        <th scope="col">EntryPoint</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for functionInfo in functions %}
-                    <tr id="{{ functionInfo[1] }}-id" onmouseover="changeBackground(this.id, '#d1d1d1');"
-                        onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
-                        <td>{{ functionInfo[1] }}</td>
-                        <td>0x{{ functionInfo[2] }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </blockquote>
-        <button type="button" class="nes-btn is-primary mr-25" onclick="deleteModel()">Delete</button>
-        <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+    <div>
+        <div class="nes-table-responsive content m-table center-contents overflow">
+            <blockquote>
+                <table class="nes-table is-bordered is-centered">
+                    <thead>
+                        <tr>
+                            <td scope="col">Function Name</td>
+                            <th scope="col">EntryPoint</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for functionInfo in functions %}
+                        <tr id="{{ functionInfo[1] }}-id" onmouseover="changeBackground(this.id, '#d1d1d1');"
+                            onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
+                            <td>{{ functionInfo[1] }}</td>
+                            <td>0x{{ functionInfo[2] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </blockquote>
+            <button type="button" class="nes-btn is-primary mr-25" onclick="deleteModel()">Delete</button>
+            <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+        </div>
     </div>
 </div>
 

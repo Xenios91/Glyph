@@ -7,30 +7,32 @@
     <div class="center-contents">
         <span id="model-name">Model Name: {{ model_name }}</span>
     </div>
-    <div class="nes-table-responsive content m-table center-contents">
-        <blockquote>
-            <table class="nes-table is-bordered is-centered">
-                <thead>
-                    <tr>
-                        <td scope="col">Predicted Function</td>
-                        <th scope="col">EntryPoint</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for functionInfo in prediction["predictions"] %}
-                    {% set functionName = functionInfo["functionName"] %}
-                    {% set id = functionName + ":" + model_name + ":" + task_name %}
-                    <tr id="{{ id }}" onmouseover="changeBackground(this.id, '#d1d1d1');"
-                        onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
-                        <td>{{ functionInfo["functionName"] }}</td>
-                        <td>0x{{ functionInfo["lowAddress"] }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </blockquote>
-        <button type="button" class="nes-btn is-primary mr-25" onclick="deletePrediction()">Delete</button>
-        <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+    <div>
+        <div class="nes-table-responsive content m-table center-contents overflow">
+            <blockquote>
+                <table class="nes-table is-bordered is-centered">
+                    <thead>
+                        <tr>
+                            <td scope="col">Predicted Function</td>
+                            <th scope="col">EntryPoint</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for functionInfo in prediction["predictions"] %}
+                        {% set functionName = functionInfo["functionName"] %}
+                        {% set id = functionName + ":" + model_name + ":" + task_name %}
+                        <tr id="{{ id }}" onmouseover="changeBackground(this.id, '#d1d1d1');"
+                            onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
+                            <td>{{ functionInfo["functionName"] }}</td>
+                            <td>0x{{ functionInfo["lowAddress"] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </blockquote>
+            <button type="button" class="nes-btn is-primary mr-25" onclick="deletePrediction()">Delete</button>
+            <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+        </div>
     </div>
 </div>
 
