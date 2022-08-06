@@ -1,4 +1,4 @@
-# Glyph
+# Glyph v1.0.0
 
 ## An architecture independent binary analysis tool for fingerprinting functions through NLP
 
