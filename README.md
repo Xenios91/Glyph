@@ -5,7 +5,6 @@ Version 1.0.0
 ## An architecture independent binary analysis tool for fingerprinting functions through NLP
 
 Glyph API Documentation: https://xenios91.github.io/Glyph-API-Docs/
- - - - -
 
 Ghidra Script
 https://github.com/Xenios91/Glyph-Ghidra
