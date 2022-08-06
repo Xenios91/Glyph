@@ -447,6 +447,8 @@ def get_prediction_details():
     Used for displaying details of a prediction
     '''
     args = request.args
+    headers = request.headers
+    accept = headers.get("Accept")
 
     try:
         model_name = args["modelName"].strip()
@@ -469,5 +471,9 @@ def get_prediction_details():
     except TypeError as type_error:
         logging.error(type_error)
 
-    return render_template("prediction_function_details.html", task_name=task_name, model_name=model_name, function_name=function_name,
-                           model_tokens=model_tokens, prediction_tokens=prediction_tokens)
+    if "text/html" in accept:
+        return render_template("prediction_function_details.html", task_name=task_name, model_name=model_name, function_name=function_name,
+                               model_tokens=model_tokens, prediction_tokens=prediction_tokens)
+    else:
+        return jsonify(task_name=task_name, model_name=model_name, function_name=function_name,
+                       model_tokens=model_tokens, prediction_tokens=prediction_tokens)
