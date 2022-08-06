@@ -1,8 +1,8 @@
 # Glyph
 
-Version 1.0.0
-
 ## An architecture independent binary analysis tool for fingerprinting functions through NLP
+
+### Version 1.0.0
 
 Glyph API Documentation: https://xenios91.github.io/Glyph-API-Docs/
 
