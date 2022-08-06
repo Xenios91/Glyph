@@ -7,6 +7,8 @@ Version 1.0.0
 Ghidra Script
 https://github.com/Xenios91/Glyph-Ghidra
 
+Glyph API Documentation: https://xenios91.github.io/Glyph-API-Docs/
+
 Glyph allows you to upload an ELF binary (32 & 64 bit) for function fingerprinting, upon analysis, a web based function symbol table will be created.
 
 ![Main Page](https://i.imgur.com/Gb9OFNN.png)
