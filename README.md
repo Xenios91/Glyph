@@ -12,7 +12,6 @@ https://github.com/Xenios91/Glyph-Ghidra
 ## Requirements
 
 - Python version 3.9+
-- Java version 11+
 - Ghidra version 10
 
 ## About
