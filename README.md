@@ -2,6 +2,8 @@
 
 ## An architecture independent binary analysis tool for fingerprinting functions through NLP
 
+![Black Hat Arsenal 2022](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2022.svg)
+
 Glyph Wiki: https://github.com/Xenios91/Glyph/wiki
 
 Glyph API Documentation: https://xenios91.github.io/Glyph-API-Docs/
