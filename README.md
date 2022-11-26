@@ -6,7 +6,7 @@
 
 Glyph Wiki: https://github.com/Xenios91/Glyph/wiki
 
-Glyph API Documentation: https://xenios91.github.io/Glyph-API-Docs/
+Glyph API Documentation: http://localhost:5000/apidocs
 
 Ghidra Script
 https://github.com/Xenios91/Glyph-Ghidra
