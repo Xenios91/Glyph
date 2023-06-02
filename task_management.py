@@ -81,13 +81,13 @@ class Trainer(TaskManager):
         pipeline: Pipeline = MLTask.get_multi_class_pipeline()
         label_encoder = preprocessing.LabelEncoder()
         try:
-            X: pd.Series = training_request.data["tokens"]
+            _x: pd.Series = training_request.data["tokens"]
             fit_encoder = label_encoder.fit(
                 training_request.data["functionName"])
-            y = fit_encoder.transform(
+            _y = fit_encoder.transform(
                 training_request.data["functionName"])
 
-            pipeline.fit(X, y)
+            pipeline.fit(_x, _y)
             MLPersistanceUtil.save_model(
                 training_request.model_name, label_encoder, pipeline)
             training_request.status = "complete"
