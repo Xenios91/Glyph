@@ -3,6 +3,7 @@
 ## An architecture independent binary analysis tool for fingerprinting functions through NLP
 
 ![Black Hat Arsenal 2022](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2022.svg)
+[![CodeQL](https://github.com/Xenios91/Glyph/actions/workflows/codeql.yml/badge.svg)](https://github.com/Xenios91/Glyph/actions/workflows/codeql.yml)
 
 Glyph Wiki: https://github.com/Xenios91/Glyph/wiki
 
