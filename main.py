@@ -4,6 +4,7 @@ import threading
 
 from flasgger import Swagger, swag_from
 from flask import Flask, Response, jsonify, render_template, request
+from markupsafe import escape
 from werkzeug.utils import secure_filename
 
 import _version
@@ -475,5 +476,5 @@ def get_prediction_details():
         return render_template("prediction_function_details.html", task_name=task_name, model_name=model_name, function_name=function_name,
                                model_tokens=model_tokens, prediction_tokens=prediction_tokens)
 
-    return jsonify(task_name=task_name, model_name=model_name, function_name=function_name,
+    return jsonify(task_name=escape(task_name), model_name=escape(model_name), function_name=escape(function_name),
                    model_tokens=model_tokens, prediction_tokens=prediction_tokens)
