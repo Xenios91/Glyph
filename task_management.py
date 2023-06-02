@@ -91,8 +91,8 @@ class Trainer(TaskManager):
             MLPersistanceUtil.save_model(
                 training_request.model_name, label_encoder, pipeline)
             training_request.status = "complete"
-        except Exception as e:
-            logging.error(e)
+        except Exception as error:
+            logging.error(error)
             training_request.status = "error"
 
 

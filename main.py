@@ -233,8 +233,8 @@ def delete_model():
     try:
         MLPersistanceUtil.delete_model(model_name)
         PredictionPersistanceUtil.delete_model_predictions(model_name)
-    except Exception as e:
-        logging.error(e)
+    except Exception as error:
+        logging.error(error)
     return jsonify(), 200
 
 
@@ -474,6 +474,6 @@ def get_prediction_details():
     if "text/html" in accept:
         return render_template("prediction_function_details.html", task_name=task_name, model_name=model_name, function_name=function_name,
                                model_tokens=model_tokens, prediction_tokens=prediction_tokens)
-    else:
-        return jsonify(task_name=task_name, model_name=model_name, function_name=function_name,
-                       model_tokens=model_tokens, prediction_tokens=prediction_tokens)
+
+    return jsonify(task_name=task_name, model_name=model_name, function_name=function_name,
+                   model_tokens=model_tokens, prediction_tokens=prediction_tokens)
