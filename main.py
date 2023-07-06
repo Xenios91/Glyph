@@ -16,6 +16,7 @@ from request_handler import (GhidraRequest, Prediction, PredictionRequest,
 from services import TaskService
 from task_management import Ghidra, Predictor, TaskManager, Trainer
 from templates.utils import format_code
+from sql_service import SQLUtil
 
 app = Flask(__name__)
 UPLOAD_FOLDER = './binaries'
@@ -25,6 +26,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 swagger = Swagger(app)
 threading.Thread(target=TaskService().start_service, daemon=True).start()
 GlyphConfig().load_config()
+SQLUtil.init_db()
 
 
 @app.route("/")
@@ -48,7 +50,7 @@ def handle_task():
     request_values: dict = request.get_json()
     request_type = request_values.get("type")
 
-    if request_type == "train":
+    if request_type == "training":
         response = train_model(request_values)
     elif request_type == "prediction":
         response = predict_tokens(request_values)
@@ -335,7 +337,11 @@ def post_upload_binary():
         try:
             is_training_data: bool = args.get("trainingData")
             model_name: str = args.get("modelName").strip()
-            task_name: str = args.get("taskName").strip()
+
+            task_name: str = None
+            if "taskName" in args:
+                task_name = args.get("taskName").strip()
+                
             ml_class_type: str = args.get("mlClassType").strip()
         except KeyError as key_error:
             logging.error(key_error)
@@ -346,9 +352,9 @@ def post_upload_binary():
 
         file = request.files["binaryFile"]
 
-        magic_num = file.read()[:4]
-        if magic_num != b'\x7fELF':
-            return jsonify(error="incorrect magic number"), 400
+        #magic_num = file.read()[:4]
+        #if magic_num != b'\x7fELF':
+         #   return jsonify(error="incorrect magic number"), 400
 
         if len(file.filename) == 0:
             return jsonify(error="no file found"), 400
@@ -362,7 +368,7 @@ def post_upload_binary():
                 filename, is_training_data, model_name, task_name, ml_class_type)
             Ghidra().start_task(ghidra_task)
 
-        if "text/html" in accept:
+        if "*/*" in accept:
             return render_template("upload.html")
 
 
@@ -408,11 +414,15 @@ def update_status():
     '''
     Handles a POST request from Ghidra to update the current status of a task
     '''
-    args = request.args
+    args = request.json
 
     try:
         status = args.get("status").strip()
-        uuid = args.get("uuid").strip()
+        if "uuid" in args:
+            uuid = args.get("uuid").strip()
+        else:
+            uuid = "test"
+
     except KeyError as key_error:
         logging.error(key_error)
         return key_error

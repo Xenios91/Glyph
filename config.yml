@@ -1,9 +1,9 @@
 #ghidra config
 
-ghidra_location: #ghidra root location
-ghidra_project_location: # location of the ghidra project to run analysis under
-ghidra_project_name: # ghidra project to run analysis under
-glyph_script_location: # location of ClangTokenGenerator.java
+ghidra_location: /home/dsu/ghidra_10.3.1_PUBLIC/
+ghidra_project_location: /home/dsu/
+ghidra_project_name: glyph
+glyph_script_location: /home/dsu/ghidra_10.3.1_PUBLIC/Ghidra/Features/Base/ghidra_scripts/
 
 #probability config
 

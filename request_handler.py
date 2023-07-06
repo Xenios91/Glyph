@@ -101,6 +101,7 @@ class GhidraRequest():
     model_name: str
     task_name: str
     ml_class_type: str
+    uuid: str
 
     def __init__(self, filename: str, is_training: bool, model_name: str, task_name: str, mlclasstype: str) -> None:
         self.file_name = filename
@@ -108,6 +109,7 @@ class GhidraRequest():
         self.model_name = model_name
         self.task_name = task_name
         self.ml_class_type = mlclasstype
+        self.uuid = filename
 
 
 class Prediction():

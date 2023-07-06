@@ -100,7 +100,11 @@
             modelName = document.getElementById('prediction_model_selection').value;
         }
 
-        const taskName = document.getElementById('task_name').value;
+        const taskElement = document.getElementById('task_name');
+        if (taskElement != null) {
+            const taskName = taskElement.value;
+            formData.append('taskName', taskName);
+        }
         const mlClassType = document.getElementById('ml_class_type').value;
 
         const url = "/uploadBinary";
@@ -108,7 +112,6 @@
         formData.append('binaryFile', selectedFile);
         formData.append('trainingData', trainingData);
         formData.append('modelName', modelName);
-        formData.append('taskName', taskName);
         formData.append('mlClassType', mlClassType);
 
         $.ajax({

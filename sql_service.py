@@ -9,6 +9,29 @@ from request_handler import Prediction
 class SQLUtil():
 
     @staticmethod
+    def init_db():
+        if not os.path.exists("models.db"):
+            with sqlite3.connect('models.db') as con:
+                try:
+                    cur = con.cursor()
+                    cur.execute(
+                        "CREATE TABLE IF NOT EXISTS models(model_name VARCHAR(64), model BLOB, label_encoder BLOB)")
+
+                    con.commit()
+                except Exception as error:
+                    logging.error(error)
+        
+        if not os.path.exists("predictions.db"):
+            with sqlite3.connect('predictions.db') as con:
+                try:
+                    cur = con.cursor()
+                    cur.execute(
+                        "CREATE TABLE IF NOT EXISTS PREDICTIONS(name VARCHAR(64), model_name VARCHAR(64), functions BLOB)")
+                    con.commit()
+                except Exception as error:
+                    logging.error(error)
+
+    @staticmethod
     def save_model(model_name: str, label_encoder, model: bytes):
         with sqlite3.connect('models.db') as con:
             try:

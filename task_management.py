@@ -1,7 +1,7 @@
 import logging
 import os
+import subprocess
 import uuid
-from asyncio import subprocess
 from concurrent.futures import ProcessPoolExecutor
 from typing import Any, Optional
 
@@ -157,9 +157,9 @@ class Ghidra(TaskManager):
     @classmethod
     def _run_analysis(cls, ghidra_request: GhidraRequest):
         ghidra_location: Optional[Any] = GlyphConfig.get_config_value(
-            "ghidra_loction")
+            "ghidra_location")
         ghidra_project_name: Optional[Any] = GlyphConfig.get_config_value(
-            "ghidra_project")
+            "ghidra_project_name")
         ghidra_project_location: Optional[Any] = GlyphConfig.get_config_value(
             "ghidra_project_location")
         glyph_script_location = GlyphConfig.get_config_value(
@@ -178,4 +178,7 @@ class Ghidra(TaskManager):
             ghidra_type = "prediction"
 
         subprocess.run([ghidra_headless_location, ghidra_project_location,
-                        ghidra_project_name, "-import", os.path.join("./binaries", ghidra_request.file_name), "-overwrite", "-postscript", os.path.join(glyph_script_location, "ClangTokenGenerator.java"), f"type={ghidra_type}", f"model={ghidra_request.model_name}", f"task={ghidra_request.task_name}", f"uuid={Ghidra.get_uuid()}"], check=True)
+                        ghidra_project_name, "-import", os.path.join("./binaries", ghidra_request.file_name), 
+                        "-overwrite", "-postscript", os.path.join(glyph_script_location, "ClangTokenGenerator.java"), 
+                        f"type={ghidra_type}", f"model={ghidra_request.model_name}", f"task={ghidra_request.task_name}", 
+                        f"uuid={Ghidra.get_uuid()}"], check=True)
