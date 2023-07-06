@@ -172,7 +172,7 @@ class Ghidra(TaskManager):
             ghidra_location, f"support{os.sep}analyzeHeadless")
 
         ghidra_type: str = None
-        if ghidra_request.is_training:
+        if ghidra_request.is_training is "true":
             ghidra_type = "training"
         else:
             ghidra_type = "prediction"
