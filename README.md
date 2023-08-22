@@ -3,6 +3,7 @@
 ## An architecture independent binary analysis tool for fingerprinting functions through NLP
 
 ![Black Hat Arsenal 2022](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2022.svg)
+
 Black Hat Arsenal 2023 & Defcon Demo Labs
 
 [![CodeQL](https://github.com/Xenios91/Glyph/actions/workflows/codeql.yml/badge.svg)](https://github.com/Xenios91/Glyph/actions/workflows/codeql.yml)
