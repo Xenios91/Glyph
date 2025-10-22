@@ -9,34 +9,43 @@ from werkzeug.utils import secure_filename
 
 import _version
 from config import GlyphConfig
-from persistance_util import (FunctionPersistanceUtil, MLPersistanceUtil,
-                              PredictionPersistanceUtil)
-from request_handler import (GhidraRequest, Prediction, PredictionRequest,
-                             TrainingRequest)
+from persistance_util import (
+    FunctionPersistanceUtil,
+    MLPersistanceUtil,
+    PredictionPersistanceUtil,
+)
+from request_handler import (
+    GhidraRequest,
+    Prediction,
+    PredictionRequest,
+    TrainingRequest,
+)
 from services import TaskService
 from task_management import Ghidra, Predictor, TaskManager, Trainer
 from templates.utils import format_code
 from sql_service import SQLUtil
 
 app = Flask(__name__)
-UPLOAD_FOLDER = './binaries'
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1000 * 1000  # max file size 500mb
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+UPLOAD_FOLDER = "./binaries"
+app.config["MAX_CONTENT_LENGTH"] = 500 * 1000 * 1000  # max file size 500mb
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 swagger = Swagger(app)
 threading.Thread(target=TaskService().start_service, daemon=True).start()
 GlyphConfig().load_config()
 SQLUtil.init_db()
 
+ACCEPT_TYPE = "text/html"
+
 
 @app.route("/")
 def home():
-    '''
+    """
     Loads the homepage of Glyph
-    '''
+    """
     headers = request.headers
     accept = headers.get("Accept")
-    if "text/html" not in accept:
+    if ACCEPT_TYPE not in accept:
         return jsonify(version=_version)
 
     return render_template("main.html")
@@ -44,9 +53,9 @@ def home():
 
 @app.route("/task", methods=["POST"])
 def handle_task():
-    '''
+    """
     Handles a train/predict task
-    '''
+    """
     request_values: dict = request.get_json()
     request_type = request_values.get("type")
 
@@ -60,12 +69,14 @@ def handle_task():
 
 
 def train_model(request_values: dict) -> Response:
-    '''
+    """
     Creates a job to train an ml model on the tokens supplied
-    '''
+    """
 
     try:
         model_name = request_values.get("modelName")
+        if model_name is None:
+            return jsonify(error="model name is invalid"), 400
         uuid = request_values.get("uuid")
         if uuid == "" or uuid is None:
             uuid = Trainer().get_uuid()
@@ -79,8 +90,7 @@ def train_model(request_values: dict) -> Response:
         return jsonify(error="model name already taken"), 400
 
     try:
-        training_request: TrainingRequest = TrainingRequest(
-            uuid, model_name, data)
+        training_request: TrainingRequest = TrainingRequest(uuid, model_name, data)
         Trainer().start_training(training_request)
         FunctionPersistanceUtil.add_model_functions(training_request)
 
@@ -91,13 +101,15 @@ def train_model(request_values: dict) -> Response:
 
 
 def predict_tokens(request_values: dict) -> Response:
-    '''
+    """
     Creates a job to predict a function name based on the tokens supplied
-    '''
+    """
     request_values = request.get_json()
 
     try:
         model_name = request_values.get("modelName")
+        if model_name is None:
+            return jsonify(error="model name is invalid"), 400
         uuid = request_values.get("uuid")
         if uuid == "" or uuid is None:
             uuid = Trainer().get_uuid()
@@ -108,7 +120,8 @@ def predict_tokens(request_values: dict) -> Response:
 
     try:
         prediction_request: PredictionRequest = PredictionRequest(
-            uuid, model_name, data)
+            uuid, model_name, data
+        )
         Predictor().start_prediction(prediction_request)
 
         return jsonify(uuid=prediction_request.uuid), 201
@@ -120,15 +133,15 @@ def predict_tokens(request_values: dict) -> Response:
 @app.route("/getStatus", methods=["GET"])
 @swag_from("swagger/status.yml")
 def get_status():
-    '''
+    """
     Handles a GET request to obtain the supplied uuid task status
-    '''
+    """
     args = request.args
     status: str
     status_code: int
 
     try:
-        job_uuid: str = args['uuid']
+        job_uuid: str = args["uuid"]
         if job_uuid == "all":
             status = "test"
             status_code = 200
@@ -148,14 +161,14 @@ def get_status():
 @app.route("/getModels", methods=["GET"])
 @swag_from("swagger/models.yml")
 def get_list_models():
-    '''
+    """
     Handles a GET request to obtain all models available
-    '''
+    """
     models: set[str] = MLPersistanceUtil.get_models_list()
 
     headers = request.headers
     accept = headers.get("Accept")
-    if "text/html" not in accept:
+    if "ACCEPT_TYPE" not in accept:
         return jsonify(models=list(models)), 200
 
     models_status: dict = TaskManager.get_all_status()
@@ -167,30 +180,32 @@ def get_list_models():
 @app.route("/getPredictions", methods=["GET"])
 @swag_from("swagger/predictions.yml")
 def get_list_predictions():
-    '''
+    """
     Handles a GET request to obtain all predictions available
-    '''
-    predictions: set[str] = PredictionPersistanceUtil.get_predictions_list()
+    """
+    predictions: list[Prediction] = PredictionPersistanceUtil.get_predictions_list()
 
     headers = request.headers
     accept = headers.get("Accept")
 
-    if "text/html" not in accept:
+    if "ACCEPT_TYPE" not in accept:
         predictions_list: list[dict] = []
         for prediction in predictions:
             predictions_list.append(prediction.__dict__)
 
         return jsonify(predictions=list(predictions_list)), 200
 
-    return render_template("get_predictions.html", title="Predictions List", predictions=predictions)
+    return render_template(
+        "get_predictions.html", title="Predictions List", predictions=predictions
+    )
 
 
 @app.route("/getPrediction", methods=["GET"])
 @swag_from("swagger/prediction.yml")
 def get_predictions():
-    '''
+    """
     Handles a GET request to obtain all predictions from one task available
-    '''
+    """
 
     args = request.args
 
@@ -205,23 +220,30 @@ def get_predictions():
         return jsonify(error="invalid request"), 400
 
     prediction: Prediction = PredictionPersistanceUtil.get_predictions(
-        task_name, model_name)
+        task_name, model_name
+    )
 
     headers = request.headers
     accept = headers.get("Accept")
-    if "text/html" not in accept:
+    if "ACCEPT_TYPE" not in accept:
         pred: dict = prediction.__dict__
         return jsonify(prediction=pred), 200
 
-    return render_template("get_prediction.html", title="Prediction", model_name=prediction.model_name, task_name=prediction.task_name, prediction=prediction)
+    return render_template(
+        "get_prediction.html",
+        title="Prediction",
+        model_name=prediction.model_name,
+        task_name=prediction.task_name,
+        prediction=prediction,
+    )
 
 
 @app.route("/deleteModel", methods=["DELETE"])
 @swag_from("swagger/delete_model.yml")
 def delete_model():
-    '''
+    """
     Handles a GET request to delete a supplied model by name
-    '''
+    """
     args = request.args
 
     try:
@@ -244,9 +266,9 @@ def delete_model():
 @app.route("/getFunctions", methods=["GET"])
 @swag_from("swagger/get_functions.yml")
 def get_functions():
-    '''
+    """
     Handles a GET request to return all identified functions associated with a model
-    '''
+    """
     args = request.args
     try:
         model_name = args.get("modelName").strip()
@@ -261,19 +283,20 @@ def get_functions():
 
     headers = request.headers
     accept = headers.get("Accept")
-    if "text/html" not in accept:
+    if "ACCEPT_TYPE" not in accept:
         return jsonify(functions=functions), 200
 
-    return render_template("get_symbols.html", bin_name="test",
-                           model_name=model_name, functions=functions)
+    return render_template(
+        "get_symbols.html", bin_name="test", model_name=model_name, functions=functions
+    )
 
 
 @app.route("/getFunction", methods=["GET"])
 @swag_from("swagger/get_function.yml")
 def get_function():
-    '''
+    """
     Handles a GET request to return all identified functions associated with a model
-    '''
+    """
     args = request.args
     try:
         function_name = args.get("functionName").strip()
@@ -285,8 +308,9 @@ def get_function():
     if not model_name or not function_name:
         return jsonify(error="invalid model or function name"), 400
 
-    function_information: str = FunctionPersistanceUtil.get_function(
-        model_name, function_name)
+    function_information: list = FunctionPersistanceUtil.get_function(
+        model_name, function_name
+    )
 
     function_name = function_information[1]
     function_entry: str = function_information[2]
@@ -295,36 +319,43 @@ def get_function():
 
     headers = request.headers
     accept = headers.get("Accept")
-    if "text/html" not in accept:
+    if "ACCEPT_TYPE" not in accept:
         return jsonify(functions=function_information), 200
 
-    return render_template("get_function.html", model_name=model_name, function_name=function_name,
-                           function_entry=function_entry, tokens=function_tokens)
+    return render_template(
+        "get_function.html",
+        model_name=model_name,
+        function_name=function_name,
+        function_entry=function_entry,
+        tokens=function_tokens,
+    )
 
 
 @app.route("/uploadBinary", methods=["GET"])
 def get_upload_binary():
-    '''
+    """
     Handles GET and POST request to load the webpage and to handle binary file uploads
-    '''
+    """
     headers = request.headers
     accept = headers.get("Accept")
 
     if request.method == "GET":
-        if "text/html" not in accept:
+        if "ACCEPT_TYPE" not in accept:
             return jsonify(error="API calls can only be POST"), 200
 
         models: set[str] = MLPersistanceUtil.get_models_list()
         allow_prediction = len(models) > 0
-        return render_template("upload.html", allow_prediction=allow_prediction, models=models)
+        return render_template(
+            "upload.html", allow_prediction=allow_prediction, models=models
+        )
 
 
 @app.route("/uploadBinary", methods=["POST"])
 @swag_from("swagger/upload_binary.yml")
 def post_upload_binary():
-    '''
+    """
     Handles GET and POST request to load the webpage and to handle binary file uploads
-    '''
+    """
     headers = request.headers
     accept = headers.get("Accept")
 
@@ -338,10 +369,10 @@ def post_upload_binary():
             is_training_data: bool = args.get("trainingData")
             model_name: str = args.get("modelName").strip()
 
-            task_name: str = None
+            task_name: str = ""
             if "taskName" in args:
                 task_name = args.get("taskName").strip()
-                
+
             ml_class_type: str = args.get("mlClassType").strip()
         except KeyError as key_error:
             logging.error(key_error)
@@ -352,9 +383,9 @@ def post_upload_binary():
 
         file = request.files["binaryFile"]
 
-        #magic_num = file.read()[:4]
-        #if magic_num != b'\x7fELF':
-         #   return jsonify(error="incorrect magic number"), 400
+        # magic_num = file.read()[:4]
+        # if magic_num != b'\x7fELF':
+        #   return jsonify(error="incorrect magic number"), 400
 
         if len(file.filename) == 0:
             return jsonify(error="no file found"), 400
@@ -365,7 +396,8 @@ def post_upload_binary():
                 os.mkdir(app.config["UPLOAD_FOLDER"])
             file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
             ghidra_task: GhidraRequest = GhidraRequest(
-                filename, is_training_data, model_name, task_name, ml_class_type)
+                filename, is_training_data, model_name, task_name, ml_class_type
+            )
             Ghidra().start_task(ghidra_task)
 
         if "*/*" in accept:
@@ -375,11 +407,11 @@ def post_upload_binary():
 @app.route("/listBins", methods=["GET"])
 @swag_from("swagger/list_bins.yml")
 def list_bins():
-    '''
+    """
     Handles a GET request to retrieve all available binaries
-    '''
+    """
     files: list[str] = []
-    directory_path = app.config['UPLOAD_FOLDER']
+    directory_path = app.config["UPLOAD_FOLDER"]
     for _, _, files_found in os.walk(directory_path):
         if files_found:
             for file in files_found:
@@ -390,9 +422,9 @@ def list_bins():
 @app.route("/deletePrediction", methods=["DELETE"])
 @swag_from("swagger/delete_prediction.yml")
 def delete_prediction():
-    '''
+    """
     Handles a GET request to delete a prediction
-    '''
+    """
     args = request.args
 
     try:
@@ -411,9 +443,9 @@ def delete_prediction():
 @app.route("/statusUpdate", methods=["POST"])
 @swag_from("swagger/status_update.yml")
 def update_status():
-    '''
+    """
     Handles a POST request from Ghidra to update the current status of a task
-    '''
+    """
     args = request.json
 
     try:
@@ -439,9 +471,9 @@ def update_status():
 
 @app.route("/error", methods=["GET"])
 def error_page():
-    '''
+    """
     Used for displaying errors
-    '''
+    """
     args = request.args
     error_type = args.get("type")
     message = "Uh oh! An unknown error has occured"
@@ -454,9 +486,9 @@ def error_page():
 @app.route("/getPredictionDetails", methods=["GET"])
 @swag_from("swagger/get_prediction_details.yml")
 def get_prediction_details():
-    '''
+    """
     Used for displaying details of a prediction
-    '''
+    """
     args = request.args
     headers = request.headers
     accept = headers.get("Accept")
@@ -472,19 +504,33 @@ def get_prediction_details():
         return jsonify(error="Invalid model, task, or function name"), 400
 
     try:
-        model_function_information: str = FunctionPersistanceUtil.get_function(
-            model_name, function_name)
+        model_function_information: list = FunctionPersistanceUtil.get_function(
+            model_name, function_name
+        )
         prediction = FunctionPersistanceUtil.get_prediction_function(
-            task_name, model_name, function_name)
+            task_name, model_name, function_name
+        )
 
         model_tokens = format_code(model_function_information[3])
         prediction_tokens = format_code(prediction["tokens"])
     except TypeError as type_error:
         logging.error(type_error)
+        return
 
-    if "text/html" in accept:
-        return render_template("prediction_function_details.html", task_name=task_name, model_name=model_name, function_name=function_name,
-                               model_tokens=model_tokens, prediction_tokens=prediction_tokens)
+    if "ACCEPT_TYPE" in accept:
+        return render_template(
+            "prediction_function_details.html",
+            task_name=task_name,
+            model_name=model_name,
+            function_name=function_name,
+            model_tokens=model_tokens,
+            prediction_tokens=prediction_tokens,
+        )
 
-    return jsonify(task_name=escape(task_name), model_name=escape(model_name), function_name=escape(function_name),
-                   model_tokens=model_tokens, prediction_tokens=prediction_tokens)
+    return jsonify(
+        task_name=escape(task_name),
+        model_name=escape(model_name),
+        function_name=escape(function_name),
+        model_tokens=model_tokens,
+        prediction_tokens=prediction_tokens,
+    )
