@@ -3,7 +3,7 @@ import os
 import threading
 
 from flasgger import Swagger, swag_from
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request, make_response
 from markupsafe import escape
 from werkzeug.utils import secure_filename
 
@@ -45,7 +45,7 @@ def home():
     """
     headers = request.headers
     accept = headers.get("Accept")
-    if ACCEPT_TYPE not in accept:
+    if ACCEPT_TYPE is not accept:
         return jsonify(version=_version)
 
     return render_template("main.html")
@@ -76,7 +76,7 @@ def train_model(request_values: dict) -> Response:
     try:
         model_name = request_values.get("modelName")
         if model_name is None:
-            return jsonify(error="model name is invalid"), 400
+            return make_response(jsonify(error="model name is invalid"), 400)
         uuid = request_values.get("uuid")
         if uuid == "" or uuid is None:
             uuid = Trainer().get_uuid()
@@ -84,20 +84,20 @@ def train_model(request_values: dict) -> Response:
         overwrite_model = request_values.get("overwriteModel")
     except KeyError as key_error:
         logging.error(key_error)
-        return key_error
+        return make_response(jsonify(error="model name is invalid"), 400)
 
     if overwrite_model is None and MLPersistanceUtil.check_name(model_name):
-        return jsonify(error="model name already taken"), 400
+        return make_response(jsonify(error="model name already taken"), 400)
 
     try:
         training_request: TrainingRequest = TrainingRequest(uuid, model_name, data)
         Trainer().start_training(training_request)
         FunctionPersistanceUtil.add_model_functions(training_request)
 
-        return jsonify(uuid=training_request.uuid), 201
+        return make_response(jsonify(uuid=training_request.uuid), 201)
     except TypeError as type_error:
         logging.error(type_error)
-        return jsonify(error="type error"), 400
+        return make_response(jsonify(error="type error"), 400)
 
 
 def predict_tokens(request_values: dict) -> Response:
@@ -109,14 +109,14 @@ def predict_tokens(request_values: dict) -> Response:
     try:
         model_name = request_values.get("modelName")
         if model_name is None:
-            return jsonify(error="model name is invalid"), 400
+            return make_response(jsonify(error="model name is invalid"), 400)
         uuid = request_values.get("uuid")
         if uuid == "" or uuid is None:
             uuid = Trainer().get_uuid()
         data = request_values
     except KeyError as key_error:
         logging.error(key_error)
-        return key_error
+        return make_response(jsonify(error="model name is invalid"), 400)
 
     try:
         prediction_request: PredictionRequest = PredictionRequest(
@@ -124,10 +124,10 @@ def predict_tokens(request_values: dict) -> Response:
         )
         Predictor().start_prediction(prediction_request)
 
-        return jsonify(uuid=prediction_request.uuid), 201
+        return make_response(jsonify(uuid=prediction_request.uuid), 201)
     except TypeError as type_error:
         logging.error(type_error)
-        return jsonify(error="type error"), 400
+        return make_response(jsonify(error="type error"), 400)
 
 
 @app.route("/getStatus", methods=["GET"])
@@ -168,7 +168,7 @@ def get_list_models():
 
     headers = request.headers
     accept = headers.get("Accept")
-    if "ACCEPT_TYPE" not in accept:
+    if "ACCEPT_TYPE" != accept:
         return jsonify(models=list(models)), 200
 
     models_status: dict = TaskManager.get_all_status()
@@ -188,7 +188,7 @@ def get_list_predictions():
     headers = request.headers
     accept = headers.get("Accept")
 
-    if "ACCEPT_TYPE" not in accept:
+    if "ACCEPT_TYPE" != accept:
         predictions_list: list[dict] = []
         for prediction in predictions:
             predictions_list.append(prediction.__dict__)
@@ -225,7 +225,7 @@ def get_predictions():
 
     headers = request.headers
     accept = headers.get("Accept")
-    if "ACCEPT_TYPE" not in accept:
+    if "ACCEPT_TYPE" != accept:
         pred: dict = prediction.__dict__
         return jsonify(prediction=pred), 200
 
