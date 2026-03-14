@@ -274,7 +274,7 @@ body::before {
 
 .nav-links a {
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.5rem;
+    font-size: 0.65rem;
     letter-spacing: 0.12em;
     color: var(--magenta);
     text-decoration: none;
@@ -302,6 +302,31 @@ body::before {
 .nav-links a:hover              { color: var(--yellow); }
 .nav-links a:hover::before      { opacity: 1; }
 .nav-links a:hover::after       { width: 100%; }
+
+/* ── Active nav link ─────────────────────────────────────────── */
+.nav-links a.nav-active {
+    color: var(--cyan-bright);
+}
+
+/* full-width underline, permanently shown */
+.nav-links a.nav-active::after {
+    width: 100%;
+    background: var(--cyan);
+    box-shadow: 0 0 6px rgba(125,216,216,0.5);
+    transition: none;
+}
+
+/* cursor prefix always visible */
+.nav-links a.nav-active::before {
+    opacity: 1;
+    color: var(--cyan);
+    animation: cursor-blink 1s step-end infinite;
+}
+
+@keyframes cursor-blink {
+    0%, 49%  { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
 
 /* ── Page content ───────────────────────────────────────────── */
 .page-content {

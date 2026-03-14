@@ -20,8 +20,8 @@
     background: #11111f !important;
     border: 2px solid #2a5a5a !important;
     box-shadow:
-        0 0 18px rgba(125,216,216,0.10),
-        inset 0 0 20px rgba(125,216,216,0.02);
+        0 0 18px rgba(125, 216, 216, 0.10),
+        inset 0 0 20px rgba(125, 216, 216, 0.02);
     max-width: 580px;
     width: 100%;
     padding: 2rem !important;
@@ -29,8 +29,10 @@
     color: #cdd0e8;
 }
 
-#upload-box::before,  #upload-box::after,
-#upload-message::before, #upload-message::after {
+#upload-box::before,
+#upload-box::after,
+#upload-message::before,
+#upload-message::after {
     content: '';
     position: absolute;
     width: 12px;
@@ -39,16 +41,26 @@
     border-style: solid;
     z-index: 2;
 }
+
 #upload-box::before,
-#upload-message::before { top: -2px;    left: -2px;  border-width: 2px 0 0 2px; }
+#upload-message::before {
+    top: -2px;
+    left: -2px;
+    border-width: 2px 0 0 2px;
+}
+
 #upload-box::after,
-#upload-message::after  { bottom: -2px; right: -2px; border-width: 0 2px 2px 0; }
+#upload-message::after {
+    bottom: -2px;
+    right: -2px;
+    border-width: 0 2px 2px 0;
+}
 
 /* ── Card titles ─────────────────────────────────────────────── */
 #upload-box .title,
 #upload-message .title {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.7rem !important;
+    font-size: 0.75rem !important;
     letter-spacing: 0.12em;
     color: #d4c87a !important;
     background: #11111f !important;
@@ -58,11 +70,13 @@
 /* ── Upload message (success state) ─────────────────────────── */
 #upload-message {
     border-color: #1e5c28 !important;
-    box-shadow: 0 0 18px rgba(110,201,122,0.12), inset 0 0 20px rgba(110,201,122,0.02);
+    box-shadow: 0 0 18px rgba(110, 201, 122, 0.12), inset 0 0 20px rgba(110, 201, 122, 0.02);
 }
 
 #upload-message::before,
-#upload-message::after { border-color: #1e5c28; }
+#upload-message::after {
+    border-color: #1e5c28;
+}
 
 #upload-message .title {
     color: #6ec97a !important;
@@ -79,12 +93,20 @@
 }
 
 @keyframes status-blink {
-    0%, 49%  { opacity: 1; }
-    50%, 100% { opacity: 0.3; }
+
+    0%,
+    49% {
+        opacity: 1;
+    }
+
+    50%,
+    100% {
+        opacity: 0.3;
+    }
 }
 
 /* ── Checkbox label ─────────────────────────────────────────── */
-#upload-box > div > label:first-child {
+#upload-box>div>label:first-child {
     font-family: 'Press Start 2P', monospace;
     font-size: 0.52rem;
     letter-spacing: 0.06em;
@@ -96,13 +118,15 @@
     margin-bottom: 0.5rem;
 }
 
-.nes-checkbox + span { color: #a8ecec !important; }
+.nes-checkbox+span {
+    color: #a8ecec !important;
+}
 
 /* ── Inner config panels ─────────────────────────────────────── */
 #training-config,
 #prediction-config {
-    background: rgba(125,216,216,0.02) !important;
-    border: 1px solid rgba(125,216,216,0.15) !important;
+    background: rgba(125, 216, 216, 0.02) !important;
+    border: 1px solid rgba(125, 216, 216, 0.15) !important;
     margin: 1.5rem 0 !important;
     padding: 1.5rem !important;
     position: relative;
@@ -123,7 +147,7 @@
 #training-config label,
 #prediction-config label {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.5rem !important;
+    font-size: 0.65rem !important;
     letter-spacing: 0.06em;
     color: #7dd8d8 !important;
     display: block;
@@ -137,7 +161,7 @@
     background: #0d0d1a !important;
     color: #a8ecec !important;
     border: 1px solid #2a5a5a !important;
-    box-shadow: inset 0 0 8px rgba(125,216,216,0.03) !important;
+    box-shadow: inset 0 0 8px rgba(125, 216, 216, 0.03) !important;
     padding: 0.6rem 0.75rem !important;
     width: 100%;
     caret-color: #d4c87a;
@@ -146,11 +170,13 @@
 
 .nes-input:focus {
     border-color: #d4c87a !important;
-    box-shadow: 0 0 8px rgba(212,200,122,0.20) !important;
+    box-shadow: 0 0 8px rgba(212, 200, 122, 0.20) !important;
     color: #d4c87a !important;
 }
 
-.nes-input::placeholder { color: rgba(125,216,216,0.25) !important; }
+.nes-input::placeholder {
+    color: rgba(125, 216, 216, 0.25) !important;
+}
 
 /* ── Select dropdowns ────────────────────────────────────────── */
 .nes-select select {
@@ -184,7 +210,7 @@ label.nes-btn.is-primary {
     background: #0d0d1a !important;
     color: #c87ab8 !important;
     border: 2px solid #4a2244 !important;
-    box-shadow: 0 0 10px rgba(200,122,184,0.15) !important;
+    box-shadow: 0 0 10px rgba(200, 122, 184, 0.15) !important;
     padding: 0.75rem 1.5rem !important;
     cursor: pointer;
     display: inline-block;
@@ -197,7 +223,7 @@ label.nes-btn.is-primary {
 label.nes-btn.is-primary:hover {
     background: #4a2244 !important;
     color: #f0cce8 !important;
-    box-shadow: 0 0 16px rgba(200,122,184,0.30) !important;
+    box-shadow: 0 0 16px rgba(200, 122, 184, 0.30) !important;
     transform: translate(-2px, -2px);
 }
 
@@ -209,16 +235,23 @@ label.nes-btn.is-primary:active {
 label.nes-btn.is-primary::after {
     content: '';
     position: absolute;
-    top: -40%; left: 0; right: 0;
+    top: -40%;
+    left: 0;
+    right: 0;
     height: 40%;
-    background: rgba(255,255,255,0.04);
+    background: rgba(255, 255, 255, 0.04);
     animation: btn-sweep 3s linear infinite;
     pointer-events: none;
 }
 
 @keyframes btn-sweep {
-    from { top: -40%; }
-    to   { top: 120%; }
+    from {
+        top: -40%;
+    }
+
+    to {
+        top: 120%;
+    }
 }
 
 label.nes-btn.is-primary input[type="file"] {
@@ -226,6 +259,7 @@ label.nes-btn.is-primary input[type="file"] {
     opacity: 0;
     width: 100%;
     height: 100%;
-    top: 0; left: 0;
+    top: 0;
+    left: 0;
     cursor: pointer;
 }

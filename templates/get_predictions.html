@@ -21,10 +21,8 @@
                     {% for functionInfo in predictions %}
                     {% set functionName = functionInfo["functionName"] %}
                     {% set id = functionName + ":" + model_name + ":" + task_name %}
-                    <tr id="{{ id }}"
-                        onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
-                        onmouseout="changeBackground(this.id, '#000000');"
-                        onclick="goToURL(this.id)">
+                    <tr id="{{ id }}" onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
+                        onmouseout="changeBackground(this.id, '#000000');" onclick="goToURL(this.id)">
                         <td>{{ functionInfo["functionName"] }}</td>
                         <td>0x{{ functionInfo["lowAddress"] }}</td>
                     </tr>
