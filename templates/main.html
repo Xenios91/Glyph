@@ -1,19 +1,29 @@
 {% extends "layout.html" %}
 {% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main_style.css') }}">
 <div class="content blue-bg">
-    <div class="nes-container is-rounded is-centered white-bg">
-        <div>
-            <h1 class="center-text">Glyph</h1>
-            <p class="nes-text is-primary center-text">A binary analysis tool for fingerprinting functions</p>
-            <button type="button" class="nes-btn is-primary" onclick="location.href='/uploadBinary';">Click here to
-                start</button>
+    <div class="nes-container with-title is-centered white-bg main-card">
+        <div class="hero-section">
+            <h1 class="pixel-title">GLYPH</h1>
         </div>
+
+        <div class="description-box">
+            <p class="nes-text is-primary">
+                A binary analysis tool for <br>
+                <span class="nes-text is-error">fingerprinting functions</span>
+            </p>
+        </div>
+
+        <div class="action-area">
+            <button type="button" class="nes-btn is-primary start-btn" onclick="location.href='/uploadBinary';">
+                [ START ]
+            </button>
+            <p class="blink_text mt-2" style="font-size: 1.0rem;">PRESS START TO BEGIN</p>
+        </div>
+
+        <hr class="pixel-hr">
+
     </div>
 </div>
-<style>
-    .center-text {
-        text-align: center;
-    }
 
-</style>
 {% endblock %}

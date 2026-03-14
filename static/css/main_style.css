@@ -1,0 +1,230 @@
+/* =============================================================
+   GLYPH — MAIN PAGE (main_style.css)
+   NES Cyberpunk theme for the index/home template
+   ============================================================= */
+
+/* ── Page wrapper ───────────────────────────────────────────── */
+.content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 56px - 48px);
+    padding: 2rem 1rem;
+    position: relative;
+    z-index: 10;
+}
+
+/* ── Main card ──────────────────────────────────────────────── */
+.main-card {
+    background: #000000 !important;
+    border: 3px solid #00ffff !important;
+    box-shadow:
+        0 0  0  1px #000000,
+        0 0 16px 2px rgba(0, 255, 255, 0.35),
+        0 0 48px 8px rgba(0, 255, 255, 0.12),
+        inset 0 0 32px rgba(0, 255, 255, 0.04);
+    max-width: 560px;
+    width: 100%;
+    padding: 2.5rem 2rem 2rem;
+    position: relative;
+    animation: card-flicker 10s step-end infinite;
+}
+
+/* corner accents */
+.main-card::before,
+.main-card::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-color: #ff00ff;
+    border-style: solid;
+}
+.main-card::before {
+    top: -3px; left: -3px;
+    border-width: 3px 0 0 3px;
+}
+.main-card::after {
+    bottom: -3px; right: -3px;
+    border-width: 0 3px 3px 0;
+}
+
+@keyframes card-flicker {
+    0%, 94%, 96%, 98%, 100% { opacity: 1; }
+    95%                      { opacity: 0.92; }
+    97%                      { opacity: 0.97; }
+    99%                      { opacity: 0.94; }
+}
+
+/* ── Hero / title area ──────────────────────────────────────── */
+.hero-section {
+    text-align: center;
+    margin-bottom: 1.75rem;
+    position: relative;
+}
+
+.pixel-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(2rem, 8vw, 3.5rem);
+    color: #00ffff;
+    letter-spacing: 0.18em;
+    line-height: 1.2;
+    text-shadow:
+        0 0  8px #00ffff,
+        0 0 24px rgba(0, 255, 255, 0.6),
+        0 0 56px rgba(0, 255, 255, 0.25),
+        4px 4px 0 #ff00ff,
+        5px 5px 0 rgba(255, 0, 255, 0.4);
+    animation: title-glitch 7s step-end infinite;
+    position: relative;
+    display: inline-block;
+}
+
+@keyframes title-glitch {
+    0%, 85%, 90%, 100% {
+        text-shadow:
+            0 0  8px #00ffff,
+            0 0 24px rgba(0,255,255,0.6),
+            0 0 56px rgba(0,255,255,0.25),
+            4px 4px 0 #ff00ff,
+            5px 5px 0 rgba(255,0,255,0.4);
+        transform: translate(0, 0);
+    }
+    86% { transform: translate(-3px, 0); text-shadow: -3px 0 #ff00ff, 3px 0 #00ffff; }
+    87% { transform: translate(3px, 1px); text-shadow: 3px 0 #ff00ff, -3px 0 #00ffff; }
+    88% { transform: translate(0, 0); }
+    89% { transform: translate(-1px, -1px); clip-path: inset(30% 0 40% 0); }
+}
+
+/* subtitle line under the title */
+.hero-section::after {
+    content: '';
+    display: block;
+    margin: 1rem auto 0;
+    width: 80%;
+    height: 2px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        #ff00ff     20%,
+        #00ffff     50%,
+        #ff00ff     80%,
+        transparent 100%
+    );
+    box-shadow: 0 0 8px rgba(0,255,255,0.5);
+}
+
+/* ── Description box ────────────────────────────────────────── */
+.description-box {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    border: 1px solid rgba(0, 255, 255, 0.18);
+    background: rgba(0, 255, 255, 0.03);
+    position: relative;
+}
+
+.description-box p {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.62rem;
+    line-height: 2.2;
+    color: #00ffff !important;
+    text-shadow: 0 0 6px rgba(0,255,255,0.5);
+    letter-spacing: 0.05em;
+}
+
+.description-box .nes-text.is-error {
+    color: #ff00ff !important;
+    text-shadow:
+        0 0 6px #ff00ff,
+        0 0 18px rgba(255,0,255,0.4);
+    animation: error-pulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes error-pulse {
+    from { text-shadow: 0 0 6px #ff00ff, 0 0 18px rgba(255,0,255,0.4); }
+    to   { text-shadow: 0 0 10px #ff00ff, 0 0 32px rgba(255,0,255,0.6), 0 0 60px rgba(255,0,255,0.2); }
+}
+
+/* ── Action area ────────────────────────────────────────────── */
+.action-area {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.start-btn {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.15em !important;
+    background: #000000 !important;
+    color: #ffff00 !important;
+    border: 3px solid #ffff00 !important;
+    box-shadow:
+        0 0 10px rgba(255,255,0,0.4),
+        0 0 24px rgba(255,255,0,0.15),
+        inset 0 0 8px rgba(255,255,0,0.05) !important;
+    padding: 0.75rem 2rem !important;
+    cursor: pointer;
+    transition: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.start-btn:hover {
+    background: #ffff00 !important;
+    color: #000000 !important;
+    box-shadow:
+        0 0 18px rgba(255,255,0,0.7),
+        0 0 48px rgba(255,255,0,0.3) !important;
+    transform: translate(-2px, -2px);
+}
+
+.start-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: none !important;
+}
+
+/* scanline sweep on the button */
+.start-btn::after {
+    content: '';
+    position: absolute;
+    top: -100%; left: 0; right: 0;
+    height: 40%;
+    background: rgba(255,255,255,0.06);
+    animation: btn-sweep 2.5s linear infinite;
+}
+
+@keyframes btn-sweep {
+    from { top: -40%; }
+    to   { top: 120%; }
+}
+
+/* ── "Press start" blink text ───────────────────────────────── */
+.blink_text {
+    font-family: 'Press Start 2P', monospace;
+    color: #888888;
+    letter-spacing: 0.08em;
+    animation: nes-blink 1s step-end infinite;
+    font-size: 0.45rem !important;
+    margin-top: 1rem !important;
+}
+
+@keyframes nes-blink {
+    0%, 49% { opacity: 1; color: #888888; }
+    50%, 100% { opacity: 0; }
+}
+
+/* ── Divider ────────────────────────────────────────────────── */
+.pixel-hr {
+    border: none;
+    border-top: 2px solid transparent;
+    background: linear-gradient(90deg,
+        transparent  0%,
+        #00ffff     25%,
+        #ff00ff     50%,
+        #00ffff     75%,
+        transparent 100%
+    );
+    height: 2px;
+    margin: 0.5rem 0 0;
+    box-shadow: 0 0 8px rgba(0,255,255,0.3);
+}

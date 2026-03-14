@@ -8,40 +8,101 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <title>{{ title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-
 </head>
 <body>
 
+    <!-- Perspective grid floor -->
+    <div class="grid-floor" aria-hidden="true"></div>
+
+    <!-- Stars -->
+    <div class="starfield" id="starfield" aria-hidden="true"></div>
+
+    <!-- City silhouette -->
+    <div class="cityline" id="cityline" aria-hidden="true"></div>
+
+    <!-- Falling data particles -->
+    <div class="particles" id="particles" aria-hidden="true"></div>
+
     <!-- Pixel clouds -->
-    <div class="clouds" aria-hidden="true">
-        <div class="cloud cloud-1"></div>
-        <div class="cloud cloud-2"></div>
-        <div class="cloud cloud-3"></div>
-    </div>
+    <div class="clouds" id="clouds" aria-hidden="true"></div>
 
     <!-- Navbar -->
     <nav class="navbar">
         <a href="/" class="nav-logo" aria-label="Glyph home">
             <h1>GLYPH</h1>
         </a>
-
         <div class="nav-links">
             <a href="/getModels">VIEW MODELS</a>
             <a href="/getPredictions">PREDICTIONS</a>
             <a href="/uploadBinary">UPLOAD</a>
         </div>
-
-
     </nav>
 
-
-
     <!-- Page content -->
-    {% block content %}{% endblock %}
+    <div class="page-content">
+        {% block content %}{% endblock %}
+    </div>
 
-    <!-- Pixel ground -->
+    <!-- Ground -->
     <div class="ground" aria-hidden="true"></div>
 
     <script src="https://code.jquery.com/jquery-4.0.0.min.js"></script>
+    <script>
+        /* ── Stars ─────────────────────────────────────────── */
+        const sf = document.getElementById('starfield');
+        for (let i = 0; i < 120; i++) {
+            const s = document.createElement('div');
+            s.className = 'px-star';
+            const sz = Math.random() < 0.2 ? 2 : 1;
+            const colors = ['#e0e0ff','#00ffff','#ff00ff','#ffffff'];
+            const col = colors[Math.floor(Math.random() * colors.length)];
+            const blink = Math.random() < 0.4;
+            s.style.cssText = `width:${sz}px;height:${sz}px;top:${Math.random()*75}%;left:${Math.random()*100}%;background:${col};${blink ? `animation:px-blink ${0.8+Math.random()*2.4}s ${Math.random()*3}s step-end infinite;` : ''}`;
+            sf.appendChild(s);
+        }
+
+        /* ── Building window lights ─────────────────────────── */
+        const city = document.getElementById('cityline');
+        const winColors = ['#ffff00','#00ffff','#ff00ff','#ff4400','#ffffff'];
+        for (let i = 0; i < 80; i++) {
+            const w = document.createElement('div');
+            w.className = 'win';
+            const col = winColors[Math.floor(Math.random() * winColors.length)];
+            const blink = Math.random() < 0.35;
+            w.style.cssText = `left:${Math.random()*100}%;top:${20+Math.random()*70}%;background:${col};box-shadow:0 0 4px ${col};${blink ? `animation:px-blink ${0.5+Math.random()*3}s ${Math.random()*4}s step-end infinite;` : ''}`;
+            city.appendChild(w);
+        }
+
+        /* ── Falling data bits ──────────────────────────────── */
+        const ptcl = document.getElementById('particles');
+        const chars = '01アイウエオカキクケコサシスセソ#@%&';
+        const bitColors = ['#00ffff','#ff00ff','#00ff41','#ffff00'];
+        for (let i = 0; i < 30; i++) {
+            const b = document.createElement('div');
+            b.className = 'data-bit';
+            const col = bitColors[Math.floor(Math.random() * bitColors.length)];
+            b.textContent = chars[Math.floor(Math.random() * chars.length)];
+            b.style.cssText = `left:${Math.random()*100}%;color:${col};text-shadow:0 0 6px ${col};opacity:0;animation:bit-fall ${4+Math.random()*8}s ${Math.random()*10}s linear infinite;`;
+            ptcl.appendChild(b);
+        }
+
+        /* ── Pixel clouds (tinted cyan/magenta) ─────────────── */
+        function makeCloud(container, x, y, scale, delay, duration, color) {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = `position:absolute;top:${y}px;left:${x};transform:scale(${scale});transform-origin:top left;animation:cloud-drift ${duration}s ${delay}s linear infinite;`;
+            const blocks = [[2,0,4,1],[1,1,6,2],[0,2,8,2],[2,3,5,1]];
+            const unit = 10;
+            blocks.forEach(([l,t,w,h]) => {
+                const b = document.createElement('div');
+                b.style.cssText = `position:absolute;left:${l*unit}px;top:${t*unit}px;width:${w*unit}px;height:${h*unit}px;background:${color};image-rendering:pixelated;`;
+                wrap.appendChild(b);
+            });
+            container.appendChild(wrap);
+        }
+        const cl = document.getElementById('clouds');
+        makeCloud(cl, '5vw',   30, 1.3,   0, 80, 'rgba(0,255,255,0.08)');
+        makeCloud(cl, '38vw',  60, 0.9, -30, 110,'rgba(255,0,255,0.07)');
+        makeCloud(cl, '70vw',  20, 1.1, -55, 95, 'rgba(0,255,255,0.07)');
+    </script>
 </body>
 </html>
