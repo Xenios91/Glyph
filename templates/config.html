@@ -1,0 +1,134 @@
+{% extends "layout.html" %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/upload_style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/config_style.css') }}">
+
+<div class="page-content blue-bg">
+    <div id="config-box" class="nes-container with-title is-centered">
+        <p class="title">// SYSTEM CONFIGURATION</p>
+
+        <!-- ── Upload Settings ─────────────────────────────── -->
+        <div class="nes-container with-title is-centered config-section">
+            <p class="title">UPLOAD SETTINGS</p>
+            <div class="config-section-inner">
+
+                <div class="slider-row">
+                    <label for="max-file-size">Max File Upload Size</label>
+                    <div class="slider-track">
+                        <input id="max-file-size" type="range" class="nes-range is-success" min="1" max="2048"
+                            value="512" step="1" oninput="updateSlider('max-file-size', 'max-file-size-val', ' MB')">
+                        <span class="slider-value" id="max-file-size-val">512 MB</span>
+                    </div>
+                </div>
+
+                <div class="config-row">
+                    <label for="max-file-size-input">Set Exact Value</label>
+                    <input type="number" id="max-file-size-input" class="nes-input" min="1" max="2048" value="512"
+                        oninput="syncFromInput('max-file-size', 'max-file-size-val', this.value, ' MB')">
+                    <span class="unit-label">MB</span>
+                </div>
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- ── CPU Settings ────────────────────────────────── -->
+        <div class="nes-container with-title is-centered config-section">
+            <p class="title">CPU SETTINGS</p>
+            <div class="config-section-inner">
+
+                <div class="slider-row">
+                    <label for="cpu-cores">Total CPU Cores (Analysis Workers)</label>
+                    <div class="slider-track">
+                        <input id="cpu-cores" type="range" class="nes-range is-warning" min="1"
+                            max="{{ max_cpu_cores | default(32) }}" value="{{ current_cpu_cores | default(2) }}"
+                            step="1" oninput="updateSlider('cpu-cores', 'cpu-cores-val', ' cores')">
+                        <span class="slider-value is-warning" id="cpu-cores-val">{{ current_cpu_cores | default(2) }}
+                            cores</span>
+                    </div>
+                </div>
+
+                <div class="config-row">
+                    <label for="cpu-cores-input">Set Exact Value</label>
+                    <input type="number" id="cpu-cores-input" class="nes-input" min="1"
+                        max="{{ max_cpu_cores | default(32) }}" value="{{ current_cpu_cores | default(2) }}"
+                        oninput="syncFromInput('cpu-cores', 'cpu-cores-val', this.value, ' cores')">
+                    <span class="unit-label">cores</span>
+                </div>
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- ── Controls ────────────────────────────────────── -->
+        <div style="text-align: center; margin-top: 1.2rem;">
+            <button type="button" class="nes-btn is-primary" onclick="saveConfig()">
+                [ SAVE CONFIGURATION ]
+            </button>
+            &nbsp;&nbsp;
+            <button type="button" class="nes-btn" onclick="resetDefaults()">
+                RESET DEFAULTS
+            </button>
+        </div>
+
+        <div id="save-status" class="nes-container is-rounded" style="display: none;">
+            <p id="save-status-msg"></p>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    function updateSlider(sliderId, labelId, unit) {
+        const slider = document.getElementById(sliderId);
+        document.getElementById(labelId).textContent = slider.value + unit;
+        const map = { 'max-file-size': 'max-file-size-input', 'cpu-cores': 'cpu-cores-input' };
+        if (map[sliderId]) document.getElementById(map[sliderId]).value = slider.value;
+    }
+
+    function syncFromInput(sliderId, labelId, value, unit) {
+        const slider = document.getElementById(sliderId);
+        const clamped = Math.min(Math.max(parseInt(value) || slider.min, slider.min), slider.max);
+        slider.value = clamped;
+        document.getElementById(labelId).textContent = clamped + unit;
+    }
+
+    function saveConfig() {
+        const config = {
+            max_file_size_mb: parseInt(document.getElementById('max-file-size').value),
+            cpu_cores: parseInt(document.getElementById('cpu-cores').value),
+        };
+        fetch('/api/config/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        })
+            .then(res => showStatus(res.ok,
+                '[ ✔ ] CONFIGURATION SAVED SUCCESSFULLY.',
+                '[ ✘ ] ERROR: FAILED TO SAVE CONFIGURATION.'))
+            .catch(() => showStatus(false, '', '[ ✘ ] ERROR: NETWORK FAILURE.'));
+    }
+
+    function resetDefaults() {
+        document.getElementById('max-file-size').value = 512;
+        updateSlider('max-file-size', 'max-file-size-val', ' MB');
+        document.getElementById('max-file-size-input').value = 512;
+
+        document.getElementById('cpu-cores').value = 2;
+        updateSlider('cpu-cores', 'cpu-cores-val', ' cores');
+        document.getElementById('cpu-cores-input').value = 2;
+
+        showStatus(null, '[ ↺ ] DEFAULTS RESTORED. PRESS SAVE TO APPLY.', '');
+    }
+
+    function showStatus(success, okMsg, errMsg) {
+        const box = document.getElementById('save-status');
+        const msg = document.getElementById('save-status-msg');
+        box.style.display = 'block';
+        box.classList.remove('is-success', 'is-error');
+        if (success === true) { box.classList.add('is-success'); msg.textContent = okMsg; }
+        else if (success === false) { box.classList.add('is-error'); msg.textContent = errMsg; }
+        else { msg.textContent = okMsg; }
+    }
+</script>
+{% endblock %}

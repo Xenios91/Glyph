@@ -50,6 +50,37 @@ def home():
 
     return render_template("main.html")
 
+@app.route("/config")
+def config():
+    """
+    Loads the configuration page of Glyph
+    """
+    headers = request.headers
+    accept = headers.get("Accept")
+    if ACCEPT_TYPE not in accept:
+        return jsonify(version=_version.__version__)
+
+    return render_template("config.html")
+
+@app.route("/api/config/save", methods=["POST"])
+def save_config():
+    """
+    Saves the configuration settings
+    """
+    config_values: dict = request.get_json()
+    max_file_size_mb = config_values.get("max_file_size_mb")
+    if max_file_size_mb is not None and isinstance(max_file_size_mb, int):
+        GlyphConfig().set_max_file_size(max_file_size_mb)
+
+    cpu_cores = config_values.get("cpu_cores")
+
+    if request_type == "training":
+        response = train_model(config_values)
+    elif request_type == "prediction":
+        response = predict_tokens(config_values)
+    else:
+        response = jsonify(error="Invalid request type"), 400
+    return response
 
 @app.route("/task", methods=["POST"])
 def handle_task():
