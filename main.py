@@ -7,7 +7,7 @@ from flask import Flask, Response, jsonify, render_template, request, make_respo
 from markupsafe import escape
 from werkzeug.utils import secure_filename
 
-import _version
+import app._version as _version
 from config import GlyphConfig, MAX_CPU_CORES
 from persistance_util import (
     FunctionPersistanceUtil,
