@@ -17,9 +17,17 @@ class GlyphConfig():
                             encoding="utf-8", level=logging.INFO)
 
     @classmethod
-    def load_config(cls):
-        with open("config.yml", 'r', encoding='utf-8') as config:
-            cls._config = yaml.safe_load(config)
+    def load_config(cls) -> bool:
+        try:
+            with open("config.yml", "r", encoding="utf-8") as f:
+                cls._config = yaml.safe_load(f) or {}
+            return True
+        except FileNotFoundError:
+            logging.error("config.yml not found.")
+            return False
+        except yaml.YAMLError as e:
+            logging.error("Failed to parse config.yml: %s", e)
+            return False
 
     @classmethod
     def get_config_value(cls, value: str) -> Optional[Any]:
@@ -42,17 +50,19 @@ class GlyphConfig():
         """
         if not isinstance(size, int):
             logging.error("Maximum file size must be an integer.")
-            return
+            return False
 
         if size < 1:
             logging.error("Attempted to set a file size of 0 MB or smaller.")
-            return
+            return False
 
         if size > 2048:
             logging.error("Attempted to set a maximum file size greater than 2048 MB.")
-            return
+            return False
 
         cls._config['max_file_size_mb'] = size
+
+        return True
 
     @classmethod
     def set_cpu_cores(cls, cores: int) -> bool:
@@ -73,12 +83,12 @@ class GlyphConfig():
             logging.error("Number of CPU cores must be an integer.")
             return False
 
-        if cores < 0:
-            logging.error("Attempted to set a negative number of CPU cores.")
+        if cores <= 0:
+            logging.error("Attempted to set a non-positive or 0 number of CPU cores.")
             return False
 
-        if cores > 16:  # This value can be adjusted based on system capabilities
-            logging.error("Attempted to set more than 16 CPU cores.")
+        if cores > 32:
+            logging.error("Attempted to set more than 32 CPU cores.")
             return False
 
         cls._config['cpu_cores'] = cores
