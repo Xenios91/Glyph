@@ -16,14 +16,15 @@
                     <label for="max-file-size">Max File Upload Size</label>
                     <div class="slider-track">
                         <input id="max-file-size" type="range" class="nes-range is-success" min="1" max="2048"
-                            value="512" step="1" oninput="updateSlider('max-file-size', 'max-file-size-val', ' MB')">
-                        <span class="slider-value" id="max-file-size-val">512 MB</span>
+                            value="{{ current_max_file_size | default(512) }}" step="1"
+                            oninput="updateSlider('max-file-size', 'max-file-size-val', ' MB')">
+                        <span class="slider-value" id="max-file-size-val">{{ current_max_file_size | default(512) }}
+                            MB</span>
                     </div>
                 </div>
-
                 <div class="config-row">
                     <label for="max-file-size-input">Set Exact Value</label>
-                    <input type="number" id="max-file-size-input" class="nes-input" min="1" max="2048" value="512"
+                    <input type="number" id="max-file-size-input" class="nes-input" min="1" max="2048" value="{{ current_max_file_size | default(512) }}"
                         oninput="syncFromInput('max-file-size', 'max-file-size-val', this.value, ' MB')">
                     <span class="unit-label">MB</span>
                 </div>

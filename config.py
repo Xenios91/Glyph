@@ -2,8 +2,9 @@ import logging
 from typing import Any, Optional
 import yaml
 
+MAX_CPU_CORES = 32
 
-class GlyphConfig():
+class GlyphConfig:
     _config: dict
     __instance = None
 
@@ -13,14 +14,15 @@ class GlyphConfig():
         return cls.__instance
 
     def __init__(self) -> None:
-        logging.basicConfig(filename="glyph_log.log",
-                            encoding="utf-8", level=logging.INFO)
+        logging.basicConfig(
+            filename="glyph_log.log", encoding="utf-8", level=logging.INFO
+        )
 
-    @classmethod
-    def load_config(cls) -> bool:
+    @staticmethod
+    def load_config() -> bool:
         try:
             with open("config.yml", "r", encoding="utf-8") as f:
-                cls._config = yaml.safe_load(f) or {}
+                GlyphConfig._config = yaml.safe_load(f) or {}
             return True
         except FileNotFoundError:
             logging.error("config.yml not found.")
@@ -29,12 +31,12 @@ class GlyphConfig():
             logging.error("Failed to parse config.yml: %s", e)
             return False
 
-    @classmethod
-    def get_config_value(cls, value: str) -> Optional[Any]:
-        return cls._config.get(value)
+    @staticmethod
+    def get_config_value(value: str) -> Optional[Any]:
+        return GlyphConfig._config.get(value)
 
-    @classmethod
-    def set_max_file_size(cls, size: int) -> bool:
+    @staticmethod
+    def set_max_file_size(size: int) -> bool:
         """
         Set the maximum file size limit for a file upload.
 
@@ -60,12 +62,12 @@ class GlyphConfig():
             logging.error("Attempted to set a maximum file size greater than 2048 MB.")
             return False
 
-        cls._config['max_file_size_mb'] = size
+        GlyphConfig._config["max_file_size_mb"] = size
 
         return True
 
-    @classmethod
-    def set_cpu_cores(cls, cores: int) -> bool:
+    @staticmethod
+    def set_cpu_cores(cores: int) -> bool:
         """
         Set the number of CPU cores available for analysis.
 
@@ -91,5 +93,5 @@ class GlyphConfig():
             logging.error("Attempted to set more than 32 CPU cores.")
             return False
 
-        cls._config['cpu_cores'] = cores
+        GlyphConfig._config["cpu_cores"] = cores
         return True

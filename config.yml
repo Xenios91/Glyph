@@ -8,3 +8,6 @@ glyph_script_location: /home/dsu/ghidra_10.3.1_PUBLIC/Ghidra/Features/Base/ghidr
 #probability config
 
 prediction_probability_threshold: 50.0 # must be a value between 0-100
+
+max_file_size_mb: 512 # maximum file size in MB for uploaded binaries
+cpu_cores: 2 # number of CPU cores to use for processing (must be between 1 and 32)
