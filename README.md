@@ -4,6 +4,13 @@
 
 ## Upcoming Changes
 
+- Implementing Pyghidra to reducew setup requirements
+- Changing to design to flask blueprints
+- New UI themes
+- More configuration
+- Adding more AI/ML capabilities to include LLM code cleanup and ensemble models for higher accuracy
+- Bug fixes and better dockerization.
+
 ![Black Hat Arsenal 2022](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2022.svg)
 
 ### Black Hat Arsenal 2023 & Defcon Demo Labs
