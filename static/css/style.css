@@ -1,0 +1,385 @@
+        /* ─── CSS Variables ─────────────────────────────── */
+        :root {
+            --sky:      #20A0F8;
+            --peach:    #F8C8A0;
+            --ink:      #282828;
+            --yellow:   #FFE000;
+            --red:      #E82828;
+            --green:    #28C840;
+            --white:    #FFFFFF;
+            --coin:     #FFD700;
+            --pixel:    4px;
+        }
+
+        /* ─── Reset ─────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            min-height: 100%;
+            margin: 0;
+            background-color: var(--sky);
+            font-family: 'Press Start 2P', monospace;
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect x='0' y='0' width='8' height='8' fill='%23282828'/%3E%3Crect x='8' y='0' width='8' height='8' fill='%23FFFFFF'/%3E%3Crect x='0' y='8' width='8' height='8' fill='%23FFFFFF'/%3E%3Crect x='8' y='8' width='8' height='8' fill='%23282828'/%3E%3C/svg%3E") 8 8, crosshair;
+        }
+
+        /* Twinkling pixel stars */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                radial-gradient(1px 1px at 10%  15%, rgba(255,255,255,.9) 0%, transparent 100%),
+                radial-gradient(1px 1px at 25%  40%, rgba(255,255,255,.7) 0%, transparent 100%),
+                radial-gradient(1px 1px at 40%  8%,  rgba(255,255,255,.9) 0%, transparent 100%),
+                radial-gradient(1px 1px at 55%  30%, rgba(255,255,255,.6) 0%, transparent 100%),
+                radial-gradient(1px 1px at 70%  55%, rgba(255,255,255,.8) 0%, transparent 100%),
+                radial-gradient(1px 1px at 85%  20%, rgba(255,255,255,.9) 0%, transparent 100%),
+                radial-gradient(1px 1px at 92%  70%, rgba(255,255,255,.7) 0%, transparent 100%),
+                radial-gradient(1px 1px at 5%   80%, rgba(255,255,255,.8) 0%, transparent 100%),
+                radial-gradient(2px 2px at 60%  75%, rgba(255,255,255,.5) 0%, transparent 100%),
+                radial-gradient(2px 2px at 30%  60%, rgba(255,255,255,.4) 0%, transparent 100%);
+            animation: twinkle 4s ease-in-out infinite alternate;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes twinkle {
+            0%   { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        /* Scanline overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent 0px,
+                transparent 3px,
+                rgba(0,0,0,.06) 3px,
+                rgba(0,0,0,.06) 4px
+            );
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* ─── NAVBAR ─────────────────────────────────────── */
+        .navbar {
+            position: relative;
+            z-index: 100;
+            width: 100%;
+            background-color: var(--ink);
+            border-bottom: var(--pixel) solid var(--yellow);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        /* Coin stripe at top */
+        .navbar::before {
+            content: '★ INSERT COIN ★ INSERT COIN ★ INSERT COIN ★ INSERT COIN ★';
+            display: block;
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 6px;
+            background: var(--yellow);
+            color: var(--ink);
+            font-size: 4px;
+            letter-spacing: 2px;
+            overflow: hidden;
+            white-space: nowrap;
+            line-height: 6px;
+            text-align: center;
+        }
+
+        /* Logo */
+        .nav-logo {
+            padding: 18px 0 14px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-logo h1 {
+            margin: 0;
+            font-size: 1.6rem;
+            color: var(--yellow);
+            text-shadow:
+                3px 3px 0 var(--red),
+                6px 6px 0 rgba(0,0,0,.4);
+            animation: logo-pulse 2s ease-in-out infinite alternate;
+            letter-spacing: 2px;
+        }
+
+        @keyframes logo-pulse {
+            0%   { text-shadow: 3px 3px 0 var(--red),  6px 6px 0 rgba(0,0,0,.4); }
+            100% { text-shadow: 3px 3px 0 var(--coin), 8px 8px 0 rgba(0,0,0,.5); filter: brightness(1.15); }
+        }
+
+        .pixel-star {
+            display: inline-block;
+            width: 24px; height: 24px;
+            background: var(--yellow);
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+            animation: spin-star 6s linear infinite;
+            flex-shrink: 0;
+        }
+
+        @keyframes spin-star {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+
+        /* Nav links */
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            padding: 12px 0;
+        }
+
+        .nav-links a {
+            position: relative;
+            color: var(--white);
+            text-decoration: none;
+            font-size: .5rem;
+            padding: 8px 10px;
+            letter-spacing: 1px;
+            transition: color .1s, background .1s;
+            white-space: nowrap;
+            border: 2px solid transparent;
+        }
+
+        .nav-links a:hover {
+            color: var(--yellow);
+            background: rgba(255,224,0,.1);
+            border-color: var(--yellow);
+        }
+
+        .nav-links a:hover::after {
+            content: '◀';
+            position: absolute;
+            right: -16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--yellow);
+            font-size: .5rem;
+            animation: blink-arrow .6s step-end infinite;
+        }
+
+        @keyframes blink-arrow {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0; }
+        }
+
+        /* Lives counter */
+        .nav-lives {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 0;
+            font-size: .45rem;
+            color: var(--red);
+            white-space: nowrap;
+        }
+
+        .nav-lives span { color: var(--white); margin-right: 4px; }
+
+        /* ─── HUD Score Strip ────────────────────────────── */
+        .hud-strip {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            background: var(--ink);
+            border-bottom: var(--pixel) solid var(--green);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 24px;
+            font-size: .42rem;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .hud-score   { color: var(--green); }
+        .hud-hi      { color: var(--yellow); }
+        .hud-level   { color: var(--peach); }
+
+        .hud-ticker {
+            color: rgba(255,255,255,.35);
+            overflow: hidden;
+            white-space: nowrap;
+            max-width: 200px;
+        }
+
+        .hud-ticker span {
+            display: inline-block;
+            animation: ticker-scroll 14s linear infinite;
+        }
+
+        @keyframes ticker-scroll {
+            0%   { transform: translateX(120%); }
+            100% { transform: translateX(-200%); }
+        }
+
+        /* ─── Content Wrappers ───────────────────────────── */
+        .content {
+            position: relative;
+            z-index: 10;
+            width: min(600px, 90%);
+            margin: 40px auto 60px;
+            padding: 32px;
+            background: var(--white);
+            box-shadow:
+                inset -4px -4px 0 #a8a8a8,
+                inset  4px  4px 0 #f0f0f0,
+                0 0 0 4px var(--ink);
+        }
+
+        .full-content {
+            position: relative;
+            z-index: 10;
+            width: min(1100px, 92%);
+            margin: 40px auto 60px;
+            padding: 32px;
+            background: var(--white);
+            box-shadow:
+                inset -4px -4px 0 #a8a8a8,
+                inset  4px  4px 0 #f0f0f0,
+                0 0 0 4px var(--ink);
+        }
+
+        /* Section banner inside content boxes */
+        .section-banner {
+            background: var(--ink);
+            color: var(--yellow);
+            font-size: .6rem;
+            padding: 8px 14px;
+            margin: -32px -32px 24px;
+            letter-spacing: 2px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-banner::after {
+            content: '▶ READY';
+            color: var(--green);
+            animation: blinker 1.2s step-end infinite;
+        }
+
+        /* ─── Utility Classes ────────────────────────────── */
+        .center-contents {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .center-text { text-align: center; }
+
+        .mr-25   { margin-right: 25%; }
+        .m-table { margin-left: 18%; }
+        .mt-2    { margin-top: 2%; }
+
+        .blue-bg  { background-color: var(--sky); }
+        .white-bg { background-color: var(--white); }
+
+        /* Table */
+        .nes-table-responsive { width: 80%; }
+        .th { color: var(--ink); }
+
+        /* Misc */
+        .file-name    { margin: auto; }
+        .overflow     { overflow: visible; margin-bottom: 25px; }
+        .token-scroll { overflow-y: scroll; height: 55vh; }
+
+        /* ─── Blink animation ────────────────────────────── */
+        .blink_text {
+            animation: blinker 3s linear infinite;
+        }
+
+        @keyframes blinker {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0; }
+        }
+
+        /* ─── Pixel clouds ───────────────────────────────── */
+        .clouds {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .cloud {
+            position: absolute;
+            background: var(--white);
+            image-rendering: pixelated;
+        }
+
+        .cloud-1 {
+            width: 80px; height: 24px;
+            top: 18%;
+            animation: float-cloud 28s linear infinite;
+            box-shadow: 8px -8px 0 var(--white), 16px -8px 0 var(--white), 24px -8px 0 var(--white), -8px 0 0 var(--white), 32px 0 0 var(--white);
+        }
+
+        .cloud-2 {
+            width: 64px; height: 16px;
+            top: 38%;
+            animation: float-cloud 38s linear infinite;
+            animation-delay: -15s;
+            box-shadow: 8px -8px 0 var(--white), 16px -8px 0 var(--white), -8px 0 0 var(--white), 24px 0 0 var(--white);
+            opacity: .6;
+        }
+
+        .cloud-3 {
+            width: 96px; height: 24px;
+            top: 60%;
+            animation: float-cloud 50s linear infinite;
+            animation-delay: -5s;
+            box-shadow: 8px -8px 0 var(--white), 24px -8px 0 var(--white), -8px 0 0 var(--white), 40px 0 0 var(--white);
+            opacity: .4;
+        }
+
+        @keyframes float-cloud {
+            from { left: -200px; }
+            to   { left: 110%; }
+        }
+
+        /* ─── Ground ─────────────────────────────────────── */
+        .ground {
+            position: fixed;
+            bottom: 0; left: 0;
+            width: 100%;
+            height: 20px;
+            background: repeating-linear-gradient(
+                90deg,
+                var(--green)  0px, var(--green)  16px,
+                #1fa030       16px, #1fa030       32px
+            );
+            border-top: 4px solid var(--ink);
+            z-index: 5;
+        }
+
+        .ground::before {
+            content: '';
+            position: absolute;
+            top: -8px; left: 0;
+            width: 100%; height: 8px;
+            background: repeating-linear-gradient(
+                90deg,
+                var(--ink) 0px, var(--ink) 8px,
+                transparent 8px, transparent 16px
+            );
+        }
