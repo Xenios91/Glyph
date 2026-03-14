@@ -1,9 +1,7 @@
 /* =============================================================
-   GLYPH — PREDICTIONS PAGE (predictions_style.css)
-   NES Cyberpunk theme for the prediction results template
+   GLYPH — PREDICTIONS PAGE (predictions_style.css) eye-friendly
    ============================================================= */
 
-/* ── Page wrapper ───────────────────────────────────────────── */
 .content {
     display: flex;
     flex-direction: column;
@@ -16,29 +14,23 @@
     gap: 0.75rem;
 }
 
-/* ── Meta labels (task name / model name) ────────────────────── */
-.center-contents {
-    text-align: center;
-}
+/* ── Meta chips ─────────────────────────────────────────────── */
+.center-contents { text-align: center; }
 
 .center-contents span {
     font-family: 'Press Start 2P', monospace;
     font-size: 0.52rem;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     display: inline-block;
     padding: 0.4rem 1rem;
-    border: 1px solid rgba(255, 0, 255, 0.25);
-    color: #ff00ff;
-    text-shadow: 0 0 8px rgba(255, 0, 255, 0.5);
-    background: rgba(255, 0, 255, 0.04);
-    position: relative;
+    border: 1px solid rgba(200,122,184,0.20);
+    color: #c87ab8;
+    background: rgba(200,122,184,0.03);
 }
 
-/* label prefix glow — "Task Name:" / "Model Name:" */
 .center-contents span::before {
     content: '> ';
-    color: #00ffff;
-    text-shadow: 0 0 6px rgba(0, 255, 255, 0.7);
+    color: #7dd8d8;
 }
 
 /* ── Table wrapper ───────────────────────────────────────────── */
@@ -54,36 +46,31 @@
     min-height: unset !important;
 }
 
-.overflow {
-    overflow-x: auto;
-}
+.overflow { overflow-x: auto; }
 
-/* strip blockquote styling, use it as the card */
 blockquote {
-    border: 3px solid #00ffff;
-    background: #000000;
+    border: 2px solid #2a5a5a;
+    background: #11111f;
     box-shadow:
-        0 0 16px rgba(0, 255, 255, 0.28),
-        0 0 48px rgba(0, 255, 255, 0.10),
-        inset 0 0 24px rgba(0, 255, 255, 0.03);
+        0 0 18px rgba(125,216,216,0.10),
+        inset 0 0 20px rgba(125,216,216,0.02);
     padding: 0;
     margin: 0 0 1.25rem;
     position: relative;
 }
 
-/* magenta corner accents on the table card */
 blockquote::before,
 blockquote::after {
     content: '';
     position: absolute;
-    width: 14px;
-    height: 14px;
-    border-color: #ff00ff;
+    width: 12px;
+    height: 12px;
+    border-color: #4a2244;
     border-style: solid;
     z-index: 2;
 }
-blockquote::before { top: -3px;    left: -3px;  border-width: 3px 0 0 3px; }
-blockquote::after  { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; }
+blockquote::before { top: -2px;    left: -2px;  border-width: 2px 0 0 2px; }
+blockquote::after  { bottom: -2px; right: -2px; border-width: 0 2px 2px 0; }
 
 /* ── Table ───────────────────────────────────────────────────── */
 .nes-table {
@@ -95,39 +82,33 @@ blockquote::after  { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; }
     background: transparent;
 }
 
-/* ── Header row ──────────────────────────────────────────────── */
-.nes-table thead tr {
-    border-bottom: 2px solid #00ffff;
-}
+.nes-table thead tr { border-bottom: 1px solid #2a5a5a; }
 
 .nes-table thead td,
 .nes-table thead th {
     font-family: 'Press Start 2P', monospace;
     font-size: 0.55rem;
-    letter-spacing: 0.1em;
-    color: #ffff00;
-    text-shadow: 0 0 8px rgba(255, 255, 0, 0.6);
+    letter-spacing: 0.08em;
+    color: #d4c87a;
     padding: 0.85rem 1.25rem;
     text-align: left;
     border: none;
-    border-right: 1px solid rgba(0, 255, 255, 0.15);
+    border-right: 1px solid rgba(125,216,216,0.10);
     background: transparent;
 }
 
 .nes-table thead td:last-child,
 .nes-table thead th:last-child { border-right: none; }
 
-/* ── Body rows ───────────────────────────────────────────────── */
 .nes-table tbody tr {
-    border-bottom: 1px solid rgba(0, 255, 255, 0.12);
+    border-bottom: 1px solid rgba(125,216,216,0.08);
     cursor: pointer;
-    background: #000000;
-    transition: none;
+    background: #11111f;
 }
 
 .nes-table tbody tr:hover {
-    background: rgba(0, 255, 255, 0.07) !important;
-    outline: 1px solid rgba(0, 255, 255, 0.25);
+    background: rgba(125,216,216,0.05) !important;
+    outline: 1px solid rgba(125,216,216,0.18);
 }
 
 .nes-table tbody tr:last-child { border-bottom: none; }
@@ -135,36 +116,31 @@ blockquote::after  { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; }
 .nes-table tbody td {
     font-family: 'Press Start 2P', monospace;
     font-size: 0.5rem;
-    color: #e0e0ff;
-    text-shadow: 0 0 4px rgba(200, 200, 255, 0.3);
+    color: #cdd0e8;
     padding: 0.7rem 1.25rem;
     border: none;
-    border-right: 1px solid rgba(0, 255, 255, 0.10);
+    border-right: 1px solid rgba(125,216,216,0.08);
     background: transparent;
     letter-spacing: 0.04em;
 }
 
 .nes-table tbody td:last-child { border-right: none; }
 
-/* entry point address column — cyan mono */
+/* address column */
 .nes-table tbody td:nth-child(2) {
-    font-family: 'Press Start 2P', monospace;
-    color: #00ffff;
-    text-shadow: 0 0 6px rgba(0, 255, 255, 0.45);
+    color: #7dd8d8;
     letter-spacing: 0.08em;
 }
 
-/* ── Action buttons ──────────────────────────────────────────── */
+/* ── Buttons ─────────────────────────────────────────────────── */
 .nes-btn.is-primary {
     font-family: 'Press Start 2P', monospace !important;
     font-size: 0.52rem !important;
-    letter-spacing: 0.1em !important;
-    background: #000000 !important;
-    color: #00ffff !important;
-    border: 3px solid #00ffff !important;
-    box-shadow:
-        0 0 10px rgba(0, 255, 255, 0.35),
-        0 0 24px rgba(0, 255, 255, 0.12) !important;
+    letter-spacing: 0.08em !important;
+    background: #0d0d1a !important;
+    color: #7dd8d8 !important;
+    border: 2px solid #2a5a5a !important;
+    box-shadow: 0 0 10px rgba(125,216,216,0.12) !important;
     padding: 0.6rem 1.25rem !important;
     cursor: pointer;
     position: relative;
@@ -173,9 +149,9 @@ blockquote::after  { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; }
 }
 
 .nes-btn.is-primary:hover {
-    background: #00ffff !important;
-    color: #000000 !important;
-    box-shadow: 0 0 18px rgba(0, 255, 255, 0.7), 0 0 48px rgba(0, 255, 255, 0.3) !important;
+    background: #2a5a5a !important;
+    color: #d4f0f0 !important;
+    box-shadow: 0 0 16px rgba(125,216,216,0.25) !important;
     transform: translate(-2px, -2px);
 }
 
@@ -184,14 +160,13 @@ blockquote::after  { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; }
     box-shadow: none !important;
 }
 
-/* scanline sweep */
 .nes-btn.is-primary::after {
     content: '';
     position: absolute;
     top: -40%; left: 0; right: 0;
     height: 40%;
-    background: rgba(255, 255, 255, 0.07);
-    animation: btn-sweep 2.5s linear infinite;
+    background: rgba(255,255,255,0.04);
+    animation: btn-sweep 3s linear infinite;
     pointer-events: none;
 }
 
@@ -200,18 +175,16 @@ blockquote::after  { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; }
     to   { top: 120%; }
 }
 
-/* Delete button — red variant */
+/* Delete — red variant */
 .nes-btn.is-primary.mr-25 {
-    color: #ff0044 !important;
-    border-color: #ff0044 !important;
-    box-shadow:
-        0 0 10px rgba(255, 0, 68, 0.35),
-        0 0 24px rgba(255, 0, 68, 0.12) !important;
+    color: #c9546a !important;
+    border-color: #5c2030 !important;
+    box-shadow: 0 0 10px rgba(201,84,106,0.12) !important;
     margin-right: 1rem;
 }
 
 .nes-btn.is-primary.mr-25:hover {
-    background: #ff0044 !important;
-    color: #000000 !important;
-    box-shadow: 0 0 18px rgba(255, 0, 68, 0.7), 0 0 48px rgba(255, 0, 68, 0.3) !important;
+    background: #5c2030 !important;
+    color: #f0c0c8 !important;
+    box-shadow: 0 0 16px rgba(201,84,106,0.25) !important;
 }

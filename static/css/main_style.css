@@ -1,9 +1,7 @@
 /* =============================================================
-   GLYPH — MAIN PAGE (main_style.css)
-   NES Cyberpunk theme for the index/home template
+   GLYPH — MAIN PAGE (main_style.css)  eye-friendly revision
    ============================================================= */
 
-/* ── Page wrapper ───────────────────────────────────────────── */
 .content {
     display: flex;
     align-items: center;
@@ -16,47 +14,31 @@
 
 /* ── Main card ──────────────────────────────────────────────── */
 .main-card {
-    background: #000000 !important;
-    border: 3px solid #00ffff !important;
+    background: #11111f !important;
+    border: 2px solid #2a5a5a !important;
     box-shadow:
-        0 0  0  1px #000000,
-        0 0 16px 2px rgba(0, 255, 255, 0.35),
-        0 0 48px 8px rgba(0, 255, 255, 0.12),
-        inset 0 0 32px rgba(0, 255, 255, 0.04);
+        0 0 20px rgba(125,216,216,0.12),
+        0 0 60px rgba(125,216,216,0.05),
+        inset 0 0 24px rgba(125,216,216,0.03);
     max-width: 560px;
     width: 100%;
     padding: 2.5rem 2rem 2rem;
     position: relative;
-    animation: card-flicker 10s step-end infinite;
 }
 
-/* corner accents */
 .main-card::before,
 .main-card::after {
     content: '';
     position: absolute;
-    width: 16px;
-    height: 16px;
-    border-color: #ff00ff;
+    width: 14px;
+    height: 14px;
+    border-color: #4a2244;
     border-style: solid;
 }
-.main-card::before {
-    top: -3px; left: -3px;
-    border-width: 3px 0 0 3px;
-}
-.main-card::after {
-    bottom: -3px; right: -3px;
-    border-width: 0 3px 3px 0;
-}
+.main-card::before { top: -2px;    left: -2px;  border-width: 2px 0 0 2px; }
+.main-card::after  { bottom: -2px; right: -2px; border-width: 0 2px 2px 0; }
 
-@keyframes card-flicker {
-    0%, 94%, 96%, 98%, 100% { opacity: 1; }
-    95%                      { opacity: 0.92; }
-    97%                      { opacity: 0.97; }
-    99%                      { opacity: 0.94; }
-}
-
-/* ── Hero / title area ──────────────────────────────────────── */
+/* ── Hero title ─────────────────────────────────────────────── */
 .hero-section {
     text-align: center;
     margin-bottom: 1.75rem;
@@ -66,51 +48,36 @@
 .pixel-title {
     font-family: 'Press Start 2P', monospace;
     font-size: clamp(2rem, 8vw, 3.5rem);
-    color: #00ffff;
+    color: #a8ecec;
     letter-spacing: 0.18em;
     line-height: 1.2;
     text-shadow:
-        0 0  8px #00ffff,
-        0 0 24px rgba(0, 255, 255, 0.6),
-        0 0 56px rgba(0, 255, 255, 0.25),
-        4px 4px 0 #ff00ff,
-        5px 5px 0 rgba(255, 0, 255, 0.4);
-    animation: title-glitch 7s step-end infinite;
-    position: relative;
+        0 0 12px rgba(168,236,236,0.30),
+        3px 3px 0 #4a2244;
+    animation: title-glitch 9s step-end infinite;
     display: inline-block;
 }
 
 @keyframes title-glitch {
-    0%, 85%, 90%, 100% {
-        text-shadow:
-            0 0  8px #00ffff,
-            0 0 24px rgba(0,255,255,0.6),
-            0 0 56px rgba(0,255,255,0.25),
-            4px 4px 0 #ff00ff,
-            5px 5px 0 rgba(255,0,255,0.4);
+    0%, 88%, 93%, 100% {
+        text-shadow: 0 0 12px rgba(168,236,236,0.30), 3px 3px 0 #4a2244;
         transform: translate(0, 0);
     }
-    86% { transform: translate(-3px, 0); text-shadow: -3px 0 #ff00ff, 3px 0 #00ffff; }
-    87% { transform: translate(3px, 1px); text-shadow: 3px 0 #ff00ff, -3px 0 #00ffff; }
-    88% { transform: translate(0, 0); }
-    89% { transform: translate(-1px, -1px); clip-path: inset(30% 0 40% 0); }
+    89% { transform: translate(-3px, 0); text-shadow: -3px 0 #c87ab8, 3px 0 #7dd8d8; }
+    90% { transform: translate(3px, 1px); }
+    91% { transform: translate(0, 0); }
+    92% { transform: translate(-1px, -1px); }
 }
 
-/* subtitle line under the title */
 .hero-section::after {
     content: '';
     display: block;
     margin: 1rem auto 0;
     width: 80%;
-    height: 2px;
+    height: 1px;
     background: linear-gradient(90deg,
-        transparent 0%,
-        #ff00ff     20%,
-        #00ffff     50%,
-        #ff00ff     80%,
-        transparent 100%
+        transparent 0%, #2a5a5a 20%, #4a2244 50%, #2a5a5a 80%, transparent 100%
     );
-    box-shadow: 0 0 8px rgba(0,255,255,0.5);
 }
 
 /* ── Description box ────────────────────────────────────────── */
@@ -118,31 +85,27 @@
     text-align: center;
     margin-bottom: 2rem;
     padding: 1rem;
-    border: 1px solid rgba(0, 255, 255, 0.18);
-    background: rgba(0, 255, 255, 0.03);
-    position: relative;
+    border: 1px solid rgba(125,216,216,0.12);
+    background: rgba(125,216,216,0.02);
 }
 
 .description-box p {
     font-family: 'Press Start 2P', monospace;
     font-size: 0.62rem;
-    line-height: 2.2;
-    color: #00ffff !important;
-    text-shadow: 0 0 6px rgba(0,255,255,0.5);
-    letter-spacing: 0.05em;
+    line-height: 2.4;
+    color: #a8ecec !important;
+    letter-spacing: 0.04em;
 }
 
 .description-box .nes-text.is-error {
-    color: #ff00ff !important;
-    text-shadow:
-        0 0 6px #ff00ff,
-        0 0 18px rgba(255,0,255,0.4);
-    animation: error-pulse 3s ease-in-out infinite alternate;
+    color: #c87ab8 !important;
+    text-shadow: 0 0 8px rgba(200,122,184,0.30);
+    animation: error-pulse 4s ease-in-out infinite alternate;
 }
 
 @keyframes error-pulse {
-    from { text-shadow: 0 0 6px #ff00ff, 0 0 18px rgba(255,0,255,0.4); }
-    to   { text-shadow: 0 0 10px #ff00ff, 0 0 32px rgba(255,0,255,0.6), 0 0 60px rgba(255,0,255,0.2); }
+    from { text-shadow: 0 0 6px rgba(200,122,184,0.25); }
+    to   { text-shadow: 0 0 14px rgba(200,122,184,0.50); }
 }
 
 /* ── Action area ────────────────────────────────────────────── */
@@ -155,26 +118,21 @@
     font-family: 'Press Start 2P', monospace !important;
     font-size: 0.75rem !important;
     letter-spacing: 0.15em !important;
-    background: #000000 !important;
-    color: #ffff00 !important;
-    border: 3px solid #ffff00 !important;
-    box-shadow:
-        0 0 10px rgba(255,255,0,0.4),
-        0 0 24px rgba(255,255,0,0.15),
-        inset 0 0 8px rgba(255,255,0,0.05) !important;
+    background: #0d0d1a !important;
+    color: #d4c87a !important;
+    border: 2px solid #d4c87a !important;
+    box-shadow: 0 0 12px rgba(212,200,122,0.22) !important;
     padding: 0.75rem 2rem !important;
     cursor: pointer;
-    transition: none;
     position: relative;
     overflow: hidden;
+    transition: none;
 }
 
 .start-btn:hover {
-    background: #ffff00 !important;
-    color: #000000 !important;
-    box-shadow:
-        0 0 18px rgba(255,255,0,0.7),
-        0 0 48px rgba(255,255,0,0.3) !important;
+    background: #d4c87a !important;
+    color: #0d0d1a !important;
+    box-shadow: 0 0 20px rgba(212,200,122,0.45) !important;
     transform: translate(-2px, -2px);
 }
 
@@ -183,14 +141,14 @@
     box-shadow: none !important;
 }
 
-/* scanline sweep on the button */
 .start-btn::after {
     content: '';
     position: absolute;
-    top: -100%; left: 0; right: 0;
+    top: -40%; left: 0; right: 0;
     height: 40%;
-    background: rgba(255,255,255,0.06);
-    animation: btn-sweep 2.5s linear infinite;
+    background: rgba(255,255,255,0.04);
+    animation: btn-sweep 3s linear infinite;
+    pointer-events: none;
 }
 
 @keyframes btn-sweep {
@@ -198,33 +156,27 @@
     to   { top: 120%; }
 }
 
-/* ── "Press start" blink text ───────────────────────────────── */
+/* ── Blink text ─────────────────────────────────────────────── */
 .blink_text {
     font-family: 'Press Start 2P', monospace;
-    color: #888888;
-    letter-spacing: 0.08em;
-    animation: nes-blink 1s step-end infinite;
+    color: #7880a8;
     font-size: 0.45rem !important;
     margin-top: 1rem !important;
+    letter-spacing: 0.08em;
+    animation: nes-blink 1s step-end infinite;
 }
 
 @keyframes nes-blink {
-    0%, 49% { opacity: 1; color: #888888; }
+    0%, 49%  { opacity: 1; }
     50%, 100% { opacity: 0; }
 }
 
 /* ── Divider ────────────────────────────────────────────────── */
 .pixel-hr {
     border: none;
-    border-top: 2px solid transparent;
-    background: linear-gradient(90deg,
-        transparent  0%,
-        #00ffff     25%,
-        #ff00ff     50%,
-        #00ffff     75%,
-        transparent 100%
-    );
-    height: 2px;
+    height: 1px;
     margin: 0.5rem 0 0;
-    box-shadow: 0 0 8px rgba(0,255,255,0.3);
+    background: linear-gradient(90deg,
+        transparent 0%, #2a5a5a 25%, #4a2244 50%, #2a5a5a 75%, transparent 100%
+    );
 }
