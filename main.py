@@ -86,7 +86,7 @@ def train_model(request_values: dict) -> Response:
         logging.error(key_error)
         return make_response(jsonify(error="model name is invalid"), 400)
 
-    if overwrite_model is None and MLPersistanceUtil.check_name(model_name):
+    if not overwrite_model and MLPersistanceUtil.check_name(model_name):
         return make_response(jsonify(error="model name already taken"), 400)
 
     try:
@@ -104,7 +104,6 @@ def predict_tokens(request_values: dict) -> Response:
     """
     Creates a job to predict a function name based on the tokens supplied
     """
-    request_values = request.get_json()
 
     try:
         model_name = request_values.get("modelName")
@@ -153,7 +152,7 @@ def get_status():
                 status_code = 200
     except KeyError as key_error:
         logging.error(key_error)
-        return key_error
+        return jsonify(error=str(key_error)), 400
 
     return jsonify(status=status), status_code
 
@@ -214,7 +213,7 @@ def get_predictions():
         task_name = args["taskName"]
     except KeyError as key_error:
         logging.error(key_error)
-        return key_error
+        return jsonify(error=str(key_error)), 400
 
     if not model_name or not task_name:
         return jsonify(error="invalid request"), 400
@@ -250,7 +249,7 @@ def delete_model():
         model_name = args.get("modelName").strip()
     except KeyError as key_error:
         logging.error(key_error)
-        return key_error
+        return jsonify(error=str(key_error)), 400
 
     if not model_name:
         return jsonify(error="invalid model name"), 400
@@ -274,7 +273,7 @@ def get_functions():
         model_name = args.get("modelName").strip()
     except KeyError as key_error:
         logging.error(key_error)
-        return key_error
+        return jsonify(error=str(key_error)), 400
 
     if not model_name:
         return jsonify(error="invalid model name"), 400
@@ -303,7 +302,7 @@ def get_function():
         model_name = args.get("modelName").strip()
     except KeyError as key_error:
         logging.error(key_error)
-        return key_error
+        return jsonify(error=str(key_error)), 400
 
     if not model_name or not function_name:
         return jsonify(error="invalid model or function name"), 400
@@ -366,7 +365,7 @@ def post_upload_binary():
         args = request.form
 
         try:
-            is_training_data: bool = args.get("trainingData")
+            is_training_data: bool = (args.get("trainingData", "").lower() == "true")
             model_name: str = args.get("modelName").strip()
 
             task_name: str = ""
@@ -376,16 +375,12 @@ def post_upload_binary():
             ml_class_type: str = args.get("mlClassType").strip()
         except KeyError as key_error:
             logging.error(key_error)
-            return key_error
+            return jsonify(error=str(key_error)), 400
 
         if not model_name or not ml_class_type:
             return jsonify(error="invalid request, missing query strings"), 400
 
         file = request.files["binaryFile"]
-
-        # magic_num = file.read()[:4]
-        # if magic_num != b'\x7fELF':
-        #   return jsonify(error="incorrect magic number"), 400
 
         if len(file.filename) == 0:
             return jsonify(error="no file found"), 400
@@ -399,6 +394,7 @@ def post_upload_binary():
                 filename, is_training_data, model_name, task_name, ml_class_type
             )
             Ghidra().start_task(ghidra_task)
+            return jsonify(), 200
 
         if "*/*" in accept:
             return render_template("upload.html")
@@ -415,7 +411,7 @@ def list_bins():
     for _, _, files_found in os.walk(directory_path):
         if files_found:
             for file in files_found:
-                files.append(file[0])
+                files.append(file)
     return jsonify(files=files), 200
 
 
@@ -423,7 +419,7 @@ def list_bins():
 @swag_from("swagger/delete_prediction.yml")
 def delete_prediction():
     """
-    Handles a GET request to delete a prediction
+    Handles a DELETE request to delete a prediction
     """
     args = request.args
 
@@ -431,7 +427,7 @@ def delete_prediction():
         task_name = args.get("taskName").strip()
     except KeyError as key_error:
         logging.error(key_error)
-        return key_error
+        return jsonify(error=str(key_error)), 400
 
     if not task_name:
         return jsonify(error="invalid task name"), 400
@@ -453,11 +449,11 @@ def update_status():
         if "uuid" in args:
             uuid = args.get("uuid").strip()
         else:
-            uuid = "test"
+            uuid = ""
 
     except KeyError as key_error:
         logging.error(key_error)
-        return key_error
+        return jsonify(error=str(key_error)), 400
 
     if not status or not uuid:
         return jsonify(error="Invalid request, missing query strings"), 400
@@ -498,7 +494,7 @@ def get_prediction_details():
         function_name = args["functionName"].strip()
         task_name = args["taskName"].strip()
     except KeyError as key_error:
-        return key_error
+        return jsonify(error=str(key_error)), 400
 
     if not model_name or not function_name or not task_name:
         return jsonify(error="Invalid model, task, or function name"), 400
@@ -515,7 +511,7 @@ def get_prediction_details():
         prediction_tokens = format_code(prediction["tokens"])
     except TypeError as type_error:
         logging.error(type_error)
-        return
+        return jsonify(error=str(type_error)), 400
 
     if ACCEPT_TYPE in accept:
         return render_template(
