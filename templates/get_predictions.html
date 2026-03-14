@@ -1,59 +1,68 @@
 {% extends "layout.html" %}
 {% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/predictions_style.css') }}">
 <div class="content blue-bg">
-    {% if predictions is defined and predictions|length > 0 %}
-    <div>
-        <span>Available Predictions:</span>
+    <div class="center-contents">
+        <span id="task-name">Task Name: {{ task_name }}</span>
     </div>
-    <div class="nes-table-responsive content">
-        <table class="nes-table is-bordered is-centered">
-            <thead>
-                <tr>
-                    <th>Task Name</th>
-                    <th>Model Utilized</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for prediction in predictions %}
-                {% set taskName = prediction["task_name"] %}
-                {% set modelName = prediction["model_name"] %}
-                {% set id = taskName + ":" + modelName %}
-                <tr id="{{ id }}" onmouseover="changeBackground(this.id, '#d1d1d1');"
-                    onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
-                    <td>{{ prediction["task_name"] }}</td>
-                    <td>{{ prediction["model_name"] }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="center-contents">
+        <span id="model-name">Model Name: {{ model_name }}</span>
     </div>
-    {% else %}
-    <div class="blue-bg" style="margin: auto;">
-        <section class="message-list">
-            <section class="message -left">
-                <div class="nes-balloon from-left">
-                    <p class="nes-text is-error blink_text">Uh oh! it looks like no predictions have been generated! Try
-                        going to upload to start!</p>
-                </div>
-            </section>
-            <i style="float: left;" class="nes-octocat animate"></i>
-        </section>
+    <div class="nes-table-responsive content m-table center-contents overflow">
+        <blockquote>
+            <table class="nes-table is-bordered is-centered">
+                <thead>
+                    <tr>
+                        <td scope="col">Predicted Function</td>
+                        <th scope="col">EntryPoint</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for functionInfo in predictions %}
+                    {% set functionName = functionInfo["functionName"] %}
+                    {% set id = functionName + ":" + model_name + ":" + task_name %}
+                    <tr id="{{ id }}"
+                        onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
+                        onmouseout="changeBackground(this.id, '#000000');"
+                        onclick="goToURL(this.id)">
+                        <td>{{ functionInfo["functionName"] }}</td>
+                        <td>0x{{ functionInfo["lowAddress"] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </blockquote>
+        <button type="button" class="nes-btn is-primary mr-25" onclick="deletePrediction()">DELETE</button>
+        <button type="button" class="nes-btn is-primary" onclick="history.back()">GO BACK</button>
     </div>
-    {% endif %}
-    <script>
-        function goToURL(id) {
-            const split = id.split(":");
-            const currentURL = window.location.href;
-            const splitIndex = currentURL.lastIndexOf("/");
-            const url = currentURL.substring(splitIndex, 0) + "/getPrediction?taskName=" + split[0] + "&modelName=" + split[1];
-            if (url) {
-                window.location = url;
-            }
+</div>
 
+<script>
+    function goToURL(id) {
+        const split = id.split(":");
+        const currentURL = window.location.href;
+        const splitIndex = currentURL.lastIndexOf("/");
+        const url = currentURL.substring(splitIndex, 0) + "/getPredictionDetails?functionName=" + split[0] + "&taskName=" + split[2] + "&modelName=" + split[1];
+        if (url) {
+            window.location = url;
         }
+    }
 
-        function changeBackground(id, color) {
-            document.getElementById(id).style.background = color;
-        }
-    </script>
-    {% endblock %}
+    function deletePrediction() {
+        var selection = document.getElementById("task-name").innerText;
+        var taskToDelete = selection.split(':')[1].replace(/\s+/, "");
+        var url = "/deletePrediction" + "?taskName=" + taskToDelete;
+
+        fetch(url, {
+            method: 'DELETE',
+            headers: { 'Content-type': 'application/json' }
+        });
+
+        window.location = "/";
+    }
+
+    function changeBackground(id, color) {
+        document.getElementById(id).style.background = color;
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,217 @@
+/* =============================================================
+   GLYPH — PREDICTIONS PAGE (predictions_style.css)
+   NES Cyberpunk theme for the prediction results template
+   ============================================================= */
+
+/* ── Page wrapper ───────────────────────────────────────────── */
+.content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: calc(100vh - 56px - 48px);
+    padding: 2rem 1rem;
+    position: relative;
+    z-index: 10;
+    gap: 0.75rem;
+}
+
+/* ── Meta labels (task name / model name) ────────────────────── */
+.center-contents {
+    text-align: center;
+}
+
+.center-contents span {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.52rem;
+    letter-spacing: 0.1em;
+    display: inline-block;
+    padding: 0.4rem 1rem;
+    border: 1px solid rgba(255, 0, 255, 0.25);
+    color: #ff00ff;
+    text-shadow: 0 0 8px rgba(255, 0, 255, 0.5);
+    background: rgba(255, 0, 255, 0.04);
+    position: relative;
+}
+
+/* label prefix glow — "Task Name:" / "Model Name:" */
+.center-contents span::before {
+    content: '> ';
+    color: #00ffff;
+    text-shadow: 0 0 6px rgba(0, 255, 255, 0.7);
+}
+
+/* ── Table wrapper ───────────────────────────────────────────── */
+.m-table {
+    width: 100%;
+    max-width: 760px;
+    margin-top: 1rem;
+    display: block !important;
+    flex-direction: unset !important;
+    justify-content: unset !important;
+    align-items: unset !important;
+    gap: unset !important;
+    min-height: unset !important;
+}
+
+.overflow {
+    overflow-x: auto;
+}
+
+/* strip blockquote styling, use it as the card */
+blockquote {
+    border: 3px solid #00ffff;
+    background: #000000;
+    box-shadow:
+        0 0 16px rgba(0, 255, 255, 0.28),
+        0 0 48px rgba(0, 255, 255, 0.10),
+        inset 0 0 24px rgba(0, 255, 255, 0.03);
+    padding: 0;
+    margin: 0 0 1.25rem;
+    position: relative;
+}
+
+/* magenta corner accents on the table card */
+blockquote::before,
+blockquote::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: #ff00ff;
+    border-style: solid;
+    z-index: 2;
+}
+blockquote::before { top: -3px;    left: -3px;  border-width: 3px 0 0 3px; }
+blockquote::after  { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; }
+
+/* ── Table ───────────────────────────────────────────────────── */
+.nes-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.52rem;
+    line-height: 1.8;
+    background: transparent;
+}
+
+/* ── Header row ──────────────────────────────────────────────── */
+.nes-table thead tr {
+    border-bottom: 2px solid #00ffff;
+}
+
+.nes-table thead td,
+.nes-table thead th {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.1em;
+    color: #ffff00;
+    text-shadow: 0 0 8px rgba(255, 255, 0, 0.6);
+    padding: 0.85rem 1.25rem;
+    text-align: left;
+    border: none;
+    border-right: 1px solid rgba(0, 255, 255, 0.15);
+    background: transparent;
+}
+
+.nes-table thead td:last-child,
+.nes-table thead th:last-child { border-right: none; }
+
+/* ── Body rows ───────────────────────────────────────────────── */
+.nes-table tbody tr {
+    border-bottom: 1px solid rgba(0, 255, 255, 0.12);
+    cursor: pointer;
+    background: #000000;
+    transition: none;
+}
+
+.nes-table tbody tr:hover {
+    background: rgba(0, 255, 255, 0.07) !important;
+    outline: 1px solid rgba(0, 255, 255, 0.25);
+}
+
+.nes-table tbody tr:last-child { border-bottom: none; }
+
+.nes-table tbody td {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.5rem;
+    color: #e0e0ff;
+    text-shadow: 0 0 4px rgba(200, 200, 255, 0.3);
+    padding: 0.7rem 1.25rem;
+    border: none;
+    border-right: 1px solid rgba(0, 255, 255, 0.10);
+    background: transparent;
+    letter-spacing: 0.04em;
+}
+
+.nes-table tbody td:last-child { border-right: none; }
+
+/* entry point address column — cyan mono */
+.nes-table tbody td:nth-child(2) {
+    font-family: 'Press Start 2P', monospace;
+    color: #00ffff;
+    text-shadow: 0 0 6px rgba(0, 255, 255, 0.45);
+    letter-spacing: 0.08em;
+}
+
+/* ── Action buttons ──────────────────────────────────────────── */
+.nes-btn.is-primary {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.52rem !important;
+    letter-spacing: 0.1em !important;
+    background: #000000 !important;
+    color: #00ffff !important;
+    border: 3px solid #00ffff !important;
+    box-shadow:
+        0 0 10px rgba(0, 255, 255, 0.35),
+        0 0 24px rgba(0, 255, 255, 0.12) !important;
+    padding: 0.6rem 1.25rem !important;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: none;
+}
+
+.nes-btn.is-primary:hover {
+    background: #00ffff !important;
+    color: #000000 !important;
+    box-shadow: 0 0 18px rgba(0, 255, 255, 0.7), 0 0 48px rgba(0, 255, 255, 0.3) !important;
+    transform: translate(-2px, -2px);
+}
+
+.nes-btn.is-primary:active {
+    transform: translate(2px, 2px);
+    box-shadow: none !important;
+}
+
+/* scanline sweep */
+.nes-btn.is-primary::after {
+    content: '';
+    position: absolute;
+    top: -40%; left: 0; right: 0;
+    height: 40%;
+    background: rgba(255, 255, 255, 0.07);
+    animation: btn-sweep 2.5s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes btn-sweep {
+    from { top: -40%; }
+    to   { top: 120%; }
+}
+
+/* Delete button — red variant */
+.nes-btn.is-primary.mr-25 {
+    color: #ff0044 !important;
+    border-color: #ff0044 !important;
+    box-shadow:
+        0 0 10px rgba(255, 0, 68, 0.35),
+        0 0 24px rgba(255, 0, 68, 0.12) !important;
+    margin-right: 1rem;
+}
+
+.nes-btn.is-primary.mr-25:hover {
+    background: #ff0044 !important;
+    color: #000000 !important;
+    box-shadow: 0 0 18px rgba(255, 0, 68, 0.7), 0 0 48px rgba(255, 0, 68, 0.3) !important;
+}
