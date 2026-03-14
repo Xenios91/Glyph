@@ -1,0 +1,262 @@
+/* =============================================================
+   GLYPH — UPLOAD PAGE (upload_style.css)
+   NES Cyberpunk theme for the uploadBinary template
+   ============================================================= */
+
+/* ── Page wrapper ───────────────────────────────────────────── */
+.content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 56px - 48px);
+    padding: 2rem 1rem;
+    position: relative;
+    z-index: 10;
+    gap: 1.5rem;
+}
+
+/* ── Shared card base ───────────────────────────────────────── */
+#upload-box,
+#upload-message {
+    background: #000000 !important;
+    border: 3px solid #00ffff !important;
+    box-shadow:
+        0 0 16px rgba(0,255,255,0.30),
+        0 0 48px rgba(0,255,255,0.10),
+        inset 0 0 24px rgba(0,255,255,0.03);
+    max-width: 580px;
+    width: 100%;
+    padding: 2rem !important;
+    position: relative;
+    color: #e0e0ff;
+}
+
+/* magenta corner accents */
+#upload-box::before,  #upload-box::after,
+#upload-message::before, #upload-message::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: #ff00ff;
+    border-style: solid;
+    z-index: 2;
+}
+#upload-box::before,
+#upload-message::before { top: -3px;    left: -3px;  border-width: 3px 0 0 3px; }
+#upload-box::after,
+#upload-message::after  { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; }
+
+/* ── Card titles ─────────────────────────────────────────────── */
+#upload-box .title,
+#upload-message .title {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.7rem !important;
+    letter-spacing: 0.15em;
+    color: #ffff00 !important;
+    text-shadow: 0 0 8px rgba(255,255,0,0.6);
+    background: #000000 !important;
+    padding: 0 0.5rem !important;
+}
+
+/* ── Upload message state ────────────────────────────────────── */
+#upload-message {
+    border-color: #00ff41 !important;
+    box-shadow:
+        0 0 16px rgba(0,255,65,0.30),
+        0 0 48px rgba(0,255,65,0.10),
+        inset 0 0 24px rgba(0,255,65,0.03);
+    animation: card-flicker 0.8s step-end 3;
+}
+
+#upload-message::before,
+#upload-message::after { border-color: #00ff41; }
+
+#upload-message .title {
+    color: #00ff41 !important;
+    text-shadow: 0 0 8px rgba(0,255,65,0.7);
+}
+
+#upload-message p:not(.title) {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.52rem;
+    line-height: 2.2;
+    color: #00ff41;
+    text-shadow: 0 0 6px rgba(0,255,65,0.5);
+    text-align: center;
+    margin-top: 1rem;
+    animation: status-blink 1s step-end infinite;
+}
+
+@keyframes card-flicker {
+    0%, 94%, 96%, 98%, 100% { opacity: 1; }
+    95%                      { opacity: 0.85; }
+    97%                      { opacity: 0.95; }
+    99%                      { opacity: 0.88; }
+}
+
+/* ── Generate model checkbox ─────────────────────────────────── */
+#upload-box > div > label:first-child {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.52rem;
+    letter-spacing: 0.08em;
+    color: #00ffff;
+    text-shadow: 0 0 6px rgba(0,255,255,0.4);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+}
+
+.nes-checkbox + span { color: #00ffff !important; }
+
+/* ── Nested config containers ────────────────────────────────── */
+#training-config,
+#prediction-config {
+    background: rgba(0,255,255,0.03) !important;
+    border: 2px solid rgba(0,255,255,0.25) !important;
+    box-shadow: inset 0 0 16px rgba(0,255,255,0.04);
+    margin: 1.5rem 0 !important;
+    padding: 1.5rem !important;
+    position: relative;
+}
+
+/* inner title */
+#training-config .title,
+#prediction-config .title {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.58rem !important;
+    letter-spacing: 0.12em;
+    color: #ff00ff !important;
+    text-shadow: 0 0 8px rgba(255,0,255,0.55);
+    background: #000000 !important;
+    padding: 0 0.4rem !important;
+}
+
+/* ── Form labels ─────────────────────────────────────────────── */
+.nes-field label,
+#training-config label,
+#prediction-config label {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.48rem !important;
+    letter-spacing: 0.08em;
+    color: #00ffff !important;
+    text-shadow: 0 0 4px rgba(0,255,255,0.35);
+    display: block;
+    margin-bottom: 0.4rem;
+}
+
+/* ── Text inputs ─────────────────────────────────────────────── */
+.nes-input {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.52rem !important;
+    background: #000000 !important;
+    color: #00ffff !important;
+    border: 2px solid #00ffff !important;
+    box-shadow: 0 0 8px rgba(0,255,255,0.2), inset 0 0 8px rgba(0,255,255,0.04) !important;
+    padding: 0.6rem 0.75rem !important;
+    width: 100%;
+    caret-color: #ffff00;
+    outline: none;
+    transition: none;
+}
+
+.nes-input:focus {
+    border-color: #ffff00 !important;
+    box-shadow: 0 0 12px rgba(255,255,0,0.4), inset 0 0 8px rgba(255,255,0,0.05) !important;
+    color: #ffff00 !important;
+}
+
+.nes-input::placeholder { color: rgba(0,255,255,0.3) !important; }
+
+/* ── Select dropdowns ────────────────────────────────────────── */
+.nes-select select {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.52rem !important;
+    background: #000000 !important;
+    color: #00ffff !important;
+    border: 2px solid #00ffff !important;
+    box-shadow: 0 0 8px rgba(0,255,255,0.2) !important;
+    padding: 0.6rem 0.75rem !important;
+    width: 100%;
+    appearance: none;
+    cursor: pointer;
+}
+
+.nes-select select:focus {
+    border-color: #ffff00 !important;
+    box-shadow: 0 0 12px rgba(255,255,0,0.35) !important;
+    color: #ffff00 !important;
+    outline: none;
+}
+
+.nes-select select option {
+    background: #050510;
+    color: #00ffff;
+}
+
+/* ── File select button ──────────────────────────────────────── */
+label.nes-btn.is-primary {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.58rem !important;
+    letter-spacing: 0.12em !important;
+    background: #000000 !important;
+    color: #ff00ff !important;
+    border: 3px solid #ff00ff !important;
+    box-shadow:
+        0 0 10px rgba(255,0,255,0.40),
+        0 0 24px rgba(255,0,255,0.15) !important;
+    padding: 0.75rem 1.5rem !important;
+    cursor: pointer;
+    display: inline-block;
+    margin-top: 1.25rem;
+    position: relative;
+    overflow: hidden;
+    transition: none;
+}
+
+label.nes-btn.is-primary:hover {
+    background: #ff00ff !important;
+    color: #000000 !important;
+    box-shadow: 0 0 18px rgba(255,0,255,0.7), 0 0 48px rgba(255,0,255,0.3) !important;
+    transform: translate(-2px, -2px);
+}
+
+label.nes-btn.is-primary:active {
+    transform: translate(2px, 2px);
+    box-shadow: none !important;
+}
+
+/* scanline sweep */
+label.nes-btn.is-primary::after {
+    content: '';
+    position: absolute;
+    top: -40%; left: 0; right: 0;
+    height: 40%;
+    background: rgba(255,255,255,0.07);
+    animation: btn-sweep 2.5s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes btn-sweep {
+    from { top: -40%; }
+    to   { top: 120%; }
+}
+
+/* hide the actual file input */
+label.nes-btn.is-primary input[type="file"] {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    top: 0; left: 0;
+    cursor: pointer;
+}
+
+/* ── Shared animation ────────────────────────────────────────── */
+@keyframes status-blink {
+    0%, 49%  { opacity: 1; }
+    50%, 100% { opacity: 0.3; }
+}
