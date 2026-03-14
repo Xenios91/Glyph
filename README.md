@@ -2,6 +2,8 @@
 
 ## An architecture independent binary analysis tool for fingerprinting functions through NLP
 
+## Upcoming Changes
+
 ![Black Hat Arsenal 2022](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2022.svg)
 
 ### Black Hat Arsenal 2023 & Defcon Demo Labs
