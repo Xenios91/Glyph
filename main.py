@@ -45,8 +45,8 @@ def home():
     """
     headers = request.headers
     accept = headers.get("Accept")
-    if ACCEPT_TYPE is not accept:
-        return jsonify(version=_version)
+    if ACCEPT_TYPE not in accept:
+        return jsonify(version=_version.__version__)
 
     return render_template("main.html")
 
@@ -168,7 +168,7 @@ def get_list_models():
 
     headers = request.headers
     accept = headers.get("Accept")
-    if "ACCEPT_TYPE" != accept:
+    if ACCEPT_TYPE not in accept:
         return jsonify(models=list(models)), 200
 
     models_status: dict = TaskManager.get_all_status()
@@ -188,7 +188,7 @@ def get_list_predictions():
     headers = request.headers
     accept = headers.get("Accept")
 
-    if "ACCEPT_TYPE" != accept:
+    if ACCEPT_TYPE not in accept:
         predictions_list: list[dict] = []
         for prediction in predictions:
             predictions_list.append(prediction.__dict__)
@@ -225,7 +225,7 @@ def get_predictions():
 
     headers = request.headers
     accept = headers.get("Accept")
-    if "ACCEPT_TYPE" != accept:
+    if ACCEPT_TYPE not in accept:
         pred: dict = prediction.__dict__
         return jsonify(prediction=pred), 200
 
@@ -283,7 +283,7 @@ def get_functions():
 
     headers = request.headers
     accept = headers.get("Accept")
-    if "ACCEPT_TYPE" not in accept:
+    if ACCEPT_TYPE not in accept:
         return jsonify(functions=functions), 200
 
     return render_template(
@@ -319,7 +319,7 @@ def get_function():
 
     headers = request.headers
     accept = headers.get("Accept")
-    if "ACCEPT_TYPE" not in accept:
+    if ACCEPT_TYPE not in accept:
         return jsonify(functions=function_information), 200
 
     return render_template(
@@ -340,7 +340,7 @@ def get_upload_binary():
     accept = headers.get("Accept")
 
     if request.method == "GET":
-        if "ACCEPT_TYPE" not in accept:
+        if ACCEPT_TYPE not in accept:
             return jsonify(error="API calls can only be POST"), 200
 
         models: set[str] = MLPersistanceUtil.get_models_list()
@@ -517,7 +517,7 @@ def get_prediction_details():
         logging.error(type_error)
         return
 
-    if "ACCEPT_TYPE" in accept:
+    if ACCEPT_TYPE in accept:
         return render_template(
             "prediction_function_details.html",
             task_name=task_name,
