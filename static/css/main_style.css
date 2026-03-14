@@ -117,7 +117,7 @@
 
 .description-box p {
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.62rem;
+    font-size: 0.65rem;
     line-height: 2.4;
     color: #a8ecec !important;
     letter-spacing: 0.04em;
@@ -198,7 +198,7 @@
 .blink_text {
     font-family: 'Press Start 2P', monospace;
     color: #7880a8;
-    font-size: 0.45rem !important;
+    font-size: 0.55rem !important;
     margin-top: 1rem !important;
     letter-spacing: 0.08em;
     animation: nes-blink 1s step-end infinite;
