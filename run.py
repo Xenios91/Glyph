@@ -1,5 +1,6 @@
-from app import create_app
-app = create_app()
+from fastapi import FastAPI
+from app.routers import binaries_api, predictions_api
 
-if __name__ == "__main__":
-    app.run(debug=True)
+app = FastAPI()
+app.include_router(binaries_api.router)
+app.include_router(predictions_api.router)
