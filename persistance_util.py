@@ -5,7 +5,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
 
-from request_handler import Prediction, PredictionRequest, TrainingRequest
+from app.blueprints.request_handler import Prediction, PredictionRequest, TrainingRequest
 from sql_service import SQLUtil
 
 

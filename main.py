@@ -1,27 +1,23 @@
 import logging
-import os
 import threading
 
 from flasgger import Swagger, swag_from
 from flask import Flask, Response, jsonify, render_template, request, make_response
 from markupsafe import escape
-from werkzeug.utils import secure_filename
 
-import app._version as _version
-from config import GlyphConfig, MAX_CPU_CORES
+from config import GlyphConfig
 from persistance_util import (
     FunctionPersistanceUtil,
     MLPersistanceUtil,
     PredictionPersistanceUtil,
 )
-from request_handler import (
-    GhidraRequest,
+from app.blueprints.request_handler import (
     Prediction,
     PredictionRequest,
     TrainingRequest,
 )
 from services import TaskService
-from task_management import Ghidra, Predictor, TaskManager, Trainer
+from app.blueprints.task_management import Predictor, TaskManager, Trainer
 from templates.utils import format_code
 from sql_service import SQLUtil
 

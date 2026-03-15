@@ -6,8 +6,8 @@ import logging
 from flasgger import swag_from
 from werkzeug.utils import secure_filename
 from persistance_util import MLPersistanceUtil
-from request_handler import GhidraRequest
-from task_management import Ghidra
+from app.blueprints.request_handler import GhidraRequest
+from app.blueprints.task_management import Ghidra
 from app.helpers import ACCEPT_TYPE
 
 

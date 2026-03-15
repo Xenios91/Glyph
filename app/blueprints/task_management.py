@@ -11,7 +11,7 @@ from sklearn.pipeline import Pipeline
 
 from config import GlyphConfig
 from persistance_util import FunctionPersistanceUtil, MLPersistanceUtil, MLTask
-from request_handler import GhidraRequest, PredictionRequest, TrainingRequest
+from app.blueprints.request_handler import GhidraRequest, PredictionRequest, TrainingRequest
 from services import TaskService
 
 
@@ -172,7 +172,7 @@ class Ghidra(TaskManager):
             ghidra_location, f"support{os.sep}analyzeHeadless")
 
         ghidra_type: str = None
-        if ghidra_request.is_training is "true":
+        if ghidra_request.is_training == "true":
             ghidra_type = "training"
         else:
             ghidra_type = "prediction"
