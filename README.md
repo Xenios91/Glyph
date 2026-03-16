@@ -4,12 +4,13 @@
 
 ## Upcoming Changes
 
-- Implementing Pyghidra to reducew setup requirements
-- Changing to design to flask blueprints
+- Implementing Pyghidra to reduce setup requirements
+- Changing to design to fastapi
 - New UI themes
 - More configuration
 - Adding more AI/ML capabilities to include LLM code cleanup and ensemble models for higher accuracy
 - Bug fixes and better dockerization.
+- User accounts instead of single user
 
 ![Black Hat Arsenal 2022](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2022.svg)
 
