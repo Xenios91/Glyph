@@ -5,8 +5,9 @@ import yaml
 MAX_CPU_CORES = 32
 
 class GlyphConfig:
-    _config: dict
+    _config: dict = {}
     __instance = None
+    _initialized = False
 
     def __new__(cls):
         if cls.__instance is None:
@@ -14,9 +15,11 @@ class GlyphConfig:
         return cls.__instance
 
     def __init__(self) -> None:
-        logging.basicConfig(
-            filename="glyph_log.log", encoding="utf-8", level=logging.INFO
-        )
+        if not GlyphConfig._initialized:
+            logging.basicConfig(
+                filename="glyph_log.log", encoding="utf-8", level=logging.INFO
+            )
+            GlyphConfig._initialized = True
 
     @staticmethod
     def load_config() -> bool:
@@ -63,7 +66,6 @@ class GlyphConfig:
             return False
 
         GlyphConfig._config["max_file_size_mb"] = size
-
         return True
 
     @staticmethod
@@ -89,8 +91,8 @@ class GlyphConfig:
             logging.error("Attempted to set a non-positive or 0 number of CPU cores.")
             return False
 
-        if cores > 32:
-            logging.error("Attempted to set more than 32 CPU cores.")
+        if cores > MAX_CPU_CORES:  # FIX 1: use the constant
+            logging.error("Attempted to set more than %d CPU cores.", MAX_CPU_CORES)
             return False
 
         GlyphConfig._config["cpu_cores"] = cores

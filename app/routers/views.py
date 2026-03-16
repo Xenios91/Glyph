@@ -28,14 +28,13 @@ async def config(request: Request):
     """
     Loads the configuration page of Glyph
     """
-    cfg = GlyphConfig()
     return templates.TemplateResponse(
         "config.html",
         {
             "request": request,
             "max_cpu_cores": MAX_CPU_CORES,
-            "current_cpu_cores": cfg.get_config_value("cpu_cores") or 2,
-            "current_max_file_size": cfg.get_config_value("max_file_size_mb") or 512,
+            "current_cpu_cores": GlyphConfig.get_config_value("cpu_cores") or 2,
+            "current_max_file_size": GlyphConfig.get_config_value("max_file_size_mb") or 512,
         },
     )
 
