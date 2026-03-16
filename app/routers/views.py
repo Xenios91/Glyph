@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional
-from config import GlyphConfig, MAX_CPU_CORES
-import _version
-from helpers import ACCEPT_TYPE
+from app.config import GlyphConfig, MAX_CPU_CORES
+import app._version as _version
+from app.helpers import ACCEPT_TYPE
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")

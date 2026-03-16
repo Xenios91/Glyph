@@ -1,8 +1,8 @@
 import unittest
-from app.blueprints.request_handler import TrainingRequest
-from services import TaskService
+from app.request_handler import TrainingRequest
+from app.services import TaskService
 
-from app.blueprints.task_management import TaskManager
+from app.task_management import TaskManager
 
 
 class task_management_test(unittest.TestCase):

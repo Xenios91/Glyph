@@ -5,11 +5,11 @@ from typing import Optional
 import os
 import logging
 from werkzeug.utils import secure_filename
-from persistance_util import MLPersistanceUtil
-from app.routers.request_handler import GhidraRequest
-from app.routers.task_management import Ghidra
-from helpers import ACCEPT_TYPE
-from config import GlyphConfig
+from app.persistance_util import MLPersistanceUtil
+from app.request_handler import GhidraRequest
+from app.task_management import Ghidra
+from app.helpers import ACCEPT_TYPE
+from app.config import GlyphConfig
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")

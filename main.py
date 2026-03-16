@@ -5,21 +5,21 @@ from flasgger import Swagger, swag_from
 from flask import Flask, Response, jsonify, render_template, request, make_response
 from markupsafe import escape
 
-from config import GlyphConfig
-from persistance_util import (
+from app.config import GlyphConfig
+from app.persistance_util import (
     FunctionPersistanceUtil,
     MLPersistanceUtil,
     PredictionPersistanceUtil,
 )
-from app.blueprints.request_handler import (
+from app.request_handler import (
     Prediction,
     PredictionRequest,
     TrainingRequest,
 )
-from services import TaskService
-from app.blueprints.task_management import Predictor, TaskManager, Trainer
+from app.services import TaskService
+from app.task_management import Predictor, TaskManager, Trainer
 from templates.utils import format_code
-from sql_service import SQLUtil
+from app.sql_service import SQLUtil
 
 app = Flask(__name__)
 UPLOAD_FOLDER = "./binaries"

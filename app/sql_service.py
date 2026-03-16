@@ -3,7 +3,7 @@ import os
 import pickle
 import sqlite3
 
-from app.blueprints.request_handler import Prediction
+from app.request_handler import Prediction
 
 
 class SQLUtil():
