@@ -1,4 +1,3 @@
-from ast import Tuple
 import logging
 import os
 import pickle
