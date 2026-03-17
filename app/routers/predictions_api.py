@@ -1,182 +1,143 @@
 import logging
-
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi.responses import JSONResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional
+from markupsafe import escape
+
+from app.persistance_util import FunctionPersistanceUtil, PredictionPersistanceUtil
 from app.request_handler import PredictionRequest
 from app.task_management import Predictor, Trainer
+from app.helpers import ACCEPT_TYPE
+from templates.utils import format_code
 
 
 router = APIRouter()
+templates = Jinja2Templates(directory="templates")
 
 
 class PredictTokensRequest(BaseModel):
-    modelName: Optional[str] = None
+    modelName: str
     uuid: Optional[str] = None
 
     class Config:
-        extra = "allow"  # Allows additional fields in `data`
+        extra = "allow"
 
 
 @router.post("/predict", status_code=201)
-def predict_tokens(request_values: PredictTokensRequest) -> JSONResponse:
-    """
-    Creates a job to predict a function name based on the tokens supplied
-    """
-
+async def predict_tokens(request_values: PredictTokensRequest):
+    """Creates a job to predict a function name based on the tokens supplied"""
     try:
         model_name = request_values.modelName
-        if model_name is None:
-            raise HTTPException(status_code=400, detail="model name is invalid")
-
-        uuid = request_values.uuid
-        if not uuid:
-            uuid = Trainer().get_uuid()
-
+        uuid = request_values.uuid or Trainer().get_uuid()
         data = request_values.model_dump()
-    except KeyError as key_error:
-        logging.error(key_error)
-        raise HTTPException(status_code=400, detail="model name is invalid")
 
-    try:
         prediction_request = PredictionRequest(uuid, model_name, data)
         Predictor().start_prediction(prediction_request)
 
-        return JSONResponse(content={"uuid": prediction_request.uuid}, status_code=201)
-    except TypeError as type_error:
-        logging.error(type_error)
-        raise HTTPException(status_code=400, detail="type error")
-    
-    @app.route("/getPredictions", methods=["GET"])
-@swag_from("swagger/predictions.yml")
-def get_list_predictions():
-    """
-    Handles a GET request to obtain all predictions available
-    """
-    predictions: list[Prediction] = PredictionPersistanceUtil.get_predictions_list()
+        return {"uuid": prediction_request.uuid}
 
-    headers = request.headers
-    accept = headers.get("Accept")
+    except Exception as e:
+        logging.error(f"Prediction error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/getPredictions")
+async def get_list_predictions(request: Request):
+    """Obtain all predictions available"""
+    predictions = PredictionPersistanceUtil.get_predictions_list()
+    accept = request.headers.get("Accept", "")
 
     if ACCEPT_TYPE not in accept:
-        predictions_list: list[dict] = []
-        for prediction in predictions:
-            predictions_list.append(prediction.__dict__)
+        return {"predictions": [p.__dict__ for p in predictions]}
 
-        return jsonify(predictions=list(predictions_list)), 200
-
-    return render_template(
-        "get_predictions.html", title="Predictions List", predictions=predictions
+    return templates.TemplateResponse(
+        "get_predictions.html",
+        {"request": request, "title": "Predictions List", "predictions": predictions},
     )
 
 
-@app.route("/getPrediction", methods=["GET"])
-@swag_from("swagger/prediction.yml")
-def get_predictions():
-    """
-    Handles a GET request to obtain all predictions from one task available
-    """
+@router.get("/getPrediction")
+async def get_prediction(
+    request: Request, modelName: str = Query(...), taskName: str = Query(...)
+):
+    """Obtain all predictions from one task"""
+    prediction = PredictionPersistanceUtil.get_predictions(taskName, modelName)
 
-    args = request.args
+    if not prediction:
+        raise HTTPException(status_code=404, detail="Prediction not found")
 
-    try:
-        model_name = args["modelName"]
-        task_name = args["taskName"]
-    except KeyError as key_error:
-        logging.error(key_error)
-        return jsonify(error=str(key_error)), 400
-
-    if not model_name or not task_name:
-        return jsonify(error="invalid request"), 400
-
-    prediction: Prediction = PredictionPersistanceUtil.get_predictions(
-        task_name, model_name
-    )
-
-    headers = request.headers
-    accept = headers.get("Accept")
+    accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE not in accept:
-        pred: dict = prediction.__dict__
-        return jsonify(prediction=pred), 200
+        return {"prediction": prediction.__dict__}
 
-    return render_template(
+    return templates.TemplateResponse(
         "get_prediction.html",
-        title="Prediction",
-        model_name=prediction.model_name,
-        task_name=prediction.task_name,
-        prediction=prediction,
+        {
+            "request": request,
+            "title": "Prediction",
+            "model_name": prediction.model_name,
+            "task_name": prediction.task_name,
+            "prediction": prediction,
+        },
     )
 
-@app.route("/deletePrediction", methods=["DELETE"])
-@swag_from("swagger/delete_prediction.yml")
-def delete_prediction():
-    """
-    Handles a DELETE request to delete a prediction
-    """
-    args = request.args
 
-    try:
-        task_name = args.get("taskName").strip()
-    except KeyError as key_error:
-        logging.error(key_error)
-        return jsonify(error=str(key_error)), 400
-
+@router.delete("/deletePrediction")
+async def delete_prediction(taskName: str = Query(...)):
+    """Deletes a prediction by task name"""
+    task_name = taskName.strip()
     if not task_name:
-        return jsonify(error="invalid task name"), 400
+        raise HTTPException(status_code=400, detail="invalid task name")
 
     PredictionPersistanceUtil.delete_prediction(task_name)
-    return jsonify(), 200
+    return JSONResponse(content={}, status_code=200)
 
 
-@app.route("/getPredictionDetails", methods=["GET"])
-@swag_from("swagger/get_prediction_details.yml")
-def get_prediction_details():
-    """
-    Used for displaying details of a prediction
-    """
-    args = request.args
-    headers = request.headers
-    accept = headers.get("Accept")
-
-    try:
-        model_name = args["modelName"].strip()
-        function_name = args["functionName"].strip()
-        task_name = args["taskName"].strip()
-    except KeyError as key_error:
-        return jsonify(error=str(key_error)), 400
-
-    if not model_name or not function_name or not task_name:
-        return jsonify(error="Invalid model, task, or function name"), 400
+@router.get("/getPredictionDetails")
+async def get_prediction_details(
+    request: Request,
+    modelName: str = Query(...),
+    functionName: str = Query(...),
+    taskName: str = Query(...),
+):
+    """Displays specific details of a prediction"""
+    model_name = modelName.strip()
+    func_name = functionName.strip()
+    task_name = taskName.strip()
 
     try:
-        model_function_information: list = FunctionPersistanceUtil.get_function(
-            model_name, function_name
-        )
-        prediction = FunctionPersistanceUtil.get_prediction_function(
-            task_name, model_name, function_name
+        model_info = FunctionPersistanceUtil.get_function(model_name, func_name)
+        prediction_data = FunctionPersistanceUtil.get_prediction_function(
+            task_name, model_name, func_name
         )
 
-        model_tokens = format_code(model_function_information[3])
-        prediction_tokens = format_code(prediction["tokens"])
-    except TypeError as type_error:
-        logging.error(type_error)
-        return jsonify(error=str(type_error)), 400
+        model_tokens = format_code(model_info[3])
+        prediction_tokens = format_code(prediction_data["tokens"])
 
+    except (TypeError, IndexError) as e:
+        logging.error(e)
+        raise HTTPException(status_code=400, detail="Could not retrieve details")
+
+    accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
-        return render_template(
+        return templates.TemplateResponse(
             "prediction_function_details.html",
-            task_name=task_name,
-            model_name=model_name,
-            function_name=function_name,
-            model_tokens=model_tokens,
-            prediction_tokens=prediction_tokens,
+            {
+                "request": request,
+                "task_name": task_name,
+                "model_name": model_name,
+                "function_name": func_name,
+                "model_tokens": model_tokens,
+                "prediction_tokens": prediction_tokens,
+            },
         )
 
-    return jsonify(
-        task_name=escape(task_name),
-        model_name=escape(model_name),
-        function_name=escape(function_name),
-        model_tokens=model_tokens,
-        prediction_tokens=prediction_tokens,
-    )
+    return {
+        "task_name": escape(task_name),
+        "model_name": escape(model_name),
+        "function_name": escape(func_name),
+        "model_tokens": model_tokens,
+        "prediction_tokens": prediction_tokens,
+    }

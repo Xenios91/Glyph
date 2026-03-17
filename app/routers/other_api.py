@@ -1,62 +1,52 @@
-@app.route("/getStatus", methods=["GET"])
-@swag_from("swagger/status.yml")
-def get_status():
+from typing_extensions import Annotated
+
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, StringConstraints
+
+from app.task_management import Trainer
+
+
+router = APIRouter()
+
+
+class StatusUpdatePayload(BaseModel):
+    status: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+    uuid: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+@router.get("/getStatus")
+async def get_status(uuid: str = Query(...)):
     """
-    Handles a GET request to obtain the supplied uuid task status
+    Handles a GET request to obtain the supplied uuid task status.
     """
-    args = request.args
-    status: str
-    status_code: int
+    if uuid == "all":
+        return {"status": "test"}
 
-    try:
-        job_uuid: str = args["uuid"]
-        if job_uuid == "all":
-            status = "test"
-            status_code = 200
-        else:
-            status = Trainer().get_status(job_uuid)
-            if status == "UUID Not Found":
-                status_code = 404
-            else:
-                status_code = 200
-    except KeyError as key_error:
-        logging.error(key_error)
-        return jsonify(error=str(key_error)), 400
+    status = Trainer().get_status(uuid)
 
-    return jsonify(status=status), status_code
+    if status == "UUID Not Found":
+        raise HTTPException(status_code=404, detail="UUID Not Found")
+
+    return {"status": status}
 
 
-
-
-
-
-
-
-
-@app.route("/statusUpdate", methods=["POST"])
-@swag_from("swagger/status_update.yml")
-def update_status():
+@router.post("/statusUpdate")
+async def update_status(payload: StatusUpdatePayload):
     """
-    Handles a POST request from Ghidra to update the current status of a task
+    Handles a POST request (typically from Ghidra) to update
+    the current status of a task.
     """
-    args = request.json
-
-    try:
-        status = args.get("status").strip()
-        if "uuid" in args:
-            uuid = args.get("uuid").strip()
-        else:
-            uuid = ""
-
-    except KeyError as key_error:
-        logging.error(key_error)
-        return jsonify(error=str(key_error)), 400
+    status = payload.status.strip()
+    uuid = payload.uuid.strip()
 
     if not status or not uuid:
-        return jsonify(error="Invalid request, missing query strings"), 400
+        raise HTTPException(
+            status_code=400, detail="Invalid request, status and uuid cannot be empty"
+        )
 
     updated: bool = Trainer().set_status(uuid, status)
-    if not updated:
-        return jsonify(error="UUID not found"), 404
 
-    return jsonify(), 200
+    if not updated:
+        raise HTTPException(status_code=404, detail="UUID not found")
+
+    return {}  # Returns a 200 OK by default

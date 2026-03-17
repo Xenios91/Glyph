@@ -34,7 +34,8 @@ async def config(request: Request):
             "request": request,
             "max_cpu_cores": MAX_CPU_CORES,
             "current_cpu_cores": GlyphConfig.get_config_value("cpu_cores") or 2,
-            "current_max_file_size": GlyphConfig.get_config_value("max_file_size_mb") or 512,
+            "current_max_file_size": GlyphConfig.get_config_value("max_file_size_mb")
+            or 512,
         },
     )
 
@@ -63,15 +64,20 @@ async def save_config(payload: ConfigPayload):
 
     return JSONResponse(content={})
 
-@app.route("/error", methods=["GET"])
-def error_page():
-    """
-    Used for displaying errors
-    """
-    args = request.args
-    error_type = args.get("type")
-    message = "Uh oh! An unknown error has occured"
 
-    if error_type == "uploadError":
-        message = "Uh oh! It looks like the binary file is not of type ELF, if it's PE don't worry, we are working on implementing PE capabilities."
-    return render_template("error.html", message=message)
+@router.get("/error")
+async def error_page(request: Request, type: Optional[str] = None):
+    """
+    Displays errors using the templates system.
+    """
+    message = "Uh oh! An unknown error has occurred"
+
+    if type == "uploadError":
+        message = (
+            "Uh oh! It looks like the binary file is not of type ELF. "
+            "If it's PE don't worry, we are working on implementing PE capabilities."
+        )
+
+    return templates.TemplateResponse(
+        "error.html", {"request": request, "message": message}
+    )
