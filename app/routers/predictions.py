@@ -43,21 +43,6 @@ async def predict_tokens(request_values: PredictTokensRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/getPredictions")
-async def get_list_predictions(request: Request):
-    """Obtain all predictions available"""
-    predictions = PredictionPersistanceUtil.get_predictions_list()
-    accept = request.headers.get("Accept", "")
-
-    if ACCEPT_TYPE not in accept:
-        return {"predictions": [p.__dict__ for p in predictions]}
-
-    return templates.TemplateResponse(
-        "get_predictions.html",
-        {"request": request, "title": "Predictions List", "predictions": predictions},
-    )
-
-
 @router.get("/getPrediction")
 async def get_prediction(
     request: Request, modelName: str = Query(...), taskName: str = Query(...)

@@ -7,7 +7,8 @@ from fastapi.templating import Jinja2Templates
 import app._version as _version
 from app.config import MAX_CPU_CORES, GlyphConfig
 from app.helpers import ACCEPT_TYPE
-from app.persistance_util import MLPersistanceUtil
+from app.persistance_util import MLPersistanceUtil, PredictionPersistanceUtil
+from app.task_management import TaskManager
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -76,4 +77,40 @@ async def get_upload_binary(request: Request):
     return templates.TemplateResponse(
         "upload.html",
         {"request": request, "allow_prediction": allow_prediction, "models": models},
+    )
+
+
+@router.get("/getModels")
+async def get_list_models(request: Request):
+    """
+    Handles a GET request to obtain all models available
+    """
+    models: set[str] = MLPersistanceUtil.get_models_list()
+    accept = request.headers.get("Accept", "")
+
+    if ACCEPT_TYPE not in accept:
+        return {"models": list(models)}
+
+    models_status: dict = TaskManager.get_all_status()
+    for model in models:
+        models_status[model] = "complete"
+
+    return templates.TemplateResponse(
+        "get_models.html",
+        {"request": request, "title": "Models List", "models": models_status},
+    )
+
+
+@router.get("/getPredictions")
+async def get_list_predictions(request: Request):
+    """Obtain all predictions available"""
+    predictions = PredictionPersistanceUtil.get_predictions_list()
+    accept = request.headers.get("Accept", "")
+
+    if ACCEPT_TYPE not in accept:
+        return {"predictions": [p.__dict__ for p in predictions]}
+
+    return templates.TemplateResponse(
+        "get_predictions.html",
+        {"request": request, "title": "Predictions List", "predictions": predictions},
     )
