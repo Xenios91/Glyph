@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/predictions_style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/predictions_style.css') }}">
 <div class="content blue-bg">
     <div class="center-contents">
         <span id="task-name">Task Name: {{ task_name }}</span>
@@ -40,7 +40,7 @@
         const split = id.split(":");
         const currentURL = window.location.href;
         const splitIndex = currentURL.lastIndexOf("/");
-        const url = currentURL.substring(splitIndex, 0) + "/getPredictionDetails?functionName=" + split[0] + "&taskName=" + split[2] + "&modelName=" + split[1];
+        const url = currentURL.substring(splitIndex, 0) + "/models/getPredictionDetails?functionName=" + split[0] + "&taskName=" + split[2] + "&modelName=" + split[1];
         if (url) {
             window.location = url;
         }
@@ -49,7 +49,7 @@
     function deletePrediction() {
         var selection = document.getElementById("task-name").innerText;
         var taskToDelete = selection.split(':')[1].replace(/\s+/, "");
-        var url = "/deletePrediction" + "?taskName=" + taskToDelete;
+        var url = "/models/deletePrediction" + "?taskName=" + taskToDelete;
 
         fetch(url, {
             method: 'DELETE',

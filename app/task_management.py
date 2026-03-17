@@ -9,10 +9,10 @@ import pandas as pd
 from sklearn import preprocessing
 from sklearn.pipeline import Pipeline
 
-from config import GlyphConfig
-from persistance_util import FunctionPersistanceUtil, MLPersistanceUtil, MLTask
-from request_handler import GhidraRequest, PredictionRequest, TrainingRequest
-from services import TaskService
+from app.config import GlyphConfig
+from app.persistance_util import FunctionPersistanceUtil, MLPersistanceUtil, MLTask
+from app.request_handler import GhidraRequest, PredictionRequest, TrainingRequest
+from app.services import TaskService
 
 
 class TaskManager():
@@ -172,7 +172,7 @@ class Ghidra(TaskManager):
             ghidra_location, f"support{os.sep}analyzeHeadless")
 
         ghidra_type: str = None
-        if ghidra_request.is_training is "true":
+        if ghidra_request.is_training == "true":
             ghidra_type = "training"
         else:
             ghidra_type = "prediction"

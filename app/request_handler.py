@@ -1,4 +1,5 @@
 import logging
+import uuid
 import pandas as pd
 
 
@@ -109,7 +110,7 @@ class GhidraRequest():
         self.model_name = model_name
         self.task_name = task_name
         self.ml_class_type = mlclasstype
-        self.uuid = filename
+        self.uuid = uuid.uuid4().__str__()
 
 
 class Prediction():

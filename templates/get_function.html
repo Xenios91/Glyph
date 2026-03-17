@@ -23,7 +23,7 @@
         var selection = document.getElementById("function-name").innerText;
         var functionToDelete = selection.split(':')[1].replace(/\s+/, "");
         var currentURL = window.location.href;
-        var url = "/deleteFunction" + "?functionName=" + functionToDelete;
+        var url = "/model/deleteFunction" + "?functionName=" + functionToDelete;
 
         if (url) {
             window.location = '/';

@@ -1,34 +1,45 @@
-
+import logging
 import pickle
+from typing import Any, Optional
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
 
-from request_handler import Prediction, PredictionRequest, TrainingRequest
-from sql_service import SQLUtil
+from app.request_handler import Prediction, PredictionRequest, TrainingRequest
+from app.sql_service import SQLUtil
 
 
-class MLTask():
-
+class MLTask:
     @staticmethod
     def get_multi_class_pipeline() -> Pipeline:
         pipeline = Pipeline(
-            [('preprocessor', TfidfVectorizer(ngram_range=(2, 4), norm='l2', sublinear_tf=True)),
-             ('clf', MultinomialNB(alpha=1e-8))])
+            [
+                (
+                    "preprocessor",
+                    TfidfVectorizer(ngram_range=(2, 4), norm="l2", sublinear_tf=True),
+                ),
+                ("clf", MultinomialNB(alpha=1e-8)),
+            ]
+        )
         return pipeline
 
     # not implemented yet, need to check algos
     @staticmethod
     def get_single_class_pipeline() -> Pipeline:
         pipeline = Pipeline(
-            [('preprocessor', TfidfVectorizer(ngram_range=(2, 4), norm='l2', sublinear_tf=True)),
-             ('clf', MultinomialNB(alpha=1e-8))])
+            [
+                (
+                    "preprocessor",
+                    TfidfVectorizer(ngram_range=(2, 4), norm="l2", sublinear_tf=True),
+                ),
+                ("clf", MultinomialNB(alpha=1e-8)),
+            ]
+        )
         return pipeline
 
 
-class PredictionPersistanceUtil():
-
+class PredictionPersistanceUtil:
     @staticmethod
     def get_predictions_list() -> list[Prediction]:
         predictions_list: list[Prediction] = SQLUtil.get_predictions_list()
@@ -36,8 +47,13 @@ class PredictionPersistanceUtil():
 
     @staticmethod
     def get_predictions(task_name: str, model_name: str) -> Prediction:
-        predictions: Prediction = SQLUtil.get_predictions(
-            task_name, model_name)
+        predictions: Optional[Prediction] = SQLUtil.get_predictions(
+            task_name, model_name
+        )
+        if predictions is None:
+            raise ValueError(
+                f"Prediction for task '{task_name}' with model '{model_name}' not found."
+            )
         return predictions
 
     @staticmethod
@@ -49,8 +65,7 @@ class PredictionPersistanceUtil():
         SQLUtil.delete_model_predictions(model_name)
 
 
-class MLPersistanceUtil():
-
+class MLPersistanceUtil:
     @staticmethod
     def save_model(model_name: str, label_encoder, pipeline: Pipeline):
         serialized_model: bytes = pickle.dumps(pipeline)
@@ -58,11 +73,29 @@ class MLPersistanceUtil():
         SQLUtil.save_model(model_name, serialized_encoder, serialized_model)
 
     @staticmethod
-    def load_model(model_name: str):
-        model: bytes = SQLUtil.get_model(model_name)
-        loaded_model = pickle.loads(model[1])
-        label_encoder = pickle.loads(model[2])
-        return loaded_model, label_encoder
+    def load_model(model_name: str) -> tuple[Any, Any]:
+        """
+        Loads and unserializes the machine learning model and its label encoder.
+        Expects a tuple where index 1 is the model blob and index 2 is the encoder blob.
+        """
+
+        model_row: Optional[tuple[Any, ...]] = SQLUtil.get_model(model_name)
+
+        if model_row is None:
+            logging.error(f"Failed to load model: {model_name} not found in database.")
+            raise ValueError(f"Model '{model_name}' not found.")
+
+        try:
+            loaded_model = pickle.loads(model_row[1])
+            label_encoder = pickle.loads(model_row[2])
+
+            return loaded_model, label_encoder
+
+        except (pickle.UnpicklingError, IndexError, TypeError) as e:
+            logging.error(
+                f"Buffer corruption or schema mismatch for model '{model_name}': {e}"
+            )
+            raise ValueError(f"Could not unserialize model data for '{model_name}'.")
 
     @staticmethod
     def get_models_list() -> set[str]:
@@ -79,8 +112,7 @@ class MLPersistanceUtil():
         SQLUtil.delete_model(model_name)
 
 
-class FunctionPersistanceUtil():
-
+class FunctionPersistanceUtil:
     @staticmethod
     def get_functions(model_name: str) -> list:
         functions: list = SQLUtil.get_functions(model_name)
@@ -98,18 +130,24 @@ class FunctionPersistanceUtil():
             SQLUtil.save_functions(training_request.model_name, functions)
 
     @staticmethod
-    def add_prediction_functions(prediction_request: PredictionRequest, predictions: list[str]):
+    def add_prediction_functions(
+        prediction_request: PredictionRequest, predictions: list[str]
+    ):
         functions = prediction_request.get_functions()
         task_name = prediction_request.task_name
 
         if functions is not None:
-            for (ctr, function) in enumerate(functions):
+            for ctr, function in enumerate(functions):
                 function["functionName"] = predictions[ctr]
             SQLUtil.save_predictions(
-                task_name, prediction_request.model_name, functions)
+                task_name, prediction_request.model_name, functions
+            )
 
     @staticmethod
-    def get_prediction_function(task_name: str, model_name: str, function_name: str) -> dict:
+    def get_prediction_function(
+        task_name: str, model_name: str, function_name: str
+    ) -> dict:
         prediction_function: dict = SQLUtil.get_prediction_function(
-            task_name, model_name, function_name)
+            task_name, model_name, function_name
+        )
         return prediction_function

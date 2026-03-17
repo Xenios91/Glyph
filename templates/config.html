@@ -1,13 +1,12 @@
 {% extends "layout.html" %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/upload_style.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/config_style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/upload_style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/config_style.css') }}">
 
 <div class="page-content blue-bg">
     <div id="config-box" class="nes-container with-title is-centered">
         <p class="title">// SYSTEM CONFIGURATION</p>
 
-        <!-- ── Upload Settings ─────────────────────────────── -->
         <div class="nes-container with-title is-centered config-section">
             <p class="title">UPLOAD SETTINGS</p>
             <div class="config-section-inner">
@@ -24,7 +23,8 @@
                 </div>
                 <div class="config-row">
                     <label for="max-file-size-input">Set Exact Value</label>
-                    <input type="number" id="max-file-size-input" class="nes-input" min="1" max="2048" value="{{ current_max_file_size | default(512) }}"
+                    <input type="number" id="max-file-size-input" class="nes-input" min="1" max="2048"
+                        value="{{ current_max_file_size | default(512) }}"
                         oninput="syncFromInput('max-file-size', 'max-file-size-val', this.value, ' MB')">
                     <span class="unit-label">MB</span>
                 </div>
@@ -33,7 +33,6 @@
 
         <hr class="divider">
 
-        <!-- ── CPU Settings ────────────────────────────────── -->
         <div class="nes-container with-title is-centered config-section">
             <p class="title">CPU SETTINGS</p>
             <div class="config-section-inner">
@@ -61,7 +60,6 @@
 
         <hr class="divider">
 
-        <!-- ── Controls ────────────────────────────────────── -->
         <div style="text-align: center; margin-top: 1.2rem;">
             <button type="button" class="nes-btn is-primary" onclick="saveConfig()">
                 [ SAVE CONFIGURATION ]
@@ -99,7 +97,7 @@
             max_file_size_mb: parseInt(document.getElementById('max-file-size').value),
             cpu_cores: parseInt(document.getElementById('cpu-cores').value),
         };
-        fetch('/api/config/save', {
+        fetch('/config/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(config)
