@@ -12,6 +12,19 @@
             ],
             "jinja": true,
             "justMyCode": true
+        },
+        {
+            "name": "Debug Pytest",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "${file}",
+                "-sv"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"PYTHONPATH": "${workspaceFolder}"}
         }
     ]
 }
