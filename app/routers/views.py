@@ -62,3 +62,16 @@ async def save_config(payload: ConfigPayload):
             )
 
     return JSONResponse(content={})
+
+@app.route("/error", methods=["GET"])
+def error_page():
+    """
+    Used for displaying errors
+    """
+    args = request.args
+    error_type = args.get("type")
+    message = "Uh oh! An unknown error has occured"
+
+    if error_type == "uploadError":
+        message = "Uh oh! It looks like the binary file is not of type ELF, if it's PE don't worry, we are working on implementing PE capabilities."
+    return render_template("error.html", message=message)

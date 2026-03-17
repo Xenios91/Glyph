@@ -20,6 +20,7 @@ class GlyphConfig:
                 filename="glyph_log.log", encoding="utf-8", level=logging.INFO
             )
             GlyphConfig._initialized = True
+            GlyphConfig._config["UPLOAD_FOLDER"] = "./binaries"
 
     @staticmethod
     def load_config() -> bool:
