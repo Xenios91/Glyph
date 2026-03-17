@@ -2,15 +2,17 @@
 
 ## An architecture independent binary analysis tool for fingerprinting functions through NLP
 
-## Upcoming Changes
+## Upcoming Changes for V0.0.3
 
 - Implementing Pyghidra to reduce setup requirements
-- Changing to design to fastapi
+- Changing to design to fastapi~~
 - New UI themes
 - More configuration
 - Adding more AI/ML capabilities to include LLM code cleanup and ensemble models for higher accuracy
 - Bug fixes and better dockerization.
 - User accounts instead of single user
+- Better test
+- Pydantic implementation
 
 ![Black Hat Arsenal 2022](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2022.svg)
 
