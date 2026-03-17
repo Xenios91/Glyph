@@ -1,17 +1,17 @@
 import logging
-from fastapi import APIRouter, Request, HTTPException, Query
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
-from typing import Optional
 from markupsafe import escape
+from pydantic import BaseModel
 
+from app.helpers import ACCEPT_TYPE
 from app.persistance_util import FunctionPersistanceUtil, PredictionPersistanceUtil
 from app.request_handler import PredictionRequest
 from app.task_management import Predictor, Trainer
-from app.helpers import ACCEPT_TYPE
 from templates.utils import format_code
-
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")

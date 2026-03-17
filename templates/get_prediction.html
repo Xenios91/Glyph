@@ -41,7 +41,7 @@
         const split = id.split(":");
         const currentURL = window.location.href;
         const splitIndex = currentURL.lastIndexOf("/");
-        const url = currentURL.substring(splitIndex, 0) + "/getPredictionDetails?functionName=" + split[0] + "&taskName=" + split[2] + "&modelName=" + split[1];
+        const url = currentURL.substring(splitIndex, 0) + "/models/getPredictionDetails?functionName=" + split[0] + "&taskName=" + split[2] + "&modelName=" + split[1];
         if (url) {
             window.location = url;
         }
@@ -52,7 +52,7 @@
         var selection = document.getElementById("task-name").innerText;
         var taskToDelete = selection.split(':')[1].replace(/\s+/, "");
         var currentURL = window.location.href;
-        var url = "/deletePrediction" + "?taskName=" + taskToDelete;
+        var url = "/models/deletePrediction" + "?taskName=" + taskToDelete;
 
         if (url) {
             window.location = "/";

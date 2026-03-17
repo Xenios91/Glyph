@@ -55,7 +55,7 @@ async def delete_model(modelName: str = Query(...)):
         return JSONResponse(content={}, status_code=200)
     except Exception as error:
         logging.error(error)
-        # Depending on your preference, you can return a 500 or just an empty 200
+
         return JSONResponse(content={}, status_code=200)
 
 

@@ -51,7 +51,7 @@
             if (status.innerText.trim() == "complete") {
                 const currentURL = window.location.href;
                 const splitIndex = currentURL.lastIndexOf("/");
-                const url = currentURL.substring(splitIndex, 0) + "/getFunctions?modelName=" + modelName;
+                const url = currentURL.substring(splitIndex, 0) + "/models/getFunctions?modelName=" + modelName;
                 if (url) { window.location = url; }
             } else if (status.innerText.trim() == "N/A") {
                 alert('No analysis has been performed yet!');
@@ -64,7 +64,7 @@
             var selection = document.getElementById("file-name").innerText;
             var binToDelete = selection.split(':')[1].replace(/\s+/, "");
             var currentURL = window.location.href;
-            var url = "/getSymbols" + "?binaryDel=" + binToDelete;
+            var url = "/models/getSymbols" + "?binaryDel=" + binToDelete;
             if (url) { window.location = url; }
         }
 

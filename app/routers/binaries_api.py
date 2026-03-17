@@ -1,35 +1,18 @@
-from fastapi import APIRouter, Request, UploadFile, File, Form
+import logging
+import os
+from typing import Optional
+
+from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
-from typing import Optional
-import os
-import logging
 from werkzeug.utils import secure_filename
-from app.persistance_util import MLPersistanceUtil
+
+from app.config import GlyphConfig
 from app.request_handler import GhidraRequest
 from app.task_management import Ghidra
-from app.helpers import ACCEPT_TYPE
-from app.config import GlyphConfig
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
-
-
-@router.get("/uploadBinary")
-async def get_upload_binary(request: Request):
-    """
-    Handles GET request to load the upload webpage
-    """
-    accept = request.headers.get("Accept", "")
-    if ACCEPT_TYPE not in accept:
-        return JSONResponse(content={"error": "API calls can only be POST"}, status_code=200)
-
-    models: set[str] = MLPersistanceUtil.get_models_list()
-    allow_prediction = len(models) > 0
-    return templates.TemplateResponse(
-        "upload.html",
-        {"request": request, "allow_prediction": allow_prediction, "models": models},
-    )
 
 
 @router.post("/uploadBinary")

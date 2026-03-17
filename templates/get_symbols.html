@@ -39,7 +39,7 @@
         const functionName = id.slice(0, -3);
         const currentURL = window.location.href;
         const splitIndex = currentURL.lastIndexOf("/");
-        const url = currentURL.substring(splitIndex, 0) + "/getFunction?" + "functionName=" + functionName + "&modelName=" + "{{ model_name }}";
+        const url = currentURL.substring(splitIndex, 0) + "/models/getFunction?" + "functionName=" + functionName + "&modelName=" + "{{ model_name }}";
         if (url) {
             window.location = url;
         }
@@ -49,7 +49,7 @@
         var selection = document.getElementById("model-name").innerText;
         var modelToDelete = selection.split(':')[1].replace(/\s+/, "");
         var currentURL = window.location.href;
-        var url = "/deleteModel" + "?modelName=" + modelToDelete;
+        var url = "/models/deleteModel" + "?modelName=" + modelToDelete;
 
         if (url) {
             window.location = "/";

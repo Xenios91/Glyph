@@ -1,10 +1,8 @@
-from typing_extensions import Annotated
-
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, StringConstraints
+from typing_extensions import Annotated
 
 from app.task_management import Trainer
-
 
 router = APIRouter()
 
@@ -19,9 +17,6 @@ async def get_status(uuid: str = Query(...)):
     """
     Handles a GET request to obtain the supplied uuid task status.
     """
-    if uuid == "all":
-        return {"status": "test"}
-
     status = Trainer().get_status(uuid)
 
     if status == "UUID Not Found":
@@ -49,4 +44,4 @@ async def update_status(payload: StatusUpdatePayload):
     if not updated:
         raise HTTPException(status_code=404, detail="UUID not found")
 
-    return {}  # Returns a 200 OK by default
+    return {"success": True}

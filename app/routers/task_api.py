@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Any
+from typing import Any, Optional
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
@@ -30,10 +30,14 @@ def train_model(request: TaskRequest) -> JSONResponse:
     uuid = request.uuid or Trainer().get_uuid()
 
     if not request.overwriteModel and MLPersistanceUtil.check_name(request.modelName):
-        return JSONResponse(content={"error": "model name already taken"}, status_code=400)
+        return JSONResponse(
+            content={"error": "model name already taken"}, status_code=400
+        )
 
     try:
-        training_request = TrainingRequest(uuid, request.modelName, request.model_dump())
+        training_request = TrainingRequest(
+            uuid, request.modelName, request.model_dump()
+        )
         Trainer().start_training(training_request)
         FunctionPersistanceUtil.add_model_functions(training_request)
 
@@ -53,7 +57,9 @@ def predict_tokens(request: TaskRequest) -> JSONResponse:
     uuid = request.uuid or Trainer().get_uuid()
 
     try:
-        prediction_request = PredictionRequest(uuid, request.modelName, request.model_dump())
+        prediction_request = PredictionRequest(
+            uuid, request.modelName, request.model_dump()
+        )
         Predictor().start_prediction(prediction_request)
 
         return JSONResponse(content={"uuid": prediction_request.uuid}, status_code=201)

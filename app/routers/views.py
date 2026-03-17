@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Request, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
-from typing import Optional
-from app.config import GlyphConfig, MAX_CPU_CORES
+
 import app._version as _version
+from app.config import MAX_CPU_CORES, GlyphConfig
 from app.helpers import ACCEPT_TYPE
+from app.persistance_util import MLPersistanceUtil
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -40,31 +42,6 @@ async def config(request: Request):
     )
 
 
-class ConfigPayload(BaseModel):
-    max_file_size_mb: Optional[int] = None
-    cpu_cores: Optional[int] = None
-
-
-@router.post("/api/config/save")
-async def save_config(payload: ConfigPayload):
-    """
-    Saves the configuration settings
-    """
-    if payload.max_file_size_mb is not None:
-        GlyphConfig.set_max_file_size(payload.max_file_size_mb)
-
-    if payload.cpu_cores is not None:
-        if 1 <= payload.cpu_cores <= MAX_CPU_CORES:
-            GlyphConfig._config["cpu_cores"] = payload.cpu_cores
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"CPU cores must be between 1 and {MAX_CPU_CORES}",
-            )
-
-    return JSONResponse(content={})
-
-
 @router.get("/error")
 async def error_page(request: Request, type: Optional[str] = None):
     """
@@ -80,4 +57,23 @@ async def error_page(request: Request, type: Optional[str] = None):
 
     return templates.TemplateResponse(
         "error.html", {"request": request, "message": message}
+    )
+
+
+@router.get("/uploadBinary")
+async def get_upload_binary(request: Request):
+    """
+    Handles GET request to load the upload webpage
+    """
+    accept = request.headers.get("Accept", "")
+    if ACCEPT_TYPE not in accept:
+        return JSONResponse(
+            content={"error": "API calls can only be POST"}, status_code=200
+        )
+
+    models: set[str] = MLPersistanceUtil.get_models_list()
+    allow_prediction = len(models) > 0
+    return templates.TemplateResponse(
+        "upload.html",
+        {"request": request, "allow_prediction": allow_prediction, "models": models},
     )
