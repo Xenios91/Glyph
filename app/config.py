@@ -1,32 +1,28 @@
 import logging
 from typing import Any, Optional
 import yaml
+import os
 
-MAX_CPU_CORES = 32
+MAX_CPU_CORES = os.cpu_count() or 1
+
 
 class GlyphConfig:
     _config: dict = {}
-    __instance = None
     _initialized = False
 
-    def __new__(cls):
-        if cls.__instance is None:
-            cls.__instance = super().__new__(cls)
-        return cls.__instance
-
-    def __init__(self) -> None:
+    @staticmethod
+    def load_config() -> bool:
         if not GlyphConfig._initialized:
             logging.basicConfig(
                 filename="glyph_log.log", encoding="utf-8", level=logging.INFO
             )
-            GlyphConfig._initialized = True
-            GlyphConfig._config["UPLOAD_FOLDER"] = "./binaries"
 
-    @staticmethod
-    def load_config() -> bool:
         try:
             with open("config.yml", "r", encoding="utf-8") as f:
                 GlyphConfig._config = yaml.safe_load(f) or {}
+
+            GlyphConfig._config["UPLOAD_FOLDER"] = "./binaries"
+            GlyphConfig._initialized = True
             return True
         except FileNotFoundError:
             logging.error("config.yml not found.")
@@ -92,7 +88,7 @@ class GlyphConfig:
             logging.error("Attempted to set a non-positive or 0 number of CPU cores.")
             return False
 
-        if cores > MAX_CPU_CORES:  # FIX 1: use the constant
+        if cores > MAX_CPU_CORES:
             logging.error("Attempted to set more than %d CPU cores.", MAX_CPU_CORES)
             return False
 
