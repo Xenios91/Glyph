@@ -19,3 +19,4 @@ def format_code(code: str) -> str:
     formatted_code = f"{function_signature}{function_body}"
 
     return formatted_code
+

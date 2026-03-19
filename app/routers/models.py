@@ -11,7 +11,7 @@ from app.persistance_util import (
 )
 
 from app.helpers import ACCEPT_TYPE
-from templates.utils import format_code
+from app.utils import format_code
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")

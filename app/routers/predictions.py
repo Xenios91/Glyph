@@ -11,7 +11,7 @@ from app.helpers import ACCEPT_TYPE
 from app.persistance_util import FunctionPersistanceUtil, PredictionPersistanceUtil
 from app.request_handler import PredictionRequest
 from app.task_management import Predictor, Trainer
-from templates.utils import format_code
+from app.utils import format_code
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
