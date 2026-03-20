@@ -1,21 +1,17 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.231.5/containers/python-3
 {
-	"name": "Python 3",
+	"name": "Python 3 with Ghidra",
 	"build": {
 		"dockerfile": "Dockerfile",
 		"context": "..",
 		"args": { 
-			// Update 'VARIANT' to pick a Python version: 3, 3.10, 3.9, 3.8, 3.7, 3.6
-			// Append -bullseye or -buster to pin to an OS version.
-			// Use -bullseye variants on local on arm64/Apple Silicon.
 			"VARIANT": "3.11-bullseye",
-			// Options
-			"NODE_VERSION": "none"
+			"NODE_VERSION": "none",
+			"GHIDRA_VERSION": "12.0"
 		}
 	},
 
-	// Set *default* container specific settings.json values on container create.
 	"settings": { 
 		"python.defaultInterpreterPath": "/usr/local/bin/python",
 		"python.linting.enabled": true,
@@ -28,21 +24,20 @@
 		"python.linting.mypyPath": "/usr/local/py-utils/bin/mypy",
 		"python.linting.pycodestylePath": "/usr/local/py-utils/bin/pycodestyle",
 		"python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle",
-		"python.linting.pylintPath": "/usr/local/py-utils/bin/pylint"
+		"python.linting.pylintPath": "/usr/local/py-utils/bin/pylint",
+		// Set Ghidra-specific paths
+		"terminal.integrated.env.linux": {
+			"GHIDRA_INSTALL_DIR": "/opt/ghidra",
+			"PYTHONPATH": "/opt/ghidra/Ghidra/Features/Base/python:/opt/ghidra/Ghidra/Features/Decompiler/java/lib/ghidraJNA.jar:/opt/ghidra/Ghidra/Features/Decompiler/java/lib/ghidra_framework_bridge.jar"
+		}
 	},
 
-	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
 		"ms-python.python",
 		"ms-python.vscode-pylance"
 	],
 
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
+	"remoteUser": "vscode",
 
-	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "pip3 install --user -r requirements.txt",
-
-	// Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
-	"remoteUser": "vscode"
+	"postCreateCommand": "pip3 install --user -r requirements.txt && echo 'Ghidra PyGhidra setup complete.'"
 }

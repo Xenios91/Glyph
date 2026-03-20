@@ -10,7 +10,7 @@ from sklearn import preprocessing
 from sklearn.pipeline import Pipeline
 
 from app.config import GlyphConfig
-from app.persistance_util import FunctionPersistanceUtil, MLPersistanceUtil, MLTask
+from app.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, MLTask
 from app.request_handler import GhidraRequest, PredictionRequest, TrainingRequest
 from app.services import TaskService
 
