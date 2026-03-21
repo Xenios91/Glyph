@@ -4,12 +4,13 @@ import pandas as pd
 
 
 class DataHandler():
+    """Base class for handling data operations"""
     uuid: str
     model_name: str
-    json_dict: dict
-    bin_dictionary: dict
-    data: pd.DataFrame
-    status: str
+    json_dict: dict[str, any]
+    bin_dictionary: dict[str, any] = None
+    data: pd.DataFrame | None = None
+    status: str = "starting"
 
     def __init__(self, uuid: str, data: dict, model_name: str):
         self.uuid = uuid

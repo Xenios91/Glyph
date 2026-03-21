@@ -1,193 +1,78 @@
 import pytest
 from unittest import mock
 
-# Mock Ghidra Imports to prevent immediate import errors if not in headless session
-with mock.patch.dict('sys.modules', {
-    'ghidra.app.decompiler': mock.MagicMock(),
-    'ghidra.util.task': mock.MagicMock(),
-    'ghidra.program.model.listing': mock.MagicMock(),
-}):
-    from ghidra.app.decompiler import DecompInterface, DecompileOptions, CCodeMarkup
-    from ghidra.util.task import TaskMonitor
-    from java.lang import String
+from app.ghidra_processor import (
+    check_if_variable, 
+    remove_comments, 
+    filter_tokens, 
+    analyze_binary_and_decompile
+)
 
-# ... (rest of module imports if needed)
+class TestTokenLogic:
+    """Tests the pure-Python string manipulation logic."""
 
+    @pytest.mark.parametrize("token, expected", [
+        ("var1", True),
+        ("local_10", True),
+        ("stack0", True),
+        ("int", False),
+        ("FUN_00401000", False),
+    ])
+    def test_variable_regex(self, token, expected):
+        assert check_if_variable(token) == expected
 
-def check_if_variable(token):
-    """Implementation from your script"""
-    import re
-    return re.match(r"^(?:\d{0,3}\w{1})var\d+$|^(?:\w{0,2})stack\d*$|^(?:\w{0,2})local\d*$", token, re.IGNORECASE) is not None
-
-
-def remove_comments(tokens_list):
-    """Implementation from your script"""
-    tokens_string = " ".join(tokens_list)
-    result = tokens_string
-    
-    while "/*" in result:
-        start = result.find("/*")
-        end = result.find("*/", start)
-        if end == -1:
-            result = result[:start].strip()
-        else:
-            result = result[:start] + " " + result[end + 2:]
-    
-    result = " ".join(result.split())
-    return result.split() if result else []
-
-
-def filter_tokens(tokens_list):
-    """Tests the full normalization and cleaning pipeline."""
-    import re
-    
-    filtered = []
-    
-    for token in tokens_list:
-        if not token or token.strip() == "":
-            continue
+    def test_comment_removal_edge_cases(self):
+        tokens = ["code", "/*", "comment", "*/", "more_code"]
+        assert remove_comments(tokens) == ["code", "more_code"]
         
-        if "0x" in token:
-            filtered.append("HEX")
-        elif token.startswith("FUN_"):
-            filtered.append("FUNCTION")
-        elif check_if_variable(token):
-            filtered.append("VARIABLE")
-        elif re.match(r"^undefined\d+$", token):
-            filtered.append("undefined")
-        else:
-            filtered.append(token)
+        unclosed = ["start", "/*", "unclosed"]
+        assert remove_comments(unclosed) == ["start"]
+
+    def test_filter_pipeline(self):
+        raw = ["FUN_123", "0x401000", "var1", "undefined4", "keep_me"]
+        result = filter_tokens(raw)
+        assert result == ["FUNCTION", "HEX", "VARIABLE", "undefined", "keep_me"]
+
+
+class TestOrchestration:
+    """Tests the 'Path to Decompilation' workflow using Mocks."""
+
+    @mock.patch("pyghidra.open_program")
+    @mock.patch("pyghidra.is_started")
+    @mock.patch("pyghidra.start")
+    def test_full_pipeline_path_logic(self, mock_start, mock_is_started, mock_open):
+        """Ensures the code talks to Ghidra correctly given a string path."""
+        mock_is_started.return_value = False
         
-    return remove_comments(filtered)
-
-
-class TestCheckIfVariable:
-    """Tests the regex logic for identifying variables."""
-    
-    def test_valid_variables(self):
-        assert check_if_variable("var1") is True
-        assert check_if_variable("VAR5") is True
-        assert check_if_variable("stack0") is True
-        assert check_if_variable("local100") is True
-    
-    def test_invalid_variables(self):
-        assert check_if_variable("int") is False
-        assert check_if_variable("FUN_main") is False
-        assert check_if_variable("printf") is False
-    
-    def test_edge_case_numbered_vars(self):
-        assert check_if_variable("v123var456") is True 
-
-
-class TestRemoveComments:
-    """Tests C-style comment removal logic."""
-
-    @staticmethod
-    def run(tokens_list):
-        return remove_comments(tokens_list)
-
-    def test_remove_simple_comment(self):
-        tokens = ["x", "/* this is a comment */", "y"]
-        expected = ["x", "y"]
-        assert TestRemoveComments.run(tokens) == expected
-
-    def test_remove_nested_comments_no_close(self):
-        tokens = ["start", "/* unclosed", "comment", "end"]
-        expected = ["start", "unclosed", "comment", "end"]
-        result = TestRemoveComments.run(tokens)
-        assert len(result) == 4
-    
-    def test_remove_inline_comments(self):
-        tokens = ["int", "x", "=/* comment */", "5;"]
-        expected = ["int", "x", "=", "5;"]
-        assert TestRemoveComments.run(tokens) == expected
+        mock_program = mock.MagicMock()
+        mock_open.return_value.__enter__.return_value = mock_program
         
-
-class TestFilterTokens:
-    """Tests the full normalization and cleaning pipeline."""
-
-    def test_filter_clean_variables(self):
-        tokens = [
-            "int", 
-            "var1", 
-            "stack0", 
-            "local3", 
-            "/* comment */", 
-            "0x401000"
-        ]
-        result = filter_tokens(tokens)
-        assert any("VARIABLE" in r for r in result)
-        assert any("HEX" in r for r in result)
-
-    def test_filter_mixed_types(self):
-        tokens = [
-            "FUN_main", 
-            "var1", 
-            "0xdeadbeef", 
-            "printf",
-            "undefined_var"
-        ]
-        result = filter_tokens(tokens)
+        mock_iter = mock_program.getFunctionManager().getFunctions.return_value
+        mock_iter.hasNext.side_effect = [True, False]
         
-        assert any("FUNCTION" in r for r in result)
-        assert any("VARIABLE" in r for r in result)
-        assert any("HEX" in r for r in result)
-        assert any("undefined" in r.lower() for r in result)
+        test_path = "/workspaces/Glyph/binaries/test.bin"
 
+        with mock.patch("app.ghidra_processor.setup_decompiler") as mock_setup:
+            mock_setup.return_value = mock.MagicMock()
+            
+            result = analyze_binary_and_decompile(test_path)
+            mock_start.assert_called_once()
+            mock_open.assert_called_once_with(test_path)
+            mock_program.analyze.assert_called_once()
+            assert "functions" in result
 
-class TestIntegrationFlow:
-    """Tests the orchestration logic with mocked Ghidra components."""
+class TestDecompilerConfig:
+    """Tests that the decompiler is set up with the right toggles."""
 
-    @pytest.fixture
-    def mock_decompiler(self):
-        return mock.MagicMock(spec=DecompilerInterface)
-
-    @pytest.fixture
-    def mock_function(self):
-        func = mock.MagicMock()
-        func.getName.return_value = "main"
-        func.isExternal.return_value = False
-        func.getEntryPoint.return_value = mock.MagicMock().__str__ = lambda: "0x401000"
-        body_mock = mock.MagicMock()
-        body_mock.getMaxAddress.return_value = mock.MagicMock().__str__ = lambda: "0x401020"
-        func.getBody.return_value = body_mock
-        return func
-
-    @pytest.fixture
-    def mock_decomp_markup(self):
-        markup = mock.MagicMock()
-        markup.flatten.return_value = None 
-        return markup
-
-    @pytest.fixture
-    def mock_decompile_interface(self, mock_decompiler):
-        mock_decompiler.getCCodeMarkup.return_value = mock.MagicMock()
-        mock_decomp_markup = mock_decompiler.getCCodeMarkup.return_value
-        mock_decomp_markup.flatten.side_effect = lambda tokens: None
+    def test_setup_decompiler_settings(self):
+        mock_program = mock.MagicMock()
+        mock_state = mock.MagicMock()
         
-        return mock_decompiler
-
-    @pytest.mark.skip(reason="Requires Ghidra environment to setup decompiler globally")
-    def test_setup_decompiler(self, mock_decompile_interface):
-        with mock.patch('ghidra.app.decompiler.DecompilerInterface') as MockDCI:
-            instance = mock.MagicMock()
-            MockDCI.return_value = instance
+        with mock.patch("ghidra.app.decompiler.DecompInterface") as MockDI:
+            instance = MockDI.return_value
+            from app.ghidra_processor import setup_decompiler
             
-            result = setup_decompiler()
-            
-            assert isinstance(result, DecompInterface)
-    
-    @pytest.mark.skip(reason="Requires Ghidra environment")
-    def test_get_function_tokens_logic(self, mock_function):
-        with mock.patch('ghidra.app.decompiler.DecompilerInterface') as MockDCI:
-            decomp_interface = mock.MagicMock()
-            
-            ccode_markup = mock.MagicMock()
-            decomp_interface.decompileFunction.return_value.getCCodeMarkup.return_value = ccode_markup
-            
-            token_list = []
-            ccode_markup.flatten(token_list)
-            
-            result = filter_tokens(token_list)
-            
-            assert isinstance(result, list)
+            setup_decompiler(mock_state, mock_program, decomp_interface=instance)
+            instance.toggleCCode.assert_called_with(True)
+            instance.setSimplificationStyle.assert_called_with("decompile")
+            instance.openProgram.assert_called_with(mock_program)
