@@ -36,5 +36,5 @@
         }
     },
     "remoteUser": "vscode",
-    "postCreateCommand": "wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.0.4_build/ghidra_12.0.4_PUBLIC_20260303.zip && unzip ghidra_12.0.4_PUBLIC_20260303.zip && mv ghidra_12.0.4_PUBLIC /opt/Ghidra && rm ghidra_12.0.4_PUBLIC_20260303.zip && python3 -m venv glyph_venv && pip3 install --user -r requirements.txt && export GHIDRA_INSTALL_DIR=/opt/Ghidra"
+    "postCreateCommand": "wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.0.4_build/ghidra_12.0.4_PUBLIC_20260303.zip && unzip ghidra_12.0.4_PUBLIC_20260303.zip && sudo mv ghidra_12.0.4_PUBLIC /opt/Ghidra && rm ghidra_12.0.4_PUBLIC_20260303.zip && python3 -m venv glyph_venv && pip3 install --user -r requirements.txt && export GHIDRA_INSTALL_DIR=/opt/Ghidra"
 }
