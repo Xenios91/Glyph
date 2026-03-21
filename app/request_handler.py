@@ -3,8 +3,9 @@ import uuid
 import pandas as pd
 
 
-class DataHandler():
+class DataHandler:
     """Base class for handling data operations"""
+
     uuid: str
     model_name: str
     json_dict: dict[str, any]
@@ -20,13 +21,9 @@ class DataHandler():
         self._clean_dict()
 
     def _clean_dict(self):
-        functions: list = []
-        functions_temp: list = list(
-            self.get_functions())
-        for function in functions_temp:
-            if function not in functions:
-                functions.append(function)
-        self.json_dict["functionsMap"]["functions"] = functions
+        functions_temp: list = list(self.get_functions())
+        unique_functions = list(dict.fromkeys(functions_temp))
+        self.json_dict["functionsMap"]["functions"] = unique_functions
 
     def _load_data(self):
         pass
@@ -38,22 +35,18 @@ class DataHandler():
 class TrainingRequest(DataHandler):
     bin_name: str
 
-    def __init__(self, uuid: str, model_name: str,  data: dict):
+    def __init__(self, uuid: str, model_name: str, data: dict):
         super().__init__(uuid, data, model_name)
         self._load_data()
 
     def _load_data(self):
         try:
             self.bin_name = self.json_dict["binaryName"]
-            functions: list = []
-            functions_temp: list = list(
-                self.get_functions())
-            for function in functions_temp:
-                if function not in functions:
-                    functions.append(function)
+            functions_temp: list = list(self.get_functions())
+            functions = list(dict.fromkeys(functions_temp))
 
             for function in functions:
-                token_list = function['tokenList']
+                token_list = function["tokenList"]
                 tokens = " ".join(token_list)
                 function["tokens"] = tokens
             self.data = pd.DataFrame(functions)
@@ -68,7 +61,7 @@ class PredictionRequest(DataHandler):
     data: pd.DataFrame
     status: str
 
-    def __init__(self, uuid: str, model_name: str,  data: dict):
+    def __init__(self, uuid: str, model_name: str, data: dict):
         super().__init__(uuid, data, model_name)
         self.task_name = data["taskName"]
         self._load_data()
@@ -76,14 +69,13 @@ class PredictionRequest(DataHandler):
     def _load_data(self):
         try:
             functions: list = []
-            functions_temp: list = list(
-                self.get_functions())
+            functions_temp: list = list(self.get_functions())
             for function in functions_temp:
                 if function not in functions:
                     functions.append(function)
 
             for function in functions:
-                token_list = function['tokenList']
+                token_list = function["tokenList"]
                 tokens = " ".join(token_list)
                 function["tokens"] = tokens
             self.data = pd.DataFrame(functions)
@@ -97,7 +89,7 @@ class PredictionRequest(DataHandler):
             function["functionName"] = labels[ctr]
 
 
-class GhidraRequest():
+class GhidraRequest:
     file_name: str
     is_training: bool
     model_name: str
@@ -105,7 +97,14 @@ class GhidraRequest():
     ml_class_type: str
     uuid: str
 
-    def __init__(self, filename: str, is_training: bool, model_name: str, task_name: str, mlclasstype: str) -> None:
+    def __init__(
+        self,
+        filename: str,
+        is_training: bool,
+        model_name: str,
+        task_name: str,
+        mlclasstype: str,
+    ) -> None:
         self.file_name = filename
         self.is_training = is_training
         self.model_name = model_name
@@ -114,7 +113,7 @@ class GhidraRequest():
         self.uuid = uuid.uuid4().__str__()
 
 
-class Prediction():
+class Prediction:
     model_name: str
     task_name: str
     predictions: dict
