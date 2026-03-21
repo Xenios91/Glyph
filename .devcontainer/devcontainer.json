@@ -1,43 +1,40 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.231.5/containers/python-3
 {
-	"name": "Python 3 with Ghidra",
-	"build": {
-		"dockerfile": "Dockerfile",
-		"context": "..",
-		"args": { 
-			"VARIANT": "3.11-bullseye",
-			"NODE_VERSION": "none",
-			"GHIDRA_VERSION": "12.0"
-		}
-	},
-
-	"settings": { 
-		"python.defaultInterpreterPath": "/usr/local/bin/python",
-		"python.linting.enabled": true,
-		"python.linting.pylintEnabled": true,
-		"python.formatting.autopep8Path": "/usr/local/py-utils/bin/autopep8",
-		"python.formatting.blackPath": "/usr/local/py-utils/bin/black",
-		"python.formatting.yapfPath": "/usr/local/py-utils/bin/yapf",
-		"python.linting.banditPath": "/usr/local/py-utils/bin/bandit",
-		"python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
-		"python.linting.mypyPath": "/usr/local/py-utils/bin/mypy",
-		"python.linting.pycodestylePath": "/usr/local/py-utils/bin/pycodestyle",
-		"python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle",
-		"python.linting.pylintPath": "/usr/local/py-utils/bin/pylint",
-		// Set Ghidra-specific paths
-		"terminal.integrated.env.linux": {
-			"GHIDRA_INSTALL_DIR": "/opt/ghidra",
-			"PYTHONPATH": "/opt/ghidra/Ghidra/Features/Base/python:/opt/ghidra/Ghidra/Features/Decompiler/java/lib/ghidraJNA.jar:/opt/ghidra/Ghidra/Features/Decompiler/java/lib/ghidra_framework_bridge.jar"
-		}
-	},
-
-	"extensions": [
-		"ms-python.python",
-		"ms-python.vscode-pylance"
-	],
-
-	"remoteUser": "vscode",
-
-	"postCreateCommand": "pip3 install --user -r requirements.txt && echo 'Ghidra PyGhidra setup complete.'"
+    "name": "Python 3 with Ghidra 12.0.4",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": "..",
+        "args": { 
+            "VARIANT": "3.11-bullseye"
+        }
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/java:1": {
+            "version": "21",
+            "jdkDistro": "ms"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.analysis.extraPaths": [
+                    "/workspaces/Ghidra/Ghidra/Features/Base/python"
+                ],
+                "terminal.integrated.env.linux": {
+                    "GHIDRA_INSTALL_DIR": "/workspaces/Ghidra",
+                    "PATH": "${env:PATH}:/workspaces/Ghidra/support",
+                    "PYTHONPATH": "${containerEnv:PYTHONPATH}:/workspaces/Ghidra/Ghidra/Features/Base/python"
+                }
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.debugpy",
+                "ms-toolsai.jupyter",
+                "vscjava.vscode-java-pack"
+            ]
+        }
+    },
+    "remoteUser": "vscode",
+    "postCreateCommand": "wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.0.4_build/ghidra_12.0.4_PUBLIC_20260303.zip && unzip ghidra_12.0.4_PUBLIC_20260303.zip && mv ghidra_12.0.4_PUBLIC /opt/Ghidra && rm ghidra_12.0.4_PUBLIC_20260303.zip && python3 -m venv glyph_venv && pip3 install --user -r requirements.txt && export GHIDRA_INSTALL_DIR=/opt/Ghidra"
 }
