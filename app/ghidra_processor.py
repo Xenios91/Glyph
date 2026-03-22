@@ -170,3 +170,7 @@ def analyze_binary_and_decompile(binary_path) -> dict[str, list]:
     with pyghidra.open_program(binary_path) as program:
         program.analyze() 
         return decompile_all_functions(None, program)
+    
+    
+if __name__ == "__main__":
+    analyze_binary_and_decompile("/bin/ls")

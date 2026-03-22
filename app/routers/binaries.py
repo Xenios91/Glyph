@@ -1,11 +1,12 @@
 import logging
 import os
+from pathlib import Path
 from typing import Optional
+import uuid
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
-from werkzeug.utils import secure_filename
 
 from app.config import GlyphConfig
 from app.request_handler import GhidraRequest
@@ -46,17 +47,18 @@ async def post_upload_binary(
             content={"error": "invalid request, missing query strings"}, status_code=400
         )
 
-    filename = secure_filename(binaryFile.filename)
+    extension = Path(binaryFile.filename).suffix
+    unique_filename = f"{uuid.uuid4()}{extension}"
     upload_folder = GlyphConfig._config["UPLOAD_FOLDER"]
 
     os.makedirs(upload_folder, exist_ok=True)
 
-    file_path = os.path.join(upload_folder, filename)
+    file_path = os.path.join(upload_folder, unique_filename)
     with open(file_path, "wb") as f:
         f.write(await binaryFile.read())
 
     ghidra_task = GhidraRequest(
-        filename, is_training_data, model_name, task_name, ml_class_type
+        unique_filename, is_training_data, model_name, task_name, ml_class_type
     )
     Ghidra().start_task(ghidra_task)
 
