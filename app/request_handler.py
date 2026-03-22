@@ -103,13 +103,13 @@ class GhidraRequest:
         is_training: bool,
         model_name: str,
         task_name: str,
-        mlclasstype: str,
+        ml_class_type: str,
     ) -> None:
         self.file_name = filename
         self.is_training = is_training
         self.model_name = model_name
         self.task_name = task_name
-        self.ml_class_type = mlclasstype
+        self.ml_class_type = ml_class_type
         self.uuid = uuid.uuid4().__str__()
 
 
