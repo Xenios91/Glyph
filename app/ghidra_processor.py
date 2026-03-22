@@ -142,7 +142,7 @@ def decompile_all_functions(state, program):
             return_type = "undefined"
         param_count = len(function.getParameters())
 
-        filtered_tokens = filter_tokens(tokens)
+        filtered_tokens: list[str] = filter_tokens(tokens)
 
         func_entry = {
             "functionName": function.getName(),
