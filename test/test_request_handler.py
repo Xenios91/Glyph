@@ -90,9 +90,7 @@ class TestTrainingRequest:
         }
 
         request = TrainingRequest("test-uuid", "test-model", duplicate_data)
-        # Should have deduplicated functions
         assert len(request.data) == 2
-        # Check that tokens were added
         assert "tokens" in request.data.columns
 
 
