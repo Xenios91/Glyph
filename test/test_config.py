@@ -147,7 +147,7 @@ def test_load_config_with_real_file(tmp_path, valid_config_content):
         (1.5, False),
         (os.cpu_count(), True),
         (os.cpu_count() + 1, False),
-        (10, False),
+        (os.cpu_count() + 5, False),
     ],
 )
 def test_set_cpu_cores_parametrized(cores, expected):
