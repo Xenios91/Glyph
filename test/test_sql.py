@@ -1,3 +1,4 @@
+"""Unit tests for SQL database operations and utilities."""
 import os
 import sqlite3
 import pickle
@@ -9,26 +10,26 @@ from app.request_handler import Prediction
 
 
 def make_cursor_mock(return_data=None, fetchall_data=None, fetchone_data=None):
-    """Helper to create a cursor mock with proper execute behavior."""
+    """Create a cursor mock with configurable execute behavior."""
     mock_cur = MagicMock()
     mock_execute_result = MagicMock()
-    
+
     if fetchall_data is not None:
         mock_execute_result.fetchall.return_value = fetchall_data
     elif return_data is not None:
         mock_execute_result.fetchall.return_value = return_data
-    
+
     if fetchone_data is not None or fetchone_data is None:
         mock_execute_result.fetchone.return_value = fetchone_data
     elif return_data is not None and return_data:
         mock_execute_result.fetchone.return_value = return_data[0] if isinstance(return_data, list) else return_data
-    
+
     mock_cur.execute.return_value = mock_execute_result
     return mock_cur
 
 
 class TestSQLUtilInitDB:
-    """Tests for SQLUtil.init_db()"""
+    """Tests for SQLUtil.init_db() method."""
 
     def test_init_db_creates_tables(self, monkeypatch):
         """Test that init_db creates both database tables."""
@@ -81,7 +82,7 @@ class TestSQLUtilInitDB:
 
 
 class TestSQLUtilSaveModel:
-    """Tests for SQLUtil.save_model()"""
+    """Tests for SQLUtil.save_model() method."""
 
     def test_save_model_success(self, monkeypatch):
         """Test saving a model successfully."""
@@ -96,7 +97,6 @@ class TestSQLUtilSaveModel:
 
         SQLUtil.save_model("test_model", b"encoder_data", b"model_data")
 
-        # Check that INSERT was called (after CREATE TABLE)
         calls = mock_cur.execute.call_args_list
         insert_calls = [c for c in calls if "INSERT" in c[0][0]]
         assert len(insert_calls) == 1
@@ -119,7 +119,7 @@ class TestSQLUtilSaveModel:
 
 
 class TestSQLUtilGetModelsList:
-    """Tests for SQLUtil.get_models_list()"""
+    """Tests for SQLUtil.get_models_list() method."""
 
     def test_get_models_list_success(self, monkeypatch):
         """Test getting list of models."""
@@ -181,7 +181,7 @@ class TestSQLUtilGetModelsList:
 
 
 class TestSQLUtilGetModel:
-    """Tests for SQLUtil.get_model()"""
+    """Tests for SQLUtil.get_model() method."""
 
     def test_get_model_success(self, monkeypatch):
         """Test getting a specific model."""
@@ -229,7 +229,7 @@ class TestSQLUtilGetModel:
 
 
 class TestSQLUtilDeleteModel:
-    """Tests for SQLUtil.delete_model()"""
+    """Tests for SQLUtil.delete_model() method."""
 
     def test_delete_model_success(self, monkeypatch):
         """Test deleting a model."""
@@ -244,7 +244,6 @@ class TestSQLUtilDeleteModel:
 
         SQLUtil.delete_model("test_model")
 
-        # Check that DELETE was called for both tables
         calls = mock_cur.execute.call_args_list
         call_strs = [str(c) for c in calls]
         assert any("DELETE FROM MODELS" in s for s in call_strs)
@@ -268,7 +267,7 @@ class TestSQLUtilDeleteModel:
 
 
 class TestSQLUtilGetPredictionsList:
-    """Tests for SQLUtil.get_predictions_list()"""
+    """Tests for SQLUtil.get_predictions_list() method."""
 
     def test_get_predictions_list_success(self, monkeypatch):
         """Test getting list of predictions."""
@@ -318,7 +317,7 @@ class TestSQLUtilGetPredictionsList:
 
 
 class TestSQLUtilGetPredictions:
-    """Tests for SQLUtil.get_predictions()"""
+    """Tests for SQLUtil.get_predictions() method."""
 
     def test_get_predictions_success(self, monkeypatch):
         """Test getting a specific prediction."""
@@ -383,7 +382,7 @@ class TestSQLUtilGetPredictions:
 
 
 class TestSQLUtilSavePredictions:
-    """Tests for SQLUtil.save_predictions()"""
+    """Tests for SQLUtil.save_predictions() method."""
 
     def test_save_predictions_success(self, monkeypatch):
         """Test saving predictions successfully."""
@@ -400,7 +399,6 @@ class TestSQLUtilSavePredictions:
 
         SQLUtil.save_predictions("task1", "model1", functions)
 
-        # Should have CREATE TABLE + INSERT
         assert mock_cur.execute.call_count >= 1
 
     def test_save_predictions_handles_exception(self, monkeypatch, caplog):
@@ -421,7 +419,7 @@ class TestSQLUtilSavePredictions:
 
 
 class TestSQLUtilGetPredictionFunction:
-    """Tests for SQLUtil.get_prediction_function()"""
+    """Tests for SQLUtil.get_prediction_function() method."""
 
     def test_get_prediction_function_success(self, monkeypatch):
         """Test getting a specific prediction function."""
@@ -463,7 +461,7 @@ class TestSQLUtilGetPredictionFunction:
 
 
 class TestSQLUtilSaveFunctions:
-    """Tests for SQLUtil.save_functions()"""
+    """Tests for SQLUtil.save_functions() method."""
 
     def test_save_functions_success(self, monkeypatch):
         """Test saving functions successfully."""
@@ -483,7 +481,6 @@ class TestSQLUtilSaveFunctions:
 
         SQLUtil.save_functions("model1", functions)
 
-        # CREATE TABLE + 2 INSERTs
         assert mock_cur.execute.call_count >= 2
 
     def test_save_functions_handles_exception(self, monkeypatch, caplog):
@@ -504,7 +501,7 @@ class TestSQLUtilSaveFunctions:
 
 
 class TestSQLUtilGetFunctions:
-    """Tests for SQLUtil.get_functions()"""
+    """Tests for SQLUtil.get_functions() method."""
 
     def test_get_functions_success(self, monkeypatch):
         """Test getting functions for a model."""
@@ -541,7 +538,7 @@ class TestSQLUtilGetFunctions:
 
 
 class TestSQLUtilGetFunction:
-    """Tests for SQLUtil.get_function()"""
+    """Tests for SQLUtil.get_function() method."""
 
     def test_get_function_success(self, monkeypatch):
         """Test getting a specific function."""
@@ -577,7 +574,7 @@ class TestSQLUtilGetFunction:
 
 
 class TestSQLUtilDeleteFunctions:
-    """Tests for SQLUtil.delete_functions()"""
+    """Tests for SQLUtil.delete_functions() method."""
 
     def test_delete_functions_success(self, monkeypatch):
         """Test deleting functions for a model."""
@@ -613,7 +610,7 @@ class TestSQLUtilDeleteFunctions:
 
 
 class TestSQLUtilDeletePrediction:
-    """Tests for SQLUtil.delete_prediction()"""
+    """Tests for SQLUtil.delete_prediction() method."""
 
     def test_delete_prediction_success(self, monkeypatch):
         """Test deleting a prediction."""
@@ -649,7 +646,7 @@ class TestSQLUtilDeletePrediction:
 
 
 class TestSQLUtilDeleteModelPredictions:
-    """Tests for SQLUtil.delete_model_predictions()"""
+    """Tests for SQLUtil.delete_model_predictions() method."""
 
     def test_delete_model_predictions_success(self, monkeypatch):
         """Test deleting all predictions for a model."""

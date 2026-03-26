@@ -1,7 +1,7 @@
+"""Unit tests for request handler classes and data processing."""
 import sys
 import os
 
-# Add the project root to the path so we can import our modules
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.request_handler import (
@@ -14,7 +14,10 @@ from app.request_handler import (
 
 
 class TestDataHandler:
+    """Tests for DataHandler initialization and data processing."""
+
     def test_data_handler_init(self):
+        """Test DataHandler initializes with correct attributes."""
         test_data = {
             "functionsMap": {
                 "functions": [
@@ -30,22 +33,22 @@ class TestDataHandler:
         assert handler.status == "starting"
 
     def test_clean_dict_removes_duplicates(self):
-        # Test with duplicate functions
+        """Test duplicate functions are removed during initialization."""
         duplicate_data = {
             "functionsMap": {
                 "functions": [
                     {"name": "func1", "tokenList": ["token1", "token2"]},
-                    {"name": "func1", "tokenList": ["token1", "token2"]},  # Duplicate
+                    {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
                 ]
             }
         }
 
         handler = DataHandler("test-uuid", duplicate_data, "test-model")
-        # Should have deduplicated functions
         assert len(handler.json_dict["functionsMap"]["functions"]) == 2
 
     def test_get_functions(self):
+        """Test get_functions returns correct function count."""
         test_data = {
             "functionsMap": {
                 "functions": [
@@ -61,7 +64,10 @@ class TestDataHandler:
 
 
 class TestTrainingRequest:
+    """Tests for TrainingRequest initialization and data loading."""
+
     def test_training_request_init(self):
+        """Test TrainingRequest initializes with correct attributes."""
         test_data = {
             "binaryName": "test_binary",
             "functionsMap": {
@@ -78,12 +84,13 @@ class TestTrainingRequest:
         assert len(request.data) == 2
 
     def test_training_request_load_data_with_duplicates(self):
+        """Test duplicate functions are removed during data loading."""
         duplicate_data = {
             "binaryName": "test_binary",
             "functionsMap": {
                 "functions": [
                     {"name": "func1", "tokenList": ["token1", "token2"]},
-                    {"name": "func1", "tokenList": ["token1", "token2"]},  # Duplicate
+                    {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
                 ]
             },
@@ -95,7 +102,10 @@ class TestTrainingRequest:
 
 
 class TestPredictionRequest:
+    """Tests for PredictionRequest initialization and prediction handling."""
+
     def test_prediction_request_init(self):
+        """Test PredictionRequest initializes with correct attributes."""
         test_data = {
             "taskName": "test_task",
             "functionsMap": {
@@ -112,6 +122,7 @@ class TestPredictionRequest:
         assert len(request.data) == 2
 
     def test_prediction_request_load_data_with_duplicates(self):
+        """Test duplicate functions are removed during data loading."""
         duplicate_data = {
             "taskName": "test_task",
             "functionsMap": {
@@ -128,6 +139,7 @@ class TestPredictionRequest:
         assert "tokens" in request.data.columns
 
     def test_set_prediction_values(self):
+        """Test prediction values are correctly assigned to functions."""
         test_data = {
             "taskName": "test_task",
             "functionsMap": {
@@ -147,7 +159,10 @@ class TestPredictionRequest:
 
 
 class TestGhidraRequest:
+    """Tests for GhidraRequest initialization."""
+
     def test_ghidra_request_init(self):
+        """Test GhidraRequest initializes with correct attributes and generates UUID."""
         request = GhidraRequest(
             filename="test_file.txt",
             is_training=True,
@@ -166,14 +181,12 @@ class TestGhidraRequest:
 
 
 class TestPrediction:
+    """Tests for Prediction class initialization."""
+
     def test_prediction_init(self):
+        """Test Prediction initializes with correct attributes."""
         pred_data = {"result": "success"}
         prediction = Prediction("test_task", "test-model", pred_data)
         assert prediction.task_name == "test_task"
         assert prediction.model_name == "test-model"
         assert prediction.predictions == pred_data
-
-
-def test_exception_handling():
-    """Test that exceptions are properly handled and chained"""
-    pass

@@ -1,18 +1,20 @@
-import pytest
+"""Unit tests for task management and queue operations."""
 from app.request_handler import TrainingRequest
 from app.services import TaskService
 from app.task_management import TaskManager
 
-# --- Fixtures (Setup Logic) ---
+import pytest
+
 
 @pytest.fixture
 def task_manager():
-    """Provides a fresh TaskManager instance for each test."""
+    """Provide a fresh TaskManager instance for each test."""
     return TaskManager()
+
 
 @pytest.fixture
 def sample_training_request():
-    """Provides a standardized TrainingRequest object."""
+    """Provide a standardized TrainingRequest object for testing."""
     return TrainingRequest(
         uuid="1234",
         model_name="test_model",
@@ -22,21 +24,19 @@ def sample_training_request():
         },
     )
 
-# --- Tests ---
 
 def test_get_uuid(task_manager):
+    """Test UUID generation produces valid format."""
     uuid = task_manager.get_uuid()
 
-    # Simple, readable assertions
     assert len(uuid) == 36
     assert isinstance(uuid, str)
 
+
 def test_get_status(task_manager, sample_training_request):
-    # Setup the state
+    """Test task status retrieval from queue."""
     TaskService().service_queue.put(sample_training_request)
 
-    # Execution
     status = task_manager.get_status("1234")
 
-    # Assertion
     assert status == "starting"

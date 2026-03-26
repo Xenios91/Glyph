@@ -1,3 +1,4 @@
+"""Unit tests for Ghidra decompiler processing and token manipulation."""
 import pytest
 from unittest import mock
 
@@ -10,7 +11,7 @@ from app.ghidra_processor import (
 
 
 class TestTokenLogic:
-    """Tests the pure-Python string manipulation logic."""
+    """Tests for pure-Python string manipulation logic in token processing."""
 
     @pytest.mark.parametrize(
         "token, expected",
@@ -23,9 +24,11 @@ class TestTokenLogic:
         ],
     )
     def test_variable_regex(self, token, expected):
+        """Test variable detection regex against various token formats."""
         assert check_if_variable(token) == expected
 
     def test_comment_removal_edge_cases(self):
+        """Test comment removal handles both closed and unclosed comments."""
         tokens = ["code", "/*", "comment", "*/", "more_code"]
         assert remove_comments(tokens) == ["code", "more_code"]
 
@@ -33,15 +36,17 @@ class TestTokenLogic:
         assert remove_comments(unclosed) == ["start"]
 
     def test_filter_pipeline(self):
+        """Test token filtering pipeline transforms tokens correctly."""
         raw = ["FUN_123", "0x401000", "var1", "undefined4", "keep_me"]
         result = filter_tokens(raw)
         assert result == ["FUNCTION", "HEX", "VARIABLE", "undefined", "keep_me"]
 
 
 class TestDecompilerConfig:
-    """Tests that the decompiler is set up with the right toggles."""
+    """Tests for decompiler configuration and setup."""
 
     def test_setup_decompiler_settings(self):
+        """Test that decompiler is configured with correct toggles."""
         mock_program = mock.MagicMock()
         mock_state = mock.MagicMock()
 

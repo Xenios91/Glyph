@@ -1,4 +1,4 @@
-# test_glyph_config.py
+"""Unit tests for Glyph configuration management."""
 import os
 import yaml
 import logging
@@ -8,26 +8,16 @@ from unittest.mock import patch, mock_open, MagicMock
 
 import pytest
 
-# Import *after* mocking fixtures — critical to avoid side effects
-# We'll use lazy import in tests to ensure clean mocking
-
-
-# ===== FIXTURES =====
+from app.config import GlyphConfig
 
 
 @pytest.fixture(autouse=True)
 def cleanup_singleton_and_logging():
-    """Reset singleton state and logging before each test to avoid leakage."""
-    # Import inside fixture to avoid issues with lazy import
-    from app.config import GlyphConfig
-    import logging
-
-    # Reset singleton
+    """Reset singleton state and logging before each test to prevent state leakage."""
     GlyphConfig._config = {}
     GlyphConfig._initialized = False
     GlyphConfig.__instance = None
 
-    # Reset logging
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
     logging.basicConfig(
@@ -38,23 +28,15 @@ def cleanup_singleton_and_logging():
 
     yield
 
-    # Optional: clear log file (but keep for test inspection if needed)
-    # Path("glyph_log.log").unlink(missing_ok=True)
-
 
 @pytest.fixture
 def valid_config_content():
+    """Provide valid configuration content for tests."""
     return {"cpu_cores": 4, "max_file_size_mb": 100, "UPLOAD_FOLDER": "./binaries"}
 
 
-# ===== TESTS =====
-
-
 def test_set_cpu_cores_type_error():
-    """Test `set_cpu_cores` rejects non-int."""
-    # Lazy import to avoid side effects
-    from app.config import GlyphConfig
-
+    """Test that set_cpu_cores rejects non-integer input."""
     with patch("builtins.open", mock_open(read_data="")):
         with patch("yaml.safe_load", return_value={}):
             result = GlyphConfig.set_cpu_cores("8")
@@ -63,21 +45,16 @@ def test_set_cpu_cores_type_error():
 
 
 def test_set_cpu_cores_zero_or_negative():
-    """Test `set_cpu_cores` rejects ≤0."""
-    from app.config import GlyphConfig
-
+    """Test that set_cpu_cores rejects zero and negative values."""
     assert GlyphConfig.set_cpu_cores(0) is False
     assert GlyphConfig.set_cpu_cores(-2) is False
 
 
 def test_set_cpu_cores_exceeds_max():
-    """Test `set_cpu_cores` rejects >MAX_CPU_CORES."""
-    from app.config import GlyphConfig
-    import os
-
+    """Test that set_cpu_cores rejects values exceeding MAX_CPU_CORES."""
     MAX_CPU_CORES = os.cpu_count() or 1
-
     too_many = MAX_CPU_CORES + 1
+
     assert GlyphConfig.set_cpu_cores(too_many) is False
 
     log_path = "glyph_log.log"
@@ -87,19 +64,14 @@ def test_set_cpu_cores_exceeds_max():
 
 
 def test_set_cpu_cores_success():
-    """Test `set_cpu_cores` accepts valid int."""
-    from app.config import GlyphConfig
-
+    """Test that set_cpu_cores accepts valid integer input."""
     cores = 1
     assert GlyphConfig.set_cpu_cores(cores) is True
     assert GlyphConfig._config["cpu_cores"] == cores
 
 
 def test_set_cpu_cores_boundary_valid():
-    """Test edge case of 1 and MAX_CPU_CORES."""
-    from app.config import GlyphConfig
-    import os
-
+    """Test boundary values of 1 and MAX_CPU_CORES are accepted."""
     MAX_CPU_CORES = os.cpu_count() or 1
 
     assert GlyphConfig.set_cpu_cores(1) is True
@@ -107,20 +79,15 @@ def test_set_cpu_cores_boundary_valid():
 
 
 def test_default_upload_folder_set_in_init():
-    """Test that `UPLOAD_FOLDER` is set to './binaries' in __init__."""
-    from app.config import GlyphConfig
-
+    """Test that UPLOAD_FOLDER defaults to './binaries' during initialization."""
     with patch("builtins.open", mock_open(read_data="")):
         with patch("yaml.safe_load", return_value={}):
             GlyphConfig.load_config()
             assert GlyphConfig._config["UPLOAD_FOLDER"] == "./binaries"
 
 
-# Integration test: uses real filesystem (via tmp_path), but isolated per test
 def test_load_config_with_real_file(tmp_path, valid_config_content):
-    """Integration test using actual file system (but temp file)."""
-    from app.config import GlyphConfig
-
+    """Integration test using actual filesystem with temporary file."""
     config_file = tmp_path / "config.yml"
     config_content = {
         "cpu_cores": 2,
@@ -151,8 +118,7 @@ def test_load_config_with_real_file(tmp_path, valid_config_content):
     ],
 )
 def test_set_cpu_cores_parametrized(cores, expected):
-    from app.config import GlyphConfig
-
+    """Test set_cpu_cores with various input values using parametrization."""
     with patch("builtins.open", mock_open(read_data="")):
         with patch("yaml.safe_load", return_value={}):
             result = GlyphConfig.set_cpu_cores(cores)
