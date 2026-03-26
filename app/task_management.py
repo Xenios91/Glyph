@@ -36,9 +36,9 @@ class TaskManager():
         status: str = "UUID Not Found"
         queue_list: list = list(TaskService().service_queue.queue)
         for task in queue_list:
-            queued_uuid: str = task.uuid
+            queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
-                status = task.status
+                status = task[0].status
                 break
         return status
 
