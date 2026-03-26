@@ -1,25 +1,35 @@
+"""Configuration module for Glyph application settings."""
+
 import logging
-from typing import Any
-import yaml
 import os
+from typing import Any
+
+import yaml
 
 MAX_CPU_CORES = os.cpu_count() or 1
 
 
 class GlyphConfig:
+    """Configuration manager for Glyph application."""
+
     _config: dict[str, Any] = {}
     _initialized = False
 
     @staticmethod
     def load_config() -> bool:
+        """Load configuration from config.yml file.
+
+        Returns:
+            bool: True if configuration loaded successfully, False otherwise.
+        """
         if not GlyphConfig._initialized:
             logging.basicConfig(
                 filename="glyph_log.log", encoding="utf-8", level=logging.INFO
             )
 
         try:
-            with open("config.yml", "r", encoding="utf-8") as f:
-                GlyphConfig._config = yaml.safe_load(f) or {}
+            with open("config.yml", "r", encoding="utf-8") as config_file:
+                GlyphConfig._config = yaml.safe_load(config_file) or {}
 
             GlyphConfig._config["UPLOAD_FOLDER"] = "./binaries"
             GlyphConfig._initialized = True
@@ -27,18 +37,25 @@ class GlyphConfig:
         except FileNotFoundError:
             logging.error("config.yml not found.")
             return False
-        except yaml.YAMLError as e:
-            logging.error("Failed to parse config.yml: %s", e)
+        except yaml.YAMLError as yaml_error:
+            logging.error("Failed to parse config.yml: %s", yaml_error)
             return False
 
     @staticmethod
     def get_config_value(value: str) -> Any | None:
+        """Get a configuration value by key.
+
+        Args:
+            value: The configuration key to retrieve.
+
+        Returns:
+            The configuration value or None if not found.
+        """
         return GlyphConfig._config.get(value)
 
     @staticmethod
     def set_max_file_size(size: int) -> bool:
-        """
-        Set the maximum file size limit for a file upload.
+        """Set the maximum file size limit for a file upload.
 
         Args:
             size (int): The maximum file size in megabytes.
@@ -67,8 +84,7 @@ class GlyphConfig:
 
     @staticmethod
     def set_cpu_cores(cores: int) -> bool:
-        """
-        Set the number of CPU cores available for analysis.
+        """Set the number of CPU cores available for analysis.
 
         Args:
             cores (int): The number of CPU cores to use.

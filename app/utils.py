@@ -1,9 +1,8 @@
+"""Utility functions for code formatting and other utilities."""
 
 
 def format_code(code: str) -> str:
-    '''
-    Formats C code for browser display
-    '''
+    """Format C code for browser display."""
     function_signature = code.split("{")[0].strip()
     function_signature = f"{function_signature}" + " \n{\n"
 
@@ -19,4 +18,3 @@ def format_code(code: str) -> str:
     formatted_code = f"{function_signature}{function_body}"
 
     return formatted_code
-

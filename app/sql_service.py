@@ -1,3 +1,5 @@
+"""SQL utility module for database operations."""
+
 import logging
 import os
 import pickle
@@ -8,14 +10,18 @@ from app.request_handler import Prediction
 
 
 class SQLUtil:
+    """Utility class for SQLite database operations."""
+
     @staticmethod
-    def init_db():
+    def init_db() -> None:
+        """Initialize the database tables for models and predictions."""
         if not os.path.exists("models.db"):
             with sqlite3.connect("models.db") as con:
                 try:
                     cur = con.cursor()
                     cur.execute(
-                        "CREATE TABLE IF NOT EXISTS models(model_name VARCHAR(64), model BLOB, label_encoder BLOB)"
+                        "CREATE TABLE IF NOT EXISTS "
+                        "models(model_name VARCHAR(64), model BLOB, label_encoder BLOB)"
                     )
 
                     con.commit()
@@ -27,19 +33,28 @@ class SQLUtil:
                 try:
                     cur = con.cursor()
                     cur.execute(
-                        "CREATE TABLE IF NOT EXISTS PREDICTIONS(name VARCHAR(64), model_name VARCHAR(64), functions BLOB)"
+                        "CREATE TABLE IF NOT EXISTS "
+                        "PREDICTIONS(name VARCHAR(64), model_name VARCHAR(64), functions BLOB)"
                     )
                     con.commit()
                 except Exception as error:
                     logging.error(error)
 
     @staticmethod
-    def save_model(model_name: str, label_encoder, model: bytes):
+    def save_model(model_name: str, label_encoder, model: bytes) -> None:
+        """Save a model to the models database.
+
+        Args:
+            model_name: Name of the model to save.
+            label_encoder: The label encoder to save.
+            model: The model bytes to save.
+        """
         with sqlite3.connect("models.db") as con:
             try:
                 cur = con.cursor()
                 cur.execute(
-                    "CREATE TABLE IF NOT EXISTS models(model_name VARCHAR(64), model BLOB, label_encoder BLOB)"
+                    "CREATE TABLE IF NOT EXISTS "
+                    "models(model_name VARCHAR(64), model BLOB, label_encoder BLOB)"
                 )
 
                 sql = "INSERT INTO models (model_name, model, label_encoder) VALUES (?, ?, ?)"
@@ -53,6 +68,11 @@ class SQLUtil:
 
     @staticmethod
     def get_models_list() -> set[str]:
+        """Get the list of model names from the database.
+
+        Returns:
+            A set of model names.
+        """
         models_set: set[str] = set()
         if os.path.exists("models.db"):
             with sqlite3.connect("models.db") as con:
@@ -70,9 +90,13 @@ class SQLUtil:
 
     @staticmethod
     def get_model(model_name: str) -> tuple[Any, ...] | None:
-        """
-        Retrieves the model row from the SQLite database.
-        Returns the tuple (row) if found, otherwise None.
+        """Retrieves the model row from the SQLite database.
+
+        Args:
+            model_name: Name of the model to retrieve.
+
+        Returns:
+            The tuple (row) if found, otherwise None.
         """
         db_path = "models.db"
 
@@ -88,15 +112,20 @@ class SQLUtil:
                 if model:
                     return model
 
-                logging.warning(f"Model '{model_name}' not found.")
+                logging.warning("Model '%s' not found.", model_name)
                 return None
 
         except sqlite3.Error as error:
-            logging.error(f"Database error: {error}")
+            logging.error("Database error: %s", error)
             return None
 
     @staticmethod
-    def delete_model(model_name: str):
+    def delete_model(model_name: str) -> None:
+        """Delete a model and its associated functions from the database.
+
+        Args:
+            model_name: Name of the model to delete.
+        """
         with sqlite3.connect("models.db") as con:
             try:
                 SQLUtil.delete_functions(model_name)
@@ -110,6 +139,11 @@ class SQLUtil:
 
     @staticmethod
     def get_predictions_list() -> list[Prediction]:
+        """Get the list of all predictions from the database.
+
+        Returns:
+            A list of Prediction objects.
+        """
         prediction_results: list[Prediction] = []
         if os.path.exists("predictions.db"):
             with sqlite3.connect("predictions.db") as con:
@@ -129,13 +163,19 @@ class SQLUtil:
 
     @staticmethod
     def get_predictions(task_name: str, model_name: str) -> "Prediction | None":
-        """
-        Retrieves and unserializes a Prediction object from the database.
+        """Retrieves and unserializes a Prediction object from the database.
+
+        Args:
+            task_name: Name of the task.
+            model_name: Name of the model.
+
+        Returns:
+            Prediction object if found, otherwise None.
         """
         db_path = "predictions.db"
 
         if not os.path.exists(db_path):
-            logging.warning(f"Database {db_path} does not exist.")
+            logging.warning("Database %s does not exist.", db_path)
             return None
 
         try:
@@ -154,19 +194,27 @@ class SQLUtil:
                 )
 
         except (sqlite3.Error, pickle.UnpicklingError, IndexError) as error:
-            logging.error(f"Error retrieving/unpickling prediction: {error}")
+            logging.error("Error retrieving/unpickling prediction: %s", error)
             return None
         except Exception as error:
-            logging.error(f"Unexpected error: {error}")
+            logging.error("Unexpected error: %s", error)
             return None
 
     @staticmethod
     def save_predictions(name: str, model_name: str, functions: list) -> None:
+        """Save predictions to the database.
+
+        Args:
+            name: Name of the task.
+            model_name: Name of the model used.
+            functions: List of function predictions to save.
+        """
         with sqlite3.connect("predictions.db") as con:
             try:
                 cur = con.cursor()
                 cur.execute(
-                    "CREATE TABLE IF NOT EXISTS PREDICTIONS(name VARCHAR(64), model_name VARCHAR(64), functions BLOB)"
+                    "CREATE TABLE IF NOT EXISTS "
+                    "PREDICTIONS(name VARCHAR(64), model_name VARCHAR(64), functions BLOB)"
                 )
                 sql = "INSERT INTO PREDICTIONS (name, model_name, functions) VALUES (?, ?, ?)"
 
@@ -183,6 +231,16 @@ class SQLUtil:
     def get_prediction_function(
         task_name: str, model_name: str, function_name: str
     ) -> dict:
+        """Get a specific function prediction from the database.
+
+        Args:
+            task_name: Name of the task.
+            model_name: Name of the model.
+            function_name: Name of the function to retrieve.
+
+        Returns:
+            Dictionary containing function prediction data, or empty dict if not found.
+        """
         with sqlite3.connect("predictions.db") as con:
             try:
                 cur = con.cursor()
@@ -204,12 +262,20 @@ class SQLUtil:
         return {}
 
     @staticmethod
-    def save_functions(model_name: str, functions: list):
+    def save_functions(model_name: str, functions: list) -> None:
+        """Save functions to the functions database.
+
+        Args:
+            model_name: Name of the model.
+            functions: List of functions to save.
+        """
         with sqlite3.connect("functions.db") as con:
             try:
                 cur = con.cursor()
                 cur.execute(
-                    "CREATE TABLE IF NOT EXISTS functions(model_name VARCHAR(64), function_name VARCHAR(64), entrypoint VARCHAR(16), tokens TEXT)"
+                    "CREATE TABLE IF NOT EXISTS "
+                    "functions(model_name VARCHAR(64), function_name VARCHAR(64), "
+                    "entrypoint VARCHAR(16), tokens TEXT)"
                 )
                 for function in functions:
                     sql = "INSERT INTO functions (model_name, function_name, entrypoint, tokens) VALUES (?, ?, ?, ?)"
@@ -230,6 +296,14 @@ class SQLUtil:
 
     @staticmethod
     def get_functions(model_name: str) -> list:
+        """Get all functions for a model from the database.
+
+        Args:
+            model_name: Name of the model.
+
+        Returns:
+            List of function records.
+        """
         functions: list = []
         with sqlite3.connect("functions.db") as con:
             try:
@@ -243,6 +317,15 @@ class SQLUtil:
 
     @staticmethod
     def get_function(model_name: str, function_name: str) -> list:
+        """Get a specific function from the database.
+
+        Args:
+            model_name: Name of the model.
+            function_name: Name of the function.
+
+        Returns:
+            Function record or empty list.
+        """
         function_information: list = []
         with sqlite3.connect("functions.db") as con:
             try:
@@ -261,7 +344,12 @@ class SQLUtil:
             return function_information
 
     @staticmethod
-    def delete_functions(model_name: str):
+    def delete_functions(model_name: str) -> None:
+        """Delete all functions for a model from the database.
+
+        Args:
+            model_name: Name of the model.
+        """
         with sqlite3.connect("functions.db") as con:
             try:
                 cur = con.cursor()
@@ -272,7 +360,12 @@ class SQLUtil:
                 logging.error(error)
 
     @staticmethod
-    def delete_prediction(task_name: str):
+    def delete_prediction(task_name: str) -> None:
+        """Delete a prediction from the database.
+
+        Args:
+            task_name: Name of the task to delete.
+        """
         with sqlite3.connect("predictions.db") as con:
             try:
                 cur = con.cursor()
@@ -283,7 +376,12 @@ class SQLUtil:
                 logging.error(error)
 
     @staticmethod
-    def delete_model_predictions(model_name: str):
+    def delete_model_predictions(model_name: str) -> None:
+        """Delete all predictions for a model from the database.
+
+        Args:
+            model_name: Name of the model.
+        """
         with sqlite3.connect("predictions.db") as con:
             try:
                 cur = con.cursor()

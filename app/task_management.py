@@ -1,3 +1,5 @@
+"""Task management module for Glyph application."""
+
 import logging
 import os
 import subprocess
@@ -16,16 +18,24 @@ from app.services import TaskService
 
 
 class TaskManager:
+    """Base class for managing tasks in Glyph application."""
+
     exec_pool: ProcessPoolExecutor = ProcessPoolExecutor(2)
     __instance: "TaskManager | None" = None
 
     def __new__(cls) -> "TaskManager":
+        """Create or return the singleton instance of TaskManager."""
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
         return cls.__instance
 
     @classmethod
     def get_uuid(cls) -> str:
+        """Generate a unique UUID that is not already in the queue.
+
+        Returns:
+            A unique UUID string.
+        """
         value: str = str(uuid.uuid4())
         if value in list(TaskService().service_queue.queue):
             value = cls.get_uuid()
@@ -33,6 +43,14 @@ class TaskManager:
 
     @classmethod
     def get_status(cls, job_uuid: str) -> str:
+        """Get the status of a job by its UUID.
+
+        Args:
+            job_uuid: The UUID of the job.
+
+        Returns:
+            The status of the job or "UUID Not Found".
+        """
         status: str = "UUID Not Found"
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
@@ -44,6 +62,11 @@ class TaskManager:
 
     @classmethod
     def get_all_status(cls) -> dict[str, str]:
+        """Get the status of all jobs in the queue.
+
+        Returns:
+            A dictionary mapping model names to their statuses.
+        """
         status_list: dict[str, str] = {}
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
@@ -54,6 +77,15 @@ class TaskManager:
 
     @classmethod
     def set_status(cls, job_uuid: str, status: str) -> bool:
+        """Set the status of a job by its UUID.
+
+        Args:
+            job_uuid: The UUID of the job.
+            status: The new status to set.
+
+        Returns:
+            True if the status was set, False if the UUID was not found.
+        """
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
@@ -64,20 +96,33 @@ class TaskManager:
 
 
 class Trainer(TaskManager):
+    """Task manager for training machine learning models."""
+
     __instance: "Trainer | None" = None
 
     def __new__(cls) -> "Trainer":
+        """Create or return the singleton instance of Trainer."""
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
         return cls.__instance
 
     @classmethod
     def start_training(cls, training_request: TrainingRequest) -> None:
+        """Start training a model with the given request.
+
+        Args:
+            training_request: The training request containing model data.
+        """
         future: Future = cls.exec_pool.submit(cls._train_model, training_request)
         TaskService().service_queue.put((training_request, future))
 
     @classmethod
     def _train_model(cls, training_request: TrainingRequest) -> None:
+        """Train a model using the provided training request.
+
+        Args:
+            training_request: The training request containing model data.
+        """
         pipeline: Pipeline = MLTask.get_multi_class_pipeline()
         label_encoder = preprocessing.LabelEncoder()
         try:
@@ -97,31 +142,49 @@ class Trainer(TaskManager):
 
 
 class Predictor(TaskManager):
+    """Task manager for running predictions on binary functions."""
+
     __instance: "Predictor | None" = None
     probability_limit_threshold: float
 
     def __new__(cls) -> "Predictor":
+        """Create or return the singleton instance of Predictor."""
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
         return cls.__instance
 
     def __init__(self) -> None:
+        """Initialize the Predictor with threshold from config."""
         super().__init__()
         threshold_value: Any | None = GlyphConfig().get_config_value(
             "prediction_probability_threshold")
         if not isinstance(threshold_value, float):
             raise TypeError(
-                "ERROR: prediction_probability_threshold is not type float or int in config.yml")
+                "ERROR: prediction_probability_threshold is not type "
+                "float or int in config.yml")
         self.probability_limit_threshold = threshold_value
 
     @classmethod
     def start_prediction(cls, prediction_request: PredictionRequest) -> None:
+        """Start a prediction task with the given request.
+
+        Args:
+            prediction_request: The prediction request containing data.
+        """
         future: Future = Predictor.exec_pool.submit(
             Predictor._run_prediction, prediction_request)
         TaskService().service_queue.put((prediction_request, future))
 
     @classmethod
     def _run_prediction(cls, prediction_request: PredictionRequest) -> PredictionRequest:
+        """Run prediction on the provided request.
+
+        Args:
+            prediction_request: The prediction request containing data.
+
+        Returns:
+            The prediction request with results.
+        """
         try:
             model, label_encoder = MLPersistanceUtil.load_model(
                 prediction_request.model_name)
@@ -141,21 +204,39 @@ class Predictor(TaskManager):
         return prediction_request
 
     @classmethod
-    def _filter_uncertainty(cls, prediction_probability: Any, predicted_labels: list[str]) -> None:
+    def _filter_uncertainty(cls, prediction_probability: Any,
+                            predicted_labels: list[str]) -> None:
+        """Filter predictions below the probability threshold.
+
+        Args:
+            prediction_probability: Array of prediction probabilities.
+            predicted_labels: List of predicted labels to modify.
+        """
         for ctr, probability in enumerate(prediction_probability):
             if probability.max() < Predictor().probability_limit_threshold:
                 predicted_labels[ctr] = 'Unknown'
 
 
 class Ghidra(TaskManager):
+    """Task manager for running Ghidra analysis on binaries."""
 
     @classmethod
     def start_task(cls, ghidra_request: GhidraRequest) -> None:
+        """Start a Ghidra analysis task.
+
+        Args:
+            ghidra_request: The Ghidra request containing analysis parameters.
+        """
         future: Future = cls.exec_pool.submit(cls._run_analysis, ghidra_request)
         TaskService().service_queue.put((ghidra_request, future))
 
     @classmethod
     def _run_analysis(cls, ghidra_request: GhidraRequest) -> None:
+        """Run Ghidra analysis on the provided binary.
+
+        Args:
+            ghidra_request: The Ghidra request containing analysis parameters.
+        """
         ghidra_location: Any | None = GlyphConfig.get_config_value(
             "ghidra_location")
         ghidra_project_name: Any | None = GlyphConfig.get_config_value(
@@ -165,7 +246,8 @@ class Ghidra(TaskManager):
         glyph_script_location: Any | None = GlyphConfig.get_config_value(
             "glyph_script_location")
 
-        if len(ghidra_location) == 0 or len(ghidra_project_name) == 0 or len(ghidra_project_location) == 0 or len(glyph_script_location) == 0:
+        if len(ghidra_location) == 0 or len(ghidra_project_name) == 0 or \
+                len(ghidra_project_location) == 0 or len(glyph_script_location) == 0:
             raise ValueError("ERROR: Config.yml cannot have empty values")
 
         ghidra_headless_location: str = os.path.join(
@@ -178,7 +260,11 @@ class Ghidra(TaskManager):
             ghidra_type = "prediction"
 
         subprocess.run([ghidra_headless_location, ghidra_project_location,
-                        ghidra_project_name, "-import", os.path.join("./binaries", ghidra_request.file_name), 
-                        "-overwrite", "-postscript", os.path.join(glyph_script_location, "ClangTokenGenerator.java"), 
-                        f"type={ghidra_type}", f"model={ghidra_request.model_name}", f"task={ghidra_request.task_name}", 
+                        ghidra_project_name, "-import",
+                        os.path.join("./binaries", ghidra_request.file_name),
+                        "-overwrite", "-postscript",
+                        os.path.join(glyph_script_location, "ClangTokenGenerator.java"),
+                        f"type={ghidra_type}",
+                        f"model={ghidra_request.model_name}",
+                        f"task={ghidra_request.task_name}",
                         f"uuid={Ghidra.get_uuid()}"], check=True)

@@ -1,3 +1,5 @@
+"""Ghidra processor module for binary decompilation and tokenization."""
+
 import re
 from typing import Any
 
@@ -7,14 +9,20 @@ from app.config import GlyphConfig
 
 
 def check_if_variable(token: str) -> bool:
-    """
-    Checks if a token matches Ghidra decompiler auto-naming.
+    """Check if a token matches Ghidra decompiler auto-naming patterns.
+
     Catches:
     - Simple: var1, var2
     - Stack: local_10, local_res, uStack18, stack[-0x10]
     - Typed Registers: iVar1, uVar2, pVar3, bVar1, auVar4, lVar1
     - Params: param_1, param_2
     - Special: unaff_RET, extraout_v0
+
+    Args:
+        token: The token to check.
+
+    Returns:
+        True if the token matches a Ghidra auto-naming pattern.
     """
     patterns = [
         r"^var\d+$",  # Simple var1, var2
@@ -30,7 +38,14 @@ def check_if_variable(token: str) -> bool:
 
 
 def remove_comments(tokens_list: list[str]) -> list[str]:
-    """Recursively removes C-style comments (/* ... */) from token list."""
+    """Recursively removes C-style comments (/* ... */) from token list.
+
+    Args:
+        tokens_list: List of tokens to process.
+
+    Returns:
+        List of tokens with comments removed.
+    """
     tokens_string: str = " ".join(tokens_list)
     result: str = tokens_string
 
@@ -39,7 +54,6 @@ def remove_comments(tokens_list: list[str]) -> list[str]:
         end: int = result.find("*/", start)
         if end == -1:
             result = result[:start].strip()
-            break
         else:
             result = result[:start] + " " + result[end + 2 :]
 
@@ -48,7 +62,14 @@ def remove_comments(tokens_list: list[str]) -> list[str]:
 
 
 def filter_tokens(tokens_list: list[str]) -> list[str]:
-    """Normalizes addresses, functions, variables, and undefined types."""
+    """Normalizes addresses, functions, variables, and undefined types.
+
+    Args:
+        tokens_list: List of tokens to filter.
+
+    Returns:
+        List of filtered and normalized tokens.
+    """
     filtered: list[str] = []
     for token in tokens_list:
         if not token or not token.strip():
@@ -74,12 +95,19 @@ def filter_tokens(tokens_list: list[str]) -> list[str]:
 def setup_decompiler(
     state: Any,
     program: Any,
-    num_processors: int = GlyphConfig.get_config_value("cpu_cores") or 2,
+    num_processors: int = 2,
     decomp_interface: Any = None,
 ) -> Any:
-    """
-    Initialize and configure the decompiler.
-    Takes 'state' and 'program' as arguments to avoid global reliance.
+    """Initialize and configure the decompiler.
+
+    Args:
+        state: The Ghidra state (unused but kept for API compatibility).
+        program: The Ghidra program to decompile.
+        num_processors: Number of processors to use (default 2).
+        decomp_interface: Optional existing decompiler interface.
+
+    Returns:
+        Configured decompiler interface.
     """
     from ghidra.app.decompiler import DecompInterface, DecompileOptions
 
@@ -98,7 +126,15 @@ def setup_decompiler(
 
 
 def get_function_tokens(function: Any, decomp_interface: Any) -> list[str]:
-    """Decompile a function and extract tokenized C code."""
+    """Decompile a function and extract tokenized C code.
+
+    Args:
+        function: The Ghidra function to decompile.
+        decomp_interface: The decompiler interface to use.
+
+    Returns:
+        List of tokens from the decompiled function.
+    """
     from ghidra.util.task import TaskMonitor
     from java.util import ArrayList
 
@@ -112,13 +148,21 @@ def get_function_tokens(function: Any, decomp_interface: Any) -> list[str]:
         ccode_markup.flatten(token_list)
 
         return [str(t) for t in token_list if str(t).strip()]
-    except Exception as e:
-        print(f"Error in {function.getName()}: {e}")
+    except Exception as exception:
+        print(f"Error in {function.getName()}: {exception}")
         return []
 
 
 def decompile_all_functions(state: Any, program: Any) -> dict[str, list]:
-    """Orchestrates the decompilation of the binary."""
+    """Orchestrates the decompilation of the binary.
+
+    Args:
+        state: The Ghidra state.
+        program: The Ghidra program to decompile.
+
+    Returns:
+        Dictionary containing functions and errored functions.
+    """
     decomp_interface = setup_decompiler(state, program)
     functions_map: dict[str, list] = {"functions": [], "erroredFunctions": []}
 
@@ -163,10 +207,15 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list]:
     return functions_map
 
 
-def analyze_binary_and_decompile(binary_path) -> dict[str, list]:
-    """
-    Main entry point: takes a path, runs headless analysis,
+def analyze_binary_and_decompile(binary_path: str) -> dict[str, list]:
+    """Main entry point: takes a path, runs headless analysis,
     and returns the decompiled function map.
+
+    Args:
+        binary_path: Path to the binary file to analyze.
+
+    Returns:
+        Dictionary containing decompiled functions.
     """
     import pyghidra
 
