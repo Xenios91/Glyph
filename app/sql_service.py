@@ -2,7 +2,7 @@ import logging
 import os
 import pickle
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from app.request_handler import Prediction
 
@@ -69,7 +69,7 @@ class SQLUtil:
         return models_set
 
     @staticmethod
-    def get_model(model_name: str) -> Optional[tuple[Any, ...]]:
+    def get_model(model_name: str) -> tuple[Any, ...] | None:
         """
         Retrieves the model row from the SQLite database.
         Returns the tuple (row) if found, otherwise None.
@@ -128,7 +128,7 @@ class SQLUtil:
         return prediction_results
 
     @staticmethod
-    def get_predictions(task_name: str, model_name: str) -> Optional["Prediction"]:
+    def get_predictions(task_name: str, model_name: str) -> "Prediction | None":
         """
         Retrieves and unserializes a Prediction object from the database.
         """

@@ -1,7 +1,7 @@
 import logging
 import joblib
 from io import BytesIO
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
@@ -11,7 +11,7 @@ from app.request_handler import Prediction, PredictionRequest, TrainingRequest
 from app.sql_service import SQLUtil
 
 # === Type aliases for clarity ===
-ModelRow = Tuple[str, bytes, bytes]  # (model_name, model_blob, encoder_blob)
+ModelRow = tuple[str, bytes, bytes]  # (model_name, model_blob, encoder_blob)
 
 
 class MLTask:
@@ -51,7 +51,7 @@ class PredictionPersistanceUtil:
     def get_predictions(task_name: str, model_name: str) -> Prediction:
         if not task_name or not model_name:
             raise ValueError("task_name and model_name must be non-empty strings")
-        prediction: Optional[Prediction] = SQLUtil.get_predictions(task_name, model_name)
+        prediction: Prediction | None = SQLUtil.get_predictions(task_name, model_name)
         if prediction is None:
             raise ValueError(
                 f"Prediction for task '{task_name}' with model '{model_name}' not found."
@@ -97,11 +97,11 @@ class MLPersistanceUtil:
             raise RuntimeError(f"Could not serialize model data for '{model_name}'") from e
 
     @staticmethod
-    def load_model(model_name: str) -> Tuple[Any, Any]:
+    def load_model(model_name: str) -> tuple[Any, Any]:
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
 
-        model_row: Optional[Tuple[Any, ...]] = SQLUtil.get_model(model_name)
+        model_row: tuple[Any, ...] | None = SQLUtil.get_model(model_name)
 
         if model_row is None:
             logging.error(f"Model '{model_name}' not found in database")

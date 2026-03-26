@@ -1,5 +1,3 @@
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -10,8 +8,8 @@ router = APIRouter()
 
 
 class ConfigPayload(BaseModel):
-    max_file_size_mb: Optional[int] = None
-    cpu_cores: Optional[int] = None
+    max_file_size_mb: int | None = None
+    cpu_cores: int | None = None
 
 
 @router.post("/save")

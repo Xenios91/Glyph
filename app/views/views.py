@@ -1,5 +1,3 @@
-from typing import Optional
-
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -44,7 +42,7 @@ async def config(request: Request):
 
 
 @router.get("/error")
-async def error_page(request: Request, type: Optional[str] = None):
+async def error_page(request: Request, type: str | None = None):
     """
     Displays errors using the templates system.
     """

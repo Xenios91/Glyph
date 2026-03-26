@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 import yaml
 import os
 
@@ -7,7 +7,7 @@ MAX_CPU_CORES = os.cpu_count() or 1
 
 
 class GlyphConfig:
-    _config: dict = {}
+    _config: dict[str, Any] = {}
     _initialized = False
 
     @staticmethod
@@ -32,7 +32,7 @@ class GlyphConfig:
             return False
 
     @staticmethod
-    def get_config_value(value: str) -> Optional[Any]:
+    def get_config_value(value: str) -> Any | None:
         return GlyphConfig._config.get(value)
 
     @staticmethod

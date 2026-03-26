@@ -1,2 +1,2 @@
-ACCEPT_TYPE = "text/html"
+ACCEPT_TYPE: str = "text/html"
 

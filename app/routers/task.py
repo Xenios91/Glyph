@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
@@ -14,10 +14,10 @@ router = APIRouter()
 
 class TaskRequest(BaseModel):
     type: str
-    modelName: Optional[str] = None
-    uuid: Optional[str] = None
-    overwriteModel: Optional[bool] = False
-    data: Optional[Any] = None
+    modelName: str | None = None
+    uuid: str | None = None
+    overwriteModel: bool = False
+    data: Any | None = None
 
 
 def train_model(request: TaskRequest) -> JSONResponse:

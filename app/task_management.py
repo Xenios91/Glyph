@@ -2,8 +2,8 @@ import logging
 import os
 import subprocess
 import uuid
-from concurrent.futures import ProcessPoolExecutor
-from typing import Any, Optional
+from concurrent.futures import Future, ProcessPoolExecutor
+from typing import Any
 
 import pandas as pd
 from sklearn import preprocessing
@@ -15,11 +15,11 @@ from app.request_handler import GhidraRequest, PredictionRequest, TrainingReques
 from app.services import TaskService
 
 
-class TaskManager():
-    exec_pool = ProcessPoolExecutor(2)
-    __instance = None
+class TaskManager:
+    exec_pool: ProcessPoolExecutor = ProcessPoolExecutor(2)
+    __instance: "TaskManager | None" = None
 
-    def __new__(cls):
+    def __new__(cls) -> "TaskManager":
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
         return cls.__instance
@@ -34,7 +34,7 @@ class TaskManager():
     @classmethod
     def get_status(cls, job_uuid: str) -> str:
         status: str = "UUID Not Found"
-        queue_list: list = list(TaskService().service_queue.queue)
+        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
@@ -43,9 +43,9 @@ class TaskManager():
         return status
 
     @classmethod
-    def get_all_status(cls) -> dict:
-        status_list: dict = {}
-        queue_list: list = list(TaskService().service_queue.queue)
+    def get_all_status(cls) -> dict[str, str]:
+        status_list: dict[str, str] = {}
+        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             status: str = task[0].status
             model_name: str = task[0].model_name
@@ -54,7 +54,7 @@ class TaskManager():
 
     @classmethod
     def set_status(cls, job_uuid: str, status: str) -> bool:
-        queue_list: list = list(TaskService().service_queue.queue)
+        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
@@ -64,20 +64,20 @@ class TaskManager():
 
 
 class Trainer(TaskManager):
-    __instance = None
+    __instance: "Trainer | None" = None
 
-    def __new__(cls):
+    def __new__(cls) -> "Trainer":
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
         return cls.__instance
 
     @classmethod
-    def start_training(cls, training_request: TrainingRequest):
-        future = cls.exec_pool.submit(cls._train_model, training_request)
+    def start_training(cls, training_request: TrainingRequest) -> None:
+        future: Future = cls.exec_pool.submit(cls._train_model, training_request)
         TaskService().service_queue.put((training_request, future))
 
     @classmethod
-    def _train_model(cls, training_request: TrainingRequest):
+    def _train_model(cls, training_request: TrainingRequest) -> None:
         pipeline: Pipeline = MLTask.get_multi_class_pipeline()
         label_encoder = preprocessing.LabelEncoder()
         try:
@@ -97,17 +97,17 @@ class Trainer(TaskManager):
 
 
 class Predictor(TaskManager):
-    __instance = None
+    __instance: "Predictor | None" = None
     probability_limit_threshold: float
 
-    def __new__(cls):
+    def __new__(cls) -> "Predictor":
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
         return cls.__instance
 
     def __init__(self) -> None:
         super().__init__()
-        threshold_value: Optional[Any] = GlyphConfig().get_config_value(
+        threshold_value: Any | None = GlyphConfig().get_config_value(
             "prediction_probability_threshold")
         if not isinstance(threshold_value, float):
             raise TypeError(
@@ -115,8 +115,8 @@ class Predictor(TaskManager):
         self.probability_limit_threshold = threshold_value
 
     @classmethod
-    def start_prediction(cls, prediction_request: PredictionRequest):
-        future = Predictor.exec_pool.submit(
+    def start_prediction(cls, prediction_request: PredictionRequest) -> None:
+        future: Future = Predictor.exec_pool.submit(
             Predictor._run_prediction, prediction_request)
         TaskService().service_queue.put((prediction_request, future))
 
@@ -141,7 +141,7 @@ class Predictor(TaskManager):
         return prediction_request
 
     @classmethod
-    def _filter_uncertainty(cls, prediction_probability, predicted_labels):
+    def _filter_uncertainty(cls, prediction_probability: Any, predicted_labels: list[str]) -> None:
         for ctr, probability in enumerate(prediction_probability):
             if probability.max() < Predictor().probability_limit_threshold:
                 predicted_labels[ctr] = 'Unknown'
@@ -150,28 +150,28 @@ class Predictor(TaskManager):
 class Ghidra(TaskManager):
 
     @classmethod
-    def start_task(cls, ghidra_request: GhidraRequest):
-        future = cls.exec_pool.submit(cls._run_analysis, ghidra_request)
+    def start_task(cls, ghidra_request: GhidraRequest) -> None:
+        future: Future = cls.exec_pool.submit(cls._run_analysis, ghidra_request)
         TaskService().service_queue.put((ghidra_request, future))
 
     @classmethod
-    def _run_analysis(cls, ghidra_request: GhidraRequest):
-        ghidra_location: Optional[Any] = GlyphConfig.get_config_value(
+    def _run_analysis(cls, ghidra_request: GhidraRequest) -> None:
+        ghidra_location: Any | None = GlyphConfig.get_config_value(
             "ghidra_location")
-        ghidra_project_name: Optional[Any] = GlyphConfig.get_config_value(
+        ghidra_project_name: Any | None = GlyphConfig.get_config_value(
             "ghidra_project_name")
-        ghidra_project_location: Optional[Any] = GlyphConfig.get_config_value(
+        ghidra_project_location: Any | None = GlyphConfig.get_config_value(
             "ghidra_project_location")
-        glyph_script_location = GlyphConfig.get_config_value(
+        glyph_script_location: Any | None = GlyphConfig.get_config_value(
             "glyph_script_location")
 
         if len(ghidra_location) == 0 or len(ghidra_project_name) == 0 or len(ghidra_project_location) == 0 or len(glyph_script_location) == 0:
             raise ValueError("ERROR: Config.yml cannot have empty values")
 
-        ghidra_headless_location = os.path.join(
+        ghidra_headless_location: str = os.path.join(
             ghidra_location, f"support{os.sep}analyzeHeadless")
 
-        ghidra_type: str = None
+        ghidra_type: str | None = None
         if ghidra_request.is_training == "true":
             ghidra_type = "training"
         else:

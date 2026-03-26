@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -19,7 +18,7 @@ templates = Jinja2Templates(directory="templates")
 
 class PredictTokensRequest(BaseModel):
     modelName: str
-    uuid: Optional[str] = None
+    uuid: str | None = None
 
     class Config:
         extra = "allow"

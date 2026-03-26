@@ -1,7 +1,6 @@
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 import uuid
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
@@ -23,7 +22,7 @@ async def post_upload_binary(
     trainingData: str = Form("false"),
     modelName: str = Form(...),
     mlClassType: str = Form(...),
-    taskName: Optional[str] = Form(""),
+    taskName: str | None = Form(""),
 ):
     """
     Handles POST request for binary file uploads

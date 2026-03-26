@@ -1,11 +1,12 @@
 import re
+from typing import Any
 
 from app.config import GlyphConfig
 
 # === Token Cleanup/Normalization ===
 
 
-def check_if_variable(token):
+def check_if_variable(token: str) -> bool:
     """
     Checks if a token matches Ghidra decompiler auto-naming.
     Catches:
@@ -28,14 +29,14 @@ def check_if_variable(token):
     return re.match(combined_pattern, token, re.IGNORECASE) is not None
 
 
-def remove_comments(tokens_list):
+def remove_comments(tokens_list: list[str]) -> list[str]:
     """Recursively removes C-style comments (/* ... */) from token list."""
-    tokens_string = " ".join(tokens_list)
-    result = tokens_string
+    tokens_string: str = " ".join(tokens_list)
+    result: str = tokens_string
 
     while "/*" in result:
-        start = result.find("/*")
-        end = result.find("*/", start)
+        start: int = result.find("/*")
+        end: int = result.find("*/", start)
         if end == -1:
             result = result[:start].strip()
             break
@@ -46,9 +47,9 @@ def remove_comments(tokens_list):
     return result.split() if result else []
 
 
-def filter_tokens(tokens_list):
+def filter_tokens(tokens_list: list[str]) -> list[str]:
     """Normalizes addresses, functions, variables, and undefined types."""
-    filtered = []
+    filtered: list[str] = []
     for token in tokens_list:
         if not token or not token.strip():
             continue
@@ -71,11 +72,11 @@ def filter_tokens(tokens_list):
 
 
 def setup_decompiler(
-    state,
-    program,
-    num_processors=GlyphConfig.get_config_value("cpu_cores") or 2,
-    decomp_interface=None,
-):
+    state: Any,
+    program: Any,
+    num_processors: int = GlyphConfig.get_config_value("cpu_cores") or 2,
+    decomp_interface: Any = None,
+) -> Any:
     """
     Initialize and configure the decompiler.
     Takes 'state' and 'program' as arguments to avoid global reliance.
@@ -96,7 +97,7 @@ def setup_decompiler(
     return decomp_interface
 
 
-def get_function_tokens(function, decomp_interface):
+def get_function_tokens(function: Any, decomp_interface: Any) -> list[str]:
     """Decompile a function and extract tokenized C code."""
     from ghidra.util.task import TaskMonitor
     from java.util import ArrayList
@@ -116,10 +117,10 @@ def get_function_tokens(function, decomp_interface):
         return []
 
 
-def decompile_all_functions(state, program):
+def decompile_all_functions(state: Any, program: Any) -> dict[str, list]:
     """Orchestrates the decompilation of the binary."""
     decomp_interface = setup_decompiler(state, program)
-    functions_map = {"functions": [], "erroredFunctions": []}
+    functions_map: dict[str, list] = {"functions": [], "erroredFunctions": []}
 
     function_manager = program.getFunctionManager()
     function_iter = function_manager.getFunctions(True)
@@ -144,7 +145,7 @@ def decompile_all_functions(state, program):
 
         filtered_tokens: list[str] = filter_tokens(tokens)
 
-        func_entry = {
+        func_entry: dict[str, Any] = {
             "functionName": function.getName(),
             "lowAddress": str(function.getEntryPoint()),
             "highAddress": str(function.getBody().getMaxAddress()),
