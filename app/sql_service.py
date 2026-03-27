@@ -26,8 +26,8 @@ class SQLUtil:
                         "models(model_name VARCHAR(64), model BLOB, label_encoder BLOB)"
                     )
                     con.commit()
-                except Exception as error:
-                    logging.error(error)
+                except sqlite3.Error as error:
+                    logging.error("Database error: %s", error)
 
         if not os.path.exists("predictions.db"):
             with sqlite3.connect("predictions.db") as con:
@@ -38,8 +38,8 @@ class SQLUtil:
                         "PREDICTIONS(name VARCHAR(64), model_name VARCHAR(64), functions BLOB)"
                     )
                     con.commit()
-                except Exception as error:
-                    logging.error(error)
+                except sqlite3.Error as error:
+                    logging.error("Database error: %s", error)
 
     @staticmethod
     def save_model(model_name: str, label_encoder, model: bytes) -> None:
@@ -63,8 +63,8 @@ class SQLUtil:
                     (model_name, sqlite3.Binary(model), sqlite3.Binary(label_encoder)),
                 )
                 con.commit()
-            except Exception as error:
-                logging.error(error)
+            except sqlite3.Error as error:
+                logging.error("Database error: %s", error)
 
     @staticmethod
     def get_models_list() -> set[str]:
@@ -82,8 +82,8 @@ class SQLUtil:
                     models = cur.execute(sql).fetchall()
                     for model in models:
                         models_set.add(model[0])
-                except Exception as error:
-                    logging.error(error)
+                except sqlite3.Error as error:
+                    logging.error("Database error: %s", error)
         return models_set
 
     @staticmethod
@@ -125,8 +125,8 @@ class SQLUtil:
                 sql = "DELETE FROM MODELS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
                 con.commit()
-            except Exception as error:
-                logging.error(error)
+            except sqlite3.Error as error:
+                logging.error("Database error: %s", error)
 
     @staticmethod
     def get_predictions_list() -> list[Prediction]:
@@ -148,7 +148,7 @@ class SQLUtil:
                             if not isinstance(preds, list):
                                 logging.warning(
                                     "Prediction data for '%s' is not a list, skipping",
-                                    prediction[0]
+                                    prediction[0],
                                 )
                                 continue
                             prediction_results.append(
@@ -158,10 +158,10 @@ class SQLUtil:
                             logging.error(
                                 "Failed to deserialize prediction '%s': %s",
                                 prediction[0],
-                                deserial_error
+                                deserial_error,
                             )
-                except Exception as error:
-                    logging.error(error)
+                except sqlite3.Error as error:
+                    logging.error("Database error: %s", error)
         return prediction_results
 
     @staticmethod
@@ -193,13 +193,16 @@ class SQLUtil:
                     if not isinstance(prediction_data, list):
                         logging.warning(
                             "Prediction data for task '%s' is not a list, expected list"
-                            "got %s", task_name, type(prediction_data).__name__
+                            " got %s",
+                            task_name,
+                            type(prediction_data).__name__,
                         )
                         return None
                 except Exception as deserial_error:
                     logging.error(
                         "Failed to deserialize prediction for task '%s': %s",
-                        task_name, deserial_error
+                        task_name,
+                        deserial_error,
                     )
                     return None
 
@@ -238,8 +241,8 @@ class SQLUtil:
                     sql, (name, model_name, sqlite3.Binary(functions_serialized))
                 )
                 con.commit()
-            except Exception as error:
-                logging.error(error)
+            except sqlite3.Error as error:
+                logging.error("Database error: %s", error)
 
     @staticmethod
     def get_prediction_function(
@@ -267,17 +270,19 @@ class SQLUtil:
                     if not isinstance(predictions, list):
                         logging.warning(
                             "Predictions data is not a list, expected list got %s",
-                            type(predictions).__name__
+                            type(predictions).__name__,
                         )
                         return {}
                     for function in predictions:
-                        if isinstance(function, dict) and function.get("functionName") == function_name:
+                        if isinstance(function, dict) and function.get(
+                            "functionName"
+                        ) == function_name:
                             return function
                 except Exception as deserial_error:
                     logging.error("Failed to deserialize predictions: %s", deserial_error)
                     return {}
-            except Exception as error:
-                logging.error(error)
+            except sqlite3.Error as error:
+                logging.error("Database error: %s", error)
         return {}
 
     @staticmethod
@@ -309,8 +314,8 @@ class SQLUtil:
                         ),
                     )
                 con.commit()
-            except Exception as error:
-                logging.error(error)
+            except sqlite3.Error as error:
+                logging.error("Database error: %s", error)
 
     @staticmethod
     def get_functions(model_name: str) -> list:
@@ -328,8 +333,8 @@ class SQLUtil:
                 cur = con.cursor()
                 sql = "SELECT * FROM FUNCTIONS WHERE model_name=?"
                 functions = cur.execute(sql, (model_name,)).fetchall()
-            except Exception as error:
-                logging.error(error)
+            except sqlite3.Error as error:
+                logging.error("Database error: %s", error)
         return functions
 
     @staticmethod
@@ -348,9 +353,11 @@ class SQLUtil:
             try:
                 cur = con.cursor()
                 sql = "SELECT * FROM FUNCTIONS WHERE model_name=? and function_name=?"
-                function_information = cur.execute(sql, (model_name, function_name)).fetchone()
-            except Exception as error:
-                logging.error(error)
+                function_information = cur.execute(
+                    sql, (model_name, function_name)
+                ).fetchone()
+            except sqlite3.Error as error:
+                logging.error("Database error: %s", error)
             return function_information
 
     @staticmethod
@@ -366,8 +373,8 @@ class SQLUtil:
                 sql = "DELETE FROM FUNCTIONS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
                 con.commit()
-            except Exception as error:
-                logging.error(error)
+            except sqlite3.Error as error:
+                logging.error("Database error: %s", error)
 
     @staticmethod
     def delete_prediction(task_name: str) -> None:
@@ -382,8 +389,8 @@ class SQLUtil:
                 sql = "DELETE FROM PREDICTIONS WHERE name=?"
                 cur.execute(sql, (task_name,))
                 con.commit()
-            except Exception as error:
-                logging.error(error)
+            except sqlite3.Error as error:
+                logging.error("Database error: %s", error)
 
     @staticmethod
     def delete_model_predictions(model_name: str) -> None:
@@ -398,5 +405,5 @@ class SQLUtil:
                 sql = "DELETE FROM PREDICTIONS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
                 con.commit()
-            except Exception as error:
-                logging.error(error)
+            except sqlite3.Error as error:
+                logging.error("Database error: %s", error)
