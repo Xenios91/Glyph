@@ -1,11 +1,10 @@
 """Persistence utilities for ML models and predictions."""
 
 import logging
-
-import joblib
 from io import BytesIO
 from typing import Any
 
+import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
@@ -19,6 +18,11 @@ class MLTask:
 
     @staticmethod
     def get_multi_class_pipeline() -> Pipeline:
+        """Get a multi-class classification pipeline.
+
+        Returns:
+            A configured sklearn Pipeline with TF-IDF and Naive Bayes.
+        """
         return Pipeline(
             [
                 (
@@ -31,6 +35,11 @@ class MLTask:
 
     @staticmethod
     def get_single_class_pipeline() -> Pipeline:
+        """Get a single-class classification pipeline.
+
+        Returns:
+            A configured sklearn Pipeline with TF-IDF and Naive Bayes.
+        """
         return Pipeline(
             [
                 (
@@ -47,10 +56,27 @@ class PredictionPersistanceUtil:
 
     @staticmethod
     def get_predictions_list() -> list[Prediction]:
+        """Get a list of all predictions.
+
+        Returns:
+            List of Prediction objects from the database.
+        """
         return SQLUtil.get_predictions_list()
 
     @staticmethod
     def get_predictions(task_name: str, model_name: str) -> Prediction:
+        """Get a prediction by task and model name.
+
+        Args:
+            task_name: The task name.
+            model_name: The model name.
+
+        Returns:
+            The Prediction object.
+
+        Raises:
+            ValueError: If task_name or model_name is empty, or prediction not found.
+        """
         if not task_name or not model_name:
             raise ValueError("task_name and model_name must be non-empty strings")
         prediction: Prediction | None = SQLUtil.get_predictions(task_name, model_name)
@@ -62,12 +88,28 @@ class PredictionPersistanceUtil:
 
     @staticmethod
     def delete_prediction(task_name: str) -> None:
+        """Delete a prediction by task name.
+
+        Args:
+            task_name: The task name to delete.
+
+        Raises:
+            ValueError: If task_name is empty.
+        """
         if not task_name:
             raise ValueError("task_name must be a non-empty string")
         SQLUtil.delete_prediction(task_name)
 
     @staticmethod
     def delete_model_predictions(model_name: str) -> None:
+        """Delete all predictions for a model.
+
+        Args:
+            model_name: The model name.
+
+        Raises:
+            ValueError: If model_name is empty.
+        """
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
         SQLUtil.delete_model_predictions(model_name)
@@ -78,6 +120,17 @@ class MLPersistanceUtil:
 
     @staticmethod
     def save_model(model_name: str, label_encoder: Any, pipeline: Pipeline) -> None:
+        """Save a model and label encoder to the database.
+
+        Args:
+            model_name: The model name.
+            label_encoder: The label encoder to save.
+            pipeline: The sklearn pipeline to save.
+
+        Raises:
+            ValueError: If model_name is empty or parameters are None.
+            RuntimeError: If serialization fails.
+        """
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
         if pipeline is None:
@@ -96,23 +149,37 @@ class MLPersistanceUtil:
 
             SQLUtil.save_model(model_name, serialized_encoder, serialized_model)
         except Exception as error:
-            logging.error(f"Failed to serialize model '{model_name}': {error}")
+            logging.error("Failed to serialize model '%s': %s", model_name, error)
             raise RuntimeError(f"Could not serialize model data for '{model_name}'") from error
 
     @staticmethod
     def load_model(model_name: str) -> tuple[Any, Any]:
+        """Load a model and label encoder from the database.
+
+        Args:
+            model_name: The model name.
+
+        Returns:
+            A tuple of (loaded_model, label_encoder).
+
+        Raises:
+            ValueError: If model_name is empty or model not found.
+            RuntimeError: If deserialization fails.
+        """
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
 
         model_row: tuple[Any, ...] | None = SQLUtil.get_model(model_name)
 
         if model_row is None:
-            logging.error(f"Model '{model_name}' not found in database")
+            logging.error("Model '%s' not found in database", model_name)
             raise ValueError(f"Model '{model_name}' not found.")
 
         if len(model_row) < 3:
             logging.error(
-                f"Model '{model_name}' has invalid schema (expected 3 fields, got {len(model_row)})"
+                "Model '%s' has invalid schema (expected 3 fields, got %d)",
+                model_name,
+                len(model_row),
             )
             raise ValueError(
                 f"Model '{model_name}' data has incorrect structure (expected 3 fields, got {len(model_row)})"
@@ -128,16 +195,32 @@ class MLPersistanceUtil:
             return loaded_model, label_encoder
         except Exception as error:
             logging.error(
-                f"Failed to deserialize model '{model_name}': {type(error).__name__}: {error}"
+                "Failed to deserialize model '%s': %s: %s",
+                model_name,
+                type(error).__name__,
+                error,
             )
             raise RuntimeError(f"Could not deserialize model data for '{model_name}'") from error
 
     @staticmethod
     def get_models_list() -> set[str]:
+        """Get a list of all model names.
+
+        Returns:
+            A set of model names.
+        """
         return SQLUtil.get_models_list()
 
     @staticmethod
     def check_name(model_name: str) -> bool:
+        """Check if a model name exists.
+
+        Args:
+            model_name: The model name to check.
+
+        Returns:
+            True if the model exists, False otherwise.
+        """
         if not model_name:
             return False
         models_list: set[str] = SQLUtil.get_models_list()
@@ -145,6 +228,14 @@ class MLPersistanceUtil:
 
     @staticmethod
     def delete_model(model_name: str) -> None:
+        """Delete a model from the database.
+
+        Args:
+            model_name: The model name to delete.
+
+        Raises:
+            ValueError: If model_name is empty.
+        """
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
         SQLUtil.delete_model(model_name)
@@ -155,6 +246,17 @@ class FunctionPersistanceUtil:
 
     @staticmethod
     def get_functions(model_name: str) -> list:
+        """Get functions for a model.
+
+        Args:
+            model_name: The model name.
+
+        Returns:
+            A list of functions.
+
+        Raises:
+            ValueError: If model_name is empty.
+        """
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
         functions: list = SQLUtil.get_functions(model_name)
@@ -162,6 +264,18 @@ class FunctionPersistanceUtil:
 
     @staticmethod
     def get_function(model_name: str, function_name: str) -> dict:
+        """Get a specific function by name.
+
+        Args:
+            model_name: The model name.
+            function_name: The function name.
+
+        Returns:
+            The function dictionary.
+
+        Raises:
+            ValueError: If model_name or function_name is empty.
+        """
         if not model_name or not function_name:
             raise ValueError("model_name and function_name must be non-empty strings")
         function: list = SQLUtil.get_function(model_name, function_name)
@@ -169,6 +283,14 @@ class FunctionPersistanceUtil:
 
     @staticmethod
     def add_model_functions(training_request: TrainingRequest) -> None:
+        """Add functions from a training request to the database.
+
+        Args:
+            training_request: The training request containing functions.
+
+        Raises:
+            ValueError: If training_request is None.
+        """
         if training_request is None:
             raise ValueError("training_request must not be None")
         functions: list = training_request.get_functions() or []
@@ -179,6 +301,16 @@ class FunctionPersistanceUtil:
     def add_prediction_functions(
         prediction_request: PredictionRequest, predictions: list[str]
     ) -> None:
+        """Add prediction functions to the database.
+
+        Args:
+            prediction_request: The prediction request.
+            predictions: List of predicted labels.
+
+        Raises:
+            ValueError: If prediction_request or predictions is None.
+            TypeError: If predictions is not a list.
+        """
         if prediction_request is None:
             raise ValueError("prediction_request must not be None")
         if predictions is None:
@@ -197,14 +329,29 @@ class FunctionPersistanceUtil:
             SQLUtil.save_predictions(task_name, prediction_request.model_name, functions)
         elif functions:
             logging.warning(
-                f"Mismatch between functions ({len(functions)}) and predictions ({len(predictions)}) "
-                f"for task '{task_name}'"
+                "Mismatch between functions (%d) and predictions (%d) for task '%s'",
+                len(functions),
+                len(predictions),
+                task_name,
             )
 
     @staticmethod
     def get_prediction_function(
         task_name: str, model_name: str, function_name: str
     ) -> dict:
+        """Get a prediction function by task, model, and function name.
+
+        Args:
+            task_name: The task name.
+            model_name: The model name.
+            function_name: The function name.
+
+        Returns:
+            The prediction function dictionary.
+
+        Raises:
+            ValueError: If any argument is empty or function not found.
+        """
         if not task_name or not model_name or not function_name:
             raise ValueError("All arguments must be non-empty strings")
         result: dict = SQLUtil.get_prediction_function(

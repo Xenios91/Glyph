@@ -65,19 +65,15 @@ class TaskManager:
             logging.info("ProcessPoolExecutor shut down successfully")
 
     @classmethod
-    def _signal_handler(cls, signum: int, frame: Any) -> None:
+    def _signal_handler(cls, signum: int, _frame: Any) -> None:
         """Handle shutdown signals.
 
         Args:
             signum: The signal number received.
-            frame: The current stack frame (unused).
+            _frame: The current stack frame (unused).
         """
-        logging.info(f"Received signal {signum}, shutting down executor...")
+        logging.info("Received signal %d, shutting down executor...", signum)
         cls._shutdown_executor()
-        if signum == signal.SIGTERM:
-            exit(143)
-        elif signum == signal.SIGINT:
-            exit(130)
 
     @classmethod
     def get_uuid(cls) -> str:
@@ -187,7 +183,7 @@ class Trainer(TaskManager):
                 training_request.model_name, label_encoder, pipeline)
             training_request.status = "complete"
         except Exception as error:
-            logging.error(error)
+            logging.error("Training error: %s", error)
             training_request.status = "error"
 
 
@@ -256,7 +252,7 @@ class Predictor(TaskManager):
 
             prediction_request.set_prediction_values(predicted_labels)
         except Exception as exception:
-            logging.error(exception)
+            logging.error("Prediction error: %s", exception)
 
         return prediction_request
 
@@ -326,3 +322,4 @@ class Ghidra(TaskManager):
                         f"model={ghidra_request.model_name}",
                         f"task={ghidra_request.task_name}",
                         f"uuid={Ghidra.get_uuid()}"], check=True)
+

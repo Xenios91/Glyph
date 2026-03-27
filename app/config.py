@@ -110,3 +110,4 @@ class GlyphConfig:
 
         GlyphConfig._config["cpu_cores"] = cores
         return True
+

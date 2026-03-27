@@ -206,3 +206,4 @@ def analyze_binary_and_decompile(binary_path: str) -> dict[str, list]:
 
 if __name__ == "__main__":
     analyze_binary_and_decompile("./ls")
+
