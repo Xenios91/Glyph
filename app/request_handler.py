@@ -1,29 +1,32 @@
+"""Request handler module for processing training and prediction requests."""
+
 import json
 import logging
-import uuid
-from typing import cast
+from uuid import uuid4
+from typing import Any, cast
 from pathlib import Path
 import pandas as pd
 
 
 class DataHandler:
-    """Base class for handling data operations"""
+    """Base class for handling data operations."""
 
     uuid: str
     model_name: str
-    json_dict: dict[str, object]
-    bin_dictionary: dict[str, object] | None = None
+    json_dict: dict[str, Any]
+    bin_dictionary: dict[str, Any] | None = None
     data: pd.DataFrame | None = None
     status: str = "starting"
 
-    def __init__(self, uuid: str, data: dict[str, object], model_name: str):
-        self.uuid = uuid
+    def __init__(self, req_uuid: str, data: dict[str, Any], model_name: str):
+        self.uuid = req_uuid
         self.model_name = model_name
         self.json_dict = data
         self.status = "starting"
         self._clean_dict()
 
     def _clean_dict(self) -> None:
+        """Remove duplicate functions from the request data."""
         functions_temp = list(self.get_functions())
         unique_functions = [
             json.loads(t)
@@ -32,20 +35,32 @@ class DataHandler:
         self.json_dict["functionsMap"]["functions"] = unique_functions
 
     def _load_data(self) -> None:
-        pass
+        """Load and process data. Override in subclasses."""
 
-    def get_functions(self) -> list[dict[str, object]]:
+    def get_functions(self) -> list[dict[str, Any]]:
+        """Get the list of functions from the request data.
+
+        Returns:
+            List of function dictionaries.
+        """
         return self.json_dict["functionsMap"]["functions"]
 
 
 class TrainingRequest(DataHandler):
+    """Handler for training requests."""
+
     bin_name: str
 
-    def __init__(self, uuid: str, model_name: str, data: dict[str, object]) -> None:
-        super().__init__(uuid, data, model_name)
+    def __init__(self, req_uuid: str, model_name: str, data: dict[str, Any]) -> None:
+        super().__init__(req_uuid, data, model_name)
         self._load_data()
 
     def _load_data(self) -> None:
+        """Load and process training data.
+
+        Raises:
+            ValueError: If the training data is invalid.
+        """
         try:
             self.bin_name = self.json_dict["binaryName"]
             functions_temp = list(self.get_functions())
@@ -63,23 +78,25 @@ class TrainingRequest(DataHandler):
         except Exception as tr_exception:
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing training data for UUID: {self.uuid}")
-            exc.__cause__ = tr_exception
-            raise exc
+            raise exc from tr_exception
 
 
 class PredictionRequest(DataHandler):
-    task_name: str
-    uuid: str
-    json_dict: dict[str, object]
-    data: pd.DataFrame
-    status: str
+    """Handler for prediction requests."""
 
-    def __init__(self, uuid: str, model_name: str, data: dict[str, object]) -> None:
-        super().__init__(uuid, data, model_name)
+    task_name: str
+
+    def __init__(self, req_uuid: str, model_name: str, data: dict[str, Any]) -> None:
+        super().__init__(req_uuid, data, model_name)
         self.task_name = data["taskName"]
         self._load_data()
 
     def _load_data(self) -> None:
+        """Load and process prediction data.
+
+        Raises:
+            ValueError: If the prediction data is invalid.
+        """
         try:
             functions_temp = list(self.get_functions())
             unique_functions = [
@@ -94,19 +111,25 @@ class PredictionRequest(DataHandler):
 
             self.data = pd.DataFrame(unique_functions)
         except Exception as unknown_exception:
-            logging.error(f"Error processing prediction data: {unknown_exception}")
+            logging.error("Error processing prediction data: %s", unknown_exception)
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing prediction data for UUID: {self.uuid}")
-            exc.__cause__ = unknown_exception
-            raise exc
+            raise exc from unknown_exception
 
     def set_prediction_values(self, labels: list[str]) -> None:
+        """Set prediction labels for each function.
+
+        Args:
+            labels: List of predicted labels for the functions.
+        """
         functions = self.get_functions()
         for ctr, function in enumerate(functions):
             function["functionName"] = labels[ctr]
 
 
 class GhidraRequest:
+    """Request handler for Ghidra analysis tasks."""
+
     file_name: str
     is_training: bool
     model_name: str
@@ -127,16 +150,18 @@ class GhidraRequest:
         self.model_name = model_name
         self.task_name = task_name
         self.ml_class_type = ml_class_type
-        self.uuid = str(uuid.uuid4())
+        self.uuid = str(uuid4())
 
 
 class Prediction:
+    """Data class for prediction results."""
+
     model_name: str
     task_name: str
-    predictions: list[dict[str, object]]
+    predictions: list[dict[str, Any]]
 
     def __init__(
-        self, task_name: str, model_name: str, pred: list[dict[str, object]]
+        self, task_name: str, model_name: str, pred: list[dict[str, Any]]
     ) -> None:
         self.task_name = task_name
         self.model_name = model_name

@@ -1,4 +1,7 @@
+"""Persistence utilities for ML models and predictions."""
+
 import logging
+
 import joblib
 from io import BytesIO
 from typing import Any
@@ -10,11 +13,10 @@ from sklearn.pipeline import Pipeline
 from app.request_handler import Prediction, PredictionRequest, TrainingRequest
 from app.sql_service import SQLUtil
 
-# === Type aliases for clarity ===
-ModelRow = tuple[str, bytes, bytes]  # (model_name, model_blob, encoder_blob)
-
 
 class MLTask:
+    """ML pipeline configuration."""
+
     @staticmethod
     def get_multi_class_pipeline() -> Pipeline:
         return Pipeline(
@@ -29,7 +31,6 @@ class MLTask:
 
     @staticmethod
     def get_single_class_pipeline() -> Pipeline:
-        # TODO: Replace with dedicated algorithm when implemented
         return Pipeline(
             [
                 (
@@ -42,10 +43,11 @@ class MLTask:
 
 
 class PredictionPersistanceUtil:
+    """Persistence utilities for predictions."""
+
     @staticmethod
     def get_predictions_list() -> list[Prediction]:
-        predictions_list: list[Prediction] = SQLUtil.get_predictions_list()
-        return predictions_list
+        return SQLUtil.get_predictions_list()
 
     @staticmethod
     def get_predictions(task_name: str, model_name: str) -> Prediction:
@@ -59,19 +61,21 @@ class PredictionPersistanceUtil:
         return prediction
 
     @staticmethod
-    def delete_prediction(task_name: str):
+    def delete_prediction(task_name: str) -> None:
         if not task_name:
             raise ValueError("task_name must be a non-empty string")
         SQLUtil.delete_prediction(task_name)
 
     @staticmethod
-    def delete_model_predictions(model_name: str):
+    def delete_model_predictions(model_name: str) -> None:
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
         SQLUtil.delete_model_predictions(model_name)
 
 
 class MLPersistanceUtil:
+    """Persistence utilities for ML models."""
+
     @staticmethod
     def save_model(model_name: str, label_encoder: Any, pipeline: Pipeline) -> None:
         if not model_name:
@@ -91,10 +95,9 @@ class MLPersistanceUtil:
             serialized_encoder = encoder_buffer.getvalue()
 
             SQLUtil.save_model(model_name, serialized_encoder, serialized_model)
-
-        except Exception as e:
-            logging.error(f"Failed to serialize model or encoder for '{model_name}': {e}")
-            raise RuntimeError(f"Could not serialize model data for '{model_name}'") from e
+        except Exception as error:
+            logging.error(f"Failed to serialize model '{model_name}': {error}")
+            raise RuntimeError(f"Could not serialize model data for '{model_name}'") from error
 
     @staticmethod
     def load_model(model_name: str) -> tuple[Any, Any]:
@@ -123,17 +126,15 @@ class MLPersistanceUtil:
             label_encoder = joblib.load(encoder_buffer)
 
             return loaded_model, label_encoder
-
-        except Exception as e:
+        except Exception as error:
             logging.error(
-                f"Failed to deserialize model '{model_name}': {type(e).__name__}: {e}"
+                f"Failed to deserialize model '{model_name}': {type(error).__name__}: {error}"
             )
-            raise RuntimeError(f"Could not deserialize model data for '{model_name}'") from e
+            raise RuntimeError(f"Could not deserialize model data for '{model_name}'") from error
 
     @staticmethod
     def get_models_list() -> set[str]:
-        models_list: set[str] = SQLUtil.get_models_list()
-        return models_list
+        return SQLUtil.get_models_list()
 
     @staticmethod
     def check_name(model_name: str) -> bool:
@@ -143,13 +144,15 @@ class MLPersistanceUtil:
         return model_name in models_list
 
     @staticmethod
-    def delete_model(model_name: str):
+    def delete_model(model_name: str) -> None:
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
         SQLUtil.delete_model(model_name)
 
 
 class FunctionPersistanceUtil:
+    """Persistence utilities for functions."""
+
     @staticmethod
     def get_functions(model_name: str) -> list:
         if not model_name:

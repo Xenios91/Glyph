@@ -13,6 +13,7 @@
 - User accounts instead of single user
 - Better test
 - Pydantic implementation
+- Ability to switch databases
 
 ![Black Hat Arsenal 2022](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2022.svg)
 

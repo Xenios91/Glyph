@@ -13,7 +13,7 @@ import pandas as pd
 from sklearn import preprocessing
 from sklearn.pipeline import Pipeline
 
-from app.config import GlyphConfig
+from app.config import GlyphConfig, MAX_CPU_CORES
 from app.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, MLTask
 from app.request_handler import GhidraRequest, PredictionRequest, TrainingRequest
 from app.services import TaskService
@@ -29,7 +29,7 @@ class TaskManager:
         """Initialize the process pool executor for subclasses."""
         super().__init_subclass__(**kwargs)
         if cls.exec_pool is None:
-            cls.exec_pool = ProcessPoolExecutor(max_workers=2)
+            cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
             # Register cleanup handlers
             atexit.register(cls._shutdown_executor)
             # Register signal handlers for graceful shutdown
@@ -50,7 +50,7 @@ class TaskManager:
             The ProcessPoolExecutor instance.
         """
         if cls.exec_pool is None or cls.exec_pool._shutdown:
-            cls.exec_pool = ProcessPoolExecutor(max_workers=2)
+            cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
         return cls.exec_pool
 
     @classmethod
@@ -80,27 +80,16 @@ class TaskManager:
             exit(130)
 
     @classmethod
-    def get_uuid(cls, max_attempts: int = 100) -> str:
-        """Generate a unique UUID that is not already in the queue.
+    def get_uuid(cls) -> str:
+        """Generate a unique UUID.
 
-        Args:
-            max_attempts: Maximum number of attempts to generate a unique UUID.
+        UUID4 uses 122 random bits, making collision probability
+        approximately 1 in 5.3×10^36 - statistically impossible for practical use.
 
         Returns:
             A unique UUID string.
-
-        Raises:
-            RuntimeError: If unable to generate a unique UUID after max attempts.
         """
-        for _ in range(max_attempts):
-            value = str(uuid.uuid4())
-            # Check if UUID exists in the queue using set for O(1) lookup
-            existing_uuids = {task[0].uuid for task in TaskService().service_queue.queue}
-            if value not in existing_uuids:
-                return value
-
-        logging.error("Failed to generate unique UUID after %d attempts", max_attempts)
-        raise RuntimeError("Unable to generate unique UUID - queue may be full")
+        return str(uuid.uuid4())
 
     @classmethod
     def get_status(cls, job_uuid: str) -> str:

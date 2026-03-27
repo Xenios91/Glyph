@@ -5,18 +5,20 @@ from typing import Any
 
 from app.config import GlyphConfig
 
-# === Token Cleanup/Normalization ===
+_VARIABLE_PATTERNS = [
+    r"^var\d+$",
+    r"^local_[0-9a-fA-F]+$",
+    r"^[a-z]{1,2}Var\d+$",
+    r"^param_\d+$",
+    r"^(?:u)?stack_?[-?0-9a-fA-F]+$",
+    r"^(?:unaff|extraout)_.*$",
+]
+_VARIABLE_REGEX = re.compile(f"({'|'.join(_VARIABLE_PATTERNS)})", re.IGNORECASE)
+_COMMENT_REGEX = re.compile(r"/\*.*?\*/|//[^\n]*")
 
 
 def check_if_variable(token: str) -> bool:
-    """Check if a token matches Ghidra decompiler auto-naming patterns.
-
-    Catches:
-    - Simple: var1, var2
-    - Stack: local_10, local_res, uStack18, stack[-0x10]
-    - Typed Registers: iVar1, uVar2, pVar3, bVar1, auVar4, lVar1
-    - Params: param_1, param_2
-    - Special: unaff_RET, extraout_v0
+    """Check if a token matches Ghidra auto-naming patterns.
 
     Args:
         token: The token to check.
@@ -24,21 +26,11 @@ def check_if_variable(token: str) -> bool:
     Returns:
         True if the token matches a Ghidra auto-naming pattern.
     """
-    patterns = [
-        r"^var\d+$",  # Simple var1, var2
-        r"^local_[0-9a-fA-F]+$",  # Stack variables (local_10)
-        r"^[a-z]{1,2}Var\d+$",  # iVar1, uVar2, pVar3, auVar1
-        r"^param_\d+$",  # Function parameters
-        r"^(?:u)?stack_?[-?0-9a-fA-F]+$",  # stack_10, ustack18, stack[-0x8]
-        r"^(?:unaff|extraout)_.*$",  # Unaffected registers or extra outputs
-    ]
-
-    combined_pattern = f"({'|'.join(patterns)})"
-    return re.match(combined_pattern, token, re.IGNORECASE) is not None
+    return _VARIABLE_REGEX.match(token) is not None
 
 
 def remove_comments(tokens_list: list[str]) -> list[str]:
-    """Recursively removes C-style comments (/* ... */) from token list.
+    """Remove C-style comments from token list.
 
     Args:
         tokens_list: List of tokens to process.
@@ -47,22 +39,13 @@ def remove_comments(tokens_list: list[str]) -> list[str]:
         List of tokens with comments removed.
     """
     tokens_string: str = " ".join(tokens_list)
-    result: str = tokens_string
-
-    while "/*" in result:
-        start: int = result.find("/*")
-        end: int = result.find("*/", start)
-        if end == -1:
-            result = result[:start].strip()
-        else:
-            result = result[:start] + " " + result[end + 2 :]
-
+    result: str = _COMMENT_REGEX.sub(" ", tokens_string)
     result = " ".join(result.split())
     return result.split() if result else []
 
 
 def filter_tokens(tokens_list: list[str]) -> list[str]:
-    """Normalizes addresses, functions, variables, and undefined types.
+    """Normalize addresses, functions, variables, and undefined types.
 
     Args:
         tokens_list: List of tokens to filter.
@@ -89,9 +72,6 @@ def filter_tokens(tokens_list: list[str]) -> list[str]:
     return remove_comments(filtered)
 
 
-# === Decompiler Setup & Execution ===
-
-
 def setup_decompiler(
     state: Any,
     program: Any,
@@ -101,9 +81,9 @@ def setup_decompiler(
     """Initialize and configure the decompiler.
 
     Args:
-        state: The Ghidra state (unused but kept for API compatibility).
+        state: The Ghidra state.
         program: The Ghidra program to decompile.
-        num_processors: Number of processors to use (default 2).
+        num_processors: Number of processors to use.
         decomp_interface: Optional existing decompiler interface.
 
     Returns:
@@ -119,7 +99,6 @@ def setup_decompiler(
     decomp_interface.toggleCCode(True)
     decomp_interface.toggleSyntaxTree(True)
     decomp_interface.setSimplificationStyle("decompile")
-
     decomp_interface.openProgram(program)
 
     return decomp_interface
@@ -154,7 +133,7 @@ def get_function_tokens(function: Any, decomp_interface: Any) -> list[str]:
 
 
 def decompile_all_functions(state: Any, program: Any) -> dict[str, list]:
-    """Orchestrates the decompilation of the binary.
+    """Decompile all functions in a program.
 
     Args:
         state: The Ghidra state.
@@ -186,7 +165,6 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list]:
         if "undefined" in return_type:
             return_type = "undefined"
         param_count = len(function.getParameters())
-
         filtered_tokens: list[str] = filter_tokens(tokens)
 
         func_entry: dict[str, Any] = {
@@ -208,8 +186,7 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list]:
 
 
 def analyze_binary_and_decompile(binary_path: str) -> dict[str, list]:
-    """Main entry point: takes a path, runs headless analysis,
-    and returns the decompiled function map.
+    """Analyze a binary file and return decompiled functions.
 
     Args:
         binary_path: Path to the binary file to analyze.

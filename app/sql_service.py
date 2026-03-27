@@ -25,7 +25,6 @@ class SQLUtil:
                         "CREATE TABLE IF NOT EXISTS "
                         "models(model_name VARCHAR(64), model BLOB, label_encoder BLOB)"
                     )
-
                     con.commit()
                 except Exception as error:
                     logging.error(error)
@@ -58,7 +57,6 @@ class SQLUtil:
                     "CREATE TABLE IF NOT EXISTS "
                     "models(model_name VARCHAR(64), model BLOB, label_encoder BLOB)"
                 )
-
                 sql = "INSERT INTO models (model_name, model, label_encoder) VALUES (?, ?, ?)"
                 cur.execute(
                     sql,
@@ -84,39 +82,31 @@ class SQLUtil:
                     models = cur.execute(sql).fetchall()
                     for model in models:
                         models_set.add(model[0])
-
                 except Exception as error:
                     logging.error(error)
-
         return models_set
 
     @staticmethod
     def get_model(model_name: str) -> tuple[Any, ...] | None:
-        """Retrieves the model row from the SQLite database.
+        """Retrieve the model row from the SQLite database.
 
         Args:
             model_name: Name of the model to retrieve.
 
         Returns:
-            The tuple (row) if found, otherwise None.
+            The tuple if found, otherwise None.
         """
         db_path = "models.db"
-
         try:
             with sqlite3.connect(db_path) as con:
-                # Optional: This allows accessing columns by name like row['model_name']
                 con.row_factory = sqlite3.Row
                 cur = con.cursor()
-
                 sql = "SELECT * FROM MODELS WHERE model_name = ?"
                 model = cur.execute(sql, (model_name,)).fetchone()
-
                 if model:
                     return model
-
                 logging.warning("Model '%s' not found.", model_name)
                 return None
-
         except sqlite3.Error as error:
             logging.error("Database error: %s", error)
             return None
@@ -131,7 +121,6 @@ class SQLUtil:
         with sqlite3.connect("models.db") as con:
             try:
                 SQLUtil.delete_functions(model_name)
-
                 cur = con.cursor()
                 sql = "DELETE FROM MODELS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
@@ -173,12 +162,11 @@ class SQLUtil:
                             )
                 except Exception as error:
                     logging.error(error)
-
         return prediction_results
 
     @staticmethod
     def get_predictions(task_name: str, model_name: str) -> "Prediction | None":
-        """Retrieves and unserializes a Prediction object from the database.
+        """Retrieve and deserialize a Prediction object from the database.
 
         Args:
             task_name: Name of the task.
@@ -188,7 +176,6 @@ class SQLUtil:
             Prediction object if found, otherwise None.
         """
         db_path = "predictions.db"
-
         if not os.path.exists(db_path):
             logging.warning("Database %s does not exist.", db_path)
             return None
@@ -198,7 +185,6 @@ class SQLUtil:
                 cur = con.cursor()
                 sql = "SELECT * FROM PREDICTIONS WHERE name=? AND model_name=?"
                 row = cur.execute(sql, (task_name, model_name)).fetchone()
-
                 if row is None:
                     return None
 
@@ -220,7 +206,6 @@ class SQLUtil:
                 return Prediction(
                     task_name=task_name, model_name=model_name, pred=prediction_data
                 )
-
         except sqlite3.Error as error:
             logging.error("Database error: %s", error)
             return None
@@ -252,7 +237,6 @@ class SQLUtil:
                 cur.execute(
                     sql, (name, model_name, sqlite3.Binary(functions_serialized))
                 )
-
                 con.commit()
             except Exception as error:
                 logging.error(error)
@@ -275,13 +259,7 @@ class SQLUtil:
             try:
                 cur = con.cursor()
                 sql = "SELECT * FROM PREDICTIONS WHERE model_name=? and name=?"
-                result = cur.execute(
-                    sql,
-                    (
-                        model_name,
-                        task_name,
-                    ),
-                ).fetchone()
+                result = cur.execute(sql, (model_name, task_name)).fetchone()
                 if result is None:
                     return {}
                 try:
@@ -300,7 +278,6 @@ class SQLUtil:
                     return {}
             except Exception as error:
                 logging.error(error)
-
         return {}
 
     @staticmethod
@@ -331,7 +308,6 @@ class SQLUtil:
                             tokens,
                         ),
                     )
-
                 con.commit()
             except Exception as error:
                 logging.error(error)
@@ -354,7 +330,6 @@ class SQLUtil:
                 functions = cur.execute(sql, (model_name,)).fetchall()
             except Exception as error:
                 logging.error(error)
-
         return functions
 
     @staticmethod
@@ -373,16 +348,9 @@ class SQLUtil:
             try:
                 cur = con.cursor()
                 sql = "SELECT * FROM FUNCTIONS WHERE model_name=? and function_name=?"
-                function_information = cur.execute(
-                    sql,
-                    (
-                        model_name,
-                        function_name,
-                    ),
-                ).fetchone()
+                function_information = cur.execute(sql, (model_name, function_name)).fetchone()
             except Exception as error:
                 logging.error(error)
-
             return function_information
 
     @staticmethod
