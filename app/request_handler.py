@@ -133,10 +133,10 @@ class GhidraRequest:
 class Prediction:
     model_name: str
     task_name: str
-    predictions: dict[str, object]
+    predictions: list[dict[str, object]]
 
     def __init__(
-        self, task_name: str, model_name: str, pred: dict[str, object]
+        self, task_name: str, model_name: str, pred: list[dict[str, object]]
     ) -> None:
         self.task_name = task_name
         self.model_name = model_name

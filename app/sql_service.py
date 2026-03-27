@@ -2,9 +2,11 @@
 
 import logging
 import os
-import pickle
 import sqlite3
+from io import BytesIO
 from typing import Any
+
+import joblib
 
 from app.request_handler import Prediction
 
@@ -152,10 +154,23 @@ class SQLUtil:
                     sql = "SELECT * FROM PREDICTIONS"
                     predictions = cur.execute(sql).fetchall()
                     for prediction in predictions:
-                        preds = pickle.loads(prediction[2])
-                        prediction_results.append(
-                            Prediction(prediction[0], prediction[1], preds)
-                        )
+                        try:
+                            preds = joblib.load(BytesIO(prediction[2]))
+                            if not isinstance(preds, list):
+                                logging.warning(
+                                    "Prediction data for '%s' is not a list, skipping",
+                                    prediction[0]
+                                )
+                                continue
+                            prediction_results.append(
+                                Prediction(prediction[0], prediction[1], preds)
+                            )
+                        except Exception as deserial_error:
+                            logging.error(
+                                "Failed to deserialize prediction '%s': %s",
+                                prediction[0],
+                                deserial_error
+                            )
                 except Exception as error:
                     logging.error(error)
 
@@ -187,14 +202,27 @@ class SQLUtil:
                 if row is None:
                     return None
 
-                prediction_data = pickle.loads(row[2])
+                try:
+                    prediction_data = joblib.load(BytesIO(row[2]))
+                    if not isinstance(prediction_data, list):
+                        logging.warning(
+                            "Prediction data for task '%s' is not a list, expected list"
+                            "got %s", task_name, type(prediction_data).__name__
+                        )
+                        return None
+                except Exception as deserial_error:
+                    logging.error(
+                        "Failed to deserialize prediction for task '%s': %s",
+                        task_name, deserial_error
+                    )
+                    return None
 
                 return Prediction(
                     task_name=task_name, model_name=model_name, pred=prediction_data
                 )
 
-        except (sqlite3.Error, pickle.UnpicklingError, IndexError) as error:
-            logging.error("Error retrieving/unpickling prediction: %s", error)
+        except sqlite3.Error as error:
+            logging.error("Database error: %s", error)
             return None
         except Exception as error:
             logging.error("Unexpected error: %s", error)
@@ -218,7 +246,9 @@ class SQLUtil:
                 )
                 sql = "INSERT INTO PREDICTIONS (name, model_name, functions) VALUES (?, ?, ?)"
 
-                functions_serialized = pickle.dumps(functions)
+                functions_buffer = BytesIO()
+                joblib.dump(functions, functions_buffer)
+                functions_serialized = functions_buffer.getvalue()
                 cur.execute(
                     sql, (name, model_name, sqlite3.Binary(functions_serialized))
                 )
@@ -252,10 +282,22 @@ class SQLUtil:
                         task_name,
                     ),
                 ).fetchone()
-                predictions = pickle.loads(result[2])
-                for function in predictions:
-                    if function["functionName"] == function_name:
-                        return function
+                if result is None:
+                    return {}
+                try:
+                    predictions = joblib.load(BytesIO(result[2]))
+                    if not isinstance(predictions, list):
+                        logging.warning(
+                            "Predictions data is not a list, expected list got %s",
+                            type(predictions).__name__
+                        )
+                        return {}
+                    for function in predictions:
+                        if isinstance(function, dict) and function.get("functionName") == function_name:
+                            return function
+                except Exception as deserial_error:
+                    logging.error("Failed to deserialize predictions: %s", deserial_error)
+                    return {}
             except Exception as error:
                 logging.error(error)
 

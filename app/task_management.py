@@ -1,7 +1,9 @@
 """Task management module for Glyph application."""
 
+import atexit
 import logging
 import os
+import signal
 import subprocess
 import uuid
 from concurrent.futures import Future, ProcessPoolExecutor
@@ -20,8 +22,19 @@ from app.services import TaskService
 class TaskManager:
     """Base class for managing tasks in Glyph application."""
 
-    exec_pool: ProcessPoolExecutor = ProcessPoolExecutor(2)
+    exec_pool: ProcessPoolExecutor | None = None
     __instance: "TaskManager | None" = None
+
+    def __init_subclass__(cls, **kwargs) -> None:
+        """Initialize the process pool executor for subclasses."""
+        super().__init_subclass__(**kwargs)
+        if cls.exec_pool is None:
+            cls.exec_pool = ProcessPoolExecutor(max_workers=2)
+            # Register cleanup handlers
+            atexit.register(cls._shutdown_executor)
+            # Register signal handlers for graceful shutdown
+            signal.signal(signal.SIGTERM, cls._signal_handler)
+            signal.signal(signal.SIGINT, cls._signal_handler)
 
     def __new__(cls) -> "TaskManager":
         """Create or return the singleton instance of TaskManager."""
@@ -30,16 +43,64 @@ class TaskManager:
         return cls.__instance
 
     @classmethod
-    def get_uuid(cls) -> str:
+    def _get_executor(cls) -> ProcessPoolExecutor:
+        """Get or create the process pool executor.
+
+        Returns:
+            The ProcessPoolExecutor instance.
+        """
+        if cls.exec_pool is None or cls.exec_pool._shutdown:
+            cls.exec_pool = ProcessPoolExecutor(max_workers=2)
+        return cls.exec_pool
+
+    @classmethod
+    def _shutdown_executor(cls) -> None:
+        """Shutdown the executor gracefully.
+
+        This method is called on application exit or shutdown signals.
+        """
+        if cls.exec_pool is not None:
+            cls.exec_pool.shutdown(wait=False, cancel_futures=True)
+            cls.exec_pool = None
+            logging.info("ProcessPoolExecutor shut down successfully")
+
+    @classmethod
+    def _signal_handler(cls, signum: int, frame: Any) -> None:
+        """Handle shutdown signals.
+
+        Args:
+            signum: The signal number received.
+            frame: The current stack frame (unused).
+        """
+        logging.info(f"Received signal {signum}, shutting down executor...")
+        cls._shutdown_executor()
+        if signum == signal.SIGTERM:
+            exit(143)
+        elif signum == signal.SIGINT:
+            exit(130)
+
+    @classmethod
+    def get_uuid(cls, max_attempts: int = 100) -> str:
         """Generate a unique UUID that is not already in the queue.
+
+        Args:
+            max_attempts: Maximum number of attempts to generate a unique UUID.
 
         Returns:
             A unique UUID string.
+
+        Raises:
+            RuntimeError: If unable to generate a unique UUID after max attempts.
         """
-        value: str = str(uuid.uuid4())
-        if value in list(TaskService().service_queue.queue):
-            value = cls.get_uuid()
-        return value
+        for _ in range(max_attempts):
+            value = str(uuid.uuid4())
+            # Check if UUID exists in the queue using set for O(1) lookup
+            existing_uuids = {task[0].uuid for task in TaskService().service_queue.queue}
+            if value not in existing_uuids:
+                return value
+
+        logging.error("Failed to generate unique UUID after %d attempts", max_attempts)
+        raise RuntimeError("Unable to generate unique UUID - queue may be full")
 
     @classmethod
     def get_status(cls, job_uuid: str) -> str:
@@ -113,7 +174,7 @@ class Trainer(TaskManager):
         Args:
             training_request: The training request containing model data.
         """
-        future: Future = cls.exec_pool.submit(cls._train_model, training_request)
+        future: Future = cls._get_executor().submit(cls._train_model, training_request)
         TaskService().service_queue.put((training_request, future))
 
     @classmethod
@@ -145,7 +206,6 @@ class Predictor(TaskManager):
     """Task manager for running predictions on binary functions."""
 
     __instance: "Predictor | None" = None
-    probability_limit_threshold: float
 
     def __new__(cls) -> "Predictor":
         """Create or return the singleton instance of Predictor."""
@@ -153,16 +213,24 @@ class Predictor(TaskManager):
             cls.__instance = super().__new__(cls)
         return cls.__instance
 
-    def __init__(self) -> None:
-        """Initialize the Predictor with threshold from config."""
-        super().__init__()
-        threshold_value: Any | None = GlyphConfig().get_config_value(
+    @classmethod
+    def get_threshold(cls) -> float:
+        """Get the prediction probability threshold from config.
+
+        Returns:
+            The threshold value as a float.
+
+        Raises:
+            TypeError: If the config value is not a valid numeric type.
+        """
+        threshold_value = GlyphConfig.get_config_value(
             "prediction_probability_threshold")
-        if not isinstance(threshold_value, float):
+        if threshold_value is None:
+            threshold_value = 80.0  # Default threshold
+        if not isinstance(threshold_value, (int, float)):
             raise TypeError(
-                "ERROR: prediction_probability_threshold is not type "
-                "float or int in config.yml")
-        self.probability_limit_threshold = threshold_value
+                "prediction_probability_threshold must be a numeric value")
+        return float(threshold_value)
 
     @classmethod
     def start_prediction(cls, prediction_request: PredictionRequest) -> None:
@@ -171,8 +239,8 @@ class Predictor(TaskManager):
         Args:
             prediction_request: The prediction request containing data.
         """
-        future: Future = Predictor.exec_pool.submit(
-            Predictor._run_prediction, prediction_request)
+        future: Future = cls._get_executor().submit(
+            cls._run_prediction, prediction_request)
         TaskService().service_queue.put((prediction_request, future))
 
     @classmethod
@@ -212,8 +280,9 @@ class Predictor(TaskManager):
             prediction_probability: Array of prediction probabilities.
             predicted_labels: List of predicted labels to modify.
         """
+        threshold = cls.get_threshold()
         for ctr, probability in enumerate(prediction_probability):
-            if probability.max() < Predictor().probability_limit_threshold:
+            if probability.max() < threshold:
                 predicted_labels[ctr] = 'Unknown'
 
 
@@ -227,7 +296,7 @@ class Ghidra(TaskManager):
         Args:
             ghidra_request: The Ghidra request containing analysis parameters.
         """
-        future: Future = cls.exec_pool.submit(cls._run_analysis, ghidra_request)
+        future: Future = cls._get_executor().submit(cls._run_analysis, ghidra_request)
         TaskService().service_queue.put((ghidra_request, future))
 
     @classmethod

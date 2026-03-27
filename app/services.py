@@ -23,5 +23,11 @@ class TaskService:
         while True:
             task: tuple[Any, Any] = cls.service_queue.get(block=True)
             job_uuid: str = task[0].uuid
-            task[1].result()
-            logging.info("Processing job: job_uuid=%s", job_uuid)
+            try:
+                logging.info("Processing job: job_uuid=%s", job_uuid)
+                task[1].result()
+                logging.info("Job completed successfully: job_uuid=%s", job_uuid)
+            except Exception as e:
+                logging.exception("Job failed: job_uuid=%s, error=%s", job_uuid, e)
+            finally:
+                cls.service_queue.task_done()

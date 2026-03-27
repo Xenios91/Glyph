@@ -46,6 +46,23 @@ async def post_upload_binary(
             content={"error": "invalid request, missing query strings"}, status_code=400
         )
 
+    max_file_size_mb = GlyphConfig.get_config_value("max_file_size_mb")
+    if max_file_size_mb is None:
+        max_file_size_mb = 512
+
+    max_file_size_bytes = max_file_size_mb * 1024 * 1024
+
+    file_content = await binaryFile.read()
+    if len(file_content) > max_file_size_bytes:
+        actual_size_mb = len(file_content) / (1024 * 1024)
+        return JSONResponse(
+            content={
+                "error": f"File size ({actual_size_mb:.2f}MB) exceeds maximum "
+                f"allowed ({max_file_size_mb}MB)"
+            },
+            status_code=413
+        )
+
     extension = Path(binaryFile.filename).suffix
     unique_filename = f"{uuid.uuid4()}{extension}"
     upload_folder = GlyphConfig._config["UPLOAD_FOLDER"]
@@ -54,7 +71,7 @@ async def post_upload_binary(
 
     file_path = os.path.join(upload_folder, unique_filename)
     with open(file_path, "wb") as f:
-        f.write(await binaryFile.read())
+        f.write(file_content)
 
     ghidra_task = GhidraRequest(
         unique_filename, is_training_data, model_name, task_name, ml_class_type
