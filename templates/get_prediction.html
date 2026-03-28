@@ -3,10 +3,10 @@
 <link rel="stylesheet" href="{{ url_for('static', path='css/predictions_style.css') }}">
 <div class="content blue-bg">
     <div class="center-contents">
-        <span id="task-name">Task Name: {{ task_name }}</span>
+        <span id="task-name">Task Name: {{ task_name | e }}</span>
     </div>
     <div class="center-contents">
-        <span id="model-name">Model Name: {{ model_name }}</span>
+        <span id="model-name">Model Name: {{ model_name | e }}</span>
     </div>
     <div class="nes-table-responsive content m-table center-contents overflow">
         <blockquote>
@@ -20,33 +20,48 @@
                 <tbody>
                     {% for functionInfo in prediction["predictions"] %}
                     {% set functionName = functionInfo["functionName"] %}
-                    {% set id = functionName + ":" + model_name + ":" + task_name %}
-                    <tr id="{{ id }}"
+                    <tr id="prediction-func-{{ loop.index }}"
+                        data-function-name="{{ functionName | e }}"
+                        data-model-name="{{ model_name | e }}"
+                        data-task-name="{{ task_name | e }}"
                         onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
-                        onmouseout="changeBackground(this.id, '#000000');"
-                        onclick="goToURL(this.id)">
-                        <td>{{ functionInfo["functionName"] }}</td>
+                        onmouseout="changeBackground(this.id, '#000000');">
+                        <td>{{ functionName | e }}</td>
                         <td>0x{{ functionInfo["lowAddress"] }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </blockquote>
-        <button type="button" class="nes-btn is-primary mr-25" onclick="deletePrediction()">Delete</button>
+        <button type="button" class="nes-btn is-primary mr-25 delete-prediction-btn">Delete</button>
         <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
     </div>
 </div>
 
 <script>
-    function goToURL(id) {
-        const split = id.split(":");
+    function goToURL(functionName, modelName, taskName) {
         const currentURL = window.location.href;
         const splitIndex = currentURL.lastIndexOf("/");
-        const url = currentURL.substring(splitIndex, 0) + "/models/getPredictionDetails?functionName=" + split[0] + "&taskName=" + split[2] + "&modelName=" + split[1];
+        const url = currentURL.substring(splitIndex, 0) + "/models/getPredictionDetails?functionName=" + encodeURIComponent(functionName) + "&taskName=" + encodeURIComponent(taskName) + "&modelName=" + encodeURIComponent(modelName);
         if (url) {
             window.location = url;
         }
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle row clicks for function details
+        document.querySelectorAll('tr[id^="prediction-func-"]').forEach(function(row) {
+            row.addEventListener('click', function() {
+                const functionName = this.getAttribute('data-function-name');
+                const modelName = this.getAttribute('data-model-name');
+                const taskName = this.getAttribute('data-task-name');
+                goToURL(functionName, modelName, taskName);
+            });
+        });
+
+        // Handle delete prediction button
+        document.querySelector('.delete-prediction-btn').addEventListener('click', deletePrediction);
+    });
 
     function deletePrediction() {
         var selection = document.getElementById("task-name").innerText;

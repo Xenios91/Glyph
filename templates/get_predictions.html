@@ -18,15 +18,18 @@
                 </thead>
                 <tbody>
                     {% for prediction in predictions %}
-                    <tr id="{{ prediction.task_name }}:{{ prediction.model_name }}" 
+                    <tr id="prediction-{{ loop.index }}"
+                        data-task-name="{{ prediction.task_name | e }}"
+                        data-model-name="{{ prediction.model_name | e }}"
                         onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
                         onmouseout="changeBackground(this.id, '#000000');">
-                        <td>{{ prediction.task_name }}</td>
-                        <td>{{ prediction.model_name }}</td>
+                        <td>{{ prediction.task_name | e }}</td>
+                        <td>{{ prediction.model_name | e }}</td>
                         <td>{{ prediction.predictions | length }}</td>
                         <td>
-                            <button type="button" class="nes-btn is-primary" 
-                                onclick="viewPrediction('{{ prediction.task_name }}', '{{ prediction.model_name }}')">
+                            <button type="button" class="nes-btn is-primary view-prediction-btn"
+                                data-task-name="{{ prediction.task_name | e }}"
+                                data-model-name="{{ prediction.model_name | e }}">
                                 View
                             </button>
                         </td>
@@ -50,6 +53,16 @@
         const baseUrl = currentURL.substring(0, splitIndex);
         window.location = baseUrl + "/getPrediction?taskName=" + encodeURIComponent(taskName) + "&modelName=" + encodeURIComponent(modelName);
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.view-prediction-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const taskName = this.getAttribute('data-task-name');
+                const modelName = this.getAttribute('data-model-name');
+                viewPrediction(taskName, modelName);
+            });
+        });
+    });
 
     function changeBackground(id, color) {
         document.getElementById(id).style.background = color;
