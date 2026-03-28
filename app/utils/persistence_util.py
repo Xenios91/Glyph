@@ -114,6 +114,20 @@ class PredictionPersistanceUtil:
             raise ValueError("model_name must be a non-empty string")
         SQLUtil.delete_model_predictions(model_name)
 
+    @staticmethod
+    def is_task_name_unique(task_name: str) -> bool:
+        """Check if a task name is unique (does not exist in the database).
+
+        Args:
+            task_name: The task name to check.
+
+        Returns:
+            True if the task name is unique, False if it already exists.
+        """
+        if not task_name:
+            raise ValueError("task_name must be a non-empty string")
+        return not SQLUtil.task_name_exists(task_name)
+
 
 class MLPersistanceUtil:
     """Persistence utilities for ML models."""

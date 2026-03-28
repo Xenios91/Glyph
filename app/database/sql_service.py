@@ -407,3 +407,28 @@ class SQLUtil:
                 con.commit()
             except sqlite3.Error as error:
                 logging.error("Database error: %s", error)
+
+    @staticmethod
+    def task_name_exists(task_name: str) -> bool:
+        """Check if a task name already exists in the predictions database.
+
+        Args:
+            task_name: Name of the task to check.
+
+        Returns:
+            True if the task name exists, False otherwise.
+        """
+        db_path = "predictions.db"
+        if not os.path.exists(db_path):
+            return False
+
+        try:
+            with sqlite3.connect(db_path) as con:
+                cur = con.cursor()
+                sql = "SELECT COUNT(*) FROM PREDICTIONS WHERE name=?"
+                result = cur.execute(sql, (task_name,)).fetchone()
+                count = result[0] if result else 0
+                return count > 0
+        except sqlite3.Error as error:
+            logging.error("Database error checking task name: %s", error)
+            return False

@@ -31,12 +31,22 @@ async def predict_tokens(request_values: PredictTokensRequest):
         model_name = request_values.modelName
         uuid = request_values.uuid or Trainer().get_uuid()
         data = request_values.model_dump()
+        task_name = data.get("taskName", "")
+
+        # Validate that task name is unique
+        if not PredictionPersistanceUtil.is_task_name_unique(task_name):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Task name '{task_name}' already exists. Task names must be unique."
+            )
 
         prediction_request = PredictionRequest(uuid, model_name, data)
         Predictor().start_prediction(prediction_request)
 
         return {"uuid": prediction_request.uuid}
 
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"Prediction error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
