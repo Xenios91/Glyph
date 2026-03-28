@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/models_style.css') }}">
+<div class="content blue-bg">
+    {% if models is defined and models|length > 0 %}
+    <div>
+        <span>AVAILABLE MODELS</span>
+    </div>
+    <div class="nes-table-responsive">
+        <table class="nes-table is-bordered is-centered">
+            <thead>
+                <tr>
+                    <th>MODEL NAME</th>
+                    <th>STATUS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for model, status in models.items() %}
+                <tr id="{{ model }}-id"
+                    onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
+                    onmouseout="changeBackground(this.id, '#000000');"
+                    onclick="goToURL(this.id)">
+                    <td id="td-model-name">{{ model }}</td>
+                    <td id="{{ model }}-status" class="
+                        {% if status == 'complete' %}status-complete
+                        {% elif status == 'N/A' %}status-na
+                        {% else %}status-pending{% endif %}
+                    ">{{ status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="blue-bg" style="margin: auto;">
+        <section class="message-list">
+            <section class="message -left">
+                <div class="nes-balloon from-left">
+                    <p class="nes-text is-error">Uh oh! it looks like no models have been generated! Try
+                        going to upload to start!</p>
+                </div>
+            </section>
+            <i style="float: left;" class="nes-octocat animate"></i>
+        </section>
+    </div>
+    {% endif %}
+    <script>
+        function goToURL(id) {
+            const modelName = id.slice(0, -3);
+            const status = document.getElementById(modelName + "-status");
+            if (status.innerText.trim() == "complete") {
+                const currentURL = window.location.href;
+                const splitIndex = currentURL.lastIndexOf("/");
+                const url = currentURL.substring(splitIndex, 0) + "/models/getFunctions?modelName=" + modelName;
+                if (url) { window.location = url; }
+            } else if (status.innerText.trim() == "N/A") {
+                alert('No analysis has been performed yet!');
+            } else {
+                alert('Binary Analysis is not complete!');
+            }
+        }
+
+        function deleteModel() {
+            var selection = document.getElementById("file-name").innerText;
+            var binToDelete = selection.split(':')[1].replace(/\s+/, "");
+            var currentURL = window.location.href;
+            var url = "/models/getSymbols" + "?binaryDel=" + binToDelete;
+            if (url) { window.location = url; }
+        }
+
+        function changeBackground(id, color) {
+            document.getElementById(id).style.background = color;
+        }
+    </script>
+</div>
+{% endblock %}

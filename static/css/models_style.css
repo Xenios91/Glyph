@@ -1,0 +1,203 @@
+/* =============================================================
+   GLYPH — MODELS PAGE (models_style.css)  eye-friendly revision
+   ============================================================= */
+
+.content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: calc(100vh - 56px - 48px);
+    padding: 2rem 1rem;
+    position: relative;
+    z-index: 10;
+    gap: 1.5rem;
+}
+
+/* ── Header label ───────────────────────────────────────────── */
+.content>div:first-child span {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    color: #a8ecec;
+    display: block;
+    text-align: center;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #2a5a5a;
+}
+
+/* ── Table wrapper ──────────────────────────────────────────── */
+.nes-table-responsive {
+    width: 100%;
+    max-width: 700px;
+    overflow-x: auto;
+    background: #11111f;
+    border: 2px solid #2a5a5a;
+    box-shadow:
+        0 0 18px rgba(125, 216, 216, 0.10),
+        inset 0 0 20px rgba(125, 216, 216, 0.02);
+    position: relative;
+    display: block !important;
+    flex-direction: unset !important;
+    justify-content: unset !important;
+    align-items: unset !important;
+    gap: unset !important;
+    min-height: unset !important;
+    padding: 0;
+}
+
+.nes-table-responsive::before,
+.nes-table-responsive::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-color: #4a2244;
+    border-style: solid;
+    z-index: 2;
+}
+
+.nes-table-responsive::before {
+    top: -2px;
+    left: -2px;
+    border-width: 2px 0 0 2px;
+}
+
+.nes-table-responsive::after {
+    bottom: -2px;
+    right: -2px;
+    border-width: 0 2px 2px 0;
+}
+
+/* ── Table ───────────────────────────────────────────────────── */
+.nes-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    line-height: 1.8;
+    background: transparent;
+}
+
+.nes-table thead tr {
+    border-bottom: 1px solid #2a5a5a;
+}
+
+.nes-table thead th {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    color: #d4c87a;
+    padding: 0.85rem 1.25rem;
+    text-align: left;
+    border: none;
+    border-right: 1px solid rgba(125, 216, 216, 0.10);
+    background: transparent;
+}
+
+.nes-table thead th:last-child {
+    border-right: none;
+}
+
+.nes-table tbody tr {
+    border-bottom: 1px solid rgba(125, 216, 216, 0.08);
+    cursor: pointer;
+    background: #11111f;
+    transition: none;
+}
+
+.nes-table tbody tr:hover {
+    background: rgba(125, 216, 216, 0.05) !important;
+    outline: 1px solid rgba(125, 216, 216, 0.18);
+}
+
+.nes-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.nes-table tbody td {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.52rem;
+    color: #cdd0e8;
+    padding: 0.75rem 1.25rem;
+    border: none;
+    border-right: 1px solid rgba(125, 216, 216, 0.08);
+    background: transparent;
+    letter-spacing: 0.04em;
+}
+
+.nes-table tbody td:last-child {
+    border-right: none;
+}
+
+#td-model-name {
+    color: #a8ecec;
+}
+
+/* ── Status classes ─────────────────────────────────────────── */
+td[id$="-status"] {
+    font-size: 0.5rem;
+    letter-spacing: 0.06em;
+}
+
+.status-complete {
+    color: #6ec97a !important;
+    text-shadow: 0 0 6px rgba(110, 201, 122, 0.30) !important;
+}
+
+.status-pending,
+.status-running {
+    color: #d4c87a !important;
+    animation: status-blink 1.2s step-end infinite;
+}
+
+.status-error,
+.status-na {
+    color: #c9546a !important;
+}
+
+@keyframes status-blink {
+
+    0%,
+    49% {
+        opacity: 1;
+    }
+
+    50%,
+    100% {
+        opacity: 0.3;
+    }
+}
+
+/* ── Empty state ────────────────────────────────────────────── */
+.blue-bg>.message-list {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    max-width: 480px;
+    margin: 3rem auto;
+}
+
+.nes-balloon.from-left {
+    background: #11111f !important;
+    border-color: #4a2244 !important;
+    box-shadow: 0 0 12px rgba(200, 122, 184, 0.15);
+}
+
+.nes-balloon.from-left::before,
+.nes-balloon.from-left::after {
+    border-color: transparent #4a2244 transparent transparent !important;
+}
+
+.nes-balloon p.nes-text.is-error {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 1.0rem;
+    line-height: 2;
+    color: #c87ab8 !important;
+    letter-spacing: 0.04em;
+}
+
+.nes-octocat {
+    filter: hue-rotate(200deg) saturate(1.2) brightness(0.85);
+}

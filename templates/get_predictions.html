@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/predictions_style.css') }}">
+<div class="content blue-bg">
+    <div class="center-contents">
+        <span id="task-name">Task Name: {{ task_name }}</span>
+    </div>
+    <div class="center-contents">
+        <span id="model-name">Model Name: {{ model_name }}</span>
+    </div>
+    <div class="nes-table-responsive content m-table center-contents overflow">
+        <blockquote>
+            <table class="nes-table is-bordered is-centered">
+                <thead>
+                    <tr>
+                        <td scope="col">Predicted Function</td>
+                        <th scope="col">EntryPoint</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for functionInfo in predictions %}
+                    {% set functionName = functionInfo["functionName"] %}
+                    {% set id = functionName + ":" + model_name + ":" + task_name %}
+                    <tr id="{{ id }}" onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
+                        onmouseout="changeBackground(this.id, '#000000');" onclick="goToURL(this.id)">
+                        <td>{{ functionInfo["functionName"] }}</td>
+                        <td>0x{{ functionInfo["lowAddress"] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </blockquote>
+        <button type="button" class="nes-btn is-primary mr-25" onclick="deletePrediction()">DELETE</button>
+        <button type="button" class="nes-btn is-primary" onclick="history.back()">GO BACK</button>
+    </div>
+</div>
+
+<script>
+    function goToURL(id) {
+        const split = id.split(":");
+        const currentURL = window.location.href;
+        const splitIndex = currentURL.lastIndexOf("/");
+        const url = currentURL.substring(splitIndex, 0) + "/models/getPredictionDetails?functionName=" + split[0] + "&taskName=" + split[2] + "&modelName=" + split[1];
+        if (url) {
+            window.location = url;
+        }
+    }
+
+    function deletePrediction() {
+        var selection = document.getElementById("task-name").innerText;
+        var taskToDelete = selection.split(':')[1].replace(/\s+/, "");
+        var url = "/models/deletePrediction" + "?taskName=" + taskToDelete;
+
+        fetch(url, {
+            method: 'DELETE',
+            headers: { 'Content-type': 'application/json' }
+        });
+
+        window.location = "/";
+    }
+
+    function changeBackground(id, color) {
+        document.getElementById(id).style.background = color;
+    }
+</script>
+{% endblock %}
