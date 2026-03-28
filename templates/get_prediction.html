@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 {% block content %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/predictions_style.css') }}">
 <div class="content blue-bg">
     <div class="center-contents">
         <span id="task-name">Task Name: {{ task_name }}</span>
@@ -7,32 +8,32 @@
     <div class="center-contents">
         <span id="model-name">Model Name: {{ model_name }}</span>
     </div>
-    <div>
-        <div class="nes-table-responsive content m-table center-contents overflow">
-            <blockquote>
-                <table class="nes-table is-bordered is-centered">
-                    <thead>
-                        <tr>
-                            <td scope="col">Predicted Function</td>
-                            <th scope="col">EntryPoint</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for functionInfo in prediction["predictions"] %}
-                        {% set functionName = functionInfo["functionName"] %}
-                        {% set id = functionName + ":" + model_name + ":" + task_name %}
-                        <tr id="{{ id }}" onmouseover="changeBackground(this.id, '#d1d1d1');"
-                            onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
-                            <td>{{ functionInfo["functionName"] }}</td>
-                            <td>0x{{ functionInfo["lowAddress"] }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </blockquote>
-            <button type="button" class="nes-btn is-primary mr-25" onclick="deletePrediction()">Delete</button>
-            <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
-        </div>
+    <div class="nes-table-responsive content m-table center-contents overflow">
+        <blockquote>
+            <table class="nes-table is-bordered is-centered">
+                <thead>
+                    <tr>
+                        <th scope="col">Predicted Function</th>
+                        <th scope="col">EntryPoint</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for functionInfo in prediction["predictions"] %}
+                    {% set functionName = functionInfo["functionName"] %}
+                    {% set id = functionName + ":" + model_name + ":" + task_name %}
+                    <tr id="{{ id }}"
+                        onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
+                        onmouseout="changeBackground(this.id, '#000000');"
+                        onclick="goToURL(this.id)">
+                        <td>{{ functionInfo["functionName"] }}</td>
+                        <td>0x{{ functionInfo["lowAddress"] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </blockquote>
+        <button type="button" class="nes-btn is-primary mr-25" onclick="deletePrediction()">Delete</button>
+        <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
     </div>
 </div>
 
@@ -45,25 +46,19 @@
         if (url) {
             window.location = url;
         }
-
     }
 
     function deletePrediction() {
         var selection = document.getElementById("task-name").innerText;
         var taskToDelete = selection.split(':')[1].replace(/\s+/, "");
-        var currentURL = window.location.href;
         var url = "/models/deletePrediction" + "?taskName=" + taskToDelete;
-
-        if (url) {
-            window.location = "/";
-        }
 
         fetch(url, {
             method: 'DELETE',
-            headers: {
-                'Content-type': 'application/json'
-            }
+            headers: { 'Content-type': 'application/json' }
         });
+
+        window.location = "/";
     }
 
     function changeBackground(id, color) {

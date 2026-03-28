@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Request
+import logging
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
@@ -102,13 +103,63 @@ async def get_list_models(request: Request):
 @router.get("/getPredictions")
 async def get_list_predictions(request: Request):
     """Obtain all predictions available"""
+    logging.debug("GET /getPredictions called")
+    logging.debug("Accept header: %s", request.headers.get("Accept", ""))
+    
     predictions = PredictionPersistanceUtil.get_predictions_list()
+    logging.debug("Retrieved %d predictions from database", len(predictions))
+    
+    for i, p in enumerate(predictions):
+        logging.debug("Prediction %d: task_name=%s, model_name=%s, predictions_count=%d",
+                     i, p.task_name, p.model_name, len(p.predictions))
+    
     accept = request.headers.get("Accept", "")
+    logging.debug("Accept header value: '%s', ACCEPT_TYPE: '%s', match: %s",
+                 accept, ACCEPT_TYPE, ACCEPT_TYPE in accept)
 
     if ACCEPT_TYPE not in accept:
+        logging.debug("Returning JSON response")
         return {"predictions": [p.__dict__ for p in predictions]}
 
+    logging.debug("Returning HTML template response")
     return templates.TemplateResponse(
         "get_predictions.html",
         {"request": request, "title": "Predictions List", "predictions": predictions},
+    )
+
+
+@router.get("/getPrediction")
+async def get_prediction(
+    request: Request, taskName: str = Query(...), modelName: str = Query(...)
+):
+    """Obtain predictions for a specific task and model"""
+    logging.debug("GET /getPrediction called with taskName=%s, modelName=%s", taskName, modelName)
+    logging.debug("Accept header: %s", request.headers.get("Accept", ""))
+    
+    prediction = PredictionPersistanceUtil.get_predictions(taskName, modelName)
+    logging.debug("Retrieved prediction: task_name=%s, model_name=%s, predictions_count=%d",
+                 prediction.task_name, prediction.model_name, len(prediction.predictions))
+    
+    accept = request.headers.get("Accept", "")
+    logging.debug("Accept header value: '%s', ACCEPT_TYPE: '%s', match: %s",
+                 accept, ACCEPT_TYPE, ACCEPT_TYPE in accept)
+
+    if ACCEPT_TYPE not in accept:
+        logging.debug("Returning JSON response")
+        return {
+            "task_name": prediction.task_name,
+            "model_name": prediction.model_name,
+            "predictions": prediction.predictions
+        }
+
+    logging.debug("Returning HTML template response")
+    return templates.TemplateResponse(
+        "get_prediction.html",
+        {
+            "request": request,
+            "title": "Prediction Details",
+            "task_name": prediction.task_name,
+            "model_name": prediction.model_name,
+            "prediction": {"predictions": prediction.predictions},
+        },
     )
