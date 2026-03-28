@@ -2,7 +2,7 @@
 import pytest
 from unittest import mock
 
-from app.ghidra_processor import (
+from app.processing.ghidra_processor import (
     check_if_variable,
     remove_comments,
     filter_tokens,
@@ -52,7 +52,7 @@ class TestDecompilerConfig:
 
         with mock.patch("ghidra.app.decompiler.DecompInterface") as MockDI:
             instance = MockDI.return_value
-            from app.ghidra_processor import setup_decompiler
+            from app.processing.ghidra_processor import setup_decompiler
 
             setup_decompiler(mock_state, mock_program, decomp_interface=instance)
             instance.toggleCCode.assert_called_with(True)

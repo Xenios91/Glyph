@@ -1,7 +1,7 @@
 """Unit tests for task management and queue operations."""
-from app.request_handler import TrainingRequest
-from app.services import TaskService
-from app.task_management import TaskManager
+from app.services.request_handler import TrainingRequest
+from app.services.task_service import TaskService
+from app.processing.task_management import TaskManager
 
 import pytest
 
@@ -16,7 +16,7 @@ def task_manager():
 def sample_training_request():
     """Provide a standardized TrainingRequest object for testing."""
     return TrainingRequest(
-        uuid="1234",
+        req_uuid="1234",
         model_name="test_model",
         data={
             "binaryName": "testBin",

@@ -3,7 +3,7 @@
 import re
 from typing import Any
 
-from app.config import GlyphConfig
+from app.config.settings import GlyphConfig
 
 _VARIABLE_PATTERNS = [
     r"^var\d+$",
@@ -39,7 +39,23 @@ def remove_comments(tokens_list: list[str]) -> list[str]:
         List of tokens with comments removed.
     """
     tokens_string: str = " ".join(tokens_list)
-    result: str = _COMMENT_REGEX.sub(" ", tokens_string)
+    # First, handle unclosed comments by finding /* without matching */
+    # We need to process the string to find unclosed comments
+    result: str = ""
+    i = 0
+    while i < len(tokens_string):
+        if tokens_string[i:i+2] == "/*":
+            # Found start of comment, look for closing */
+            close_idx = tokens_string.find("*/", i + 2)
+            if close_idx == -1:
+                # Unclosed comment - stop processing
+                break
+            # Skip past the closed comment
+            i = close_idx + 2
+        else:
+            result += tokens_string[i]
+            i += 1
+    # Clean up whitespace
     result = " ".join(result.split())
     return result.split() if result else []
 

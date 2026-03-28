@@ -5,8 +5,8 @@ import pickle
 from unittest.mock import MagicMock, patch, mock_open, create_autospec
 import pytest
 
-from app.sql_service import SQLUtil
-from app.request_handler import Prediction
+from app.database.sql_service import SQLUtil
+from app.services.request_handler import Prediction
 
 
 def make_cursor_mock(return_data=None, fetchall_data=None, fetchone_data=None):
@@ -40,8 +40,8 @@ class TestSQLUtilInitDB:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.os.path.exists", lambda path: False)
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.os.path.exists", lambda path: False)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.init_db()
 
@@ -56,8 +56,8 @@ class TestSQLUtilInitDB:
     def test_init_db_skips_existing_databases(self, monkeypatch):
         """Test that init_db skips creation if databases already exist."""
         mock_connect = MagicMock()
-        monkeypatch.setattr("app.sql_service.os.path.exists", lambda path: True)
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.os.path.exists", lambda path: True)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.init_db()
 
@@ -68,13 +68,13 @@ class TestSQLUtilInitDB:
         mock_connect = MagicMock()
         mock_con = MagicMock()
         mock_cur = MagicMock()
-        mock_cur.execute.side_effect = Exception("DB Error")
+        mock_cur.execute.side_effect = sqlite3.Error("DB Error")
 
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.os.path.exists", lambda path: False)
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.os.path.exists", lambda path: False)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.init_db()
 
@@ -93,7 +93,7 @@ class TestSQLUtilSaveModel:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.save_model("test_model", b"encoder_data", b"model_data")
 
@@ -106,12 +106,12 @@ class TestSQLUtilSaveModel:
         mock_connect = MagicMock()
         mock_con = MagicMock()
         mock_cur = MagicMock()
-        mock_cur.execute.side_effect = Exception("Save Error")
+        mock_cur.execute.side_effect = sqlite3.Error("Save Error")
 
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.save_model("test_model", b"encoder", b"model")
 
@@ -130,8 +130,8 @@ class TestSQLUtilGetModelsList:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.os.path.exists", lambda path: True)
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.os.path.exists", lambda path: True)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_models_list()
 
@@ -146,8 +146,8 @@ class TestSQLUtilGetModelsList:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.os.path.exists", lambda path: True)
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.os.path.exists", lambda path: True)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_models_list()
 
@@ -155,7 +155,7 @@ class TestSQLUtilGetModelsList:
 
     def test_get_models_list_database_not_exists(self, monkeypatch):
         """Test getting empty set when database doesn't exist."""
-        monkeypatch.setattr("app.sql_service.os.path.exists", lambda path: False)
+        monkeypatch.setattr("app.database.sql_service.os.path.exists", lambda path: False)
 
         result = SQLUtil.get_models_list()
 
@@ -166,13 +166,13 @@ class TestSQLUtilGetModelsList:
         mock_connect = MagicMock()
         mock_con = MagicMock()
         mock_cur = MagicMock()
-        mock_cur.execute.side_effect = Exception("Query Error")
+        mock_cur.execute.side_effect = sqlite3.Error("Query Error")
 
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.os.path.exists", lambda path: True)
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.os.path.exists", lambda path: True)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_models_list()
 
@@ -192,7 +192,7 @@ class TestSQLUtilGetModel:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_model("test_model")
 
@@ -208,7 +208,7 @@ class TestSQLUtilGetModel:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_model("nonexistent")
 
@@ -220,7 +220,7 @@ class TestSQLUtilGetModel:
         mock_connect = MagicMock()
         mock_connect.side_effect = sqlite3.Error("Connection failed")
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_model("test_model")
 
@@ -240,7 +240,7 @@ class TestSQLUtilDeleteModel:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.delete_model("test_model")
 
@@ -254,12 +254,12 @@ class TestSQLUtilDeleteModel:
         mock_connect = MagicMock()
         mock_con = MagicMock()
         mock_cur = MagicMock()
-        mock_cur.execute.side_effect = Exception("Delete Error")
+        mock_cur.execute.side_effect = sqlite3.Error("Delete Error")
 
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.delete_model("test_model")
 
@@ -282,8 +282,8 @@ class TestSQLUtilGetPredictionsList:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.os.path.exists", lambda path: True)
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.os.path.exists", lambda path: True)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_predictions_list()
 
@@ -300,8 +300,8 @@ class TestSQLUtilGetPredictionsList:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.os.path.exists", lambda path: True)
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.os.path.exists", lambda path: True)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_predictions_list()
 
@@ -309,7 +309,7 @@ class TestSQLUtilGetPredictionsList:
 
     def test_get_predictions_list_database_not_exists(self, monkeypatch):
         """Test getting empty list when database doesn't exist."""
-        monkeypatch.setattr("app.sql_service.os.path.exists", lambda path: False)
+        monkeypatch.setattr("app.database.sql_service.os.path.exists", lambda path: False)
 
         result = SQLUtil.get_predictions_list()
 
@@ -332,8 +332,8 @@ class TestSQLUtilGetPredictions:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
-        monkeypatch.setattr("app.sql_service.os.path.exists", lambda path: True)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.os.path.exists", lambda path: True)
 
         result = SQLUtil.get_predictions("task1", "model1")
 
@@ -350,7 +350,7 @@ class TestSQLUtilGetPredictions:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_predictions("task1", "model1")
 
@@ -358,7 +358,7 @@ class TestSQLUtilGetPredictions:
 
     def test_get_predictions_database_not_exists(self, monkeypatch, caplog):
         """Test getting prediction when database doesn't exist."""
-        monkeypatch.setattr("app.sql_service.os.path.exists", lambda path: False)
+        monkeypatch.setattr("app.database.sql_service.os.path.exists", lambda path: False)
 
         result = SQLUtil.get_predictions("task1", "model1")
 
@@ -374,7 +374,7 @@ class TestSQLUtilGetPredictions:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_predictions("task1", "model1")
 
@@ -393,7 +393,7 @@ class TestSQLUtilSavePredictions:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         functions = [{"functionName": "func1", "prediction": "label1"}]
 
@@ -406,12 +406,12 @@ class TestSQLUtilSavePredictions:
         mock_connect = MagicMock()
         mock_con = MagicMock()
         mock_cur = MagicMock()
-        mock_cur.execute.side_effect = Exception("Save Error")
+        mock_cur.execute.side_effect = sqlite3.Error("Save Error")
 
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.save_predictions("task1", "model1", [{"func": "f1"}])
 
@@ -434,7 +434,7 @@ class TestSQLUtilGetPredictionFunction:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_prediction_function("task1", "model1", "func1")
 
@@ -453,7 +453,7 @@ class TestSQLUtilGetPredictionFunction:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_prediction_function("task1", "model1", "func1")
 
@@ -472,7 +472,7 @@ class TestSQLUtilSaveFunctions:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         functions = [
             {"functionName": "func1", "lowAddress": "0x1000", "tokens": "token1 token2"},
@@ -488,12 +488,12 @@ class TestSQLUtilSaveFunctions:
         mock_connect = MagicMock()
         mock_con = MagicMock()
         mock_cur = MagicMock()
-        mock_cur.execute.side_effect = Exception("Save Error")
+        mock_cur.execute.side_effect = sqlite3.Error("Save Error")
 
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.save_functions("model1", [{"functionName": "f1", "lowAddress": "0x0", "tokens": "t"}])
 
@@ -515,7 +515,7 @@ class TestSQLUtilGetFunctions:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_functions("model1")
 
@@ -530,7 +530,7 @@ class TestSQLUtilGetFunctions:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_functions("model1")
 
@@ -549,7 +549,7 @@ class TestSQLUtilGetFunction:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_function("model1", "func1")
 
@@ -566,7 +566,7 @@ class TestSQLUtilGetFunction:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         result = SQLUtil.get_function("model1", "func1")
 
@@ -585,7 +585,7 @@ class TestSQLUtilDeleteFunctions:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.delete_functions("model1")
 
@@ -597,12 +597,12 @@ class TestSQLUtilDeleteFunctions:
         mock_connect = MagicMock()
         mock_con = MagicMock()
         mock_cur = MagicMock()
-        mock_cur.execute.side_effect = Exception("Delete Error")
+        mock_cur.execute.side_effect = sqlite3.Error("Delete Error")
 
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.delete_functions("model1")
 
@@ -621,7 +621,7 @@ class TestSQLUtilDeletePrediction:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.delete_prediction("task1")
 
@@ -633,12 +633,12 @@ class TestSQLUtilDeletePrediction:
         mock_connect = MagicMock()
         mock_con = MagicMock()
         mock_cur = MagicMock()
-        mock_cur.execute.side_effect = Exception("Delete Error")
+        mock_cur.execute.side_effect = sqlite3.Error("Delete Error")
 
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.delete_prediction("task1")
 
@@ -657,7 +657,7 @@ class TestSQLUtilDeleteModelPredictions:
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.delete_model_predictions("model1")
 
@@ -669,12 +669,12 @@ class TestSQLUtilDeleteModelPredictions:
         mock_connect = MagicMock()
         mock_con = MagicMock()
         mock_cur = MagicMock()
-        mock_cur.execute.side_effect = Exception("Delete Error")
+        mock_cur.execute.side_effect = sqlite3.Error("Delete Error")
 
         mock_connect.return_value.__enter__.return_value = mock_con
         mock_con.cursor.return_value = mock_cur
 
-        monkeypatch.setattr("app.sql_service.sqlite3.connect", mock_connect)
+        monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         SQLUtil.delete_model_predictions("model1")
 

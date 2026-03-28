@@ -8,7 +8,7 @@ from unittest.mock import patch, mock_open, MagicMock
 
 import pytest
 
-from app.config import GlyphConfig
+from app.config.settings import GlyphConfig
 
 
 @pytest.fixture(autouse=True)
