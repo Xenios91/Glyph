@@ -33,6 +33,7 @@ pytest==9.0.2
 python-dotenv==1.2.2
 python-multipart==0.0.22
 PyYAML==6.0.3
+python-magic==0.4.27
 rich==14.3.3
 rich-toolkit==0.19.7
 rignore==0.7.6
