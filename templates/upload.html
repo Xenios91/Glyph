@@ -9,6 +9,9 @@
             <label class="mt-2">
                 <input id="generate-model-checkbox" type="checkbox" class="nes-checkbox" onclick="changeMlType()" />
                 <span>Generate Model</span>
+                {% if not allow_prediction %}
+                <span class="info-icon" title="This will train a new ML model from your binary. Models must be generated before predictions can be made.">i</span>
+                {% endif %}
             </label>
 
             <div id="training-config" class="nes-container with-title is-centered">
@@ -68,15 +71,14 @@
 </div>
 
 <script>
-    const generate_model_box = document.getElementById("generate-model-checkbox");
-    generate_model_box.checked = true;
-
     function changeMlType() {
+        const generate_model_box = document.getElementById("generate-model-checkbox");
         const prediction_div = document.getElementById("prediction-config");
         const training_div = document.getElementById("training-config");
 
         if (prediction_div == null) {
             generate_model_box.checked = true;
+            training_div.style.display = "block";
             return;
         }
 
@@ -88,6 +90,10 @@
             training_div.style.display = "none";
         }
     }
+
+    const generate_model_box = document.getElementById("generate-model-checkbox");
+    generate_model_box.checked = true;
+    changeMlType();
 
     function uploadBinary() {
         var formData = new FormData();

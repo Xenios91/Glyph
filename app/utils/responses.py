@@ -1,9 +1,9 @@
 """Unified response format for Glyph API."""
 
 from datetime import datetime
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 T = TypeVar("T")
 
@@ -15,7 +15,7 @@ class Metadata(BaseModel):
         default_factory=datetime.utcnow,
         description="Response timestamp in UTC",
     )
-    request_id: Optional[str] = Field(
+    request_id: str | None = Field(
         default=None,
         description="Unique request identifier for tracing",
     )
@@ -28,8 +28,8 @@ class SuccessResponse(BaseModel, Generic[T]):
     """
 
     success: bool = Field(True, description="Response status indicator")
-    data: Optional[T] = Field(default=None, description="Response data payload")
-    message: Optional[str] = Field(
+    data: T | None = Field(default=None, description="Response data payload")
+    message: str | None = Field(
         default=None, description="Optional human-readable message"
     )
     metadata: Metadata = Field(default_factory=Metadata, description="Response metadata")
@@ -42,8 +42,7 @@ class ErrorResponse(BaseModel):
     error: dict[str, Any] = Field(..., description="Error details")
     metadata: Metadata = Field(default_factory=Metadata, description="Response metadata")
 
-    class Config:
-        frozen = True
+    model_config = ConfigDict(frozen=True)
 
 
 class ErrorDetails(BaseModel):
@@ -51,15 +50,15 @@ class ErrorDetails(BaseModel):
 
     code: str = Field(..., description="Error code identifier")
     message: str = Field(..., description="Human-readable error message")
-    details: Optional[dict[str, Any]] = Field(
+    details: dict[str, Any] | None = Field(
         default=None, description="Additional error context"
     )
 
 
 def create_success_response(
-    data: Optional[T] = None,
-    message: Optional[str] = None,
-    request_id: Optional[str] = None,
+    data: T | None = None,
+    message: str | None = None,
+    request_id: str | None = None,
 ) -> SuccessResponse[T]:
     """Factory function to create a success response.
 
@@ -82,8 +81,8 @@ def create_success_response(
 def create_error_response(
     error_code: str,
     error_message: str,
-    details: Optional[dict[str, Any]] = None,
-    request_id: Optional[str] = None,
+    details: dict[str, Any] | None = None,
+    request_id: str | None = None,
 ) -> ErrorResponse:
     """Factory function to create an error response.
 

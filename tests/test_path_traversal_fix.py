@@ -117,40 +117,17 @@ class TestSanitizeFilename:
 class TestPathTraversalIntegration:
     """Integration tests for path traversal prevention."""
 
-    @pytest.fixture
-    def mock_config(self):
-        """Mock the GlyphConfig."""
-        with patch('app.api.v1.endpoints.binaries.GlyphConfig') as mock:
-            mock._config = {"UPLOAD_FOLDER": "/tmp/test_uploads"}
-            mock.get_config_value.return_value = 512
-            yield mock
-
-    @pytest.fixture
-    def mock_magic(self):
-        """Mock the magic library to return controlled MIME types."""
-        with patch('app.api.v1.endpoints.binaries.magic') as mock:
-            mock.from_buffer.return_value = 'application/x-executable'
-            yield mock
-
-    def test_upload_with_path_traversal_filename(self, mock_config, mock_magic):
+    def test_upload_with_path_traversal_filename(self):
         """Test that upload with path traversal filename is rejected."""
-        from app.api.v1.endpoints.binaries import post_upload_binary
-        
-        # Create a mock upload file with path traversal attempt
-        mock_file = MagicMock()
-        mock_file.filename = "../../../etc/passwd"
-        mock_file.read = MagicMock(return_value=b'\x7fELF' + b'\x00' * 100)
-        
-        # The sanitize_filename should be called and raise HTTPException
+        # The sanitize_filename should raise HTTPException for path traversal
         with pytest.raises(HTTPException) as exc_info:
-            sanitize_filename(mock_file.filename)
+            sanitize_filename("../../../etc/passwd")
         
         assert exc_info.value.status_code == 400
+        assert "Invalid filename characters" in exc_info.value.detail
 
-    def test_upload_with_valid_binary(self, mock_config, mock_magic):
+    def test_upload_with_valid_binary(self):
         """Test that valid binary upload passes validation."""
-        from app.api.v1.endpoints.binaries import post_upload_binary
-        
         # Valid binary content
         binary_content = b'\x7fELF\x02\x01\x01\x00' + b'\x00' * 1000
         

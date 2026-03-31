@@ -49,9 +49,10 @@ class GlyphSettings(BaseSettings):
     # Computed/derived values
     upload_folder: Path = Field(default=Path("./binaries"), description="Upload directory")
 
-    class Config:
-        env_prefix = "GLYPH_"
-        extra = "ignore"
+    model_config = {
+        "env_prefix": "GLYPH_",
+        "extra": "ignore"
+    }
 
     @classmethod
     def settings_customise_sources(cls, *args, **kwargs):

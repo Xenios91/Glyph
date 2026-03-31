@@ -21,8 +21,7 @@ class PredictTokensRequest(BaseModel):
     modelName: str
     uuid: str | None = None
 
-    class Config:
-        extra = "allow"
+    model_config = {"extra": "allow"}
 
 
 @router.post("/predict", status_code=201)

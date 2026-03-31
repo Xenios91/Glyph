@@ -122,6 +122,41 @@
     color: #a8ecec !important;
 }
 
+/* ── Info icon ───────────────────────────────────────────────── */
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    background: #c87ab8;
+    color: #11111f;
+    border-radius: 50%;
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.55rem !important;
+    font-weight: bold;
+    cursor: help;
+    margin-left: 0.5rem;
+    border: 1px solid #d4a5e8;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.info-icon:hover {
+    transform: scale(1.15);
+    box-shadow: 0 0 10px rgba(200, 122, 184, 0.8);
+    animation: none;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(200, 122, 184, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(200, 122, 184, 0);
+    }
+}
+
 /* ── Inner config panels ─────────────────────────────────────── */
 #training-config,
 #prediction-config {
