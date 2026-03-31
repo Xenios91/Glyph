@@ -122,6 +122,21 @@
     color: #a8ecec !important;
 }
 
+/* ── Config panel transitions ────────────────────────────────── */
+#training-config,
+#prediction-config {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#training-config.hidden,
+#prediction-config.hidden {
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+}
+
 /* ── Info icon ───────────────────────────────────────────────── */
 .info-icon {
     display: inline-flex;
@@ -235,6 +250,41 @@
 .nes-select select option {
     background: #0d0d1a;
     color: #a8ecec;
+}
+
+/* ── Drop zone ───────────────────────────────────────────────── */
+.drop-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    padding: 1.5rem;
+    border: 2px dashed #2a5a5a;
+    border-radius: 8px;
+    background: rgba(125, 216, 216, 0.02);
+    transition: all 0.3s ease;
+}
+
+.drop-zone.drag-over {
+    border-color: #7dd8d8;
+    background: rgba(125, 216, 216, 0.08);
+    box-shadow: 0 0 20px rgba(125, 216, 216, 0.2);
+    transform: scale(1.02);
+}
+
+.drop-zone-text {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.55rem !important;
+    color: #7dd8d8;
+    letter-spacing: 0.08em;
+}
+
+.drop-zone-subtext {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.45rem !important;
+    color: #4a5a6a;
+    letter-spacing: 0.1em;
 }
 
 /* ── File button ─────────────────────────────────────────────── */

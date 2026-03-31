@@ -57,10 +57,14 @@
             </div>
             {% endif %}
 
-            <label class="nes-btn is-primary">
-                <span>SELECT FILE</span>
-                <input id="upload-binary" type="file" onchange="uploadBinary()">
-            </label>
+            <div id="drop-zone" class="drop-zone">
+                <span class="drop-zone-text">DRAG & DROP BINARY HERE</span>
+                <span class="drop-zone-subtext">OR</span>
+                <label class="nes-btn is-primary">
+                    <span>SELECT FILE</span>
+                    <input id="upload-binary" type="file" onchange="uploadBinary()">
+                </label>
+            </div>
         </div>
     </div>
 
@@ -79,21 +83,62 @@
         if (prediction_div == null) {
             generate_model_box.checked = true;
             training_div.style.display = "block";
+            training_div.classList.remove("hidden");
             return;
         }
 
         if (generate_model_box.checked) {
-            prediction_div.style.display = "none";
-            training_div.style.display = "block";
+            // Fade out prediction, fade in training
+            prediction_div.classList.add("hidden");
+            setTimeout(() => {
+                prediction_div.style.display = "none";
+                training_div.style.display = "block";
+                // Small delay to allow display:block to apply before removing hidden
+                setTimeout(() => {
+                    training_div.classList.remove("hidden");
+                }, 10);
+            }, 300);
         } else {
-            prediction_div.style.display = "block";
-            training_div.style.display = "none";
+            // Fade out training, fade in prediction
+            training_div.classList.add("hidden");
+            setTimeout(() => {
+                training_div.style.display = "none";
+                prediction_div.style.display = "block";
+                // Small delay to allow display:block to apply before removing hidden
+                setTimeout(() => {
+                    prediction_div.classList.remove("hidden");
+                }, 10);
+            }, 300);
         }
     }
 
     const generate_model_box = document.getElementById("generate-model-checkbox");
     generate_model_box.checked = true;
     changeMlType();
+
+    // Drag and drop functionality
+    const dropZone = document.getElementById("drop-zone");
+    const fileInput = document.getElementById("upload-binary");
+
+    dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("drag-over");
+    });
+
+    dropZone.addEventListener("dragleave", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("drag-over");
+    });
+
+    dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("drag-over");
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            uploadBinary();
+        }
+    });
 
     function uploadBinary() {
         var formData = new FormData();
@@ -114,7 +159,7 @@
         }
         const mlClassType = document.getElementById('ml_class_type').value;
 
-        const url = "/binaries/uploadBinary";
+        const url = "/api/v1/binaries/uploadBinary";
 
         formData.append('binaryFile', selectedFile);
         formData.append('trainingData', trainingData);
