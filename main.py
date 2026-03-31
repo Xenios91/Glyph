@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from app.core.lifespan import lifespan
-from app.api.v1.endpoints import binaries, config, models, predictions, status
+from app.api.router import api_router
 from app.web.endpoints.web import router as web_router
 
 templates = Jinja2Templates(directory="templates")
@@ -38,15 +38,14 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.warning("Static files mount failed: %s", e)
 
-    # Include routers
-    app.include_router(web_router)
-    app.include_router(binaries.router, prefix="/binaries")
-    app.include_router(predictions.router, prefix="/predictions")
-    app.include_router(models.router, prefix="/models")
-    app.include_router(status.router, prefix="/status")
-    app.include_router(config.router, prefix="/config")
+    # Include API router (versioned, JSON responses)
+    app.include_router(api_router, prefix="/api")
+    logger.info("✅ API router registered at /api")
 
-    logger.info("✅ All routers registered.")
+    # Include Web router (HTML responses, session management)
+    app.include_router(web_router)
+    logger.info("✅ Web router registered")
+
     return app
 
 
