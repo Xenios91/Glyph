@@ -2,15 +2,115 @@
 
 import logging
 import os
+from pathlib import Path
 from typing import Any
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, YamlConfigSettingsSource
 
 import yaml
 
 MAX_CPU_CORES = os.cpu_count() or 1
 
 
+class GlyphSettings(BaseSettings):
+    """Pydantic-based configuration for Glyph application."""
+
+    # Ghidra configuration
+    ghidra_location: Path = Field(..., description="Path to Ghidra installation")
+    ghidra_project_location: Path = Field(..., description="Path to Ghidra project directory")
+    ghidra_project_name: str = Field(..., description="Name of Ghidra project")
+    glyph_script_location: Path = Field(..., description="Path to Glyph Ghidra scripts")
+
+    # Prediction configuration
+    prediction_probability_threshold: float = Field(
+        default=50.0,
+        ge=0,
+        le=100,
+        description="Minimum probability threshold for predictions (0-100)"
+    )
+
+    # File upload configuration
+    max_file_size_mb: int = Field(
+        default=512,
+        ge=1,
+        le=2048,
+        description="Maximum file size for uploads in MB"
+    )
+
+    # Processing configuration
+    cpu_cores: int = Field(
+        default=2,
+        ge=1,
+        le=32,
+        description="Number of CPU cores for processing"
+    )
+
+    # Computed/derived values
+    upload_folder: Path = Field(default=Path("./binaries"), description="Upload directory")
+
+    class Config:
+        env_prefix = "GLYPH_"
+        extra = "ignore"
+
+    @classmethod
+    def settings_customise_sources(cls, *args, **kwargs):
+        """Customize settings sources to prioritize YAML file."""
+        return (
+            YamlConfigSettingsSource(cls, "config.yml"),
+        )
+
+    @field_validator(
+        'ghidra_location',
+        'ghidra_project_location',
+        'glyph_script_location',
+        mode='before'
+    )
+    @classmethod
+    def convert_to_path(cls, v):
+        """Convert string paths to Path objects."""
+        return Path(v) if isinstance(v, str) else v
+
+
+# Singleton instance
+_settings: GlyphSettings | None = None
+
+
+def get_settings() -> GlyphSettings:
+    """Get or create the settings singleton instance.
+
+    Returns:
+        GlyphSettings: The application settings instance.
+
+    Raises:
+        RuntimeError: If settings fail to load.
+    """
+    global _settings
+    if _settings is None:
+        try:
+            _settings = GlyphSettings()
+        except Exception as e:
+            raise RuntimeError(f"Failed to load configuration: {e}") from e
+    return _settings
+
+
+def reload_settings() -> GlyphSettings:
+    """Reload settings from config file.
+
+    Returns:
+        GlyphSettings: Fresh settings instance.
+    """
+    global _settings
+    _settings = GlyphSettings()
+    return _settings
+
+
+# ============================================================================
+# Legacy GlyphConfig class for backward compatibility
+# ============================================================================
+
 class GlyphConfig:
-    """Configuration manager for Glyph application."""
+    """Configuration manager for Glyph application (legacy compatibility)."""
 
     _config: dict[str, Any] = {}
     _initialized = False
@@ -94,7 +194,7 @@ class GlyphConfig:
 
         Raises:
             ValueError: If the number of CPU cores is negative.
-            TypeError: If the number of CPU cores is not an integer.
+            TypeError: If the number of cores is not an integer.
         """
         if not isinstance(cores, int):
             logging.error("Number of CPU cores must be an integer.")
@@ -110,4 +210,3 @@ class GlyphConfig:
 
         GlyphConfig._config["cpu_cores"] = cores
         return True
-

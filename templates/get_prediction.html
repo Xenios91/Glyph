@@ -2,12 +2,12 @@
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/predictions_style.css') }}">
 <div class="content blue-bg">
-    <div class="center-contents">
-        <span id="task-name">Task Name: {{ task_name | e }}</span>
-    </div>
-    <div class="center-contents">
-        <span id="model-name">Model Name: {{ model_name | e }}</span>
-    </div>
+    {% set items = [
+        {'label': 'Task Name', 'value': task_name, 'id': 'task-name'},
+        {'label': 'Model Name', 'value': model_name, 'id': 'model-name'}
+    ] %}
+    {% include 'components/page_header.html' %}
+
     <div class="nes-table-responsive content m-table center-contents overflow">
         <blockquote>
             <table class="nes-table is-bordered is-centered">
@@ -33,7 +33,7 @@
                 </tbody>
             </table>
         </blockquote>
-        <button type="button" class="nes-btn is-primary mr-25 delete-prediction-btn">Delete</button>
+        <button type="button" class="nes-btn is-primary mr-25 delete-prediction-btn" onclick="deletePrediction()">Delete</button>
         <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
     </div>
 </div>
@@ -74,10 +74,6 @@
         });
 
         window.location = "/";
-    }
-
-    function changeBackground(id, color) {
-        document.getElementById(id).style.background = color;
     }
 </script>
 

@@ -9,9 +9,10 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from app.config.settings import GlyphConfig
+from app.config.settings import get_settings
 from app.services.request_handler import GhidraRequest
 from app.processing.task_management import Ghidra
+from app.utils.responses import create_success_response, create_error_response
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -93,7 +94,13 @@ async def post_upload_binary(
     accept = request.headers.get("Accept", "")
 
     if not binaryFile.filename:
-        return JSONResponse(content={"error": "no file found"}, status_code=400)
+        return JSONResponse(
+            content=create_error_response(
+                error_code="NO_FILE_FOUND",
+                error_message="no file found",
+            ).model_dump(),
+            status_code=400,
+        )
 
     try:
         is_training_data: bool = trainingData.lower() == "true"
@@ -102,28 +109,35 @@ async def post_upload_binary(
         ml_class_type: str = mlClassType.strip()
     except Exception as e:
         logging.error(e)
-        return JSONResponse(content={"error": str(e)}, status_code=400)
+        return JSONResponse(
+            content=create_error_response(
+                error_code="PARSE_ERROR",
+                error_message=str(e),
+            ).model_dump(),
+            status_code=400,
+        )
 
     if not model_name or not ml_class_type:
         return JSONResponse(
-            content={"error": "invalid request, missing query strings"}, status_code=400
+            content=create_error_response(
+                error_code="INVALID_REQUEST",
+                error_message="invalid request, missing query strings",
+            ).model_dump(),
+            status_code=400,
         )
 
-    max_file_size_mb = GlyphConfig.get_config_value("max_file_size_mb")
-    if max_file_size_mb is None:
-        max_file_size_mb = 512
-
-    max_file_size_bytes = max_file_size_mb * 1024 * 1024
+    settings = get_settings()
+    max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
 
     file_content = await binaryFile.read()
     if len(file_content) > max_file_size_bytes:
         actual_size_mb = len(file_content) / (1024 * 1024)
         return JSONResponse(
-            content={
-                "error": f"File size ({actual_size_mb:.2f}MB) exceeds maximum "
-                f"allowed ({max_file_size_mb}MB)"
-            },
-            status_code=413
+            content=create_error_response(
+                error_code="FILE_TOO_LARGE",
+                error_message=f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)",
+            ).model_dump(),
+            status_code=413,
         )
 
     # Validate MIME type to ensure file is a legitimate binary
@@ -134,7 +148,7 @@ async def post_upload_binary(
     
     # Generate unique filename using UUID (no extension from user input)
     unique_filename = f"{uuid.uuid4()}"
-    upload_folder = GlyphConfig._config["UPLOAD_FOLDER"]
+    upload_folder = settings.upload_folder
 
     os.makedirs(upload_folder, exist_ok=True)
 
@@ -155,7 +169,13 @@ async def post_upload_binary(
     if "*/*" in accept:
         return templates.TemplateResponse("upload.html", {"request": request})
 
-    return JSONResponse(content={}, status_code=200)
+    return JSONResponse(
+        content=create_success_response(
+            data={"uuid": unique_filename},
+            message="Binary uploaded successfully",
+        ).model_dump(),
+        status_code=200,
+    )
 
 
 @router.get("/listBins")
@@ -164,8 +184,15 @@ async def list_bins():
     Handles a GET request to retrieve all available binaries
     """
     files: list[str] = []
-    directory_path = GlyphConfig._config["UPLOAD_FOLDER"]
+    settings = get_settings()
+    directory_path = settings.upload_folder
     for _, _, files_found in os.walk(directory_path):
         if files_found:
             files.extend(files_found)
-    return JSONResponse(content={"files": files}, status_code=200)
+    return JSONResponse(
+        content=create_success_response(
+            data={"files": files},
+            message="Binaries retrieved successfully",
+        ).model_dump(),
+        status_code=200,
+    )

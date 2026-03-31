@@ -13,7 +13,7 @@ import pandas as pd
 from sklearn import preprocessing
 from sklearn.pipeline import Pipeline
 
-from app.config.settings import GlyphConfig, MAX_CPU_CORES
+from app.config.settings import get_settings, MAX_CPU_CORES
 from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, MLTask
 from app.services.request_handler import GhidraRequest, PredictionRequest, TrainingRequest
 from app.services.task_service import TaskService
@@ -204,18 +204,9 @@ class Predictor(TaskManager):
 
         Returns:
             The threshold value as a float.
-
-        Raises:
-            TypeError: If the config value is not a valid numeric type.
         """
-        threshold_value = GlyphConfig.get_config_value(
-            "prediction_probability_threshold")
-        if threshold_value is None:
-            threshold_value = 80.0  # Default threshold
-        if not isinstance(threshold_value, (int, float)):
-            raise TypeError(
-                "prediction_probability_threshold must be a numeric value")
-        return float(threshold_value)
+        settings = get_settings()
+        return settings.prediction_probability_threshold
 
     @classmethod
     def start_prediction(cls, prediction_request: PredictionRequest) -> None:
@@ -291,18 +282,11 @@ class Ghidra(TaskManager):
         Args:
             ghidra_request: The Ghidra request containing analysis parameters.
         """
-        ghidra_location: Any | None = GlyphConfig.get_config_value(
-            "ghidra_location")
-        ghidra_project_name: Any | None = GlyphConfig.get_config_value(
-            "ghidra_project_name")
-        ghidra_project_location: Any | None = GlyphConfig.get_config_value(
-            "ghidra_project_location")
-        glyph_script_location: Any | None = GlyphConfig.get_config_value(
-            "glyph_script_location")
-
-        if len(ghidra_location) == 0 or len(ghidra_project_name) == 0 or \
-                len(ghidra_project_location) == 0 or len(glyph_script_location) == 0:
-            raise ValueError("ERROR: Config.yml cannot have empty values")
+        settings = get_settings()
+        ghidra_location = settings.ghidra_location
+        ghidra_project_name = settings.ghidra_project_name
+        ghidra_project_location = settings.ghidra_project_location
+        glyph_script_location = settings.glyph_script_location
 
         ghidra_headless_location: str = os.path.join(
             ghidra_location, f"support{os.sep}analyzeHeadless")

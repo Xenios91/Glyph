@@ -1,0 +1,14 @@
+{# Page Header Component - Displays metadata like task name, model name, function name
+# Usage:
+#   {% include 'components/page_header.html' with {
+#     'items': [
+#       {'label': 'Task Name', 'value': task_name, 'id': 'task-name'},
+#       {'label': 'Model Name', 'value': model_name, 'id': 'model-name'}
+#     ]
+#   } %}
+#}
+{% for item in items %}
+<div class="center-contents">
+    <span id="{{ item.id }}">{{ item.label }}: {{ item.value | e }}</span>
+</div>
+{% endfor %}

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.config.settings import GlyphConfig
+from app.config.settings import get_settings
 from app.database.sql_service import SQLUtil
 from app.services.task_service import TaskService
 
@@ -17,11 +17,12 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up Glyph service...")
 
     # 1. Initialize config
-    if not GlyphConfig.load_config():
-        logger.critical("Configuration failed. Exiting.")
-        raise RuntimeError("Configuration failed.")
-
-    logger.info("✅ Configuration loaded successfully.")
+    try:
+        get_settings()  # This will load and validate config
+        logger.info("✅ Configuration loaded successfully.")
+    except RuntimeError as e:
+        logger.critical("Configuration failed: %s", e)
+        raise
 
     # 2. Initialize DB (with proper error handling)
     try:

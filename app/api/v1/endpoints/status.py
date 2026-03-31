@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StringConstraints
 from typing_extensions import Annotated
 
 from app.processing.task_management import Trainer
+from app.utils.responses import create_success_response, create_error_response
 
 router = APIRouter()
 
@@ -20,9 +22,21 @@ async def get_status(uuid: str = Query(...)):
     status = Trainer().get_status(uuid)
 
     if status == "UUID Not Found":
-        raise HTTPException(status_code=404, detail="UUID Not Found")
+        return JSONResponse(
+            content=create_error_response(
+                error_code="UUID_NOT_FOUND",
+                error_message="UUID Not Found",
+            ).model_dump(),
+            status_code=404,
+        )
 
-    return {"status": status}
+    return JSONResponse(
+        content=create_success_response(
+            data={"status": status},
+            message="Task status retrieved successfully",
+        ).model_dump(),
+        status_code=200,
+    )
 
 
 @router.post("/statusUpdate")
@@ -35,13 +49,29 @@ async def update_status(payload: StatusUpdatePayload):
     uuid = payload.uuid.strip()
 
     if not status or not uuid:
-        raise HTTPException(
-            status_code=400, detail="Invalid request, status and uuid cannot be empty"
+        return JSONResponse(
+            content=create_error_response(
+                error_code="INVALID_REQUEST",
+                error_message="Invalid request, status and uuid cannot be empty",
+            ).model_dump(),
+            status_code=400,
         )
 
     updated: bool = Trainer().set_status(uuid, status)
 
     if not updated:
-        raise HTTPException(status_code=404, detail="UUID not found")
+        return JSONResponse(
+            content=create_error_response(
+                error_code="UUID_NOT_FOUND",
+                error_message="UUID not found",
+            ).model_dump(),
+            status_code=404,
+        )
 
-    return {"success": True}
+    return JSONResponse(
+        content=create_success_response(
+            data={"success": True},
+            message="Task status updated successfully",
+        ).model_dump(),
+        status_code=200,
+    )

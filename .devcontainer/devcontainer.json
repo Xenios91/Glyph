@@ -31,7 +31,8 @@
                 "ms-python.vscode-pylance",
                 "ms-python.debugpy",
                 "ms-toolsai.jupyter",
-                "vscjava.vscode-java-pack"
+                "vscjava.vscode-java-pack",
+                "ms-python.vscode-python-envs"
             ]
         }
     },

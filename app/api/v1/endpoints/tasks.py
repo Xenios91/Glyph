@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil
 from app.services.request_handler import PredictionRequest, TrainingRequest
 from app.processing.task_management import Predictor, Trainer
+from app.utils.responses import create_success_response, create_error_response
 
 router = APIRouter()
 
@@ -25,13 +26,23 @@ def train_model(request: TaskRequest) -> JSONResponse:
     Creates a job to train an ml model on the tokens supplied
     """
     if request.modelName is None:
-        return JSONResponse(content={"error": "model name is invalid"}, status_code=400)
+        return JSONResponse(
+            content=create_error_response(
+                error_code="INVALID_MODEL_NAME",
+                error_message="model name is invalid",
+            ).model_dump(),
+            status_code=400,
+        )
 
     uuid = request.uuid or Trainer().get_uuid()
 
     if not request.overwriteModel and MLPersistanceUtil.check_name(request.modelName):
         return JSONResponse(
-            content={"error": "model name already taken"}, status_code=400
+            content=create_error_response(
+                error_code="MODEL_NAME_EXISTS",
+                error_message="model name already taken",
+            ).model_dump(),
+            status_code=400,
         )
 
     try:
@@ -41,10 +52,22 @@ def train_model(request: TaskRequest) -> JSONResponse:
         Trainer().start_training(training_request)
         FunctionPersistanceUtil.add_model_functions(training_request)
 
-        return JSONResponse(content={"uuid": training_request.uuid}, status_code=201)
+        return JSONResponse(
+            content=create_success_response(
+                data={"uuid": training_request.uuid},
+                message="Training task created successfully",
+            ).model_dump(),
+            status_code=201,
+        )
     except TypeError as type_error:
         logging.error(type_error)
-        return JSONResponse(content={"error": "type error"}, status_code=400)
+        return JSONResponse(
+            content=create_error_response(
+                error_code="TYPE_ERROR",
+                error_message="type error",
+            ).model_dump(),
+            status_code=400,
+        )
 
 
 def predict_tokens(request: TaskRequest) -> JSONResponse:
@@ -52,7 +75,13 @@ def predict_tokens(request: TaskRequest) -> JSONResponse:
     Creates a job to predict a function name based on the tokens supplied
     """
     if request.modelName is None:
-        return JSONResponse(content={"error": "model name is invalid"}, status_code=400)
+        return JSONResponse(
+            content=create_error_response(
+                error_code="INVALID_MODEL_NAME",
+                error_message="model name is invalid",
+            ).model_dump(),
+            status_code=400,
+        )
 
     uuid = request.uuid or Trainer().get_uuid()
 
@@ -62,10 +91,22 @@ def predict_tokens(request: TaskRequest) -> JSONResponse:
         )
         Predictor().start_prediction(prediction_request)
 
-        return JSONResponse(content={"uuid": prediction_request.uuid}, status_code=201)
+        return JSONResponse(
+            content=create_success_response(
+                data={"uuid": prediction_request.uuid},
+                message="Prediction task created successfully",
+            ).model_dump(),
+            status_code=201,
+        )
     except TypeError as type_error:
         logging.error(type_error)
-        return JSONResponse(content={"error": "type error"}, status_code=400)
+        return JSONResponse(
+            content=create_error_response(
+                error_code="TYPE_ERROR",
+                error_message="type error",
+            ).model_dump(),
+            status_code=400,
+        )
 
 
 @router.post("/task")
@@ -78,4 +119,10 @@ def handle_task(request: TaskRequest) -> JSONResponse:
     elif request.type == "prediction":
         return predict_tokens(request)
     else:
-        return JSONResponse(content={"error": "Invalid request type"}, status_code=400)
+        return JSONResponse(
+            content=create_error_response(
+                error_code="INVALID_REQUEST_TYPE",
+                error_message="Invalid request type",
+            ).model_dump(),
+            status_code=400,
+        )

@@ -9,9 +9,10 @@
             <span id="function-name">Function: {{ function_name }}</span>
         </div>
 
-        <div class="nes-container is-rounded white-bg" style="margin-top: 2%;">
-            <pre id="tokens-display" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
-        </div>
+        {% set title = 'Function Tokens' %}
+        {% set id = 'tokens-display' %}
+        {% include 'components/token_display.html' %}
+
         <div class="center-contents" style="margin-top: 2%;">
             <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
         </div>
@@ -37,9 +38,5 @@
         });
     }
 </script>
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@500&display=swap" rel="stylesheet">
 
 {% endblock %}

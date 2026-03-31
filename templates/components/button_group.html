@@ -1,0 +1,20 @@
+{# Button Group Component - Common action buttons pattern
+# Usage:
+#   {% include 'components/button_group.html' with {
+#     'buttons': [
+#       {'text': 'Go Back', 'class': 'nes-btn is-primary', 'action': 'onclick="history.back()"'},
+#       {'text': 'Delete', 'class': 'nes-btn is-error', 'action': 'onclick="deleteItem()"'}
+#     ],
+#     'alignment': 'center'
+#   } %}
+#}
+<div class="{% if alignment == 'center' %}center-contents{% endif %}" style="margin-top: 2%;">
+    {% for button in buttons %}
+    <button type="button" class="{{ button.class | default('nes-btn') }}" {{ button.action | safe }}>
+        {{ button.text }}
+    </button>
+    {% if not loop.last and button.spacing != false %}
+    &nbsp;&nbsp;
+    {% endif %}
+    {% endfor %}
+</div>

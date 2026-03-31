@@ -11,6 +11,7 @@ from app.utils.persistence_util import FunctionPersistanceUtil, PredictionPersis
 from app.services.request_handler import PredictionRequest
 from app.processing.task_management import Predictor, Trainer
 from app.utils.common import format_code
+from app.utils.responses import create_success_response, create_error_response
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -35,21 +36,34 @@ async def predict_tokens(request_values: PredictTokensRequest):
 
         # Validate that task name is unique
         if not PredictionPersistanceUtil.is_task_name_unique(task_name):
-            raise HTTPException(
+            return JSONResponse(
+                content=create_error_response(
+                    error_code="TASK_NAME_EXISTS",
+                    error_message=f"Task name '{task_name}' already exists. Task names must be unique.",
+                ).model_dump(),
                 status_code=409,
-                detail=f"Task name '{task_name}' already exists. Task names must be unique."
             )
 
         prediction_request = PredictionRequest(uuid, model_name, data)
         Predictor().start_prediction(prediction_request)
 
-        return {"uuid": prediction_request.uuid}
+        return JSONResponse(
+            content=create_success_response(
+                data={"uuid": prediction_request.uuid},
+                message="Prediction task created successfully",
+            ).model_dump(),
+            status_code=201,
+        )
 
-    except HTTPException:
-        raise
     except Exception as e:
         logging.error(f"Prediction error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        return JSONResponse(
+            content=create_error_response(
+                error_code="PREDICTION_ERROR",
+                error_message=str(e),
+            ).model_dump(),
+            status_code=400,
+        )
 
 
 @router.get("/getPrediction")
@@ -60,11 +74,23 @@ async def get_prediction(
     prediction = PredictionPersistanceUtil.get_predictions(taskName, modelName)
 
     if not prediction:
-        raise HTTPException(status_code=404, detail="Prediction not found")
+        return JSONResponse(
+            content=create_error_response(
+                error_code="PREDICTION_NOT_FOUND",
+                error_message="Prediction not found",
+            ).model_dump(),
+            status_code=404,
+        )
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE not in accept:
-        return {"prediction": prediction.__dict__}
+        return JSONResponse(
+            content=create_success_response(
+                data={"prediction": prediction.__dict__},
+                message="Prediction retrieved successfully",
+            ).model_dump(),
+            status_code=200,
+        )
 
     return templates.TemplateResponse(
         "get_prediction.html",
@@ -83,10 +109,22 @@ async def delete_prediction(taskName: str = Query(...)):
     """Deletes a prediction by task name"""
     task_name = taskName.strip()
     if not task_name:
-        raise HTTPException(status_code=400, detail="invalid task name")
+        return JSONResponse(
+            content=create_error_response(
+                error_code="INVALID_TASK_NAME",
+                error_message="invalid task name",
+            ).model_dump(),
+            status_code=400,
+        )
 
     PredictionPersistanceUtil.delete_prediction(task_name)
-    return JSONResponse(content={}, status_code=200)
+    return JSONResponse(
+        content=create_success_response(
+            data={},
+            message="Prediction deleted successfully",
+        ).model_dump(),
+        status_code=200,
+    )
 
 
 @router.get("/getPredictionDetails")
@@ -112,7 +150,13 @@ async def get_prediction_details(
 
     except (TypeError, IndexError) as e:
         logging.error(e)
-        raise HTTPException(status_code=400, detail="Could not retrieve details")
+        return JSONResponse(
+            content=create_error_response(
+                error_code="RETRIEVAL_ERROR",
+                error_message="Could not retrieve details",
+            ).model_dump(),
+            status_code=400,
+        )
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
@@ -128,10 +172,16 @@ async def get_prediction_details(
             },
         )
 
-    return {
-        "task_name": escape(task_name),
-        "model_name": escape(model_name),
-        "function_name": escape(func_name),
-        "model_tokens": model_tokens,
-        "prediction_tokens": prediction_tokens,
-    }
+    return JSONResponse(
+        content=create_success_response(
+            data={
+                "task_name": escape(task_name),
+                "model_name": escape(model_name),
+                "function_name": escape(func_name),
+                "model_tokens": model_tokens,
+                "prediction_tokens": prediction_tokens,
+            },
+            message="Prediction details retrieved successfully",
+        ).model_dump(),
+        status_code=200,
+    )

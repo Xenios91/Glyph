@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
 import app._version as _version
-from app.config.settings import MAX_CPU_CORES, GlyphConfig
+from app.config.settings import MAX_CPU_CORES, get_settings
 from app.utils.helpers import ACCEPT_TYPE
 from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
 from app.processing.task_management import TaskManager
@@ -31,14 +31,14 @@ async def config(request: Request):
     """
     Loads the configuration page of Glyph
     """
+    settings = get_settings()
     return templates.TemplateResponse(
         "config.html",
         {
             "request": request,
             "max_cpu_cores": MAX_CPU_CORES,
-            "current_cpu_cores": GlyphConfig.get_config_value("cpu_cores") or 2,
-            "current_max_file_size": GlyphConfig.get_config_value("max_file_size_mb")
-            or 512,
+            "current_cpu_cores": settings.cpu_cores,
+            "current_max_file_size": settings.max_file_size_mb,
         },
     )
 
