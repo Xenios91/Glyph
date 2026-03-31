@@ -1,0 +1,58 @@
+{# Function/Prediction Table Component
+# Usage:
+#   {% include 'components/function_table.html' with {
+#     'rows': functions,
+#     'columns': ['Function Name', 'EntryPoint'],
+#     'row_id_prefix': 'func',
+#     'click_handler': 'goToURL',
+#     'hover_color': 'rgba(0,255,255,0.07)',
+#     'default_color': '#000000'
+#   } %}
+#}
+<div class="nes-table-responsive content m-table center-contents overflow">
+    <blockquote>
+        <table class="nes-table is-bordered is-centered">
+            <thead>
+                <tr>
+                    {% for column in columns %}
+                    <th scope="col">{{ column }}</th>
+                    {% endfor %}
+                    {% if show_action %}
+                    <th scope="col">Action</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% if rows %}
+                {% for row in rows %}
+                {% set row_id = row_id_prefix ~ '-' ~ loop.index %}
+                <tr id="{{ row_id }}"
+                    {% if click_handler %}onclick="{{ click_handler }}(this.id)"{% endif %}
+                    onmouseover="changeBackground(this.id, '{{ hover_color | default('rgba(0,255,255,0.07)') }}');"
+                    onmouseout="changeBackground(this.id, '{{ default_color | default('#000000') }}');">
+                    {% for cell in row.cells %}
+                    <td>{{ cell | e }}</td>
+                    {% endfor %}
+                    {% if show_action %}
+                    <td>
+                        <button type="button" class="nes-btn is-primary view-btn"
+                            {% for attr, value in action_attrs.items() %}
+                            data-{{ attr }}="{{ value | e }}"
+                            {% endfor %}>
+                            {{ action_text | default('View') }}
+                        </button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="{{ columns | length + (1 if show_action else 0) }}" style="text-align: center;">
+                        {{ empty_message | default('No data available') }}
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </blockquote>
+</div>

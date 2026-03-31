@@ -1,0 +1,18 @@
+{# Token Display Component
+# Usage:
+#   {% include 'components/token_display.html' with {
+#     'tokens': tokens,
+#     'title': 'Function Tokens',
+#     'id': 'tokens-display'
+#   } %}
+#}
+<div class="nes-container is-rounded white-bg" style="margin-top: 2%;">
+    {% if title %}
+    <p class="title">{{ title }}</p>
+    {% endif %}
+    <pre id="{{ id | default('tokens-display') }}" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
+</div>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@500&display=swap" rel="stylesheet">

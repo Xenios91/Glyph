@@ -1,13 +1,13 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="blue-bg" style="padding: 2%;">
-    <div>
-        <span id="task-name">Task Name: {{ task_name }}</span>
-    </div>
-    <div>
-        <span>Model: {{ model_name }}</span>
-    </div>
-    <span>Function: {{ function_name }}</span>
+    {% set items = [
+        {'label': 'Task Name', 'value': task_name, 'id': 'task-name'},
+        {'label': 'Model', 'value': model_name, 'id': 'model-name'},
+        {'label': 'Function', 'value': function_name, 'id': 'function-name'}
+    ] %}
+    {% include 'components/page_header.html' %}
+
     <div class="mt-2" style="display: flex">
         <div style="width: 50%;">
             <div class="center-text">
@@ -25,21 +25,15 @@
                 <pre style="font-family: 'Source Code Pro', monospace;">{{ prediction_tokens }}</pre>
             </div>
         </div>
-
     </div>
-    <pre id="tokens-display" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
-    <pre id="tokens-display" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
+
     <div class="center-contents" style="margin-top: 2%;">
         <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
-
     </div>
 </div>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@500&display=swap" rel="stylesheet">
-
-<script>
-</script>
 
 {% endblock %}

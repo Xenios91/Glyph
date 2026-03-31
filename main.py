@@ -1,17 +1,15 @@
-# main.py
 import logging
 import sys
-import threading
-from contextlib import asynccontextmanager
-
-from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
-from app.config import GlyphConfig
-from app.routers import binaries, config, models, predictions, status
-from app.services import TaskService
-from app.sql_service import SQLUtil
-from app.views import views
+from app.core.lifespan import lifespan
+from app.api.v1.endpoints import binaries, config, models, predictions, status
+from app.web.endpoints.web import router as web_router
+
+templates = Jinja2Templates(directory="templates")
 
 # --- Configure logging early (before importing anything that might log) ---
 logging.basicConfig(
@@ -23,40 +21,6 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Handle startup/shutdown logic correctly."""
-    logger.info("Starting up Glyph service...")
-
-    # 1. Initialize config
-    if not GlyphConfig.load_config():
-        logger.critical("Configuration failed. Exiting.")
-        raise RuntimeError("Configuration failed.")
-
-    logger.info("✅ Configuration loaded successfully.")
-
-    # 2. Initialize DB (with proper error handling)
-    try:
-        SQLUtil.init_db()
-        logger.info("✅ Database initialized.")
-    except Exception as e:
-        logger.exception("❌ Failed to initialize database.")
-        raise RuntimeError("Database initialization failed.") from e
-
-    # 3. Start TaskService *after* DB/config are ready
-    try:
-        threading.Thread(target=TaskService.start_service, daemon=True).start()
-        logger.info("✅ Task service started in background thread.")
-    except Exception as e:
-        logger.exception("❌ Failed to start TaskService.")
-        raise RuntimeError("Task service startup failed.") from e
-
-    try:
-        yield
-    finally:
-        logger.info("Shutting down Glyph service...")
 
 
 def create_app() -> FastAPI:
@@ -75,7 +39,7 @@ def create_app() -> FastAPI:
         logger.warning("Static files mount failed: %s", e)
 
     # Include routers
-    app.include_router(views.router)
+    app.include_router(web_router)
     app.include_router(binaries.router, prefix="/binaries")
     app.include_router(predictions.router, prefix="/predictions")
     app.include_router(models.router, prefix="/models")
@@ -87,3 +51,43 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLResponse:
+    """Handle HTTP exceptions with a nice error page for web requests."""
+    accept = request.headers.get("Accept", "")
+    if "text/html" in accept:
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "message": f"Error {exc.status_code}: {exc.detail}"
+            },
+            status_code=exc.status_code,
+        )
+    # Return JSON for API requests
+    raise exc
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception) -> HTMLResponse:
+    """Handle unexpected exceptions with a nice error page for web requests."""
+    logging.error("Unexpected error: %s", exc, exc_info=True)
+    accept = request.headers.get("Accept", "")
+    if "text/html" in accept:
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "message": "An unexpected error occurred. Please try again later."
+            },
+            status_code=500,
+        )
+    # Re-raise for API requests
+    raise exc
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

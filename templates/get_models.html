@@ -6,43 +6,14 @@
     <div>
         <span>AVAILABLE MODELS</span>
     </div>
-    <div class="nes-table-responsive">
-        <table class="nes-table is-bordered is-centered">
-            <thead>
-                <tr>
-                    <th>MODEL NAME</th>
-                    <th>STATUS</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for model, status in models.items() %}
-                <tr id="{{ model }}-id"
-                    onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
-                    onmouseout="changeBackground(this.id, '#000000');"
-                    onclick="goToURL(this.id)">
-                    <td id="td-model-name">{{ model }}</td>
-                    <td id="{{ model }}-status" class="
-                        {% if status == 'complete' %}status-complete
-                        {% elif status == 'N/A' %}status-na
-                        {% else %}status-pending{% endif %}
-                    ">{{ status }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    {% set click_handler = 'goToURL' %}
+    {% include 'components/model_table.html' %}
     {% else %}
-    <div class="blue-bg" style="margin: auto;">
-        <section class="message-list">
-            <section class="message -left">
-                <div class="nes-balloon from-left">
-                    <p class="nes-text is-error">Uh oh! it looks like no models have been generated! Try
-                        going to upload to start!</p>
-                </div>
-            </section>
-            <i style="float: left;" class="nes-octocat animate"></i>
-        </section>
-    </div>
+    {% set message = 'Uh oh! it looks like no models have been generated! Try going to upload to start!' %}
+    {% set error = true %}
+    {% set icon = 'nes-octocat' %}
+    {% set animate = true %}
+    {% include 'components/empty_state.html' %}
     {% endif %}
     <script>
         function goToURL(id) {
@@ -66,10 +37,6 @@
             var currentURL = window.location.href;
             var url = "/models/getSymbols" + "?binaryDel=" + binToDelete;
             if (url) { window.location = url; }
-        }
-
-        function changeBackground(id, color) {
-            document.getElementById(id).style.background = color;
         }
     </script>
 </div>

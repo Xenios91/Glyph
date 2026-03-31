@@ -1,0 +1,30 @@
+{# Model Table Component
+# Usage:
+#   {% set click_handler = 'goToURL' %}
+#   {% include 'components/model_table.html' %}
+#}
+<div class="nes-table-responsive">
+    <table class="nes-table is-bordered is-centered">
+        <thead>
+            <tr>
+                <th>MODEL NAME</th>
+                <th>STATUS</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for model, status in models.items() %}
+            <tr id="{{ model }}-id"
+                onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
+                onmouseout="changeBackground(this.id, '#000000');"
+                {% if click_handler %}onclick="{{ click_handler }}(this.id)"{% endif %}>
+                <td id="td-model-name">{{ model }}</td>
+                <td id="{{ model }}-status" class="
+                    {% if status == 'complete' %}status-complete
+                    {% elif status == 'N/A' %}status-na
+                    {% else %}status-pending{% endif %}
+                ">{{ status }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
