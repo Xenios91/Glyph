@@ -9,6 +9,7 @@ from typing import Any
 import joblib
 
 from app.services.request_handler import Prediction
+from app.utils.secure_deserializer import secure_load, SecureDeserializationError
 
 
 class SQLUtil:
@@ -144,7 +145,7 @@ class SQLUtil:
                     predictions = cur.execute(sql).fetchall()
                     for prediction in predictions:
                         try:
-                            preds = joblib.load(BytesIO(prediction[2]))
+                            preds = secure_load(BytesIO(prediction[2]))
                             if not isinstance(preds, list):
                                 logging.warning(
                                     "Prediction data for '%s' is not a list, skipping",
@@ -153,6 +154,12 @@ class SQLUtil:
                                 continue
                             prediction_results.append(
                                 Prediction(prediction[0], prediction[1], preds)
+                            )
+                        except SecureDeserializationError as deserial_error:
+                            logging.error(
+                                "Secure deserialization blocked prediction '%s': %s",
+                                prediction[0],
+                                deserial_error,
                             )
                         except Exception as deserial_error:
                             logging.error(
@@ -189,7 +196,7 @@ class SQLUtil:
                     return None
 
                 try:
-                    prediction_data = joblib.load(BytesIO(row[2]))
+                    prediction_data = secure_load(BytesIO(row[2]))
                     if not isinstance(prediction_data, list):
                         logging.warning(
                             "Prediction data for task '%s' is not a list, expected list"
@@ -198,6 +205,13 @@ class SQLUtil:
                             type(prediction_data).__name__,
                         )
                         return None
+                except SecureDeserializationError as deserial_error:
+                    logging.error(
+                        "Secure deserialization blocked prediction for task '%s': %s",
+                        task_name,
+                        deserial_error,
+                    )
+                    return None
                 except Exception as deserial_error:
                     logging.error(
                         "Failed to deserialize prediction for task '%s': %s",
@@ -266,7 +280,7 @@ class SQLUtil:
                 if result is None:
                     return {}
                 try:
-                    predictions = joblib.load(BytesIO(result[2]))
+                    predictions = secure_load(BytesIO(result[2]))
                     if not isinstance(predictions, list):
                         logging.warning(
                             "Predictions data is not a list, expected list got %s",
@@ -278,6 +292,9 @@ class SQLUtil:
                             "functionName"
                         ) == function_name:
                             return function
+                except SecureDeserializationError as deserial_error:
+                    logging.error("Secure deserialization blocked predictions: %s", deserial_error)
+                    return {}
                 except Exception as deserial_error:
                     logging.error("Failed to deserialize predictions: %s", deserial_error)
                     return {}

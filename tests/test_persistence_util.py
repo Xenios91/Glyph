@@ -149,12 +149,11 @@ class TestMLPersistanceUtil:
         mock_model = MagicMock()
         mock_label_encoder = MagicMock()
 
-        def mock_load(buffer):
-            if "model" in str(buffer):
-                return mock_model
-            return mock_label_encoder
+        def mock_secure_load(buffer):
+            # Return mock model or label encoder based on buffer content
+            return mock_model if b"model" in buffer.getvalue() else mock_label_encoder
 
-        with patch("app.utils.persistence_util.joblib.load", side_effect=mock_load):
+        with patch("app.utils.persistence_util.secure_load", side_effect=mock_secure_load):
             mock_sql_util.get_model.return_value = ("test_model", b"model_data", b"encoder_data")
 
             result = MLPersistanceUtil.load_model("test_model")

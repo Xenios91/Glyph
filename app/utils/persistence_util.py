@@ -11,6 +11,7 @@ from sklearn.pipeline import Pipeline
 
 from app.services.request_handler import Prediction, PredictionRequest, TrainingRequest
 from app.database.sql_service import SQLUtil
+from app.utils.secure_deserializer import secure_load, SecureDeserializationError
 
 
 class MLTask:
@@ -201,12 +202,20 @@ class MLPersistanceUtil:
 
         try:
             model_buffer = BytesIO(model_row[1])
-            loaded_model = joblib.load(model_buffer)
+            loaded_model = secure_load(model_buffer)
 
             encoder_buffer = BytesIO(model_row[2])
-            label_encoder = joblib.load(encoder_buffer)
+            label_encoder = secure_load(encoder_buffer)
 
             return loaded_model, label_encoder
+        except SecureDeserializationError as error:
+            logging.error(
+                "Secure deserialization blocked model '%s': %s: %s",
+                model_name,
+                type(error).__name__,
+                error,
+            )
+            raise RuntimeError(f"Model data for '{model_name}' failed security validation") from error
         except Exception as error:
             logging.error(
                 "Failed to deserialize model '%s': %s: %s",
