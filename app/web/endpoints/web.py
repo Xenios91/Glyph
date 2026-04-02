@@ -23,7 +23,7 @@ async def home(request: Request):
     if ACCEPT_TYPE not in accept:
         return JSONResponse(content={"version": _version.__version__})
 
-    return templates.TemplateResponse("main.html", {"request": request})
+    return templates.TemplateResponse("main.html", {"request": request, "title": "Glyph"})
 
 
 @router.get("/config")
@@ -36,6 +36,7 @@ async def config(request: Request):
         "config.html",
         {
             "request": request,
+            "title": "Glyph - Configuration",
             "max_cpu_cores": MAX_CPU_CORES,
             "current_cpu_cores": settings.cpu_cores,
             "current_max_file_size": settings.max_file_size_mb,
@@ -57,7 +58,7 @@ async def error_page(request: Request, type: str | None = None):
         )
 
     return templates.TemplateResponse(
-        "error.html", {"request": request, "message": message}
+        "error.html", {"request": request, "title": "Glyph - Error", "message": message}
     )
 
 
@@ -76,7 +77,7 @@ async def get_upload_binary(request: Request):
     allow_prediction = len(models) > 0
     return templates.TemplateResponse(
         "upload.html",
-        {"request": request, "allow_prediction": allow_prediction, "models": models},
+        {"request": request, "title": "Glyph - Upload Binary", "allow_prediction": allow_prediction, "models": models},
     )
 
 
@@ -168,6 +169,7 @@ async def get_prediction_details(
             "prediction_function_details.html",
             {
                 "request": request,
+                "title": "Glyph - Prediction Details",
                 "task_name": task_name,
                 "model_name": model_name,
                 "function_name": func_name,

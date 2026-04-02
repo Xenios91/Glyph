@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_serializer
 
 T = TypeVar("T")
 
@@ -20,6 +20,10 @@ class Metadata(BaseModel):
         description="Unique request identifier for tracing",
     )
 
+    @field_serializer("timestamp")
+    def serialize_timestamp(self, value: datetime) -> str:
+        return value.isoformat()
+
 
 class SuccessResponse(BaseModel, Generic[T]):
     """Standardized success response.
@@ -32,17 +36,17 @@ class SuccessResponse(BaseModel, Generic[T]):
     message: str | None = Field(
         default=None, description="Optional human-readable message"
     )
-    metadata: Metadata = Field(default_factory=Metadata, description="Response metadata")
+    metadata: SerializeAsAny[Metadata] = Field(default_factory=Metadata, description="Response metadata")
 
 
 class ErrorResponse(BaseModel):
     """Standardized error response."""
 
+    model_config = ConfigDict(frozen=True)
+
     success: bool = Field(False, description="Response status indicator")
     error: dict[str, Any] = Field(..., description="Error details")
-    metadata: Metadata = Field(default_factory=Metadata, description="Response metadata")
-
-    model_config = ConfigDict(frozen=True)
+    metadata: SerializeAsAny[Metadata] = Field(default_factory=Metadata, description="Response metadata")
 
 
 class ErrorDetails(BaseModel):
