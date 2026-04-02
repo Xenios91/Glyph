@@ -1,6 +1,12 @@
+"""Prediction endpoints for Glyph API.
+
+This module provides endpoints for making predictions and retrieving
+prediction results.
+"""
+
 import logging
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from markupsafe import escape
@@ -18,6 +24,13 @@ templates = Jinja2Templates(directory="templates")
 
 
 class PredictTokensRequest(BaseModel):
+    """Request model for token prediction.
+
+    Attributes:
+        modelName: Name of the model to use for prediction.
+        uuid: Optional UUID for the prediction task.
+    """
+
     modelName: str
     uuid: str | None = None
 
@@ -54,12 +67,12 @@ async def predict_tokens(request_values: PredictTokensRequest):
             status_code=201,
         )
 
-    except Exception as e:
-        logging.error(f"Prediction error: {e}")
+    except Exception as exc:
+        logging.error("Prediction error: %s", exc)
         return JSONResponse(
             content=create_error_response(
                 error_code="PREDICTION_ERROR",
-                error_message=str(e),
+                error_message=str(exc),
             ).model_dump(),
             status_code=400,
         )

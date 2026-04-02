@@ -1,6 +1,7 @@
 """Repository for prediction database operations."""
 
 import logging
+import pickle
 from io import BytesIO
 
 import joblib
@@ -95,8 +96,8 @@ class PredictionRepository:
                 )
                 return None
             return functions
-        except Exception as e:
-            logger.error(f"Failed to deserialize prediction for task '{task_name}': {e}")
+        except (pickle.UnpicklingError, EOFError, ValueError, OSError) as exc:
+            logger.error("Failed to deserialize prediction for task '%s': %s", task_name, exc)
             return None
 
     @staticmethod
@@ -134,7 +135,7 @@ class PredictionRepository:
             prediction = session.query(Prediction).filter(Prediction.task_name == task_name).first()
             if prediction:
                 session.delete(prediction)
-                logger.info(f"Prediction '{task_name}' deleted successfully.")
+                logger.info("Prediction '%s' deleted successfully.", task_name)
                 return True
             logger.warning("Prediction '%s' not found for deletion.", task_name)
             return False
@@ -151,7 +152,7 @@ class PredictionRepository:
         """
         with get_session("predictions") as session:
             result = session.query(Prediction).filter(Prediction.model_name == model_name).delete()
-            logger.info(f"Deleted {result} predictions for model '{model_name}'.")
+            logger.info("Deleted %d predictions for model '%s'.", result, model_name)
             return result
 
     @staticmethod

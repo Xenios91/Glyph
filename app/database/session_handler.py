@@ -36,9 +36,9 @@ def init_databases() -> None:
     for name, engine in engines.items():
         try:
             Base.metadata.create_all(bind=engine)
-            logger.info(f"Database '{name}' initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize database '{name}': {e}")
+            logger.info("Database '%s' initialized successfully", name)
+        except Exception as exc:
+            logger.error("Failed to initialize database '%s': %s", name, exc)
 
 
 @contextmanager
@@ -61,9 +61,9 @@ def get_session(database: str = "models") -> Generator[Session, None, None]:
     try:
         yield session
         session.commit()
-    except Exception as e:
+    except Exception as exc:
         session.rollback()
-        logger.error(f"Database error in '{database}': {e}")
+        logger.error("Database error in '%s': %s", database, exc)
         raise
     finally:
         session.close()

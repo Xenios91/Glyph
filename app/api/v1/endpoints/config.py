@@ -1,3 +1,8 @@
+"""Configuration endpoints for Glyph API.
+
+This module provides endpoints for managing application configuration.
+"""
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -9,6 +14,13 @@ router = APIRouter()
 
 
 class ConfigPayload(BaseModel):
+    """Payload model for configuration updates.
+
+    Attributes:
+        max_file_size_mb: Maximum file size in megabytes.
+        cpu_cores: Number of CPU cores to use.
+    """
+
     max_file_size_mb: int | None = None
     cpu_cores: int | None = None
 

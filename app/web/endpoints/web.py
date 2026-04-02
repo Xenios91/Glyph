@@ -8,7 +8,7 @@ from app.config.settings import MAX_CPU_CORES, get_settings
 from app.utils.helpers import ACCEPT_TYPE
 from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
 from app.processing.task_management import TaskManager
-from app.utils.common import format_code
+from app.utils.common import format_code, build_prediction_details_response
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -159,9 +159,9 @@ async def get_prediction_details(
 
     except HTTPException:
         raise
-    except (TypeError, IndexError, KeyError) as e:
-        logging.error(e)
-        raise HTTPException(status_code=400, detail="Could not retrieve details")
+    except (TypeError, IndexError, KeyError) as exc:
+        logging.error("Failed to retrieve prediction details: %s", exc)
+        raise HTTPException(status_code=400, detail="Could not retrieve details") from exc
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
@@ -178,13 +178,9 @@ async def get_prediction_details(
             },
         )
 
-    return {
-        "task_name": task_name,
-        "model_name": model_name,
-        "function_name": func_name,
-        "model_tokens": model_tokens,
-        "prediction_tokens": prediction_tokens,
-    }
+    return build_prediction_details_response(
+        task_name, model_name, func_name, model_tokens, prediction_tokens
+    )
 
 
 @router.get("/getPrediction")

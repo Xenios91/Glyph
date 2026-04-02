@@ -1,3 +1,8 @@
+"""Status endpoints for Glyph API.
+
+This module provides endpoints for checking the status of tasks and operations.
+"""
+
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StringConstraints
@@ -10,6 +15,13 @@ router = APIRouter()
 
 
 class StatusUpdatePayload(BaseModel):
+    """Payload model for status updates.
+
+    Attributes:
+        status: The status message.
+        uuid: The UUID associated with the status.
+    """
+
     status: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
     uuid: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 

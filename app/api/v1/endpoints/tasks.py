@@ -1,3 +1,8 @@
+"""Task management endpoints for Glyph API.
+
+This module provides endpoints for managing and querying task status.
+"""
+
 import logging
 from typing import Any
 
@@ -14,6 +19,16 @@ router = APIRouter()
 
 
 class TaskRequest(BaseModel):
+    """Request model for task creation.
+
+    Attributes:
+        type: Type of task (train or predict).
+        modelName: Optional model name.
+        uuid: Optional UUID for the task.
+        overwriteModel: Whether to overwrite existing model.
+        data: Additional task data.
+    """
+
     type: str
     modelName: str | None = None
     uuid: str | None = None

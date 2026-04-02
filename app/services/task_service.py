@@ -27,7 +27,7 @@ class TaskService:
                 logging.info("Processing job: job_uuid=%s", job_uuid)
                 task[1].result()
                 logging.info("Job completed successfully: job_uuid=%s", job_uuid)
-            except Exception as e:
-                logging.exception("Job failed: job_uuid=%s, error=%s", job_uuid, e)
+            except Exception as exc:
+                logging.exception("Job failed: job_uuid=%s, error=%s", job_uuid, exc)
             finally:
                 cls.service_queue.task_done()

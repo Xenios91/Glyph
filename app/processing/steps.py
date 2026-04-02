@@ -41,7 +41,7 @@ class ValidationStep(PipelineStep):
         if not os.access(binary_path, os.R_OK):
             raise PipelineStepError(self.name, f"Binary file not readable: {context.binary_path}")
 
-        logger.info(f"Validation passed for: {context.binary_path}")
+        logger.info("Validation passed for: %s", context.binary_path)
         return context
 
 
@@ -67,11 +67,11 @@ class DecompileStep(PipelineStep):
         try:
             # This would integrate with GhidraProcessor
             # For now, we just mark the step as completed
-            logger.info(f"Decompiling binary: {context.binary_path}")
+            logger.info("Decompiling binary: %s", context.binary_path)
             context.data["decompiled"] = True
             return context
-        except Exception as e:
-            raise PipelineStepError(self.name, f"Decompilation failed: {e}")
+        except Exception as exc:
+            raise PipelineStepError(self.name, f"Decompilation failed: {exc}") from exc
 
 
 class TokenizeStep(PipelineStep):
@@ -95,8 +95,8 @@ class TokenizeStep(PipelineStep):
             logger.info("Tokenizing decompiled code")
             context.data["tokenized"] = True
             return context
-        except Exception as e:
-            raise PipelineStepError(self.name, f"Tokenization failed: {e}")
+        except Exception as exc:
+            raise PipelineStepError(self.name, f"Tokenization failed: {exc}") from exc
 
 
 class FilterStep(PipelineStep):
@@ -120,8 +120,8 @@ class FilterStep(PipelineStep):
             logger.info("Filtering tokens")
             context.data["filtered"] = True
             return context
-        except Exception as e:
-            raise PipelineStepError(self.name, f"Filtering failed: {e}")
+        except Exception as exc:
+            raise PipelineStepError(self.name, f"Filtering failed: {exc}") from exc
 
 
 class FeatureExtractStep(PipelineStep):
@@ -145,8 +145,8 @@ class FeatureExtractStep(PipelineStep):
             logger.info("Extracting features")
             context.data["features_extracted"] = True
             return context
-        except Exception as e:
-            raise PipelineStepError(self.name, f"Feature extraction failed: {e}")
+        except Exception as exc:
+            raise PipelineStepError(self.name, f"Feature extraction failed: {exc}") from exc
 
 
 class TrainStep(PipelineStep):

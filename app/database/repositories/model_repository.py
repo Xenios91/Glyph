@@ -1,10 +1,10 @@
 """Repository for model database operations."""
 
 import logging
+import pickle
 from io import BytesIO
 
 import joblib
-from sqlalchemy.orm import Session
 
 from app.database.models import Model
 from app.database.session_handler import get_session
@@ -84,7 +84,7 @@ class ModelRepository:
             model = session.query(Model).filter(Model.model_name == model_name).first()
             if model:
                 session.delete(model)
-                logger.info(f"Model '{model_name}' deleted successfully.")
+                logger.info("Model '%s' deleted successfully.", model_name)
                 return True
             logger.warning("Model '%s' not found for deletion.", model_name)
             return False
@@ -107,6 +107,6 @@ class ModelRepository:
             label_encoder = joblib.load(BytesIO(model.label_encoder_data))
             model_obj = joblib.load(BytesIO(model.model_data))
             return label_encoder, model_obj
-        except Exception as e:
-            logger.error(f"Failed to deserialize model '{model_name}': {e}")
+        except (pickle.UnpicklingError, EOFError, ValueError, OSError) as exc:
+            logger.error("Failed to deserialize model '%s': %s", model_name, exc)
             return None

@@ -143,8 +143,8 @@ def get_function_tokens(function: Any, decomp_interface: Any) -> list[str]:
         ccode_markup.flatten(token_list)
 
         return [str(t) for t in token_list if str(t).strip()]
-    except Exception as exception:
-        print(f"Error in {function.getName()}: {exception}")
+    except Exception as exc:
+        print("Error in %s: %s", function.getName(), exc)
         return []
 
 

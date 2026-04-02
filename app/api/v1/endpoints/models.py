@@ -1,3 +1,9 @@
+"""Model management endpoints for Glyph API.
+
+This module provides endpoints for managing machine learning models,
+including retrieving model information and function predictions.
+"""
+
 import logging
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
@@ -10,7 +16,7 @@ from app.utils.persistence_util import (
     PredictionPersistanceUtil,
 )
 from app.utils.helpers import ACCEPT_TYPE
-from app.utils.common import format_code
+from app.utils.common import format_code, build_prediction_details_response
 from app.utils.responses import create_success_response, create_error_response
 
 router = APIRouter()
@@ -43,8 +49,8 @@ async def delete_model(modelName: str = Query(...)):
             ).model_dump(),
             status_code=200,
         )
-    except Exception as error:
-        logging.error(error)
+    except Exception as exc:
+        logging.error("Failed to delete model '%s': %s", model_name, exc)
         return JSONResponse(
             content=create_success_response(
                 data={},
@@ -73,7 +79,7 @@ async def get_function(
             status_code=400,
         )
 
-    function_information: list = FunctionPersistanceUtil.get_function(
+    function_information: dict = FunctionPersistanceUtil.get_function(
         model_name, func_name_query
     )
 
@@ -190,8 +196,8 @@ async def get_prediction_details(
         model_tokens = format_code(model_info.get("tokens", ""))
         prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
-    except (TypeError, IndexError, KeyError) as e:
-        logging.error(e)
+    except (TypeError, IndexError, KeyError) as exc:
+        logging.error("Failed to retrieve prediction details: %s", exc)
         return JSONResponse(
             content=create_error_response(
                 error_code="RETRIEVAL_ERROR",
@@ -216,13 +222,9 @@ async def get_prediction_details(
 
     return JSONResponse(
         content=create_success_response(
-            data={
-                "task_name": task_name,
-                "model_name": model_name,
-                "function_name": func_name,
-                "model_tokens": model_tokens,
-                "prediction_tokens": prediction_tokens,
-            },
+            data=build_prediction_details_response(
+                task_name, model_name, func_name, model_tokens, prediction_tokens
+            ),
             message="Prediction details retrieved successfully",
         ).model_dump(),
         status_code=200,

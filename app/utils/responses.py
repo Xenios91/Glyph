@@ -22,6 +22,14 @@ class Metadata(BaseModel):
 
     @field_serializer("timestamp")
     def serialize_timestamp(self, value: datetime) -> str:
+        """Serialize timestamp to ISO format string.
+
+        Args:
+            value: The datetime value to serialize.
+
+        Returns:
+            ISO format string representation of the datetime.
+        """
         return value.isoformat()
 
 
