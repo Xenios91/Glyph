@@ -1,0 +1,6 @@
+# FastAPI Reference Rules
+You have access to the official FastAPI documentation in the `./.docs` folder. 
+Whenever I ask for FastAPI implementation:
+1. Search the `./.docs` folder first.
+2. Use the patterns found in those markdown files.
+3. If you're unsure about a feature (like BackgroundTasks or Lifespan events), check the docs folder before hallucinating.
