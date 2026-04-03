@@ -7,7 +7,6 @@ prediction results.
 import logging
 
 from fastapi import APIRouter, Query, Request
-from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from markupsafe import escape
 from pydantic import BaseModel
@@ -17,7 +16,7 @@ from app.utils.persistence_util import FunctionPersistanceUtil, PredictionPersis
 from app.services.request_handler import PredictionRequest
 from app.processing.task_management import Predictor, Trainer
 from app.utils.common import format_code
-from app.utils.responses import create_success_response, create_error_response
+from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -37,7 +36,7 @@ class PredictTokensRequest(BaseModel):
     model_config = {"extra": "allow"}
 
 
-@router.post("/predict", status_code=201)
+@router.post("/predict", status_code=201, response_model=SuccessResponse[dict])
 async def predict_tokens(request_values: PredictTokensRequest):
     """Creates a job to predict a function name based on the tokens supplied"""
     try:
@@ -48,34 +47,25 @@ async def predict_tokens(request_values: PredictTokensRequest):
 
         # Validate that task name is unique
         if not PredictionPersistanceUtil.is_task_name_unique(task_name):
-            return JSONResponse(
-                content=create_error_response(
-                    error_code="TASK_NAME_EXISTS",
-                    error_message=f"Task name '{task_name}' already exists. Task names must be unique.",
-                ).model_dump(),
-                status_code=409,
-            )
+            return create_error_response(
+                error_code="TASK_NAME_EXISTS",
+                error_message=f"Task name '{task_name}' already exists. Task names must be unique.",
+            ), 409
 
         prediction_request = PredictionRequest(uuid, model_name, data)
         Predictor().start_prediction(prediction_request)
 
-        return JSONResponse(
-            content=create_success_response(
-                data={"uuid": prediction_request.uuid},
-                message="Prediction task created successfully",
-            ).model_dump(),
-            status_code=201,
-        )
+        return create_success_response(
+            data={"uuid": prediction_request.uuid},
+            message="Prediction task created successfully",
+        ), 201
 
     except Exception as exc:
         logging.error("Prediction error: %s", exc)
-        return JSONResponse(
-            content=create_error_response(
-                error_code="PREDICTION_ERROR",
-                error_message=str(exc),
-            ).model_dump(),
-            status_code=400,
-        )
+        return create_error_response(
+            error_code="PREDICTION_ERROR",
+            error_message=str(exc),
+        ), 400
 
 
 @router.get("/getPrediction")
@@ -86,23 +76,17 @@ async def get_prediction(
     prediction = PredictionPersistanceUtil.get_predictions(taskName, modelName)
 
     if not prediction:
-        return JSONResponse(
-            content=create_error_response(
-                error_code="PREDICTION_NOT_FOUND",
-                error_message="Prediction not found",
-            ).model_dump(),
-            status_code=404,
-        )
+        return create_error_response(
+            error_code="PREDICTION_NOT_FOUND",
+            error_message="Prediction not found",
+        ), 404
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE not in accept:
-        return JSONResponse(
-            content=create_success_response(
-                data={"prediction": prediction.__dict__},
-                message="Prediction retrieved successfully",
-            ).model_dump(),
-            status_code=200,
-        )
+        return create_success_response(
+            data={"prediction": prediction.__dict__},
+            message="Prediction retrieved successfully",
+        ), 200
 
     return templates.TemplateResponse(
         "get_prediction.html",
@@ -121,22 +105,16 @@ async def delete_prediction(taskName: str = Query(...)):
     """Deletes a prediction by task name"""
     task_name = taskName.strip()
     if not task_name:
-        return JSONResponse(
-            content=create_error_response(
-                error_code="INVALID_TASK_NAME",
-                error_message="invalid task name",
-            ).model_dump(),
-            status_code=400,
-        )
+        return create_error_response(
+            error_code="INVALID_TASK_NAME",
+            error_message="invalid task name",
+        ), 400
 
     PredictionPersistanceUtil.delete_prediction(task_name)
-    return JSONResponse(
-        content=create_success_response(
-            data={},
-            message="Prediction deleted successfully",
-        ).model_dump(),
-        status_code=200,
-    )
+    return create_success_response(
+        data={},
+        message="Prediction deleted successfully",
+    ), 200
 
 
 @router.get("/getPredictionDetails")
@@ -162,13 +140,10 @@ async def get_prediction_details(
 
     except (TypeError, IndexError) as e:
         logging.error(e)
-        return JSONResponse(
-            content=create_error_response(
-                error_code="RETRIEVAL_ERROR",
-                error_message="Could not retrieve details",
-            ).model_dump(),
-            status_code=400,
-        )
+        return create_error_response(
+            error_code="RETRIEVAL_ERROR",
+            error_message="Could not retrieve details",
+        ), 400
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
@@ -184,16 +159,13 @@ async def get_prediction_details(
             },
         )
 
-    return JSONResponse(
-        content=create_success_response(
-            data={
-                "task_name": escape(task_name),
-                "model_name": escape(model_name),
-                "function_name": escape(func_name),
-                "model_tokens": model_tokens,
-                "prediction_tokens": prediction_tokens,
-            },
-            message="Prediction details retrieved successfully",
-        ).model_dump(),
-        status_code=200,
-    )
+    return create_success_response(
+        data={
+            "task_name": escape(task_name),
+            "model_name": escape(model_name),
+            "function_name": escape(func_name),
+            "model_tokens": model_tokens,
+            "prediction_tokens": prediction_tokens,
+        },
+        message="Prediction details retrieved successfully",
+    ), 200

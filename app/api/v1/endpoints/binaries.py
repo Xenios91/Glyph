@@ -12,14 +12,13 @@ import uuid
 import magic
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from app.config.settings import get_settings
 from app.services.request_handler import GhidraRequest
 from app.processing.task_management import Ghidra
-from app.utils.responses import create_success_response, create_error_response
+from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 
 
 class UploadBinaryRequest(BaseModel):
@@ -104,7 +103,7 @@ def sanitize_filename(filename: str) -> str:
     return base_name
 
 
-@router.post("/uploadBinary")
+@router.post("/uploadBinary", response_model=SuccessResponse[dict])
 async def post_upload_binary(
     request: Request,
     binary_file: UploadFile = File(...),
@@ -129,13 +128,10 @@ async def post_upload_binary(
     accept = request.headers.get("Accept", "")
 
     if not binary_file.filename:
-        return JSONResponse(
-            content=create_error_response(
-                error_code="NO_FILE_FOUND",
-                error_message="no file found",
-            ).model_dump(),
-            status_code=400,
-        )
+        return create_error_response(
+            error_code="NO_FILE_FOUND",
+            error_message="no file found",
+        ), 400
 
     try:
         is_training_data: bool = training_data.lower() == "true"
@@ -144,22 +140,16 @@ async def post_upload_binary(
         ml_class_type = ml_class_type.strip()
     except (AttributeError, ValueError) as exc:
         logging.error("Failed to parse request parameters: %s", exc)
-        return JSONResponse(
-            content=create_error_response(
-                error_code="PARSE_ERROR",
-                error_message=str(exc),
-            ).model_dump(),
-            status_code=400,
-        )
+        return create_error_response(
+            error_code="PARSE_ERROR",
+            error_message=str(exc),
+        ), 400
 
     if not model_name or not ml_class_type:
-        return JSONResponse(
-            content=create_error_response(
-                error_code="INVALID_REQUEST",
-                error_message="invalid request, missing query strings",
-            ).model_dump(),
-            status_code=400,
-        )
+        return create_error_response(
+            error_code="INVALID_REQUEST",
+            error_message="invalid request, missing query strings",
+        ), 400
 
     settings = get_settings()
     max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
@@ -167,13 +157,10 @@ async def post_upload_binary(
     file_content = await binary_file.read()
     if len(file_content) > max_file_size_bytes:
         actual_size_mb = len(file_content) / (1024 * 1024)
-        return JSONResponse(
-            content=create_error_response(
-                error_code="FILE_TOO_LARGE",
-                error_message=f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)",
-            ).model_dump(),
-            status_code=413,
-        )
+        return create_error_response(
+            error_code="FILE_TOO_LARGE",
+            error_message=f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)",
+        ), 413
 
     # Validate MIME type to ensure file is a legitimate binary
     validate_binary_mime_type(file_content)
@@ -204,16 +191,13 @@ async def post_upload_binary(
     if "*/*" in accept:
         return templates.TemplateResponse("upload.html", {"request": request})
 
-    return JSONResponse(
-        content=create_success_response(
-            data={"uuid": unique_filename},
-            message="Binary uploaded successfully",
-        ).model_dump(),
-        status_code=200,
-    )
+    return create_success_response(
+        data={"uuid": unique_filename},
+        message="Binary uploaded successfully",
+    ), 200
 
 
-@router.get("/listBins")
+@router.get("/listBins", response_model=SuccessResponse[dict])
 async def list_bins():
     """
     Handles a GET request to retrieve all available binaries
@@ -224,10 +208,7 @@ async def list_bins():
     for _, _, files_found in os.walk(directory_path):
         if files_found:
             files.extend(files_found)
-    return JSONResponse(
-        content=create_success_response(
-            data={"files": files},
-            message="Binaries retrieved successfully",
-        ).model_dump(),
-        status_code=200,
-    )
+    return create_success_response(
+        data={"files": files},
+        message="Binaries retrieved successfully",
+    ), 200

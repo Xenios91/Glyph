@@ -1,6 +1,5 @@
 import logging
 import sys
-from typing import Union
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -30,6 +29,7 @@ def create_app() -> FastAPI:
         description="Binary analysis and powered by machine learning",
         version="0.0.2",
         lifespan=lifespan,
+        strict_content_type=True,
     )
 
     try:
@@ -51,7 +51,7 @@ app = create_app()
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException) -> Union[HTMLResponse, JSONResponse]:
+async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLResponse | JSONResponse:
     """Handle HTTP exceptions with a nice error page for web requests.
     """
     accept = request.headers.get("Accept", "")
@@ -72,7 +72,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> Union[
 
 
 @app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception) -> Union[HTMLResponse, JSONResponse]:
+async def general_exception_handler(request: Request, exc: Exception) -> HTMLResponse | JSONResponse:
     """Handle unexpected exceptions with a nice error page for web requests.
     """
     logging.error("Unexpected error: %s", exc, exc_info=True)
