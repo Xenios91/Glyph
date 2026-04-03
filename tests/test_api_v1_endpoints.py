@@ -1,17 +1,13 @@
 """Tests for API v1 endpoints."""
 
-from datetime import datetime
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
-from fastapi import FastAPI
-from pydantic import BaseModel
 
 from app.api.v1.endpoints.config import router as config_router, ConfigPayload
 from app.api.v1.endpoints.status import router as status_router, StatusUpdatePayload
-from app.api.v1.endpoints.models import router as models_router
-from app.api.v1.endpoints.predictions import router as predictions_router, PredictTokensRequest
-from app.api.v1.endpoints.tasks import router as tasks_router, TaskRequest, train_model, predict_tokens
+from app.api.v1.endpoints.predictions import PredictTokensRequest
+from app.api.v1.endpoints.tasks import router as tasks_router, TaskRequest
 
 
 class TestConfigPayload:
@@ -365,8 +361,10 @@ class TestTasksRouter:
 
         assert response.status_code == 400
         data = response.json()
-        assert data["success"] is False
-        assert "MODEL_NAME_EXISTS" in data.get("error_code", "")
+        
+        detail = data.get("detail", data)
+        assert detail["success"] is False
+        assert "MODEL_NAME_EXISTS" in detail.get("error_code", "")
 
     @patch("app.api.v1.endpoints.tasks.MLPersistanceUtil")
     @patch("app.api.v1.endpoints.tasks.Trainer")
@@ -469,43 +467,63 @@ class TestTasksRouter:
 
         assert response.status_code == 400
         data = response.json()
-        assert data["success"] is False
-        assert "INVALID_REQUEST_TYPE" in data.get("error_code", "")
+        # HTTPException wraps detail in 'detail' key
+        detail = data.get("detail", data)
+        assert detail["success"] is False
+        assert "INVALID_REQUEST_TYPE" in detail.get("error_code", "")
 
 
 class TestTrainModelFunction:
-    """Tests for train_model helper function."""
+    """Tests for train_model validation via endpoint."""
 
-    @patch("app.api.v1.endpoints.tasks.Trainer")
-    @patch("app.api.v1.endpoints.tasks.MLPersistanceUtil")
-    @patch("app.api.v1.endpoints.tasks.TrainingRequest")
-    @patch("app.api.v1.endpoints.tasks.FunctionPersistanceUtil")
-    def test_train_model_no_model_name(
-        self,
-        mock_func_persistance,
-        mock_training_request,
-        mock_ml_persistance,
-        mock_trainer,
-    ):
-        """Test train_model with no model name."""
-        request = TaskRequest(type="training")
+    @pytest.fixture
+    def client(self):
+        """Create test client with tasks router."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        app.include_router(tasks_router, prefix="/tasks")
+        return TestClient(app)
 
-        response = train_model(request)
+    def test_train_model_no_model_name(self, client):
+        """Test training task with no model name returns 400."""
+        response = client.post(
+            "/tasks/task",
+            json={
+                "type": "training",
+            },
+        )
 
         assert response.status_code == 400
-        data = response.body
-        assert b"INVALID_MODEL_NAME" in data
+        data = response.json()
+        
+        detail = data.get("detail", data)
+        assert detail["success"] is False
+        assert "INVALID_MODEL_NAME" in detail.get("error", {}).get("code", "")
 
 
 class TestPredictTokensFunction:
-    """Tests for predict_tokens helper function."""
+    """Tests for predict_tokens validation via endpoint."""
 
-    def test_predict_tokens_no_model_name(self):
-        """Test predict_tokens with no model name."""
-        request = TaskRequest(type="prediction")
+    @pytest.fixture
+    def client(self):
+        """Create test client with tasks router."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        app.include_router(tasks_router, prefix="/tasks")
+        return TestClient(app)
 
-        response = predict_tokens(request)
+    def test_predict_tokens_no_model_name(self, client):
+        """Test prediction task with no model name returns 400."""
+        response = client.post(
+            "/tasks/task",
+            json={
+                "type": "prediction",
+            },
+        )
 
         assert response.status_code == 400
-        data = response.body
-        assert b"INVALID_MODEL_NAME" in data
+        data = response.json()
+        # HTTPException wraps detail in 'detail' key
+        detail = data.get("detail", data)
+        assert detail["success"] is False
+        assert "INVALID_MODEL_NAME" in detail.get("error", {}).get("code", "")

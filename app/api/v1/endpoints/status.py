@@ -3,10 +3,11 @@
 This module provides endpoints for checking the status of tasks and operations.
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, StringConstraints
 from typing_extensions import Annotated
 
+from app.api.types import UUID as UUIDType
 from app.processing.task_management import Trainer
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 
@@ -17,8 +18,8 @@ class StatusUpdatePayload(BaseModel):
     """Payload model for status updates.
 
     Attributes:
-        status: The status message.
-        uuid: The UUID associated with the status.
+        status: The status message (automatically validated and stripped).
+        uuid: The UUID associated with the status (automatically validated and stripped).
     """
 
     status: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -26,22 +27,34 @@ class StatusUpdatePayload(BaseModel):
 
 
 @router.get("/getStatus", response_model=SuccessResponse[dict])
-async def get_status(uuid: str = Query(...)):
+async def get_status(uuid: UUIDType = Query(...)):
     """
     Handles a GET request to obtain the supplied uuid task status.
+    
+    Args:
+        uuid: The task UUID (automatically validated and stripped).
+        
+    Returns:
+        Task status response.
+        
+    Raises:
+        HTTPException: If UUID is not found.
     """
     status = Trainer().get_status(uuid)
 
     if status == "UUID Not Found":
-        return create_error_response(
-            error_code="UUID_NOT_FOUND",
-            error_message="UUID Not Found",
-        ), 404
+        raise HTTPException(
+            status_code=404,
+            detail=create_error_response(
+                error_code="UUID_NOT_FOUND",
+                error_message="UUID Not Found",
+            ).model_dump(),
+        )
 
     return create_success_response(
         data={"status": status},
         message="Task status retrieved successfully",
-    ), 200
+    )
 
 
 @router.post("/statusUpdate", response_model=SuccessResponse[dict])
@@ -49,25 +62,29 @@ async def update_status(payload: StatusUpdatePayload):
     """
     Handles a POST request (typically from Ghidra) to update
     the current status of a task.
+    
+    Args:
+        payload: The status update payload with validated status and uuid.
+        
+    Returns:
+        Success response when status is updated.
+        
+    Raises:
+        HTTPException: If UUID is not found.
     """
-    status = payload.status.strip()
-    uuid = payload.uuid.strip()
-
-    if not status or not uuid:
-        return create_error_response(
-            error_code="INVALID_REQUEST",
-            error_message="Invalid request, status and uuid cannot be empty",
-        ), 400
-
-    updated: bool = Trainer().set_status(uuid, status)
+    # Validation is handled by Pydantic - status and uuid are already stripped and validated
+    updated: bool = Trainer().set_status(payload.status, payload.uuid)
 
     if not updated:
-        return create_error_response(
-            error_code="UUID_NOT_FOUND",
-            error_message="UUID not found",
-        ), 404
+        raise HTTPException(
+            status_code=404,
+            detail=create_error_response(
+                error_code="UUID_NOT_FOUND",
+                error_message="UUID not found",
+            ).model_dump(),
+        )
 
     return create_success_response(
         data={"success": True},
         message="Task status updated successfully",
-    ), 200
+    )

@@ -3,7 +3,7 @@
 This module provides endpoints for managing application configuration.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.config.settings import MAX_CPU_CORES, get_settings
@@ -28,6 +28,15 @@ class ConfigPayload(BaseModel):
 async def save_config(payload: ConfigPayload):
     """
     Saves the configuration settings
+    
+    Args:
+        payload: The configuration payload containing settings to update.
+        
+    Returns:
+        Success response with updated configuration.
+        
+    Raises:
+        HTTPException: If CPU cores value is invalid.
     """
     settings = get_settings()
 
@@ -38,12 +47,15 @@ async def save_config(payload: ConfigPayload):
         if 1 <= payload.cpu_cores <= MAX_CPU_CORES:
             settings.cpu_cores = payload.cpu_cores
         else:
-            return create_error_response(
-                error_code="INVALID_CPU_CORES",
-                error_message=f"CPU cores must be between 1 and {MAX_CPU_CORES}",
-            ), 400
+            raise HTTPException(
+                status_code=400,
+                detail=create_error_response(
+                    error_code="INVALID_CPU_CORES",
+                    error_message=f"CPU cores must be between 1 and {MAX_CPU_CORES}",
+                ).model_dump(),
+            )
 
     return create_success_response(
         data={},
         message="Configuration saved successfully",
-    ), 200
+    )

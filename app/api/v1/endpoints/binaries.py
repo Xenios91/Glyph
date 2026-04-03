@@ -11,9 +11,10 @@ from pathlib import Path
 import uuid
 import magic
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
+from typing_extensions import Annotated
 
 from app.config.settings import get_settings
 from app.services.request_handler import GhidraRequest
@@ -103,53 +104,70 @@ def sanitize_filename(filename: str) -> str:
     return base_name
 
 
+def _run_ghidra_analysis(ghidra_request: GhidraRequest) -> None:
+    """Background task for running Ghidra analysis on a binary.
+    
+    Args:
+        ghidra_request: The Ghidra request containing analysis parameters.
+    """
+    try:
+        Ghidra().start_task(ghidra_request)
+        logging.info("Ghidra analysis task completed successfully: %s", ghidra_request.uuid)
+    except Exception as exc:
+        logging.error("Ghidra analysis task failed: %s - %s", ghidra_request.uuid, exc)
+        raise
+
+
 @router.post("/uploadBinary", response_model=SuccessResponse[dict])
 async def post_upload_binary(
+    background_tasks: BackgroundTasks,
     request: Request,
     binary_file: UploadFile = File(...),
     training_data: str = Form("false"),
-    model_name: str = Form(...),
-    ml_class_type: str = Form(...),
-    task_name: str | None = Form(""),
+    model_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)] = Form(...),
+    ml_class_type: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)] = Form(...),
+    task_name: Annotated[str, StringConstraints(strip_whitespace=True)] = Form(""),
 ):
     """Handle POST request for binary file uploads.
 
     Args:
+        background_tasks: FastAPI BackgroundTasks for async task execution.
         request: The FastAPI request object.
         binary_file: The binary file to upload.
         training_data: Whether this is training data.
-        model_name: Name of the model to use.
-        ml_class_type: Type of ML classification.
-        task_name: Optional task name.
+        model_name: Name of the model to use (automatically validated and stripped).
+        ml_class_type: Type of ML classification (automatically validated and stripped).
+        task_name: Optional task name (automatically stripped).
 
     Returns:
         JSONResponse with upload result or HTML template.
+        
+    Raises:
+        HTTPException: If validation fails or file is too large.
     """
     accept = request.headers.get("Accept", "")
 
     if not binary_file.filename:
-        return create_error_response(
-            error_code="NO_FILE_FOUND",
-            error_message="no file found",
-        ), 400
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="NO_FILE_FOUND",
+                error_message="no file found",
+            ).model_dump(),
+        )
 
     try:
         is_training_data: bool = training_data.lower() == "true"
-        model_name = model_name.strip()
-        task_name = task_name.strip() if task_name else ""
-        ml_class_type = ml_class_type.strip()
+        # Validation is handled by Pydantic - strings are already stripped
     except (AttributeError, ValueError) as exc:
         logging.error("Failed to parse request parameters: %s", exc)
-        return create_error_response(
-            error_code="PARSE_ERROR",
-            error_message=str(exc),
-        ), 400
-
-    if not model_name or not ml_class_type:
-        return create_error_response(
-            error_code="INVALID_REQUEST",
-            error_message="invalid request, missing query strings",
-        ), 400
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="PARSE_ERROR",
+                error_message=str(exc),
+            ).model_dump(),
+        )
 
     settings = get_settings()
     max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
@@ -157,10 +175,13 @@ async def post_upload_binary(
     file_content = await binary_file.read()
     if len(file_content) > max_file_size_bytes:
         actual_size_mb = len(file_content) / (1024 * 1024)
-        return create_error_response(
-            error_code="FILE_TOO_LARGE",
-            error_message=f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)",
-        ), 413
+        raise HTTPException(
+            status_code=413,
+            detail=create_error_response(
+                error_code="FILE_TOO_LARGE",
+                error_message=f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)",
+            ).model_dump(),
+        )
 
     # Validate MIME type to ensure file is a legitimate binary
     validate_binary_mime_type(file_content)
@@ -186,7 +207,9 @@ async def post_upload_binary(
     ghidra_task = GhidraRequest(
         unique_filename, is_training_data, model_name, task_name, ml_class_type
     )
-    Ghidra().start_task(ghidra_task)
+    
+    # Add Ghidra analysis as a background task
+    background_tasks.add_task(_run_ghidra_analysis, ghidra_task)
 
     if "*/*" in accept:
         return templates.TemplateResponse("upload.html", {"request": request})
@@ -194,7 +217,7 @@ async def post_upload_binary(
     return create_success_response(
         data={"uuid": unique_filename},
         message="Binary uploaded successfully",
-    ), 200
+    )
 
 
 @router.get("/listBins", response_model=SuccessResponse[dict])
@@ -211,4 +234,4 @@ async def list_bins():
     return create_success_response(
         data={"files": files},
         message="Binaries retrieved successfully",
-    ), 200
+    )
