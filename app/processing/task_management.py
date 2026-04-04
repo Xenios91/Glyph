@@ -158,7 +158,7 @@ class EventWatcher:
                                         callback_error,
                                     )
                             # Remove from watched futures after callback
-                            del self._watched_futures[job_uuid]
+                            #del self._watched_futures[job_uuid]
                             break
 
             except Exception as loop_error:
@@ -306,6 +306,31 @@ class Trainer(TaskManager):
         return cls._trainer_instance
 
     @classmethod
+    def _on_training_complete(
+        cls, training_request: TrainingRequest, future: Future
+    ) -> None:
+        """Callback to save functions to database after training completes.
+
+        Args:
+            training_request: The training request that completed.
+            future: The future containing the training results.
+        """
+        try:
+            future.result()  # Wait for training to complete and check for errors
+            FunctionPersistanceUtil.add_model_functions(training_request)
+            logging.info(
+                "Functions saved to database for model: %s, request: %s",
+                training_request.model_name,
+                training_request.uuid,
+            )
+        except Exception as exc:
+            logging.error(
+                "Error saving functions for training %s: %s",
+                training_request.uuid,
+                exc,
+            )
+
+    @classmethod
     def start_training(
         cls,
         training_request: TrainingRequest,
@@ -320,10 +345,10 @@ class Trainer(TaskManager):
         future: Future = cls._get_executor().submit(cls._train_model, training_request)
         TaskService().service_queue.put((training_request, future))
 
-        if on_complete is not None:
-            EventWatcher().register_callback(
-                training_request.uuid, on_complete, training_request, future
-            )
+        callback = on_complete if on_complete is not None else cls._on_training_complete
+        EventWatcher().register_callback(
+            training_request.uuid, callback, training_request, future
+        )
 
     @classmethod
     def _train_model(cls, training_request: TrainingRequest) -> None:
@@ -495,7 +520,6 @@ class Ghidra(TaskManager):
                     data=training_data,
                 )
 
-                # Start training with the analysis results
                 Trainer.start_training(training_request)
                 logging.info(
                     "Training started for model: %s, request: %s",

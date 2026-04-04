@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil
+from app.utils.persistence_util import MLPersistanceUtil
 from app.services.request_handler import PredictionRequest, TrainingRequest
 from app.processing.task_management import Predictor, Trainer
 from app.utils.responses import create_success_response, create_error_response
@@ -82,8 +82,7 @@ def _run_training_task(training_request: TrainingRequest) -> None:
     """
     try:
         Trainer().start_training(training_request)
-        FunctionPersistanceUtil.add_model_functions(training_request)
-        logging.info("Training task completed successfully: %s", training_request.uuid)
+        logging.info("Training task started: %s", training_request.uuid)
     except Exception as exc:
         logging.error("Training task failed: %s - %s", training_request.uuid, exc)
         raise

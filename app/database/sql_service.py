@@ -288,15 +288,20 @@ class SQLUtil:
                         )
                         return {}
                     for function in predictions:
-                        if isinstance(function, dict) and function.get(
-                            "functionName"
-                        ) == function_name:
+                        if (
+                            isinstance(function, dict)
+                            and function.get("functionName") == function_name
+                        ):
                             return function
                 except SecureDeserializationError as deserial_error:
-                    logging.error("Secure deserialization blocked predictions: %s", deserial_error)
+                    logging.error(
+                        "Secure deserialization blocked predictions: %s", deserial_error
+                    )
                     return {}
                 except Exception as deserial_error:
-                    logging.error("Failed to deserialize predictions: %s", deserial_error)
+                    logging.error(
+                        "Failed to deserialize predictions: %s", deserial_error
+                    )
                     return {}
             except sqlite3.Error as error:
                 logging.error("Database error: %s", error)
@@ -320,7 +325,7 @@ class SQLUtil:
                 )
                 for function in functions:
                     sql = "INSERT INTO functions (model_name, function_name, entrypoint, tokens) VALUES (?, ?, ?, ?)"
-                    tokens = function["tokens"]
+                    tokens = " ".join(function["tokenList"])
                     cur.execute(
                         sql,
                         (
