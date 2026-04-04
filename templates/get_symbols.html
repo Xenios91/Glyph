@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 {% block content %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/predictions_style.css') }}">
 <div class="content blue-bg">
     {% set items = [
         {'label': 'File Name', 'value': bin_name, 'id': 'file-name'},
@@ -7,20 +8,20 @@
     ] %}
     {% include 'components/page_header.html' %}
 
-    <div>
-        <div class="nes-table-responsive content m-table center-contents overflow">
+    <div class="table-container">
+        <div class="nes-table-responsive">
             <blockquote>
                 <table class="nes-table is-bordered is-centered">
                     <thead>
                         <tr>
-                            <td scope="col">Function Name</td>
+                            <th scope="col">Function Name</th>
                             <th scope="col">EntryPoint</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for functionInfo in functions %}
-                        <tr id="{{ functionInfo[1] }}-id" onmouseover="changeBackground(this.id, '#d1d1d1');"
-                            onmouseout="changeBackground(this.id, '#ffffff');" onclick="goToURL(this.id)">
+                        <tr id="{{ functionInfo[1] }}-id" onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
+                            onmouseout="changeBackground(this.id, '#000000');" onclick="goToURL(this.id)">
                             <td>{{ functionInfo[1] }}</td>
                             <td>0x{{ functionInfo[2] }}</td>
                         </tr>
@@ -28,7 +29,9 @@
                     </tbody>
                 </table>
             </blockquote>
-            <button type="button" class="nes-btn is-primary mr-25" onclick="deleteModel()">Delete</button>
+        </div>
+        <div class="button-group">
+            <button type="button" class="nes-btn is-primary" onclick="deleteModel()">Delete</button>
             <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
         </div>
     </div>
