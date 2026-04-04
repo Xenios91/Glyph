@@ -6,7 +6,6 @@ These tests verify that the secure deserializer:
 3. Handles edge cases correctly
 """
 
-import io
 import pickle
 from io import BytesIO
 

@@ -17,7 +17,7 @@ from app.config.settings import get_settings, MAX_CPU_CORES
 from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, MLTask
 from app.services.request_handler import GhidraRequest, PredictionRequest, TrainingRequest
 from app.services.task_service import TaskService
-
+from app.processing import ghidra_processor
 
 class TaskManager:
     """Base class for managing tasks in Glyph application."""
@@ -297,13 +297,7 @@ class Ghidra(TaskManager):
         else:
             ghidra_type = "prediction"
 
-        subprocess.run([ghidra_headless_location, ghidra_project_location,
-                        ghidra_project_name, "-import",
-                        os.path.join("./binaries", ghidra_request.file_name),
-                        "-overwrite", "-postscript",
-                        os.path.join(glyph_script_location, "ClangTokenGenerator.java"),
-                        f"type={ghidra_type}",
-                        f"model={ghidra_request.model_name}",
-                        f"task={ghidra_request.task_name}",
-                        f"uuid={Ghidra.get_uuid()}"], check=True)
+        #TODO fix this junk and fix clanker garbage
+        file_path: str = os.path.join("./binaries", ghidra_request.file_name)
+        results = ghidra_processor.analyze_binary_and_decompile(file_path)
 

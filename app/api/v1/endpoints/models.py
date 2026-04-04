@@ -85,16 +85,16 @@ async def get_function(
             ).model_dump(),
         )
 
-    f_name = function_information[1]
-    f_entry = function_information[2]
-    f_tokens = format_code(function_information[3])
+    f_name = function_information.get("function_name", "")
+    f_entry = function_information.get("entrypoint", "")
+    f_tokens = format_code(function_information.get("tokens", ""))
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE not in accept:
         return create_success_response(
             data={"functions": function_information},
             message="Function retrieved successfully",
-        ), 200
+        )
 
     return templates.TemplateResponse(
         "get_function.html",

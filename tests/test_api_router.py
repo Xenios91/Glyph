@@ -1,6 +1,5 @@
 """Tests for the API router module."""
 
-import pytest
 from unittest.mock import Mock, patch
 
 from app.api.router import api_router, api_v1_router

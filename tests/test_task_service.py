@@ -1,4 +1,5 @@
 """Unit tests for task service."""
+import queue
 import pytest
 from unittest.mock import MagicMock, patch
 from app.services.task_service import TaskService
@@ -12,8 +13,8 @@ def clean_queue():
         try:
             TaskService().service_queue.get_nowait()
             TaskService().service_queue.task_done()
-        except Exception:
-            # Break on any exception to avoid infinite loops
+        except queue.Empty:
+            # Break when queue is empty to avoid infinite loops
             break
     yield
     # Clean up after the test
@@ -21,8 +22,8 @@ def clean_queue():
         try:
             TaskService().service_queue.get_nowait()
             TaskService().service_queue.task_done()
-        except Exception:
-            # Break on any exception to avoid infinite loops
+        except queue.Empty:
+            # Break when queue is empty to avoid infinite loops
             break
 
 
