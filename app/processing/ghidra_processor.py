@@ -44,7 +44,7 @@ def remove_comments(tokens_list: list[str]) -> list[str]:
     result: str = ""
     i = 0
     while i < len(tokens_string):
-        if tokens_string[i:i+2] == "/*":
+        if tokens_string[i : i + 2] == "/*":
             # Found start of comment, look for closing */
             close_idx = tokens_string.find("*/", i + 2)
             if close_idx == -1:
@@ -222,4 +222,3 @@ def analyze_binary_and_decompile(binary_path: str) -> dict[str, list]:
 
 if __name__ == "__main__":
     analyze_binary_and_decompile("./ls")
-

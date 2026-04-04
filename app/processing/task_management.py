@@ -6,8 +6,9 @@ import os
 import signal
 import uuid
 from concurrent.futures import Future, ProcessPoolExecutor
-from typing import Any
+from typing import Any, cast
 
+import numpy as np
 import pandas as pd
 from sklearn import preprocessing
 from sklearn.pipeline import Pipeline
@@ -146,13 +147,13 @@ class TaskManager:
 class Trainer(TaskManager):
     """Task manager for training machine learning models."""
 
-    __instance: "Trainer | None" = None
+    _trainer_instance: "Trainer | None" = None
 
     def __new__(cls) -> "Trainer":
         """Create or return the singleton instance of Trainer."""
-        if cls.__instance is None:
-            cls.__instance = super().__new__(cls)
-        return cls.__instance
+        if cls._trainer_instance is None:
+            cls._trainer_instance = cast("Trainer", super().__new__(cls))
+        return cls._trainer_instance
 
     @classmethod
     def start_training(cls, training_request: TrainingRequest) -> None:
@@ -171,14 +172,23 @@ class Trainer(TaskManager):
         Args:
             training_request: The training request containing model data.
         """
+        # Validate that data was loaded successfully
+        if training_request.data is None:
+            logging.error(
+                "Training failed: data not loaded for request %s",
+                training_request.uuid
+            )
+            training_request.status = "error"
+            return
+
         pipeline: Pipeline = MLTask.get_multi_class_pipeline()
         label_encoder = preprocessing.LabelEncoder()
         try:
             _x: pd.Series = training_request.data["tokens"]
             fit_encoder = label_encoder.fit(
                 training_request.data["functionName"])
-            _y = fit_encoder.transform(
-                training_request.data["functionName"])
+            _y = np.array(fit_encoder.transform(
+                training_request.data["functionName"]))
 
             pipeline.fit(_x, _y)
             MLPersistanceUtil.save_model(
@@ -192,13 +202,13 @@ class Trainer(TaskManager):
 class Predictor(TaskManager):
     """Task manager for running predictions on binary functions."""
 
-    __instance: "Predictor | None" = None
+    _predictor_instance: "Predictor | None" = None
 
     def __new__(cls) -> "Predictor":
         """Create or return the singleton instance of Predictor."""
-        if cls.__instance is None:
-            cls.__instance = super().__new__(cls)
-        return cls.__instance
+        if cls._predictor_instance is None:
+            cls._predictor_instance = cast("Predictor", super().__new__(cls))
+        return cls._predictor_instance
 
     @classmethod
     def get_threshold(cls) -> float:
@@ -231,6 +241,15 @@ class Predictor(TaskManager):
         Returns:
             The prediction request with results.
         """
+        # Validate that data was loaded successfully
+        if prediction_request.data is None:
+            logging.error(
+                "Prediction failed: data not loaded for request %s",
+                prediction_request.uuid
+            )
+            prediction_request.status = "error"
+            return prediction_request
+
         try:
             model, label_encoder = MLPersistanceUtil.load_model(
                 prediction_request.model_name)
@@ -284,15 +303,7 @@ class Ghidra(TaskManager):
         Args:
             ghidra_request: The Ghidra request containing analysis parameters.
         """
-        settings = get_settings()
-        ghidra_location = settings.ghidra_location
-        ghidra_project_name = settings.ghidra_project_name
-        ghidra_project_location = settings.ghidra_project_location
-        glyph_script_location = settings.glyph_script_location
-
-        ghidra_headless_location: str = os.path.join(
-            ghidra_location, f"support{os.sep}analyzeHeadless")
-
+   
         ghidra_type: str | None = None
         if ghidra_request.is_training == "true":
             ghidra_type = "training"

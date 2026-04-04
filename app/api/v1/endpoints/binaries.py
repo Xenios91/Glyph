@@ -11,14 +11,26 @@ from pathlib import Path
 import uuid
 import magic
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, field_validator
 
 from app.config.settings import get_settings
 from app.services.request_handler import GhidraRequest
 from app.processing.task_management import Ghidra
-from app.utils.responses import create_success_response, create_error_response, SuccessResponse
+from app.utils.responses import (
+    create_success_response,
+    create_error_response,
+    SuccessResponse,
+)
 
 
 class BinaryUploadForm(BaseModel):
@@ -87,26 +99,27 @@ class BinaryUploadResponse(BaseModel):
 
     uuid: str = Field(..., description="Unique identifier for the uploaded binary")
 
+
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 # Allowed MIME types for binary files
 ALLOWED_MIME_TYPES = {
-    'application/x-executable',
-    'application/x-object',
-    'application/octet-stream',
-    'application/x-elf',
-    'application/x-dosexec',  # Windows PE/EXE files
-    'application/x-sharedlib',  # Shared libraries (.so, .dll)
+    "application/x-executable",
+    "application/x-object",
+    "application/octet-stream",
+    "application/x-elf",
+    "application/x-dosexec",  # Windows PE/EXE files
+    "application/x-sharedlib",  # Shared libraries (.so, .dll)
 }
 
 
 def validate_binary_mime_type(file_content: bytes) -> None:
     """Validate uploaded file is a legitimate binary using MIME type detection.
-    
+
     Args:
         file_content: The file content bytes for MIME type detection.
-        
+
     Raises:
         HTTPException: If MIME type validation fails.
     """
@@ -115,52 +128,54 @@ def validate_binary_mime_type(file_content: bytes) -> None:
     except Exception as exc:
         logging.error("Failed to detect MIME type: %s", exc)
         raise HTTPException(status_code=400, detail="Failed to analyze file type")
-    
+
     if mime_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{mime_type}' not allowed. Expected binary/ELF format"
+            detail=f"File type '{mime_type}' not allowed. Expected binary/ELF format",
         )
 
 
 def sanitize_filename(filename: str) -> str:
     """Sanitize filename to prevent path traversal attacks.
-    
+
     Args:
         filename: The original filename.
-        
+
     Returns:
         A sanitized filename with only the base name.
-        
+
     Raises:
         HTTPException: If filename is invalid.
     """
     if not filename:
         raise HTTPException(status_code=400, detail="Empty filename")
-    
+
     # Check for path traversal attempts BEFORE stripping components
-    if '..' in filename:
+    if ".." in filename:
         raise HTTPException(status_code=400, detail="Invalid filename characters")
-    
+
     # Check for null bytes
-    if '\x00' in filename:
+    if "\x00" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename characters")
-    
+
     # Get just the filename without any directory components
     base_name = Path(filename).name
-    
+
     return base_name
 
 
 def _run_ghidra_analysis(ghidra_request: GhidraRequest) -> None:
     """Background task for running Ghidra analysis on a binary.
-    
+
     Args:
         ghidra_request: The Ghidra request containing analysis parameters.
     """
     try:
-        Ghidra().start_task(ghidra_request)
-        logging.info("Ghidra analysis task completed successfully: %s", ghidra_request.uuid)
+        Ghidra.start_task(ghidra_request)
+        logging.info(
+            "Ghidra analysis task completed successfully: %s", ghidra_request.uuid
+        )
     except Exception as exc:
         logging.error("Ghidra analysis task failed: %s - %s", ghidra_request.uuid, exc)
         raise
@@ -189,7 +204,7 @@ async def post_upload_binary(
 
     Returns:
         JSONResponse with upload result or HTML template.
-        
+
     Raises:
         HTTPException: If validation fails or file is too large.
     """
@@ -250,9 +265,13 @@ async def post_upload_binary(
     is_training_data = form_data.training_data == "true"
 
     ghidra_task = GhidraRequest(
-        unique_filename, is_training_data, form_data.model_name, form_data.task_name, form_data.ml_class_type
+        unique_filename,
+        is_training_data,
+        form_data.model_name,
+        form_data.task_name,
+        form_data.ml_class_type,
     )
-    
+
     # Add Ghidra analysis as a background task
     background_tasks.add_task(_run_ghidra_analysis, ghidra_task)
 
