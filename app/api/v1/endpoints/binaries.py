@@ -168,14 +168,16 @@ def sanitize_filename(filename: str) -> str:
 def _run_ghidra_analysis(ghidra_request: GhidraRequest) -> None:
     """Background task for running Ghidra analysis on a binary.
 
+    For training requests, this kicks off a pipeline where:
+    1. Ghidra analysis is performed
+    2. Training is automatically triggered after analysis completes
+
     Args:
         ghidra_request: The Ghidra request containing analysis parameters.
     """
     try:
         Ghidra.start_task(ghidra_request)
-        logging.info(
-            "Ghidra analysis task completed successfully: %s", ghidra_request.uuid
-        )
+        logging.info("Ghidra analysis task started: %s", ghidra_request.uuid)
     except Exception as exc:
         logging.error("Ghidra analysis task failed: %s - %s", ghidra_request.uuid, exc)
         raise
@@ -272,7 +274,6 @@ async def post_upload_binary(
         form_data.ml_class_type,
     )
 
-    # Add Ghidra analysis as a background task
     background_tasks.add_task(_run_ghidra_analysis, ghidra_task)
 
     if "*/*" in accept:

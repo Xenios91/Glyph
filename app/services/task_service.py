@@ -19,15 +19,13 @@ class TaskService:
 
     @classmethod
     def start_service(cls) -> None:
-        """Start the service loop to process tasks from the queue."""
+        """Start the service loop to process tasks from the queue.
+
+        Note: This service no longer calls .result() on futures. The EventWatcher
+        is responsible for monitoring futures and invoking callbacks when they complete.
+        This method simply manages the queue lifecycle.
+        """
         while True:
             task: tuple[Any, Any] = cls.service_queue.get(block=True)
             job_uuid: str = task[0].uuid
-            try:
-                logging.info("Processing job: job_uuid=%s", job_uuid)
-                task[1].result()
-                logging.info("Job completed successfully: job_uuid=%s", job_uuid)
-            except Exception as exc:
-                logging.exception("Job failed: job_uuid=%s, error=%s", job_uuid, exc)
-            finally:
-                cls.service_queue.task_done()
+            logging.info("Job queued: job_uuid=%s", job_uuid)

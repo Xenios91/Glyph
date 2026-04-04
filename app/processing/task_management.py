@@ -4,9 +4,11 @@ import atexit
 import logging
 import os
 import signal
+import threading
+import time
 import uuid
-from concurrent.futures import Future, ProcessPoolExecutor
-from typing import Any, cast
+from concurrent.futures import Future, ProcessPoolExecutor, wait, FIRST_COMPLETED
+from typing import Any, Callable, cast
 
 import numpy as np
 import pandas as pd
@@ -26,6 +28,145 @@ from app.services.request_handler import (
 )
 from app.services.task_service import TaskService
 from app.processing import ghidra_processor
+
+
+class EventWatcher:
+    """Event watcher for monitoring TaskManager executor futures."""
+
+    _instance: "EventWatcher | None" = None
+    _lock: threading.Lock = threading.Lock()
+
+    def __new__(cls) -> "EventWatcher":
+        """Create or return the singleton instance of EventWatcher."""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self) -> None:
+        """Initialize the EventWatcher."""
+        if self._initialized:
+            return
+        self._initialized = True
+        self._callbacks: dict[str, Callable[[Any, Any], None]] = {}
+        self._watched_futures: dict[str, tuple[Any, Future]] = {}
+        self._watching: bool = False
+        self._watch_thread: threading.Thread | None = None
+        self._stop_event: threading.Event | None = None
+
+    def register_callback(
+        self,
+        job_uuid: str,
+        callback: Callable[[Any, Any], None],
+        request: Any,
+        future: Future,
+    ) -> None:
+        """Register a callback for a specific job UUID and track the future.
+
+        Args:
+            job_uuid: The UUID of the job to watch.
+            callback: Callback function to invoke when job completes.
+                      Receives (request, future) as arguments.
+            request: The request object associated with this job.
+            future: The Future object to monitor for completion.
+        """
+        self._callbacks[job_uuid] = callback
+        self._watched_futures[job_uuid] = (request, future)
+        logging.info("Registered callback for job: job_uuid=%s", job_uuid)
+
+    def unregister_callback(self, job_uuid: str) -> None:
+        """Unregister a callback for a specific job UUID.
+
+        Args:
+            job_uuid: The UUID of the job to stop watching.
+        """
+        if job_uuid in self._callbacks:
+            del self._callbacks[job_uuid]
+            logging.info("Unregistered callback for job: job_uuid=%s", job_uuid)
+        if job_uuid in self._watched_futures:
+            del self._watched_futures[job_uuid]
+
+    def start_watching(self) -> None:
+        """Start watching for completed futures in a background thread."""
+        if self._watching:
+            logging.warning("EventWatcher is already watching")
+            return
+
+        self._watching = True
+        self._stop_event = threading.Event()
+        self._watch_thread = threading.Thread(
+            target=self._watch_loop, name="EventWatcher", daemon=True
+        )
+        self._watch_thread.start()
+        logging.info("EventWatcher started")
+
+    def stop_watching(self) -> None:
+        """Stop watching for completed futures."""
+        if not self._watching:
+            return
+
+        logging.info("Stopping EventWatcher...")
+        self._watching = False
+        if self._stop_event is not None:
+            self._stop_event.set()
+        if self._watch_thread is not None:
+            self._watch_thread.join(timeout=5.0)
+            self._watch_thread = None
+        logging.info("EventWatcher stopped")
+
+    def _watch_loop(self) -> None:
+        """Background loop that watches for completed futures."""
+
+        logging.info("EventWatcher loop started")
+        # Type guard: _stop_event is set in start_watching before this loop runs
+        assert self._stop_event is not None
+        while self._watching and not self._stop_event.is_set():
+            try:
+                # Get all futures we're watching
+                if not self._watched_futures:
+                    # No futures to watch, wait before checking again
+                    time.sleep(0.5)
+                    continue
+
+                # Extract futures for waiting
+                futures_only: list[Future] = [
+                    task[1] for task in self._watched_futures.values()
+                ]
+
+                # Wait for any future to complete
+                done, _ = wait(futures_only, timeout=0.5, return_when=FIRST_COMPLETED)
+
+                for future in done:
+                    # Find the corresponding job_uuid and request
+                    for job_uuid, task in self._watched_futures.items():
+                        if task[1] is future:
+                            request = task[0]
+                            # Invoke registered callback
+                            if job_uuid in self._callbacks:
+                                try:
+                                    self._callbacks[job_uuid](request, future)
+                                    logging.info(
+                                        "Callback invoked for job: job_uuid=%s",
+                                        job_uuid,
+                                    )
+                                except Exception as callback_error:
+                                    logging.error(
+                                        "Callback error for job_uuid=%s: %s",
+                                        job_uuid,
+                                        callback_error,
+                                    )
+                            # Remove from watched futures after callback
+                            del self._watched_futures[job_uuid]
+                            break
+
+            except Exception as loop_error:
+                logging.error("Error in EventWatcher loop: %s", loop_error)
+                # Wait before retrying
+                time.sleep(1.0)
+
+        logging.info("EventWatcher loop stopped")
 
 
 class TaskManager:
@@ -165,14 +306,24 @@ class Trainer(TaskManager):
         return cls._trainer_instance
 
     @classmethod
-    def start_training(cls, training_request: TrainingRequest) -> None:
+    def start_training(
+        cls,
+        training_request: TrainingRequest,
+        on_complete: Callable[[TrainingRequest, Future], None] | None = None,
+    ) -> None:
         """Start training a model with the given request.
 
         Args:
             training_request: The training request containing model data.
+            on_complete: Optional callback to invoke when training completes.
         """
         future: Future = cls._get_executor().submit(cls._train_model, training_request)
         TaskService().service_queue.put((training_request, future))
+
+        if on_complete is not None:
+            EventWatcher().register_callback(
+                training_request.uuid, on_complete, training_request, future
+            )
 
     @classmethod
     def _train_model(cls, training_request: TrainingRequest) -> None:
@@ -228,16 +379,27 @@ class Predictor(TaskManager):
         return settings.prediction_probability_threshold
 
     @classmethod
-    def start_prediction(cls, prediction_request: PredictionRequest) -> None:
+    def start_prediction(
+        cls,
+        prediction_request: PredictionRequest,
+        on_complete: Callable[[PredictionRequest, Future], None] | None = None,
+    ) -> None:
         """Start a prediction task with the given request.
 
         Args:
             prediction_request: The prediction request containing data.
+            on_complete: Optional callback to invoke when prediction completes.
         """
         future: Future = cls._get_executor().submit(
             cls._run_prediction, prediction_request
         )
         TaskService().service_queue.put((prediction_request, future))
+
+        # Register callback with EventWatcher if provided
+        if on_complete is not None:
+            EventWatcher().register_callback(
+                prediction_request.uuid, on_complete, prediction_request, future
+            )
 
     @classmethod
     def _run_prediction(
@@ -300,32 +462,97 @@ class Ghidra(TaskManager):
     """Task manager for running Ghidra analysis on binaries."""
 
     @classmethod
-    def start_task(cls, ghidra_request: GhidraRequest) -> None:
+    def _on_analysis_complete(
+        cls, ghidra_request: GhidraRequest, future: Future
+    ) -> None:
+        """Callback to trigger training after Ghidra analysis completes.
+
+        Args:
+            ghidra_request: The Ghidra request that completed.
+            future: The future containing the analysis results.
+        """
+        try:
+            results = future.result()
+            num_functions = len(results.get("functions", []))
+            logging.info(
+                "Ghidra analysis completed - UUID: %s, binary: %s, functions found: %d",
+                ghidra_request.uuid,
+                ghidra_request.file_name,
+                num_functions,
+            )
+
+            # Only trigger training if this is a training request
+            if ghidra_request.is_training:
+                # Build training data from Ghidra results
+                training_data = {
+                    "binaryName": ghidra_request.file_name,
+                    "functionsMap": results,
+                }
+
+                training_request = TrainingRequest(
+                    req_uuid=ghidra_request.uuid,
+                    model_name=ghidra_request.model_name,
+                    data=training_data,
+                )
+
+                # Start training with the analysis results
+                Trainer.start_training(training_request)
+                logging.info(
+                    "Training started for model: %s, request: %s",
+                    ghidra_request.model_name,
+                    ghidra_request.uuid,
+                )
+            else:
+                logging.info(
+                    "Ghidra analysis completed (prediction mode): %s",
+                    ghidra_request.uuid,
+                )
+
+        except Exception as exc:
+            logging.error(
+                "Error in Ghidra completion callback for %s: %s",
+                ghidra_request.uuid,
+                exc,
+            )
+
+    @classmethod
+    def start_task(
+        cls,
+        ghidra_request: GhidraRequest,
+        on_complete: Callable[[GhidraRequest, Future], None] | None = None,
+    ) -> None:
         """Start a Ghidra analysis task.
 
         Args:
             ghidra_request: The Ghidra request containing analysis parameters.
+            on_complete: Optional callback to invoke when analysis completes.
         """
         future: Future = cls._get_executor().submit(cls._run_analysis, ghidra_request)
         TaskService().service_queue.put((ghidra_request, future))
 
+        # Register the training pipeline callback for training requests
+        if ghidra_request.is_training:
+            EventWatcher().register_callback(
+                ghidra_request.uuid, cls._on_analysis_complete, ghidra_request, future
+            )
+
+        # Register any additional callback provided by the caller
+        if on_complete is not None:
+            EventWatcher().register_callback(
+                ghidra_request.uuid, on_complete, ghidra_request, future
+            )
+
     @classmethod
-    def _run_analysis(cls, ghidra_request: GhidraRequest) -> None:
+    def _run_analysis(cls, ghidra_request: GhidraRequest) -> dict[str, list]:
         """Run Ghidra analysis on the provided binary.
 
         Args:
             ghidra_request: The Ghidra request containing analysis parameters.
         """
 
-        ghidra_type: str | None = None
-        if ghidra_request.is_training == "true":
-            ghidra_type = "training"
-        else:
-            ghidra_type = "prediction"
-
-        # TODO fix this junk and fix clanker garbage
         file_path: str = os.path.join("./binaries", ghidra_request.file_name)
         results: dict[str, list] = ghidra_processor.analyze_binary_and_decompile(
             file_path
         )
-        
+
+        return results

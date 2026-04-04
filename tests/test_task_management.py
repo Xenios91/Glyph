@@ -1,9 +1,13 @@
 """Unit tests for task management and queue operations."""
-from app.services.request_handler import TrainingRequest
-from app.services.task_service import TaskService
-from app.processing.task_management import TaskManager
+import logging
+from concurrent.futures import Future
+from unittest.mock import Mock, patch
 
 import pytest
+
+from app.processing.task_management import EventWatcher, TaskManager
+from app.services.request_handler import TrainingRequest
+from app.services.task_service import TaskService
 
 
 @pytest.fixture
@@ -76,3 +80,127 @@ def test_get_all_status(task_manager, sample_training_request):
 
     assert "test_model" in all_status
     assert all_status["test_model"] == "starting"
+
+
+@pytest.fixture
+def event_watcher():
+    """Provide a fresh EventWatcher instance for each test."""
+    # Reset singleton for testing
+    EventWatcher._instance = None
+    return EventWatcher()
+
+
+def test_event_watcher_singleton(event_watcher):
+    """Test that EventWatcher returns the same instance."""
+    watcher1 = EventWatcher()
+    watcher2 = EventWatcher()
+
+    assert watcher1 is watcher2
+
+
+def test_register_callback(event_watcher):
+    """Test registering a callback for a job UUID."""
+    callback = lambda req, fut: None
+    event_watcher.register_callback("test-uuid", callback)
+
+    assert "test-uuid" in event_watcher._callbacks
+
+
+def test_unregister_callback(event_watcher):
+    """Test unregistering a callback for a job UUID."""
+    callback = lambda req, fut: None
+    event_watcher.register_callback("test-uuid", callback)
+    event_watcher.unregister_callback("test-uuid")
+
+    assert "test-uuid" not in event_watcher._callbacks
+
+
+def test_unregister_callback_not_found(event_watcher):
+    """Test unregistering a callback that doesn't exist."""
+    # Should not raise an error
+    event_watcher.unregister_callback("non-existent-uuid")
+
+
+def test_get_pending_futures(event_watcher, sample_training_request):
+    """Test getting pending futures from the task queue."""
+    # Create a mock future that is not done
+    mock_future = Mock(spec=Future)
+    mock_future.done.return_value = False
+
+    TaskService().service_queue.put((sample_training_request, mock_future))
+
+    pending = event_watcher._get_pending_futures()
+
+    assert len(pending) == 1
+    assert pending[0][0] == sample_training_request
+    assert pending[0][1] == mock_future
+
+
+def test_get_pending_futures_excludes_done(event_watcher, sample_training_request):
+    """Test that completed futures are excluded from pending list."""
+    # Create a mock future that is done
+    mock_future = Mock(spec=Future)
+    mock_future.done.return_value = True
+
+    TaskService().service_queue.put((sample_training_request, mock_future))
+
+    pending = event_watcher._get_pending_futures()
+
+    assert len(pending) == 0
+
+
+def test_start_watching(event_watcher):
+    """Test starting the event watcher."""
+    event_watcher.start_watching()
+
+    assert event_watcher._watching is True
+    assert event_watcher._watch_thread is not None
+    assert event_watcher._stop_event is not None
+
+
+def test_start_watching_already_running(event_watcher, caplog):
+    """Test that starting an already running watcher logs a warning."""
+    event_watcher.start_watching()
+
+    with caplog.at_level(logging.WARNING):
+        event_watcher.start_watching()
+        assert "EventWatcher is already watching" in caplog.text
+
+
+def test_stop_watching(event_watcher):
+    """Test stopping the event watcher."""
+    event_watcher.start_watching()
+    event_watcher.stop_watching()
+
+    assert event_watcher._watching is False
+    assert event_watcher._watch_thread is None
+
+
+def test_stop_watching_not_running(event_watcher):
+    """Test stopping a watcher that is not running."""
+    # Should not raise an error
+    event_watcher.stop_watching()
+
+
+def test_callback_invoked_on_completion(event_watcher, sample_training_request):
+    """Test that callback is invoked when a future completes."""
+    callback_called = []
+
+    def on_complete(request, future):
+        callback_called.append((request, future))
+
+    event_watcher.register_callback(sample_training_request.uuid, on_complete)
+
+    # Create a mock future that is done
+    mock_future = Mock(spec=Future)
+    mock_future.done.return_value = True
+
+    TaskService().service_queue.put((sample_training_request, mock_future))
+
+    # Simulate the watch loop processing
+    event_watcher._watch_loop()
+
+    # Callback should have been invoked
+    assert len(callback_called) == 1
+    assert callback_called[0][0] == sample_training_request
+    assert callback_called[0][1] == mock_future

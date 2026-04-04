@@ -62,7 +62,6 @@ class DecompileStep(PipelineStep):
         Raises:
             PipelineStepError: If decompilation fails.
         """
-        settings = get_settings()
 
         try:
             # This would integrate with GhidraProcessor
