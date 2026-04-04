@@ -6,7 +6,7 @@
     <div>
         <span>AVAILABLE MODELS</span>
     </div>
-    {% set click_handler = 'goToURL' %}
+    {% set click_handler = 'goToModelURL' %}
     {% include 'components/model_table.html' %}
     {% else %}
     {% set message = 'Uh oh! it looks like no models have been generated! Try going to upload to start!' %}
@@ -16,13 +16,13 @@
     {% include 'components/empty_state.html' %}
     {% endif %}
     <script>
-        function goToURL(id) {
+        function goToModelURL(id) {
             const modelName = id.slice(0, -3);
             const status = document.getElementById(modelName + "-status");
             if (status.innerText.trim() == "complete") {
                 const currentURL = window.location.href;
                 const splitIndex = currentURL.lastIndexOf("/");
-                const url = currentURL.substring(splitIndex, 0) + "/models/getFunctions?modelName=" + modelName;
+                const url = currentURL.substring(0, splitIndex) + "/api/v1/models/getFunctions?modelName=" + model_name;
                 if (url) { window.location = url; }
             } else if (status.innerText.trim() == "N/A") {
                 alert('No analysis has been performed yet!');
@@ -31,7 +31,7 @@
             }
         }
 
-        function deleteModel() {
+        function deleteModelEntry() {
             var selection = document.getElementById("file-name").innerText;
             var binToDelete = selection.split(':')[1].replace(/\s+/, "");
             var currentURL = window.location.href;
