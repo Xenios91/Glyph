@@ -17,8 +17,8 @@
     {% endif %}
     <script>
         function goToModelURL(id) {
-            const modelName = id.slice(0, -3);
-            const status = document.getElementById(modelName + "-status");
+            const model_name = id.slice(0, -3);
+            const status = document.getElementById(model_name + "-status");
             if (status.innerText.trim() == "complete") {
                 const currentURL = window.location.href;
                 const splitIndex = currentURL.lastIndexOf("/");
