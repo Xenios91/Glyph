@@ -145,7 +145,7 @@ class GhidraRequest:
         task_name: str,
         ml_class_type: str,
     ) -> None:
-        self.file_name = Path(filename).resolve().as_posix()
+        self.file_name = Path(filename).as_posix()
         self.is_training = is_training
         self.model_name = model_name
         self.task_name = task_name

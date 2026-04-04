@@ -14,10 +14,19 @@ from sklearn import preprocessing
 from sklearn.pipeline import Pipeline
 
 from app.config.settings import get_settings, MAX_CPU_CORES
-from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, MLTask
-from app.services.request_handler import GhidraRequest, PredictionRequest, TrainingRequest
+from app.utils.persistence_util import (
+    FunctionPersistanceUtil,
+    MLPersistanceUtil,
+    MLTask,
+)
+from app.services.request_handler import (
+    GhidraRequest,
+    PredictionRequest,
+    TrainingRequest,
+)
 from app.services.task_service import TaskService
 from app.processing import ghidra_processor
+
 
 class TaskManager:
     """Base class for managing tasks in Glyph application."""
@@ -175,8 +184,7 @@ class Trainer(TaskManager):
         # Validate that data was loaded successfully
         if training_request.data is None:
             logging.error(
-                "Training failed: data not loaded for request %s",
-                training_request.uuid
+                "Training failed: data not loaded for request %s", training_request.uuid
             )
             training_request.status = "error"
             return
@@ -185,14 +193,13 @@ class Trainer(TaskManager):
         label_encoder = preprocessing.LabelEncoder()
         try:
             _x: pd.Series = training_request.data["tokens"]
-            fit_encoder = label_encoder.fit(
-                training_request.data["functionName"])
-            _y = np.array(fit_encoder.transform(
-                training_request.data["functionName"]))
+            fit_encoder = label_encoder.fit(training_request.data["functionName"])
+            _y = np.array(fit_encoder.transform(training_request.data["functionName"]))
 
             pipeline.fit(_x, _y)
             MLPersistanceUtil.save_model(
-                training_request.model_name, label_encoder, pipeline)
+                training_request.model_name, label_encoder, pipeline
+            )
             training_request.status = "complete"
         except Exception as error:
             logging.error("Training error: %s", error)
@@ -228,11 +235,14 @@ class Predictor(TaskManager):
             prediction_request: The prediction request containing data.
         """
         future: Future = cls._get_executor().submit(
-            cls._run_prediction, prediction_request)
+            cls._run_prediction, prediction_request
+        )
         TaskService().service_queue.put((prediction_request, future))
 
     @classmethod
-    def _run_prediction(cls, prediction_request: PredictionRequest) -> PredictionRequest:
+    def _run_prediction(
+        cls, prediction_request: PredictionRequest
+    ) -> PredictionRequest:
         """Run prediction on the provided request.
 
         Args:
@@ -245,22 +255,24 @@ class Predictor(TaskManager):
         if prediction_request.data is None:
             logging.error(
                 "Prediction failed: data not loaded for request %s",
-                prediction_request.uuid
+                prediction_request.uuid,
             )
             prediction_request.status = "error"
             return prediction_request
 
         try:
             model, label_encoder = MLPersistanceUtil.load_model(
-                prediction_request.model_name)
+                prediction_request.model_name
+            )
             predictions = model.predict(prediction_request.data["tokens"])
-            prediction_probability = model.predict_proba(
-                prediction_request.data["tokens"]) * 100
+            prediction_probability = (
+                model.predict_proba(prediction_request.data["tokens"]) * 100
+            )
             predicted_labels = label_encoder.inverse_transform(predictions)
-            Predictor._filter_uncertainty(
-                prediction_probability, predicted_labels)
+            Predictor._filter_uncertainty(prediction_probability, predicted_labels)
             FunctionPersistanceUtil.add_prediction_functions(
-                prediction_request, predicted_labels)
+                prediction_request, predicted_labels
+            )
 
             prediction_request.set_prediction_values(predicted_labels)
         except Exception as exception:
@@ -269,8 +281,9 @@ class Predictor(TaskManager):
         return prediction_request
 
     @classmethod
-    def _filter_uncertainty(cls, prediction_probability: Any,
-                            predicted_labels: list[str]) -> None:
+    def _filter_uncertainty(
+        cls, prediction_probability: Any, predicted_labels: list[str]
+    ) -> None:
         """Filter predictions below the probability threshold.
 
         Args:
@@ -280,7 +293,7 @@ class Predictor(TaskManager):
         threshold = cls.get_threshold()
         for ctr, probability in enumerate(prediction_probability):
             if probability.max() < threshold:
-                predicted_labels[ctr] = 'Unknown'
+                predicted_labels[ctr] = "Unknown"
 
 
 class Ghidra(TaskManager):
@@ -303,14 +316,16 @@ class Ghidra(TaskManager):
         Args:
             ghidra_request: The Ghidra request containing analysis parameters.
         """
-   
+
         ghidra_type: str | None = None
         if ghidra_request.is_training == "true":
             ghidra_type = "training"
         else:
             ghidra_type = "prediction"
 
-        #TODO fix this junk and fix clanker garbage
+        # TODO fix this junk and fix clanker garbage
         file_path: str = os.path.join("./binaries", ghidra_request.file_name)
-        results = ghidra_processor.analyze_binary_and_decompile(file_path)
-
+        results: dict[str, list] = ghidra_processor.analyze_binary_and_decompile(
+            file_path
+        )
+        

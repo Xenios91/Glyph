@@ -39,8 +39,6 @@ def remove_comments(tokens_list: list[str]) -> list[str]:
         List of tokens with comments removed.
     """
     tokens_string: str = " ".join(tokens_list)
-    # First, handle unclosed comments by finding /* without matching */
-    # We need to process the string to find unclosed comments
     result: str = ""
     i = 0
     while i < len(tokens_string):
@@ -215,10 +213,7 @@ def analyze_binary_and_decompile(binary_path: str) -> dict[str, list]:
     if not pyghidra.started():
         pyghidra.start()
 
-    with pyghidra.open_program(binary_path) as flat_api:
+    with pyghidra.open_program(binary_path, project_location="/tmp/") as flat_api:
         program = flat_api.getCurrentProgram()
         return decompile_all_functions(None, program)
 
-
-if __name__ == "__main__":
-    analyze_binary_and_decompile("./ls")
