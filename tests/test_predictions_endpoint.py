@@ -208,10 +208,13 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionPersistanceUtil")
     def test_get_prediction_success_json(self, mock_pred_persistance, client):
         """Test getting a prediction successfully with JSON response."""
-        # Mock prediction data - return a Mock object that has __dict__
-        mock_prediction = Mock()
-        mock_prediction.task_name = "test_task"
-        mock_prediction.model_name = "test_model"
+        # Create a simple class that mimics Prediction with __dict__
+        class SimplePrediction:
+            def __init__(self):
+                self.task_name = "test_task"
+                self.model_name = "test_model"
+
+        mock_prediction = SimplePrediction()
         mock_pred_persistance.get_predictions.return_value = mock_prediction
 
         response = client.get(
@@ -223,8 +226,8 @@ class TestPredictionsRouter:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert data["data"]["task_name"] == "test_task"
-        assert data["data"]["model_name"] == "test_model"
+        assert data["data"]["prediction"]["task_name"] == "test_task"
+        assert data["data"]["prediction"]["model_name"] == "test_model"
 
     @patch("app.api.v1.endpoints.predictions.PredictionPersistanceUtil")
     def test_get_prediction_not_found(self, mock_pred_persistance, client):
@@ -263,12 +266,12 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.FunctionPersistanceUtil")
     def test_get_prediction_details_success_json(self, mock_func_persistance, client):
         """Test getting prediction details successfully with JSON response."""
-        # Mock function data - return a dict that can be serialized
+        # Mock get_function to return a list (endpoint accesses model_info[3])
+        mock_func_persistance.get_function.return_value = [
+            "id", "model_name", "function_name", "0x1000", "test tokens"
+        ]
+        # Mock get_prediction_function to return a dict with tokens
         mock_func_persistance.get_prediction_function.return_value = {
-            "model_name": "test_model",
-            "task_name": "test_task",
-            "function_name": "test_func",
-            "entrypoint": "0x1000",
             "tokens": "test tokens",
             "prediction": "test_prediction",
         }
@@ -286,15 +289,14 @@ class TestPredictionsRouter:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        # The endpoint returns the function data directly
         assert "task_name" in data["data"]
         assert data["data"]["task_name"] == "test_task"
 
     @patch("app.api.v1.endpoints.predictions.FunctionPersistanceUtil")
     def test_get_prediction_details_retrieval_error(self, mock_func_persistance, client):
         """Test getting prediction details with retrieval error."""
-        # Mock retrieval error - the endpoint catches exceptions and returns 500
-        mock_func_persistance.get_prediction_function.side_effect = Exception("Test error")
+        # Mock retrieval error - the endpoint catches TypeError and IndexError
+        mock_func_persistance.get_function.side_effect = IndexError("Test error")
 
         response = client.get(
             "/predictions/getPredictionDetails",
@@ -306,8 +308,8 @@ class TestPredictionsRouter:
             headers={"Accept": "application/json"},
         )
 
-        # The endpoint catches exceptions and returns 500
-        assert response.status_code == 500
+        # The endpoint catches exceptions and returns 400
+        assert response.status_code == 400
         data = response.json()
         detail = data.get("detail", data)
         assert detail["success"] is False
@@ -316,12 +318,12 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.FunctionPersistanceUtil")
     def test_get_prediction_html_response(self, mock_func_persistance, client):
         """Test getting prediction with HTML response."""
-        # Mock function data
+        # Mock get_function to return a list
+        mock_func_persistance.get_function.return_value = [
+            "id", "model_name", "function_name", "0x1000", "test tokens"
+        ]
+        # Mock get_prediction_function to return a dict with tokens
         mock_func_persistance.get_prediction_function.return_value = {
-            "model_name": "test_model",
-            "task_name": "test_task",
-            "function_name": "test_func",
-            "entrypoint": "0x1000",
             "tokens": "test tokens",
             "prediction": "test_prediction",
         }
@@ -342,12 +344,12 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.FunctionPersistanceUtil")
     def test_get_prediction_details_html_response(self, mock_func_persistance, client):
         """Test getting prediction details with HTML response."""
-        # Mock function data
+        # Mock get_function to return a list
+        mock_func_persistance.get_function.return_value = [
+            "id", "model_name", "function_name", "0x1000", "test tokens"
+        ]
+        # Mock get_prediction_function to return a dict with tokens
         mock_func_persistance.get_prediction_function.return_value = {
-            "model_name": "test_model",
-            "task_name": "test_task",
-            "function_name": "test_func",
-            "entrypoint": "0x1000",
             "tokens": "test tokens",
             "prediction": "test_prediction",
         }
