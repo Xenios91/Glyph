@@ -52,7 +52,7 @@ class TestBinariesRouter:
         from fastapi import FastAPI
         app = FastAPI()
         app.include_router(binaries_router, prefix="/binaries")
-        return TestClient(app, raise_server_exceptions=True, backend_options={"timeout": 5.0})
+        return TestClient(app, raise_server_exceptions=True)
 
     @patch("app.api.v1.endpoints.binaries._run_ghidra_analysis")
     @patch("app.api.v1.endpoints.binaries.get_settings")
