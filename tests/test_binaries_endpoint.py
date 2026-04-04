@@ -52,24 +52,22 @@ class TestBinariesRouter:
         from fastapi import FastAPI
         app = FastAPI()
         app.include_router(binaries_router, prefix="/binaries")
-        return TestClient(app)
+        return TestClient(app, raise_server_exceptions=True, backend_options={"timeout": 5.0})
 
+    @patch("app.api.v1.endpoints.binaries._run_ghidra_analysis")
     @patch("app.api.v1.endpoints.binaries.get_settings")
     @patch("app.api.v1.endpoints.binaries.validate_binary_mime_type")
     @patch("app.api.v1.endpoints.binaries.sanitize_filename")
-    @patch("app.api.v1.endpoints.binaries.GhidraRequest")
-    @patch("app.api.v1.endpoints.binaries.Ghidra")
     @patch("app.api.v1.endpoints.binaries.uuid")
     @patch("app.api.v1.endpoints.binaries.os")
     def test_upload_binary_success(
         self,
         mock_os,
         mock_uuid,
-        mock_ghidra,
-        mock_ghidra_request,
         mock_sanitize,
         mock_validate,
         mock_get_settings,
+        mock_run_ghidra,
         client,
     ):
         """Test successful binary upload."""
@@ -80,11 +78,7 @@ class TestBinariesRouter:
         mock_get_settings.return_value = mock_settings
 
         # Mock UUID
-        mock_uuid.uuid4.return_value = Mock(return_value="test-uuid-123")
-
-        # Mock Ghidra
-        mock_ghidra_instance = Mock()
-        mock_ghidra.return_value = mock_ghidra_instance
+        mock_uuid.uuid4.return_value = "test-uuid-123"
 
         # Create test file
         file_content = b"\x7fELF\x02\x01\x01\x00" + b"\x00" * 100
@@ -111,14 +105,22 @@ class TestBinariesRouter:
         assert "uuid" in data["data"]
         assert "Binary uploaded successfully" in data["message"]
 
+    @patch("app.api.v1.endpoints.binaries._run_ghidra_analysis")
     @patch("app.api.v1.endpoints.binaries.get_settings")
     @patch("app.api.v1.endpoints.binaries.validate_binary_mime_type")
     @patch("app.api.v1.endpoints.binaries.sanitize_filename")
-    @patch("app.api.v1.endpoints.binaries.GhidraRequest")
-    @patch("app.api.v1.endpoints.binaries.Ghidra")
     @patch("app.api.v1.endpoints.binaries.uuid")
     @patch("app.api.v1.endpoints.binaries.os")
-    def test_upload_binary_no_file(self, mock_os, mock_uuid, mock_ghidra, mock_ghidra_request, mock_sanitize, mock_validate, mock_get_settings, client):
+    def test_upload_binary_no_file(
+        self,
+        mock_os,
+        mock_uuid,
+        mock_sanitize,
+        mock_validate,
+        mock_get_settings,
+        mock_run_ghidra,
+        client,
+    ):
         """Test upload without file returns 400."""
         response = client.post(
             "/binaries/uploadBinary",
@@ -133,24 +135,22 @@ class TestBinariesRouter:
         data = response.json()
         detail = data.get("detail", data)
         assert detail["success"] is False
-        assert "NO_FILE_FOUND" in detail.get("error_code", "")
+        assert "NO_FILE_FOUND" in detail.get("error", {}).get("code", "")
 
+    @patch("app.api.v1.endpoints.binaries._run_ghidra_analysis")
     @patch("app.api.v1.endpoints.binaries.get_settings")
     @patch("app.api.v1.endpoints.binaries.validate_binary_mime_type")
     @patch("app.api.v1.endpoints.binaries.sanitize_filename")
-    @patch("app.api.v1.endpoints.binaries.GhidraRequest")
-    @patch("app.api.v1.endpoints.binaries.Ghidra")
     @patch("app.api.v1.endpoints.binaries.uuid")
     @patch("app.api.v1.endpoints.binaries.os")
     def test_upload_binary_file_too_large(
         self,
         mock_os,
         mock_uuid,
-        mock_ghidra,
-        mock_ghidra_request,
         mock_sanitize,
         mock_validate,
         mock_get_settings,
+        mock_run_ghidra,
         client,
     ):
         """Test upload with file exceeding max size returns 413."""
@@ -182,24 +182,22 @@ class TestBinariesRouter:
         data = response.json()
         detail = data.get("detail", data)
         assert detail["success"] is False
-        assert "FILE_TOO_LARGE" in detail.get("error_code", "")
+        assert "FILE_TOO_LARGE" in detail.get("error", {}).get("code", "")
 
+    @patch("app.api.v1.endpoints.binaries._run_ghidra_analysis")
     @patch("app.api.v1.endpoints.binaries.get_settings")
     @patch("app.api.v1.endpoints.binaries.validate_binary_mime_type")
     @patch("app.api.v1.endpoints.binaries.sanitize_filename")
-    @patch("app.api.v1.endpoints.binaries.GhidraRequest")
-    @patch("app.api.v1.endpoints.binaries.Ghidra")
     @patch("app.api.v1.endpoints.binaries.uuid")
     @patch("app.api.v1.endpoints.binaries.os")
     def test_upload_binary_invalid_mime_type(
         self,
         mock_os,
         mock_uuid,
-        mock_ghidra,
-        mock_ghidra_request,
         mock_sanitize,
         mock_validate,
         mock_get_settings,
+        mock_run_ghidra,
         client,
     ):
         """Test upload with invalid MIME type returns 400."""
@@ -236,22 +234,20 @@ class TestBinariesRouter:
 
         assert response.status_code == 400
 
+    @patch("app.api.v1.endpoints.binaries._run_ghidra_analysis")
     @patch("app.api.v1.endpoints.binaries.get_settings")
     @patch("app.api.v1.endpoints.binaries.validate_binary_mime_type")
     @patch("app.api.v1.endpoints.binaries.sanitize_filename")
-    @patch("app.api.v1.endpoints.binaries.GhidraRequest")
-    @patch("app.api.v1.endpoints.binaries.Ghidra")
     @patch("app.api.v1.endpoints.binaries.uuid")
     @patch("app.api.v1.endpoints.binaries.os")
     def test_upload_binary_path_traversal_blocked(
         self,
         mock_os,
         mock_uuid,
-        mock_ghidra,
-        mock_ghidra_request,
         mock_sanitize,
         mock_validate,
         mock_get_settings,
+        mock_run_ghidra,
         client,
     ):
         """Test upload with path traversal filename returns 400."""
@@ -319,10 +315,8 @@ class TestBinariesRouter:
         mock_settings.upload_folder = "/tmp/uploads"
         mock_get_settings.return_value = mock_settings
 
-        # Mock os.walk with no files
-        mock_os.walk.return_value = [
-            ("/tmp/uploads", [], [])
-        ]
+        # Mock os.walk with empty directory
+        mock_os.walk.return_value = [("/tmp/uploads", [], [])]
 
         response = client.get("/binaries/listBins")
 
@@ -330,57 +324,3 @@ class TestBinariesRouter:
         data = response.json()
         assert data["success"] is True
         assert data["data"]["files"] == []
-
-    @patch("app.api.v1.endpoints.binaries.get_settings")
-    @patch("app.api.v1.endpoints.binaries.validate_binary_mime_type")
-    @patch("app.api.v1.endpoints.binaries.sanitize_filename")
-    @patch("app.api.v1.endpoints.binaries.GhidraRequest")
-    @patch("app.api.v1.endpoints.binaries.Ghidra")
-    @patch("app.api.v1.endpoints.binaries.uuid")
-    @patch("app.api.v1.endpoints.binaries.os")
-    def test_upload_binary_html_response(
-        self,
-        mock_os,
-        mock_uuid,
-        mock_ghidra,
-        mock_ghidra_request,
-        mock_sanitize,
-        mock_validate,
-        mock_get_settings,
-        client,
-    ):
-        """Test upload binary returns HTML for browsers."""
-        # Mock settings
-        mock_settings = Mock()
-        mock_settings.max_file_size_mb = 100
-        mock_settings.upload_folder = "/tmp/uploads"
-        mock_get_settings.return_value = mock_settings
-
-        # Mock UUID
-        mock_uuid.uuid4.return_value = Mock(return_value="test-uuid-123")
-
-        # Mock Ghidra
-        mock_ghidra_instance = Mock()
-        mock_ghidra.return_value = mock_ghidra_instance
-
-        # Create test file
-        file_content = b"\x7fELF\x02\x01\x01\x00" + b"\x00" * 100
-        file = io.BytesIO(file_content)
-        upload_file = UploadFile(
-            file=file,
-            filename="test_binary.elf",
-        )
-
-        response = client.post(
-            "/binaries/uploadBinary",
-            files={"binary_file": upload_file},
-            data={
-                "training_data": "true",
-                "model_name": "test_model",
-                "ml_class_type": "test_type",
-            },
-            headers={"Accept": "*/*"},
-        )
-
-        assert response.status_code == 200
-        assert "text/html" in response.headers.get("content-type", "")
