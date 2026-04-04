@@ -12,16 +12,18 @@ def clean_queue():
         try:
             TaskService().service_queue.get_nowait()
             TaskService().service_queue.task_done()
-        except:
-            pass
+        except Exception:
+            # Break on any exception to avoid infinite loops
+            break
     yield
     # Clean up after the test
     while not TaskService().service_queue.empty():
         try:
             TaskService().service_queue.get_nowait()
             TaskService().service_queue.task_done()
-        except:
-            pass
+        except Exception:
+            # Break on any exception to avoid infinite loops
+            break
 
 
 class TestTaskService:

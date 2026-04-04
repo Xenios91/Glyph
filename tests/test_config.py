@@ -12,21 +12,29 @@ from app.config.settings import GlyphConfig
 
 
 @pytest.fixture(autouse=True)
-def cleanup_singleton_and_logging():
+def cleanup_singleton_and_logging(tmp_path):
     """Reset singleton state and logging before each test to prevent state leakage."""
     GlyphConfig._config = {}
     GlyphConfig._initialized = False
     GlyphConfig.__instance = None
+
+    # Create a temporary log file for each test
+    log_file = tmp_path / "glyph_log.log"
 
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[logging.FileHandler("glyph_log.log", mode="w", encoding="utf-8")],
+        handlers=[logging.FileHandler(str(log_file), mode="w", encoding="utf-8")],
     )
 
-    yield
+    yield log_file
+
+    # Clean up: close handlers and remove the log file
+    for handler in logging.root.handlers[:]:
+        handler.close()
+        logging.root.removeHandler(handler)
 
 
 @pytest.fixture
@@ -50,14 +58,15 @@ def test_set_cpu_cores_zero_or_negative():
     assert GlyphConfig.set_cpu_cores(-2) is False
 
 
-def test_set_cpu_cores_exceeds_max():
+def test_set_cpu_cores_exceeds_max(cleanup_singleton_and_logging):
     """Test that set_cpu_cores rejects values exceeding MAX_CPU_CORES."""
     MAX_CPU_CORES = os.cpu_count() or 1
     too_many = MAX_CPU_CORES + 1
 
     assert GlyphConfig.set_cpu_cores(too_many) is False
 
-    log_path = "glyph_log.log"
+    # Get the log file path from the fixture
+    log_path = cleanup_singleton_and_logging
     with open(log_path, "r", encoding="utf-8") as f:
         log_content = f.read()
     assert f"Attempted to set more than {MAX_CPU_CORES} CPU cores" in log_content

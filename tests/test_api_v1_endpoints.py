@@ -123,7 +123,6 @@ class TestConfigRouter:
         mock_settings = Mock()
         mock_get_settings.return_value = mock_settings
 
-        # Use valid cpu_cores value (MAX_CPU_CORES is 6)
         response = client.post(
             "/config/save",
             json={"max_file_size_mb": 100, "cpu_cores": 4},
@@ -135,15 +134,10 @@ class TestConfigRouter:
         assert "Configuration saved successfully" in data["message"]
 
     @patch("app.api.v1.endpoints.config.get_settings")
-    @patch("app.api.v1.endpoints.config.create_error_response")
-    def test_save_config_invalid_cpu_cores(self, mock_create_error, mock_get_settings, client):
+    def test_save_config_invalid_cpu_cores(self, mock_get_settings, client):
         """Test saving config with invalid CPU cores."""
         mock_settings = Mock()
         mock_get_settings.return_value = mock_settings
-
-        mock_response = Mock()
-        mock_response.model_dump.return_value = {"success": False, "error_code": "INVALID_CPU_CORES"}
-        mock_create_error.return_value = mock_response
 
         response = client.post(
             "/config/save",
@@ -152,19 +146,16 @@ class TestConfigRouter:
 
         assert response.status_code == 400
         data = response.json()
-        assert data["success"] is False
-        assert "INVALID_CPU_CORES" in data.get("error_code", "")
+        # HTTPException wraps detail in {"detail": ...}
+        detail = data.get("detail", data)
+        assert detail["success"] is False
+        assert "INVALID_CPU_CORES" in detail.get("error", {}).get("code", "")
 
     @patch("app.api.v1.endpoints.config.get_settings")
-    @patch("app.api.v1.endpoints.config.create_success_response")
-    def test_save_config_partial_update(self, mock_create_success, mock_get_settings, client):
+    def test_save_config_partial_update(self, mock_get_settings, client):
         """Test saving config with partial update."""
         mock_settings = Mock()
         mock_get_settings.return_value = mock_settings
-
-        mock_response = Mock()
-        mock_response.model_dump.return_value = {"success": True, "message": "Configuration saved successfully"}
-        mock_create_success.return_value = mock_response
 
         response = client.post(
             "/config/save",
@@ -188,16 +179,11 @@ class TestStatusRouter:
         return TestClient(app)
 
     @patch("app.api.v1.endpoints.status.Trainer")
-    @patch("app.api.v1.endpoints.status.create_success_response")
-    def test_get_status_success(self, mock_create_success, mock_trainer, client):
+    def test_get_status_success(self, mock_trainer, client):
         """Test getting status successfully."""
         mock_instance = Mock()
         mock_instance.get_status.return_value = "running"
         mock_trainer.return_value = mock_instance
-
-        mock_response = Mock()
-        mock_response.model_dump.return_value = {"success": True, "data": {"status": "running"}}
-        mock_create_success.return_value = mock_response
 
         response = client.get("/status/getStatus", params={"uuid": "test-uuid"})
 
@@ -207,35 +193,27 @@ class TestStatusRouter:
         assert data["data"]["status"] == "running"
 
     @patch("app.api.v1.endpoints.status.Trainer")
-    @patch("app.api.v1.endpoints.status.create_error_response")
-    def test_get_status_not_found(self, mock_create_error, mock_trainer, client):
+    def test_get_status_not_found(self, mock_trainer, client):
         """Test getting status for non-existent UUID."""
         mock_instance = Mock()
         mock_instance.get_status.return_value = "UUID Not Found"
         mock_trainer.return_value = mock_instance
 
-        mock_response = Mock()
-        mock_response.model_dump.return_value = {"success": False, "error_code": "UUID_NOT_FOUND"}
-        mock_create_error.return_value = mock_response
-
         response = client.get("/status/getStatus", params={"uuid": "non-existent"})
 
         assert response.status_code == 404
         data = response.json()
-        assert data["success"] is False
-        assert "UUID_NOT_FOUND" in data.get("error_code", "")
+        # HTTPException wraps detail in {"detail": ...}
+        detail = data.get("detail", data)
+        assert detail["success"] is False
+        assert "UUID_NOT_FOUND" in detail.get("error", {}).get("code", "")
 
     @patch("app.api.v1.endpoints.status.Trainer")
-    @patch("app.api.v1.endpoints.status.create_success_response")
-    def test_update_status_success(self, mock_create_success, mock_trainer, client):
+    def test_update_status_success(self, mock_trainer, client):
         """Test updating status successfully."""
         mock_instance = Mock()
         mock_instance.set_status.return_value = True
         mock_trainer.return_value = mock_instance
-
-        mock_response = Mock()
-        mock_response.model_dump.return_value = {"success": True}
-        mock_create_success.return_value = mock_response
 
         response = client.post(
             "/status/statusUpdate",
@@ -246,9 +224,7 @@ class TestStatusRouter:
         data = response.json()
         assert data["success"] is True
 
-    @patch("app.api.v1.endpoints.status.Trainer")
-    @patch("app.api.v1.endpoints.status.create_error_response")
-    def test_update_status_empty_fields(self, mock_create_error, mock_trainer, client):
+    def test_update_status_empty_fields(self, client):
         """Test updating status with empty fields."""
         # Pydantic's StringConstraints with strip_whitespace=True and min_length=1
         # will reject empty strings after stripping, returning a 422 validation error
@@ -264,16 +240,11 @@ class TestStatusRouter:
         assert "detail" in data
 
     @patch("app.api.v1.endpoints.status.Trainer")
-    @patch("app.api.v1.endpoints.status.create_error_response")
-    def test_update_status_not_found(self, mock_create_error, mock_trainer, client):
+    def test_update_status_not_found(self, mock_trainer, client):
         """Test updating status for non-existent UUID."""
         mock_instance = Mock()
         mock_instance.set_status.return_value = False
         mock_trainer.return_value = mock_instance
-
-        mock_response = Mock()
-        mock_response.model_dump.return_value = {"success": False, "error_code": "UUID_NOT_FOUND"}
-        mock_create_error.return_value = mock_response
 
         response = client.post(
             "/status/statusUpdate",
@@ -282,8 +253,10 @@ class TestStatusRouter:
 
         assert response.status_code == 404
         data = response.json()
-        assert data["success"] is False
-        assert "UUID_NOT_FOUND" in data.get("error_code", "")
+        # HTTPException wraps detail in {"detail": ...}
+        detail = data.get("detail", data)
+        assert detail["success"] is False
+        assert "UUID_NOT_FOUND" in detail.get("error", {}).get("code", "")
 
 
 class TestTasksRouter:

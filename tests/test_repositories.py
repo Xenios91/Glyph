@@ -1,10 +1,8 @@
 """Tests for database repositories."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from io import BytesIO
+import pickle
+from unittest.mock import Mock, patch
 
-import joblib
 
 from app.database.repositories.model_repository import ModelRepository
 from app.database.repositories.prediction_repository import PredictionRepository
@@ -147,14 +145,16 @@ class TestModelRepository:
         assert result is None
 
     @patch("app.database.repositories.model_repository.ModelRepository.get_model")
-    @patch("app.database.repositories.model_repository.joblib")
-    def test_get_model_data_deserialize_error(self, mock_joblib, mock_get_model):
+    @patch("app.database.repositories.model_repository.joblib.load")
+    def test_get_model_data_deserialize_error(self, mock_joblib_load, mock_get_model):
         """Test getting model data when deserialization fails."""
         mock_model = Mock(spec=Model)
         mock_model.model_name = "test_model"
+        mock_model.label_encoder_data = b"dummy_data"
+        mock_model.model_data = b"dummy_data"
         mock_get_model.return_value = mock_model
 
-        mock_joblib.load.side_effect = Exception("Deserialization error")
+        mock_joblib_load.side_effect = pickle.UnpicklingError("Deserialization error")
 
         result = ModelRepository.get_model_data("test_model")
 

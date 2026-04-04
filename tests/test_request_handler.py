@@ -1,9 +1,4 @@
 """Unit tests for request handler classes and data processing."""
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 from app.services.request_handler import (
     DataHandler,
     TrainingRequest,

@@ -36,37 +36,6 @@ class TestAPIRouter:
         routes = [route for route in api_v1_router.routes]
         assert len(routes) > 0
 
-    @patch("app.api.router.binaries")
-    @patch("app.api.router.config")
-    @patch("app.api.router.models")
-    @patch("app.api.router.predictions")
-    @patch("app.api.router.status")
-    def test_router_includes_all_endpoints(
-        self,
-        mock_status,
-        mock_predictions,
-        mock_models,
-        mock_config,
-        mock_binaries,
-    ):
-        """Test that router includes all expected endpoints."""
-        # Mock the endpoint modules
-        mock_binaries.router = Mock()
-        mock_config.router = Mock()
-        mock_models.router = Mock()
-        mock_predictions.router = Mock()
-        mock_status.router = Mock()
-
-        # Re-import to use mocks
-        import importlib
-        import app.api.router as router_module
-        importlib.reload(router_module)
-
-        # Check that include_router was called for each endpoint
-        # This verifies the router configuration
-        assert hasattr(router_module, "api_v1_router")
-        assert hasattr(router_module, "api_router")
-
     def test_all_exports_available(self):
         """Test that all expected exports are available."""
         from app.api import router

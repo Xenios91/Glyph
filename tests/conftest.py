@@ -1,7 +1,7 @@
 import sys
 from unittest.mock import MagicMock
 
-def pytest_sessionstart(session):
+def pytest_configure(config):
     """Mocks the Ghidra/Java world so pytest can collect tests safely."""
     mock_modules = [
         "ghidra", "ghidra.app.decompiler", "ghidra.framework.options",
