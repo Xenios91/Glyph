@@ -127,7 +127,7 @@ class EventWatcher:
                 # Get all futures we're watching
                 if not self._watched_futures:
                     # No futures to watch, wait before checking again
-                    time.sleep(0.5)
+                    time.sleep(2.5)
                     continue
 
                 # Extract futures for waiting
@@ -136,7 +136,7 @@ class EventWatcher:
                 ]
 
                 # Wait for any future to complete
-                done, _ = wait(futures_only, timeout=0.5, return_when=FIRST_COMPLETED)
+                done, _ = wait(futures_only, timeout=2.5, return_when=FIRST_COMPLETED)
 
                 for future in done:
                     # Find the corresponding job_uuid and request
@@ -157,8 +157,18 @@ class EventWatcher:
                                         job_uuid,
                                         callback_error,
                                     )
-                            # Remove from watched futures after callback
-                            #del self._watched_futures[job_uuid]
+                            if (
+                                self._watched_futures.get(job_uuid)
+                                and self._watched_futures[job_uuid][1] is future
+                            ):
+                                del self._watched_futures[job_uuid]
+                                logging.info("Cleaned up job: %s", job_uuid)
+                            else:
+                                logging.info(
+                                    "Job %s was re-registered by callback, keeping alive.",
+                                    job_uuid,
+                                )
+
                             break
 
             except Exception as loop_error:
