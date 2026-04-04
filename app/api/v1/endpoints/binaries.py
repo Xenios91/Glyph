@@ -13,8 +13,7 @@ import magic
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, StringConstraints
-from typing_extensions import Annotated
+from pydantic import BaseModel, Field, field_validator
 
 from app.config.settings import get_settings
 from app.services.request_handler import GhidraRequest
@@ -22,22 +21,71 @@ from app.processing.task_management import Ghidra
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 
 
-class UploadBinaryRequest(BaseModel):
-    """Request model for binary upload.
+class BinaryUploadForm(BaseModel):
+    """Pydantic model for binary upload form validation.
 
     Attributes:
-        binary_file: The binary file to upload.
-        training_data: Whether this is training data.
-        model_name: Name of the model to use.
-        ml_class_type: Type of ML classification.
-        task_name: Optional task name.
+        training_data: Whether this is training data ("true" or "false").
+        model_name: Name of the model to use (required, non-empty).
+        ml_class_type: Type of ML classification (required, non-empty).
+        task_name: Optional task name (empty string or non-empty).
     """
 
-    binary_file: UploadFile
-    training_data: str = "false"
-    model_name: str
-    ml_class_type: str
-    task_name: str | None = None
+    training_data: str = Field(
+        default="false",
+        description="Whether this is training data",
+    )
+    model_name: str = Field(
+        ...,
+        min_length=1,
+        description="Name of the model to use",
+    )
+    ml_class_type: str = Field(
+        ...,
+        min_length=1,
+        description="Type of ML classification",
+    )
+    task_name: str = Field(
+        default="",
+        description="Optional task name for prediction mode",
+    )
+
+    @field_validator("training_data", mode="before")
+    @classmethod
+    def validate_training_data(cls, v: str) -> str:
+        """Validate training_data is 'true' or 'false'."""
+        if v is None:
+            return "false"
+        v_lower = v.lower().strip()
+        if v_lower not in ("true", "false"):
+            raise ValueError("training_data must be 'true' or 'false'")
+        return v_lower
+
+    @field_validator("model_name", "ml_class_type", mode="before")
+    @classmethod
+    def strip_strings(cls, v: str) -> str:
+        """Strip whitespace from string fields."""
+        if v is None:
+            raise ValueError("Field cannot be empty")
+        return v.strip()
+
+    @field_validator("task_name", mode="before")
+    @classmethod
+    def strip_task_name(cls, v: str) -> str:
+        """Strip whitespace from task_name field."""
+        if v is None:
+            return ""
+        return v.strip()
+
+
+class BinaryUploadResponse(BaseModel):
+    """Response model for binary upload.
+
+    Attributes:
+        uuid: The unique identifier for the uploaded binary.
+    """
+
+    uuid: str = Field(..., description="Unique identifier for the uploaded binary")
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -118,15 +166,15 @@ def _run_ghidra_analysis(ghidra_request: GhidraRequest) -> None:
         raise
 
 
-@router.post("/uploadBinary", response_model=SuccessResponse[dict])
+@router.post("/uploadBinary", response_model=SuccessResponse[BinaryUploadResponse])
 async def post_upload_binary(
     background_tasks: BackgroundTasks,
     request: Request,
     binary_file: UploadFile = File(...),
     training_data: str = Form("false"),
-    model_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)] = Form(...),
-    ml_class_type: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)] = Form(...),
-    task_name: Annotated[str, StringConstraints(strip_whitespace=True)] = Form(""),
+    model_name: str = Form(...),
+    ml_class_type: str = Form(...),
+    task_name: str = Form(""),
 ):
     """Handle POST request for binary file uploads.
 
@@ -134,10 +182,10 @@ async def post_upload_binary(
         background_tasks: FastAPI BackgroundTasks for async task execution.
         request: The FastAPI request object.
         binary_file: The binary file to upload.
-        training_data: Whether this is training data.
-        model_name: Name of the model to use (automatically validated and stripped).
-        ml_class_type: Type of ML classification (automatically validated and stripped).
-        task_name: Optional task name (automatically stripped).
+        training_data: Whether this is training data ("true" or "false").
+        model_name: Name of the model to use.
+        ml_class_type: Type of ML classification.
+        task_name: Optional task name for prediction mode.
 
     Returns:
         JSONResponse with upload result or HTML template.
@@ -145,6 +193,14 @@ async def post_upload_binary(
     Raises:
         HTTPException: If validation fails or file is too large.
     """
+    # Validate form data using Pydantic model
+    form_data = BinaryUploadForm(
+        training_data=training_data,
+        model_name=model_name,
+        ml_class_type=ml_class_type,
+        task_name=task_name,
+    )
+
     accept = request.headers.get("Accept", "")
 
     if not binary_file.filename:
@@ -153,19 +209,6 @@ async def post_upload_binary(
             detail=create_error_response(
                 error_code="NO_FILE_FOUND",
                 error_message="no file found",
-            ).model_dump(),
-        )
-
-    try:
-        is_training_data: bool = training_data.lower() == "true"
-        # Validation is handled by Pydantic - strings are already stripped
-    except (AttributeError, ValueError) as exc:
-        logging.error("Failed to parse request parameters: %s", exc)
-        raise HTTPException(
-            status_code=400,
-            detail=create_error_response(
-                error_code="PARSE_ERROR",
-                error_message=str(exc),
             ).model_dump(),
         )
 
@@ -204,8 +247,10 @@ async def post_upload_binary(
     # Set restrictive file permissions (0o600 = owner read/write only)
     os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
 
+    is_training_data = form_data.training_data == "true"
+
     ghidra_task = GhidraRequest(
-        unique_filename, is_training_data, model_name, task_name, ml_class_type
+        unique_filename, is_training_data, form_data.model_name, form_data.task_name, form_data.ml_class_type
     )
     
     # Add Ghidra analysis as a background task
@@ -215,7 +260,7 @@ async def post_upload_binary(
         return templates.TemplateResponse("upload.html", {"request": request})
 
     return create_success_response(
-        data={"uuid": unique_filename},
+        data=BinaryUploadResponse(uuid=unique_filename),
         message="Binary uploaded successfully",
     )
 

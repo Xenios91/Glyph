@@ -4,7 +4,6 @@ import atexit
 import logging
 import os
 import signal
-import subprocess
 import uuid
 from concurrent.futures import Future, ProcessPoolExecutor
 from typing import Any
@@ -23,6 +22,7 @@ class TaskManager:
     """Base class for managing tasks in Glyph application."""
 
     exec_pool: ProcessPoolExecutor | None = None
+    _executor_shutdown: bool = False
     __instance: "TaskManager | None" = None
 
     def __init_subclass__(cls, **kwargs) -> None:
@@ -49,8 +49,9 @@ class TaskManager:
         Returns:
             The ProcessPoolExecutor instance.
         """
-        if cls.exec_pool is None or cls.exec_pool._shutdown:
+        if cls.exec_pool is None or cls._executor_shutdown:
             cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
+            cls._executor_shutdown = False
         return cls.exec_pool
 
     @classmethod
@@ -62,6 +63,7 @@ class TaskManager:
         if cls.exec_pool is not None:
             cls.exec_pool.shutdown(wait=False, cancel_futures=True)
             cls.exec_pool = None
+            cls._executor_shutdown = True
             logging.info("ProcessPoolExecutor shut down successfully")
 
     @classmethod

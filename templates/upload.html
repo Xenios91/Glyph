@@ -153,18 +153,18 @@
         }
 
         const taskElement = document.getElementById('task_name');
-        if (taskElement != null) {
+        if (taskElement != null && taskElement.value.trim() !== '') {
             const taskName = taskElement.value;
-            formData.append('taskName', taskName);
+            formData.append('task_name', taskName);
         }
         const mlClassType = document.getElementById('ml_class_type').value;
 
         const url = "/api/v1/binaries/uploadBinary";
 
-        formData.append('binaryFile', selectedFile);
-        formData.append('trainingData', trainingData);
-        formData.append('modelName', modelName);
-        formData.append('mlClassType', mlClassType);
+        formData.append('binary_file', selectedFile);
+        formData.append('training_data', trainingData);
+        formData.append('model_name', modelName);
+        formData.append('ml_class_type', mlClassType);
 
         $.ajax({
             type: "POST",
