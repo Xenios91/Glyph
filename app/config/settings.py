@@ -16,13 +16,11 @@ MAX_CPU_CORES = os.cpu_count() or 1
 class GlyphSettings(BaseSettings):
     """Pydantic-based configuration for Glyph application."""
 
-    # Ghidra configuration
     ghidra_location: Path = Field(..., description="Path to Ghidra installation")
     ghidra_project_location: Path = Field(..., description="Path to Ghidra project directory")
     ghidra_project_name: str = Field(..., description="Name of Ghidra project")
     glyph_script_location: Path = Field(..., description="Path to Glyph Ghidra scripts")
 
-    # Prediction configuration
     prediction_probability_threshold: float = Field(
         default=50.0,
         ge=0,
@@ -30,7 +28,6 @@ class GlyphSettings(BaseSettings):
         description="Minimum probability threshold for predictions (0-100)"
     )
 
-    # File upload configuration
     max_file_size_mb: int = Field(
         default=512,
         ge=1,
@@ -38,7 +35,6 @@ class GlyphSettings(BaseSettings):
         description="Maximum file size for uploads in MB"
     )
 
-    # Processing configuration
     cpu_cores: int = Field(
         default=2,
         ge=1,
@@ -46,7 +42,6 @@ class GlyphSettings(BaseSettings):
         description="Number of CPU cores for processing"
     )
 
-    # Computed/derived values
     upload_folder: Path = Field(default=Path("./binaries"), description="Upload directory")
 
     model_config = {
@@ -73,7 +68,6 @@ class GlyphSettings(BaseSettings):
         return Path(v) if isinstance(v, str) else v
 
 
-# Singleton instance
 _settings: GlyphSettings | None = None
 
 
@@ -105,10 +99,6 @@ def reload_settings() -> GlyphSettings:
     _settings = GlyphSettings()
     return _settings
 
-
-# ============================================================================
-# Legacy GlyphConfig class for backward compatibility
-# ============================================================================
 
 class GlyphConfig:
     """Configuration manager for Glyph application (legacy compatibility)."""

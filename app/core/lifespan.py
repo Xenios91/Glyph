@@ -17,15 +17,13 @@ async def lifespan(app: FastAPI):
     """Handle startup/shutdown logic correctly."""
     logger.info("Starting up Glyph service...")
 
-    # 1. Initialize config
     try:
-        get_settings()  # This will load and validate config
+        get_settings()
         logger.info("✅ Configuration loaded successfully.")
     except RuntimeError as e:
         logger.critical("Configuration failed: %s", e)
         raise
 
-    # 2. Initialize DB (with proper error handling)
     try:
         SQLUtil.init_db()
         logger.info("✅ Database initialized.")
@@ -33,7 +31,6 @@ async def lifespan(app: FastAPI):
         logger.exception("❌ Failed to initialize database.")
         raise RuntimeError("Database initialization failed.") from e
 
-    # 3. Start TaskService *after* DB/config are ready
     try:
         threading.Thread(target=TaskService.start_service, daemon=True).start()
         logger.info("✅ Task service started in background thread.")
@@ -41,7 +38,6 @@ async def lifespan(app: FastAPI):
         logger.exception("❌ Failed to start TaskService.")
         raise RuntimeError("Task service startup failed.") from e
 
-    # 4. Start EventWatcher to monitor task futures and invoke callbacks
     try:
         EventWatcher().start_watching()
         logger.info("✅ EventWatcher started.")
@@ -53,5 +49,4 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         logger.info("Shutting down Glyph service...")
-        # Stop EventWatcher during shutdown
         EventWatcher().stop_watching()
