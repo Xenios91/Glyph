@@ -17,32 +17,36 @@ from app.utils.persistence_util import (
 )
 from app.utils.helpers import ACCEPT_TYPE
 from app.utils.common import format_code, build_prediction_details_response
-from app.utils.responses import create_success_response, create_error_response, SuccessResponse
+from app.utils.responses import (
+    create_success_response,
+    create_error_response,
+    SuccessResponse,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 
 @router.delete("/deleteModel", response_model=SuccessResponse[dict])
-async def delete_model(modelName: ModelName = Query(...)):
+async def delete_model(model_name: ModelName = Query(...)):
     """
     Handles a DELETE request to delete a supplied model by name.
-    
+
     Args:
         model_name: The name of the model to delete (automatically validated and stripped).
-        
+
     Returns:
         Success response when model is deleted.
     """
     try:
-        MLPersistanceUtil.delete_model(modelName)
-        PredictionPersistanceUtil.delete_model_predictions(modelName)
+        MLPersistanceUtil.delete_model(model_name)
+        PredictionPersistanceUtil.delete_model_predictions(model_name)
         return create_success_response(
             data={},
             message="Model deleted successfully",
         )
     except Exception as exc:
-        logging.error("Failed to delete model '%s': %s", modelName, exc)
+        logging.error("Failed to delete model '%s': %s", model_name, exc)
         raise HTTPException(
             status_code=500,
             detail=create_error_response(
@@ -55,25 +59,25 @@ async def delete_model(modelName: ModelName = Query(...)):
 @router.get("/getFunction", response_model=SuccessResponse[dict])
 async def get_function(
     request: Request,
-    modelName: ModelName = Query(...),
+    model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
 ):
     """
     Handles a GET request to return a specific function associated with a model.
-    
+
     Args:
         request: The FastAPI request object.
         model_name: The name of the model (automatically validated and stripped).
         function_name: The name of the function (automatically validated and stripped).
-        
+
     Returns:
         Function information or HTML template response.
-        
+
     Raises:
         HTTPException: If function is not found.
     """
-    function_information: dict = FunctionPersistanceUtil.get_function(
-        modelName, function_name
+    function_information: list = FunctionPersistanceUtil.get_function(
+        model_name, function_name
     )
 
     if not function_information:
@@ -85,9 +89,9 @@ async def get_function(
             ).model_dump(),
         )
 
-    f_name = function_information.get("function_name", "")
-    f_entry = function_information.get("entrypoint", "")
-    f_tokens = format_code(function_information.get("tokens", ""))
+    f_name = function_information[1]
+    f_entry = function_information[2]
+    f_tokens = format_code(function_information[3])
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE not in accept:
@@ -100,7 +104,7 @@ async def get_function(
         "get_function.html",
         {
             "request": request,
-            "model_name": modelName,
+            "model_name": model_name,
             "function_name": f_name,
             "function_entry": f_entry,
             "tokens": f_tokens,
@@ -109,18 +113,18 @@ async def get_function(
 
 
 @router.get("/getFunctions", response_model=SuccessResponse[dict])
-async def get_functions(request: Request, modelName: ModelName = Query(...)):
+async def get_functions(request: Request, model_name: ModelName = Query(...)):
     """
     Handles a GET request to return all identified functions associated with a model.
-    
+
     Args:
         request: The FastAPI request object.
-        modelName: The name of the model (automatically validated and stripped).
-        
+        model_name: The name of the model (automatically validated and stripped).
+
     Returns:
         List of functions or HTML template response.
     """
-    functions: list = FunctionPersistanceUtil.get_functions(modelName)
+    functions: list = FunctionPersistanceUtil.get_functions(model_name)
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE not in accept:
@@ -134,7 +138,7 @@ async def get_functions(request: Request, modelName: ModelName = Query(...)):
         {
             "request": request,
             "bin_name": "test",
-            "model_name": modelName,
+            "model_name": model_name,
             "functions": functions,
         },
     )
@@ -143,28 +147,28 @@ async def get_functions(request: Request, modelName: ModelName = Query(...)):
 @router.get("/getPredictionDetails", response_model=SuccessResponse[dict])
 async def get_prediction_details(
     request: Request,
-    modelName: ModelName = Query(...),
+    model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
     task_name: TaskName = Query(...),
 ):
     """Displays specific details of a prediction.
-    
+
     Args:
         request: The FastAPI request object.
-        modelName: The name of the model (automatically validated and stripped).
+        model_name: The name of the model (automatically validated and stripped).
         function_name: The name of the function (automatically validated and stripped).
         task_name: The name of the task (automatically validated and stripped).
-        
+
     Returns:
         Prediction details or HTML template response.
-        
+
     Raises:
         HTTPException: If function or prediction is not found.
     """
     try:
-        model_info = FunctionPersistanceUtil.get_function(modelName, function_name)
+        model_info = FunctionPersistanceUtil.get_function(model_name, function_name)
         prediction_data = FunctionPersistanceUtil.get_prediction_function(
-            task_name, modelName, function_name
+            task_name, model_name, function_name
         )
 
         if not model_info:
@@ -205,7 +209,7 @@ async def get_prediction_details(
             {
                 "request": request,
                 "task_name": task_name,
-                "model_name": modelName,
+                "model_name": model_name,
                 "function_name": function_name,
                 "model_tokens": model_tokens,
                 "prediction_tokens": prediction_tokens,
@@ -214,7 +218,7 @@ async def get_prediction_details(
 
     return create_success_response(
         data=build_prediction_details_response(
-            task_name, modelName, function_name, model_tokens, prediction_tokens
+            task_name, model_name, function_name, model_tokens, prediction_tokens
         ),
         message="Prediction details retrieved successfully",
     )

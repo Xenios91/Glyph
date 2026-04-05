@@ -52,7 +52,7 @@
         const currentURL = window.location.href;
         const splitIndex = currentURL.lastIndexOf("/");
         const baseUrl = currentURL.substring(0, splitIndex);
-        window.location = baseUrl + "/getPrediction?taskName=" + encodeURIComponent(taskName) + "&modelName=" + encodeURIComponent(modelName);
+        window.location = baseUrl + "/getPrediction?task_name=" + encodeURIComponent(taskName) + "&model_name=" + encodeURIComponent(modelName);
     }
 
     document.addEventListener('DOMContentLoaded', function() {

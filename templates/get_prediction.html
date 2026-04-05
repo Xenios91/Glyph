@@ -42,7 +42,7 @@
     function goToURL(functionName, modelName, taskName) {
         const currentURL = window.location.href;
         const splitIndex = currentURL.lastIndexOf("/");
-        const url = currentURL.substring(splitIndex, 0) + "/models/getPredictionDetails?functionName=" + encodeURIComponent(functionName) + "&taskName=" + encodeURIComponent(taskName) + "&modelName=" + encodeURIComponent(modelName);
+        const url = currentURL.substring(splitIndex, 0) + "/models/getPredictionDetails?function_name=" + encodeURIComponent(functionName) + "&task_name=" + encodeURIComponent(taskName) + "&model_name=" + encodeURIComponent(modelName);
         if (url) {
             window.location = url;
         }
@@ -66,7 +66,7 @@
     function deletePrediction() {
         var selection = document.getElementById("task-name").innerText;
         var taskToDelete = selection.split(':')[1].replace(/\s+/, "");
-        var url = "/models/deletePrediction" + "?taskName=" + taskToDelete;
+        var url = "/models/deletePrediction" + "?task_name=" + taskToDelete;
 
         fetch(url, {
             method: 'DELETE',

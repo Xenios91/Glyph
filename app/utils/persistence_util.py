@@ -165,7 +165,9 @@ class MLPersistanceUtil:
             SQLUtil.save_model(model_name, serialized_encoder, serialized_model)
         except Exception as error:
             logging.error("Failed to serialize model '%s': %s", model_name, error)
-            raise RuntimeError(f"Could not serialize model data for '{model_name}'") from error
+            raise RuntimeError(
+                f"Could not serialize model data for '{model_name}'"
+            ) from error
 
     @staticmethod
     def load_model(model_name: str) -> tuple[Any, Any]:
@@ -215,7 +217,9 @@ class MLPersistanceUtil:
                 type(error).__name__,
                 error,
             )
-            raise RuntimeError(f"Model data for '{model_name}' failed security validation") from error
+            raise RuntimeError(
+                f"Model data for '{model_name}' failed security validation"
+            ) from error
         except Exception as error:
             logging.error(
                 "Failed to deserialize model '%s': %s: %s",
@@ -223,7 +227,9 @@ class MLPersistanceUtil:
                 type(error).__name__,
                 error,
             )
-            raise RuntimeError(f"Could not deserialize model data for '{model_name}'") from error
+            raise RuntimeError(
+                f"Could not deserialize model data for '{model_name}'"
+            ) from error
 
     @staticmethod
     def get_models_list() -> set[str]:
@@ -286,7 +292,7 @@ class FunctionPersistanceUtil:
         return functions if functions else []
 
     @staticmethod
-    def get_function(model_name: str, function_name: str) -> dict:
+    def get_function(model_name: str, function_name: str) -> list[str]:
         """Get a specific function by name.
 
         Args:
@@ -302,7 +308,7 @@ class FunctionPersistanceUtil:
         if not model_name or not function_name:
             raise ValueError("model_name and function_name must be non-empty strings")
         function: list = SQLUtil.get_function(model_name, function_name)
-        return function[0] if function else {}
+        return function if function else []
 
     @staticmethod
     def add_model_functions(training_request: TrainingRequest) -> None:
@@ -349,7 +355,9 @@ class FunctionPersistanceUtil:
                 updated_function = function.copy()
                 updated_function["functionName"] = predictions[ctr]
                 functions[ctr] = updated_function
-            SQLUtil.save_predictions(task_name, prediction_request.model_name, functions)
+            SQLUtil.save_predictions(
+                task_name, prediction_request.model_name, functions
+            )
         elif functions:
             logging.warning(
                 "Mismatch between functions (%d) and predictions (%d) for task '%s'",
