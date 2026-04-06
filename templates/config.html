@@ -4,6 +4,9 @@
 <link rel="stylesheet" href="{{ url_for('static', path='css/config_style.css') }}">
 {% endblock head %}
 {% block content %}
+{% set max_file_size = current_max_file_size | default(512) %}
+{% set cpu_cores = current_cpu_cores | default(2) %}
+{% set max_cores = max_cpu_cores | default(32) %}
 <div class="page-content blue-bg">
     <div id="config-box" class="nes-container with-title is-centered">
         <p class="title">// SYSTEM CONFIGURATION</p>
@@ -16,16 +19,15 @@
                     <label for="max-file-size">Max File Upload Size</label>
                     <div class="slider-track">
                         <input id="max-file-size" type="range" class="nes-range is-success" min="1" max="2048"
-                            value="{{ current_max_file_size | default(512) }}" step="1"
+                            value="{{ max_file_size }}" step="1"
                             oninput="updateSlider('max-file-size', 'max-file-size-val', ' MB')">
-                        <span class="slider-value" id="max-file-size-val">{{ current_max_file_size | default(512) }}
-                            MB</span>
+                        <span class="slider-value" id="max-file-size-val">{{ max_file_size }} MB</span>
                     </div>
                 </div>
                 <div class="config-row">
                     <label for="max-file-size-input">Set Exact Value</label>
                     <input type="number" id="max-file-size-input" class="nes-input" min="1" max="2048"
-                        value="{{ current_max_file_size | default(512) }}"
+                        value="{{ max_file_size }}"
                         oninput="syncFromInput('max-file-size', 'max-file-size-val', this.value, ' MB')">
                     <span class="unit-label">MB</span>
                 </div>
@@ -42,17 +44,16 @@
                     <label for="cpu-cores">Total CPU Cores (Analysis Workers)</label>
                     <div class="slider-track">
                         <input id="cpu-cores" type="range" class="nes-range is-warning" min="1"
-                            max="{{ max_cpu_cores | default(32) }}" value="{{ current_cpu_cores | default(2) }}"
+                            max="{{ max_cores }}" value="{{ cpu_cores }}"
                             step="1" oninput="updateSlider('cpu-cores', 'cpu-cores-val', ' cores')">
-                        <span class="slider-value is-warning" id="cpu-cores-val">{{ current_cpu_cores | default(2) }}
-                            cores</span>
+                        <span class="slider-value is-warning" id="cpu-cores-val">{{ cpu_cores }} cores</span>
                     </div>
                 </div>
 
                 <div class="config-row">
                     <label for="cpu-cores-input">Set Exact Value</label>
                     <input type="number" id="cpu-cores-input" class="nes-input" min="1"
-                        max="{{ max_cpu_cores | default(32) }}" value="{{ current_cpu_cores | default(2) }}"
+                        max="{{ max_cores }}" value="{{ cpu_cores }}"
                         oninput="syncFromInput('cpu-cores', 'cpu-cores-val', this.value, ' cores')">
                     <span class="unit-label">cores</span>
                 </div>
@@ -131,4 +132,4 @@
         else { msg.textContent = okMsg; }
     }
 </script>
-{% endblock %}
+{% endblock content %}

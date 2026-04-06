@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@500&display=swap" rel="stylesheet">
     <title>{{ title | e }}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
-    {% block head %}{% endblock head %}
+    {%- block head %}{%- endblock head %}
 </head>
 <script>
     (function () {
@@ -36,7 +36,7 @@
 
     <!-- Page content -->
     <div class="page-content">
-        {% block content %}{% endblock %}
+        {%- block content %}{%- endblock content %}
     </div>
 
     {% include 'components/scripts.html' %}
