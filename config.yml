@@ -1,12 +1,3 @@
-#ghidra config
-
-ghidra_location: /home/dsu/ghidra_10.3.1_PUBLIC/
-ghidra_project_location: /home/dsu/
-ghidra_project_name: glyph
-glyph_script_location: /home/dsu/ghidra_10.3.1_PUBLIC/Ghidra/Features/Base/ghidra_scripts/
-
-#probability config
-
 prediction_probability_threshold: 50.0 # must be a value between 0-100
 
 max_file_size_mb: 512 # maximum file size in MB for uploaded binaries
