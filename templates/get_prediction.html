@@ -40,43 +40,5 @@
     </div>
 </div>
 
-<script>
-    function goToURL(functionName, modelName, taskName) {
-        const currentURL = window.location.href;
-        const splitIndex = currentURL.lastIndexOf("/");
-        const url = currentURL.substring(splitIndex, 0) + "/models/getPredictionDetails?function_name=" + encodeURIComponent(functionName) + "&task_name=" + encodeURIComponent(taskName) + "&model_name=" + encodeURIComponent(modelName);
-        if (url) {
-            window.location = url;
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        // Handle row clicks for function details
-        document.querySelectorAll('tr[id^="prediction-func-"]').forEach(function(row) {
-            row.addEventListener('click', function() {
-                const functionName = this.getAttribute('data-function-name');
-                const modelName = this.getAttribute('data-model-name');
-                const taskName = this.getAttribute('data-task-name');
-                goToURL(functionName, modelName, taskName);
-            });
-        });
-
-        // Handle delete prediction button
-        document.querySelector('.delete-prediction-btn').addEventListener('click', deletePrediction);
-    });
-
-    function deletePrediction() {
-        var selection = document.getElementById("task-name").innerText;
-        var taskToDelete = selection.split(':')[1].replace(/\s+/, "");
-        var url = "/models/deletePrediction" + "?task_name=" + taskToDelete;
-
-        fetch(url, {
-            method: 'DELETE',
-            headers: { 'Content-type': 'application/json' }
-        });
-
-        window.location = "/";
-    }
-</script>
-
+<script src="{{ url_for('static', path='js/predictions.js') }}"></script>
 {% endblock content %}

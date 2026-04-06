@@ -49,22 +49,5 @@
     </div>
 </div>
 
-<script>
-    function viewPrediction(taskName, modelName) {
-        const currentURL = window.location.href;
-        const splitIndex = currentURL.lastIndexOf("/");
-        const baseUrl = currentURL.substring(0, splitIndex);
-        window.location = baseUrl + "/getPrediction?task_name=" + encodeURIComponent(taskName) + "&model_name=" + encodeURIComponent(modelName);
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.view-prediction-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                const taskName = this.getAttribute('data-task-name');
-                const modelName = this.getAttribute('data-model-name');
-                viewPrediction(taskName, modelName);
-            });
-        });
-    });
-</script>
+<script src="{{ url_for('static', path='js/predictions.js') }}"></script>
 {% endblock content %}

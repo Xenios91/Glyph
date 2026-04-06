@@ -22,24 +22,5 @@
     </div>
 </div>
 
-<script>
-    function deleteFunction() {
-        var selection = document.getElementById("function-name").innerText;
-        var functionToDelete = selection.split(':')[1].replace(/\s+/, "");
-        var currentURL = window.location.href;
-        var url = "/model/deleteFunction" + "?function_name=" + functionToDelete;
-
-        if (url) {
-            window.location = '/';
-        }
-
-        fetch(url, {
-            method: 'DELETE',
-            headers: {
-                'Content-type': 'application/json'
-            }
-        });
-    }
-</script>
-
+<script src="{{ url_for('static', path='js/functions.js') }}"></script>
 {% endblock content %}

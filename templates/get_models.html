@@ -17,29 +17,6 @@
     {% set animate = true %}
     {% include 'components/empty_state.html' %}
     {% endif %}
-    <script>
-        function goToModelURL(id) {
-            const model_name = id.slice(0, -3);
-            const status = document.getElementById(model_name + "-status");
-            if (status.innerText.trim() == "complete") {
-                const currentURL = window.location.href;
-                const splitIndex = currentURL.lastIndexOf("/");
-                const url = currentURL.substring(0, splitIndex) + "/api/v1/models/getFunctions?model_name=" + model_name;
-                if (url) { window.location = url; }
-            } else if (status.innerText.trim() == "N/A") {
-                alert('No analysis has been performed yet!');
-            } else {
-                alert('Binary Analysis is not complete!');
-            }
-        }
-
-        function deleteModelEntry() {
-            var selection = document.getElementById("file-name").innerText;
-            var binToDelete = selection.split(':')[1].replace(/\s+/, "");
-            var currentURL = window.location.href;
-            var url = "/models/getSymbols" + "?binaryDel=" + binToDelete;
-            if (url) { window.location = url; }
-        }
-    </script>
+    <script src="{{ url_for('static', path='js/models.js') }}"></script>
 </div>
 {% endblock content %}

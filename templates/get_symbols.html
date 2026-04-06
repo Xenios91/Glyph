@@ -39,29 +39,5 @@
     </div>
 </div>
 
-<script>
-    function goToFunctionURL(id) {
-        const functionName = id.slice(0, -3);
-        const url = "/api/v1/models/getFunction?function_name=" + functionName + "&model_name=" + "{{ model_name }}";
-        if (url) {
-            window.location = url;
-        }
-    }
-
-    function deleteModel() {
-        var selection = document.getElementById("model-name").innerText;
-        var modelToDelete = selection.split(':')[1].replace(/\s+/, "");
-        var url = "/api/v1/models/deleteModel?model_name=" + modelToDelete;
-
-        fetch(url, {
-            method: 'DELETE',
-            headers: {
-                'Content-type': 'application/json'
-            }
-        }).then(() => {
-            window.location = "/";
-        });
-    }
-</script>
-
+<script src="{{ url_for('static', path='js/symbols.js') }}"></script>
 {% endblock content %}

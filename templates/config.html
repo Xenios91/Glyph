@@ -79,57 +79,5 @@
     </div>
 </div>
 
-<script>
-    function updateSlider(sliderId, labelId, unit) {
-        const slider = document.getElementById(sliderId);
-        document.getElementById(labelId).textContent = slider.value + unit;
-        const map = { 'max-file-size': 'max-file-size-input', 'cpu-cores': 'cpu-cores-input' };
-        if (map[sliderId]) document.getElementById(map[sliderId]).value = slider.value;
-    }
-
-    function syncFromInput(sliderId, labelId, value, unit) {
-        const slider = document.getElementById(sliderId);
-        const clamped = Math.min(Math.max(parseInt(value) || slider.min, slider.min), slider.max);
-        slider.value = clamped;
-        document.getElementById(labelId).textContent = clamped + unit;
-    }
-
-    function saveConfig() {
-        const config = {
-            max_file_size_mb: parseInt(document.getElementById('max-file-size').value),
-            cpu_cores: parseInt(document.getElementById('cpu-cores').value),
-        };
-        fetch('/api/v1/config/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(config)
-        })
-            .then(res => showStatus(res.ok,
-                '[ ✔ ] CONFIGURATION SAVED SUCCESSFULLY.',
-                '[ ✘ ] ERROR: FAILED TO SAVE CONFIGURATION.'))
-            .catch(() => showStatus(false, '', '[ ✘ ] ERROR: NETWORK FAILURE.'));
-    }
-
-    function resetDefaults() {
-        document.getElementById('max-file-size').value = 512;
-        updateSlider('max-file-size', 'max-file-size-val', ' MB');
-        document.getElementById('max-file-size-input').value = 512;
-
-        document.getElementById('cpu-cores').value = 2;
-        updateSlider('cpu-cores', 'cpu-cores-val', ' cores');
-        document.getElementById('cpu-cores-input').value = 2;
-
-        showStatus(null, '[ ↺ ] DEFAULTS RESTORED. PRESS SAVE TO APPLY.', '');
-    }
-
-    function showStatus(success, okMsg, errMsg) {
-        const box = document.getElementById('save-status');
-        const msg = document.getElementById('save-status-msg');
-        box.style.display = 'block';
-        box.classList.remove('is-success', 'is-error');
-        if (success === true) { box.classList.add('is-success'); msg.textContent = okMsg; }
-        else if (success === false) { box.classList.add('is-error'); msg.textContent = errMsg; }
-        else { msg.textContent = okMsg; }
-    }
-</script>
+<script src="{{ url_for('static', path='js/config.js') }}"></script>
 {% endblock content %}
