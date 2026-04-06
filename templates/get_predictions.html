@@ -1,6 +1,8 @@
 {% extends "layout.html" %}
-{% block content %}
+{% block head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/predictions_style.css') }}">
+{% endblock head %}
+{% block content %}
 <div class="content blue-bg">
     <div class="center-contents">
         <h2>Predictions List</h2>

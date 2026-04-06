@@ -1,6 +1,8 @@
 {% extends "layout.html" %}
-{% block content %}
+{% block head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/upload_style.css') }}">
+{% endblock head %}
+{% block content %}
 <div class="content blue-bg">
     <div id="upload-box" class="nes-container with-title is-centered">
         <p class="title">// UPLOAD</p>

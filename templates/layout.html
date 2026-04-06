@@ -9,8 +9,12 @@
     <link rel="shortcut icon" href="{{ url_for('static', path='favicon.ico') }}">
     <link href="https://unpkg.com/nes.css/css/nes.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@500&display=swap" rel="stylesheet">
     <title>{{ title | e }}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    {% block head %}{% endblock head %}
 </head>
 <script>
     (function () {

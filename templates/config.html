@@ -1,8 +1,9 @@
 {% extends "layout.html" %}
-{% block content %}
+{% block head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/upload_style.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', path='css/config_style.css') }}">
-
+{% endblock head %}
+{% block content %}
 <div class="page-content blue-bg">
     <div id="config-box" class="nes-container with-title is-centered">
         <p class="title">// SYSTEM CONFIGURATION</p>
@@ -97,7 +98,7 @@
             max_file_size_mb: parseInt(document.getElementById('max-file-size').value),
             cpu_cores: parseInt(document.getElementById('cpu-cores').value),
         };
-        fetch('/config/save', {
+        fetch('/api/v1/config/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(config)
