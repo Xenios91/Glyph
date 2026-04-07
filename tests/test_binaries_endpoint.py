@@ -1,37 +1,31 @@
 """Tests for binaries API v1 endpoints."""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
 from fastapi import UploadFile
 import io
 
-from app.api.v1.endpoints.binaries import router as binaries_router, UploadBinaryRequest
+from app.api.v1.endpoints.binaries import router as binaries_router, BinaryUploadForm
 
 
-class TestUploadBinaryRequest:
-    """Tests for UploadBinaryRequest model."""
+class TestBinaryUploadForm:
+    """Tests for BinaryUploadForm model."""
 
-    def test_upload_binary_request_minimal(self):
-        """Test UploadBinaryRequest with minimal fields."""
-        mock_file = Mock(spec=UploadFile)
-        mock_file.filename = "test.bin"
-        request = UploadBinaryRequest(
-            binary_file=mock_file,
+    def test_binary_upload_form_minimal(self):
+        """Test BinaryUploadForm with minimal fields."""
+        request = BinaryUploadForm(
             model_name="test_model",
             ml_class_type="test_type",
         )
         assert request.model_name == "test_model"
         assert request.ml_class_type == "test_type"
         assert request.training_data == "false"
-        assert request.task_name is None
+        assert request.task_name == ""
 
-    def test_upload_binary_request_full(self):
-        """Test UploadBinaryRequest with all fields."""
-        mock_file = Mock(spec=UploadFile)
-        mock_file.filename = "test.bin"
-        request = UploadBinaryRequest(
-            binary_file=mock_file,
+    def test_binary_upload_form_full(self):
+        """Test BinaryUploadForm with all fields."""
+        request = BinaryUploadForm(
             training_data="true",
             model_name="test_model",
             ml_class_type="test_type",
