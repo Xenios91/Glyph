@@ -48,10 +48,10 @@ async function deleteModel() {
     const url = '/api/v1/models/deleteModel?model_name=' + encodeURIComponent(modelToDelete);
     
     try {
-        await fetch(url, {
+        await fetch(url, getFetchOptionsWithCsrf({
             method: 'DELETE',
             headers: { 'Content-type': 'application/json' }
-        });
+        }));
         
         // Redirect to home after deletion
         window.location = '/';

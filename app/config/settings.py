@@ -16,56 +16,31 @@ MAX_CPU_CORES = os.cpu_count() or 1
 class GlyphSettings(BaseSettings):
     """Pydantic-based configuration for Glyph application."""
 
-    ghidra_location: Path = Field(..., description="Path to Ghidra installation")
-    ghidra_project_location: Path = Field(..., description="Path to Ghidra project directory")
-    ghidra_project_name: str = Field(..., description="Name of Ghidra project")
-    glyph_script_location: Path = Field(..., description="Path to Glyph Ghidra scripts")
-
     prediction_probability_threshold: float = Field(
         default=50.0,
         ge=0,
         le=100,
-        description="Minimum probability threshold for predictions (0-100)"
+        description="Minimum probability threshold for predictions (0-100)",
     )
 
     max_file_size_mb: int = Field(
-        default=512,
-        ge=1,
-        le=2048,
-        description="Maximum file size for uploads in MB"
+        default=512, ge=1, le=2048, description="Maximum file size for uploads in MB"
     )
 
     cpu_cores: int = Field(
-        default=2,
-        ge=1,
-        le=32,
-        description="Number of CPU cores for processing"
+        default=2, ge=1, le=32, description="Number of CPU cores for processing"
     )
 
-    upload_folder: Path = Field(default=Path("./binaries"), description="Upload directory")
+    upload_folder: Path = Field(
+        default=Path("./binaries"), description="Upload directory"
+    )
 
-    model_config = {
-        "env_prefix": "GLYPH_",
-        "extra": "ignore"
-    }
+    model_config = {"env_prefix": "GLYPH_", "extra": "ignore"}
 
     @classmethod
     def settings_customise_sources(cls, *args, **kwargs):
         """Customize settings sources to prioritize YAML file."""
-        return (
-            YamlConfigSettingsSource(cls, "config.yml"),
-        )
-
-    @field_validator(
-        'ghidra_location',
-        'ghidra_project_location',
-        'glyph_script_location',
-        mode='before'
-    )
-    @classmethod
-    def convert_to_path(cls, v):
-        """Convert string paths to Path objects."""
-        return Path(v) if isinstance(v, str) else v
+        return (YamlConfigSettingsSource(cls, "config.yml"),)
 
 
 _settings: GlyphSettings | None = None

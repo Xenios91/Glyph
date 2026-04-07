@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.core.lifespan import lifespan
+from app.core.csrf import CSRFMiddleware
 from app.api.router import api_router
 from app.web.endpoints.web import router as web_router
 
@@ -31,6 +32,10 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         strict_content_type=True,
     )
+
+    # Add CSRF protection middleware
+    app.add_middleware(CSRFMiddleware)
+    logger.info("✅ CSRF middleware added")
 
     try:
         app.mount("/static", StaticFiles(directory="static"), name="static")

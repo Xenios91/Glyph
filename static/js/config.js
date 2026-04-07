@@ -55,11 +55,11 @@ async function saveConfig() {
     };
     
     try {
-        const response = await fetch('/api/v1/config/save', {
+        const response = await fetch('/api/v1/config/save', getFetchOptionsWithCsrf({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(config)
-        });
+        }));
         
         showStatus(
             response.ok,

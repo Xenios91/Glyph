@@ -36,3 +36,32 @@ function getBaseUrl() {
     const splitIndex = currentURL.lastIndexOf("/");
     return currentURL.substring(0, splitIndex);
 }
+
+/**
+ * Get CSRF token from cookie
+ * @returns {string|null} CSRF token or null if not found
+ */
+function getCsrfToken() {
+    const name = "csrf_token";
+    const value = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return value ? value.pop() : null;
+}
+
+/**
+ * Create fetch options with CSRF token
+ * @param {Object} options - Original fetch options
+ * @returns {Object} Fetch options with CSRF header added
+ */
+function getFetchOptionsWithCsrf(options) {
+    const csrfToken = getCsrfToken();
+    const headers = { ...options.headers };
+    
+    if (csrfToken) {
+        headers["X-CSRF-Token"] = csrfToken;
+    }
+    
+    return {
+        ...options,
+        headers: headers
+    };
+}

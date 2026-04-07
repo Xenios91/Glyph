@@ -72,12 +72,15 @@ function uploadBinary() {
     formData.append('model_name', modelName);
     formData.append('ml_class_type', mlClassType);
     
+    const csrfToken = getCsrfToken();
+    
     $.ajax({
         type: 'POST',
         url: url,
         data: formData,
         processData: false,
         contentType: false,
+        headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
         success: function (data, status, xhr) {
             var uploadMessage = document.getElementById('upload-message');
             var uploadBox = document.getElementById('upload-box');

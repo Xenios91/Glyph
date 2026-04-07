@@ -19,10 +19,10 @@ async function deleteFunction() {
     const url = '/model/deleteFunction?function_name=' + encodeURIComponent(functionToDelete);
     
     try {
-        await fetch(url, {
+        await fetch(url, getFetchOptionsWithCsrf({
             method: 'DELETE',
             headers: { 'Content-type': 'application/json' }
-        });
+        }));
         
         // Redirect to home after deletion
         window.location = '/';

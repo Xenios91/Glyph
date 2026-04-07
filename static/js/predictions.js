@@ -51,10 +51,10 @@ async function deletePrediction() {
     const url = '/models/deletePrediction?task_name=' + encodeURIComponent(taskToDelete);
     
     try {
-        await fetch(url, {
+        await fetch(url, getFetchOptionsWithCsrf({
             method: 'DELETE',
             headers: { 'Content-type': 'application/json' }
-        });
+        }));
         
         // Redirect to home after deletion
         window.location = '/';
