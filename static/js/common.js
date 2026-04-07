@@ -38,13 +38,12 @@ function getBaseUrl() {
 }
 
 /**
- * Get CSRF token from cookie
+ * Get CSRF token from meta tag
  * @returns {string|null} CSRF token or null if not found
  */
 function getCsrfToken() {
-    const name = "csrf_token";
-    const value = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-    return value ? value.pop() : null;
+    const metaTag = document.querySelector('meta[name="csrf-token"]');
+    return metaTag ? metaTag.getAttribute('content') : null;
 }
 
 /**

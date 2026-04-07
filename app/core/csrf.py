@@ -38,6 +38,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         # Generate or retrieve CSRF token
         csrf_token = self._get_or_create_token(request)
 
+        # Store token in request state for template access (secure: same-origin only)
+        request.state.csrf_token = csrf_token
+
         # For unsafe methods, validate the CSRF token
         if request.method in self.UNSAFE_METHODS:
             if not await self._validate_csrf_token(request, csrf_token):
@@ -169,7 +172,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         response.set_cookie(
             key=self.CSRF_COOKIE_NAME,
             value=token,
-            httponly=False,
+            httponly=True,
             samesite="strict",  # Prevent cross-site requests
             secure=False,  # TODO with TLS
             max_age=86400,  # 24 hours

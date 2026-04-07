@@ -9,9 +9,11 @@ from app.utils.helpers import ACCEPT_TYPE
 from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
 from app.processing.task_management import TaskManager
 from app.utils.common import format_code, build_prediction_details_response
+from app.utils.jinja_utils import configure_jinja2_templates
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+configure_jinja2_templates(templates)
 
 
 @router.get("/")

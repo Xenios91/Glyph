@@ -18,9 +18,11 @@ from app.services.request_handler import PredictionRequest
 from app.processing.task_management import Predictor, Trainer
 from app.utils.common import format_code
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
+from app.utils.jinja_utils import configure_jinja2_templates
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+configure_jinja2_templates(templates)
 
 
 class PredictTokensRequest(BaseModel):

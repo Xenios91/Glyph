@@ -22,9 +22,11 @@ from app.utils.responses import (
     create_error_response,
     SuccessResponse,
 )
+from app.utils.jinja_utils import configure_jinja2_templates
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+configure_jinja2_templates(templates)
 
 
 @router.delete("/deleteModel", response_model=SuccessResponse[dict])

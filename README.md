@@ -30,9 +30,6 @@
 - Anti-XSS
 - Anti-CSRF
 
-## Other
-
-I was testing clanker coding, kind of eh, will be fixing main issues soon now that i got a feel for it.
 
 ![Black Hat Arsenal 2022](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2022.svg)
 

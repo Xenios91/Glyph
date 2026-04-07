@@ -31,6 +31,7 @@ from app.utils.responses import (
     create_error_response,
     SuccessResponse,
 )
+from app.utils.jinja_utils import configure_jinja2_templates
 
 
 class BinaryUploadForm(BaseModel):
@@ -102,6 +103,7 @@ class BinaryUploadResponse(BaseModel):
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+configure_jinja2_templates(templates)
 
 # Allowed MIME types for binary files
 ALLOWED_MIME_TYPES = {
