@@ -17,6 +17,7 @@
     {% set animate = true %}
     {% include 'components/empty_state.html' %}
     {% endif %}
+    <script src="{{ url_for('static', path='js/common.js') }}"></script>
     <script src="{{ url_for('static', path='js/models.js') }}"></script>
 </div>
 {% endblock content %}

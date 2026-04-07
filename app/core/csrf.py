@@ -108,9 +108,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         """
         return isinstance(token, str) and len(token) >= 32
 
-    async def _validate_csrf_token(
-        self, request: Request, expected_token: str
-    ) -> bool:
+    async def _validate_csrf_token(self, request: Request, expected_token: str) -> bool:
         """Validate the CSRF token from the request.
 
         The token can be sent either in a header or as a form field.
@@ -171,9 +169,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         response.set_cookie(
             key=self.CSRF_COOKIE_NAME,
             value=token,
-            httponly=True,  # Prevent JavaScript access to the cookie
+            httponly=False,
             samesite="strict",  # Prevent cross-site requests
-            secure=False,  # Set to True in production with HTTPS
+            secure=False,  # TODO with TLS
             max_age=86400,  # 24 hours
         )
 
