@@ -16,6 +16,7 @@
 - Pydantic implementation
 - Ability to switch databases
 - Higher performance
+- Processing pipeline
 
 ## Upcoming Release V0.0.3
 
