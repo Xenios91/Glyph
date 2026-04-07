@@ -40,15 +40,11 @@
 
 Glyph Wiki: https://github.com/Xenios91/Glyph/wiki
 
-Glyph API Documentation: http://localhost:5000/apidocs
-
-Ghidra Script
-https://github.com/Xenios91/Glyph-Ghidra
+Glyph API Documentation: http://localhost:8080/docs
 
 ## Requirements
 
-- Python version 3.9+
-- Ghidra version 10+
+- Python version 3.11+
 
 ## About
 
