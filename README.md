@@ -27,7 +27,6 @@
 - Bug fixes and better dockerization.
 - Better test
 - Pydantic implementation
-- Bug fixes and code cleanup
 - Anti-XSS
 - Anti-CSRF
 
