@@ -5,7 +5,7 @@
 ## Upcoming Features
 
 - Implementing Pyghidra to reduce setup requirements
-- Changing to design to fastapi~~
+- Changing underlying server to fastapi
 - New UI themes
 - More configuration
 - Adding more AI/ML capabilities to include LLM code cleanup, assistant and ensemble models for higher accuracy
@@ -20,7 +20,7 @@
 ## Upcoming Release V0.0.3
 
 - Implementing Pyghidra to reduce setup requirements
-- Changing to design to fastapi~~
+- Changing underlying server to fastapi
 - New UI theme
 - More configuration
 - Bug fixes and better dockerization.
