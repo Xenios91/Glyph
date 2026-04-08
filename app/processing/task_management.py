@@ -1,4 +1,10 @@
-"""Task management module for Glyph application."""
+"""Task management module for Glyph application.
+
+This module provides task execution management for training, prediction,
+and Ghidra analysis tasks. It integrates with the pluggable pipeline
+framework for processing binary analysis workflows.
+
+"""
 
 import atexit
 import logging
@@ -13,7 +19,7 @@ from typing import Any, Callable, cast
 import numpy as np
 import pandas as pd
 from sklearn import preprocessing
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline as SklearnPipeline
 
 from app.config.settings import get_settings, MAX_CPU_CORES
 from app.utils.persistence_util import (
@@ -28,6 +34,7 @@ from app.services.request_handler import (
 )
 from app.services.task_service import TaskService
 from app.processing import ghidra_processor
+from app.processing.pipeline import PipelineContext, ProcessingPipeline
 
 
 class EventWatcher:
@@ -305,7 +312,11 @@ class TaskManager:
 
 
 class Trainer(TaskManager):
-    """Task manager for training machine learning models."""
+    """Task manager for training machine learning models.
+
+    This class supports both the legacy request-based interface and
+    the new pipeline-based interface for training ML models.
+    """
 
     _trainer_instance: "Trainer | None" = None
 
@@ -375,7 +386,7 @@ class Trainer(TaskManager):
             training_request.status = "error"
             return
 
-        pipeline: Pipeline = MLTask.get_multi_class_pipeline()
+        pipeline: SklearnPipeline = MLTask.get_multi_class_pipeline()
         label_encoder = preprocessing.LabelEncoder()
         try:
             _x: pd.Series = training_request.data["tokens"]
@@ -391,9 +402,47 @@ class Trainer(TaskManager):
             logging.error("Training error: %s", error)
             training_request.status = "error"
 
+    @classmethod
+    def train_with_pipeline(cls, context: PipelineContext) -> PipelineContext:
+        """Train a model using the pipeline framework.
+
+        This method provides a pipeline-based interface for training.
+
+        Args:
+            context: The pipeline context with training parameters.
+
+        Returns:
+            The updated pipeline context with training results.
+        """
+        from app.processing.steps import (
+            ValidationStep,
+            DecompileStep,
+            TokenizeStep,
+            FilterStep,
+            FeatureExtractStep,
+            TrainStep,
+        )
+
+        pipeline = ProcessingPipeline(
+            "ML Training Pipeline",
+            [
+                ValidationStep(),
+                DecompileStep(),
+                TokenizeStep(),
+                FilterStep(),
+                FeatureExtractStep(),
+                TrainStep(),
+            ],
+        )
+        return pipeline.execute(context)
+
 
 class Predictor(TaskManager):
-    """Task manager for running predictions on binary functions."""
+    """Task manager for running predictions on binary functions.
+
+    This class supports both the legacy request-based interface and
+    the new pipeline-based interface for predictions.
+    """
 
     _predictor_instance: "Predictor | None" = None
 
@@ -492,9 +541,47 @@ class Predictor(TaskManager):
             if probability.max() < threshold:
                 predicted_labels[ctr] = "Unknown"
 
+    @classmethod
+    def predict_with_pipeline(cls, context: PipelineContext) -> PipelineContext:
+        """Run predictions using the pipeline framework.
+
+        This method provides a pipeline-based interface for predictions.
+
+        Args:
+            context: The pipeline context with prediction parameters.
+
+        Returns:
+            The updated pipeline context with prediction results.
+        """
+        from app.processing.steps import (
+            ValidationStep,
+            DecompileStep,
+            TokenizeStep,
+            FilterStep,
+            FeatureExtractStep,
+            PredictStep,
+        )
+
+        pipeline = ProcessingPipeline(
+            "ML Prediction Pipeline",
+            [
+                ValidationStep(),
+                DecompileStep(),
+                TokenizeStep(),
+                FilterStep(),
+                FeatureExtractStep(),
+                PredictStep(),
+            ],
+        )
+        return pipeline.execute(context)
+
 
 class Ghidra(TaskManager):
-    """Task manager for running Ghidra analysis on binaries."""
+    """Task manager for running Ghidra analysis on binaries.
+
+    This class integrates with the pipeline framework to provide
+    end-to-end binary analysis workflows.
+    """
 
     @classmethod
     def _on_analysis_complete(
@@ -590,3 +677,39 @@ class Ghidra(TaskManager):
         )
 
         return results
+
+    @classmethod
+    def run_full_pipeline(
+        cls,
+        ghidra_request: GhidraRequest,
+        file_path: str,
+    ) -> PipelineContext:
+        """Run the full analysis pipeline for a binary.
+
+        This method provides an end-to-end pipeline interface that combines
+        Ghidra analysis with ML training or prediction.
+
+        Args:
+            ghidra_request: The Ghidra request containing analysis parameters.
+            file_path: Path to the binary file.
+
+        Returns:
+            The pipeline context with analysis results.
+        """
+        context = PipelineContext(
+            uuid=ghidra_request.uuid,
+            binary_path=file_path,
+            pipeline_type="ml_training"
+            if ghidra_request.is_training
+            else "ml_prediction",
+            metadata={
+                "model_name": ghidra_request.model_name,
+                "task_name": ghidra_request.task_name,
+                "ml_class_type": ghidra_request.ml_class_type,
+            },
+        )
+
+        if ghidra_request.is_training:
+            return Trainer.train_with_pipeline(context)
+        else:
+            return Predictor.predict_with_pipeline(context)

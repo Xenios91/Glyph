@@ -12,3 +12,4 @@
 ## Code Generation
 - Ensure all generated code snippets follow the patterns defined in the local documentation.
 - Use the exact naming conventions and architecture patterns found in `./docs/libs`.
+- Ensure all generated code adheres to Python 3.11+.

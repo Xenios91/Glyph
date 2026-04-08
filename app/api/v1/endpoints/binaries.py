@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.config.settings import get_settings
 from app.services.request_handler import GhidraRequest
 from app.processing.task_management import Ghidra
+from app.utils.persistence_util import FunctionPersistanceUtil
 from app.utils.responses import (
     create_success_response,
     create_error_response,
@@ -167,21 +168,86 @@ def sanitize_filename(filename: str) -> str:
     return base_name
 
 
-def _run_ghidra_analysis(ghidra_request: GhidraRequest) -> None:
-    """Background task for running Ghidra analysis on a binary.
+def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> None:
+    """Background task for running the full analysis pipeline on a binary.
 
-    For training requests, this kicks off a pipeline where:
-    1. Ghidra analysis is performed
-    2. Training is automatically triggered after analysis completes
+    This function uses the pluggable pipeline framework to process the binary:
+    1. Validation - Binary file validation
+    2. Decompile - Ghidra decompilation
+    3. Tokenize - Token extraction
+    4. Filter - Token filtering/normalization
+    5. FeatureExtract - TF-IDF feature extraction
+    6. Train/Predict - Model training or prediction
 
     Args:
         ghidra_request: The Ghidra request containing analysis parameters.
+        file_path: Path to the uploaded binary file.
     """
     try:
-        Ghidra.start_task(ghidra_request)
-        logging.info("Ghidra analysis task started: %s", ghidra_request.uuid)
+        # Run the full pipeline
+        result = Ghidra.run_full_pipeline(ghidra_request, file_path)
+
+        # Handle results based on pipeline type
+        if result.error:
+            logging.error("Pipeline failed for %s: %s", ghidra_request.uuid, result.error)
+        else:
+            logging.info("Pipeline completed successfully for %s", ghidra_request.uuid)
+
+            # For training, save functions to database
+            if ghidra_request.is_training:
+                filtered_functions = result.get("filtered_functions")
+                if filtered_functions:
+                    # Create a mock training request for persistence
+                    from app.services.request_handler import TrainingRequest
+
+                    training_data = {
+                        "binaryName": ghidra_request.file_name,
+                        "functionsMap": {
+                            "functions": filtered_functions,
+                            "erroredFunctions": result.get("errored_functions", []),
+                        },
+                    }
+                    training_request = TrainingRequest(
+                        req_uuid=ghidra_request.uuid,
+                        model_name=ghidra_request.model_name,
+                        data=training_data,
+                    )
+                    FunctionPersistanceUtil.add_model_functions(training_request)
+                    logging.info(
+                        "Functions saved to database for model: %s",
+                        ghidra_request.model_name,
+                    )
+
+            # For prediction, save predictions to database
+            else:
+                predictions = result.get("predictions")
+                filtered_functions = result.get("filtered_functions")
+                if predictions and filtered_functions:
+                    from app.services.request_handler import PredictionRequest
+
+                    prediction_data = {
+                        "binaryName": ghidra_request.file_name,
+                        "taskName": ghidra_request.task_name,
+                        "functionsMap": {
+                            "functions": filtered_functions,
+                            "erroredFunctions": result.get("errored_functions", []),
+                        },
+                    }
+                    prediction_request = PredictionRequest(
+                        req_uuid=ghidra_request.uuid,
+                        model_name=ghidra_request.model_name,
+                        data=prediction_data,
+                    )
+                    FunctionPersistanceUtil.add_prediction_functions(
+                        prediction_request, predictions
+                    )
+                    logging.info(
+                        "Predictions saved to database for task: %s",
+                        ghidra_request.task_name,
+                    )
+
     except Exception as exc:
-        logging.error("Ghidra analysis task failed: %s - %s", ghidra_request.uuid, exc)
+        logging.error("Pipeline task failed: %s - %s", ghidra_request.uuid, exc)
         raise
 
 
@@ -276,7 +342,7 @@ async def post_upload_binary(
         form_data.ml_class_type,
     )
 
-    background_tasks.add_task(_run_ghidra_analysis, ghidra_task)
+    background_tasks.add_task(_run_pipeline_analysis, ghidra_task, file_path)
 
     if "*/*" in accept:
         return templates.TemplateResponse("upload.html", {"request": request})
