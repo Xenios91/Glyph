@@ -399,12 +399,14 @@ class TestPredictStep:
     @patch("app.processing.steps.MLPersistanceUtil")
     def test_execute_success(self, mock_persistence):
         """Test successful prediction."""
+        import numpy as np
+
         mock_model = MagicMock()
-        mock_model.predict.return_value = [0, 1]
-        mock_model.predict_proba.return_value = [[0.9, 0.1], [0.2, 0.8]]
+        mock_model.predict.return_value = np.array([0, 1])
+        mock_model.predict_proba.return_value = np.array([[0.9, 0.1], [0.2, 0.8]])
 
         mock_encoder = MagicMock()
-        mock_encoder.inverse_transform.return_value = ["category1", "category2"]
+        mock_encoder.inverse_transform.return_value = np.array(["category1", "category2"])
 
         mock_persistence.load_model.return_value = (mock_model, mock_encoder)
 
