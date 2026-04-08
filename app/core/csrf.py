@@ -179,16 +179,3 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         )
 
 
-def get_csrf_token_from_cookie(request: Request) -> str | None:
-    """Get the CSRF token from the request cookie.
-
-    This helper function can be used in endpoints to expose the token
-    to JavaScript clients for AJAX requests.
-
-    Args:
-        request: The incoming request.
-
-    Returns:
-        The CSRF token if present, None otherwise.
-    """
-    return request.cookies.get(CSRFMiddleware.CSRF_COOKIE_NAME)

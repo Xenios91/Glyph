@@ -34,24 +34,6 @@ class MLTask:
             ]
         )
 
-    @staticmethod
-    def get_single_class_pipeline() -> Pipeline:
-        """Get a single-class classification pipeline.
-
-        Returns:
-            A configured sklearn Pipeline with TF-IDF and Naive Bayes.
-        """
-        return Pipeline(
-            [
-                (
-                    "preprocessor",
-                    TfidfVectorizer(ngram_range=(2, 4), norm="l2", sublinear_tf=True),
-                ),
-                ("clf", MultinomialNB(alpha=1e-8)),
-            ]
-        )
-
-
 class PredictionPersistanceUtil:
     """Persistence utilities for predictions."""
 

@@ -116,16 +116,6 @@ class PredictionRequest(DataHandler):
             exc.add_note(f"Error processing prediction data for UUID: {self.uuid}")
             raise exc from unknown_exception
 
-    def set_prediction_values(self, labels: list[str]) -> None:
-        """Set prediction labels for each function.
-
-        Args:
-            labels: List of predicted labels for the functions.
-        """
-        functions = self.get_functions()
-        for ctr, function in enumerate(functions):
-            function["functionName"] = labels[ctr]
-
 
 class GhidraRequest:
     """Request handler for Ghidra analysis tasks."""

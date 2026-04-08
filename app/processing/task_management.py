@@ -67,18 +67,6 @@ class EventWatcher:
         self._watched_futures[job_uuid] = (request, future)
         logging.info("Registered callback for job: job_uuid=%s", job_uuid)
 
-    def unregister_callback(self, job_uuid: str) -> None:
-        """Unregister a callback for a specific job UUID.
-
-        Args:
-            job_uuid: The UUID of the job to stop watching.
-        """
-        if job_uuid in self._callbacks:
-            del self._callbacks[job_uuid]
-            logging.info("Unregistered callback for job: job_uuid=%s", job_uuid)
-        if job_uuid in self._watched_futures:
-            del self._watched_futures[job_uuid]
-
     def start_watching(self) -> None:
         """Start watching for completed futures in a background thread."""
         if self._watching:

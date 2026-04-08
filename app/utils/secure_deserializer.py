@@ -14,7 +14,6 @@ import logging
 import io
 from typing import Any, Set, Type
 
-import joblib
 from joblib.numpy_pickle import NumpyUnpickler
 
 # Whitelist of allowed classes for deserialization
@@ -240,39 +239,3 @@ def secure_load(file_like: io.BytesIO, allowed_classes: Set[str] | None = None) 
         raise SecureDeserializationError(f"Deserialization failed: {e}") from e
 
 
-def validate_pickle_data(data: bytes, allowed_classes: Set[str] | None = None) -> bool:
-    """Validate pickle data without fully deserializing it.
-    
-    This function performs a preliminary check on pickle data to detect
-    potentially dangerous opcodes before attempting full deserialization.
-    
-    Args:
-        data: The raw pickle data bytes.
-        allowed_classes: Optional set of allowed class names.
-        
-    Returns:
-        True if the data appears safe, False otherwise.
-    """
-    # Check for common attack patterns
-    attack_patterns = [
-        b'__import__',
-        b'subprocess',
-        b'os.system',
-        b'eval(',
-        b'exec(',
-        b'compile(',
-        b'open(',
-        b'__builtin__',
-        b'builtins.',
-        b'sys.',
-    ]
-    
-    for pattern in attack_patterns:
-        if pattern in data:
-            logger.warning(
-                "Detected potentially dangerous pattern in pickle data: %s",
-                pattern.decode('utf-8', errors='ignore')
-            )
-            return False
-    
-    return True

@@ -6,7 +6,6 @@ for database operations.
 
 from app.database.models import Base, Function, Model, Prediction
 from app.database.session_handler import get_session, init_databases
-from app.database.repositories import FunctionRepository, ModelRepository, PredictionRepository
 
 __all__ = [
     # Models
@@ -17,8 +16,4 @@ __all__ = [
     # Session management
     "get_session",
     "init_databases",
-    # Repositories
-    "ModelRepository",
-    "PredictionRepository",
-    "FunctionRepository",
 ]
