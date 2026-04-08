@@ -178,12 +178,12 @@ class TestStatusRouter:
         app.include_router(status_router, prefix="/status")
         return TestClient(app)
 
-    @patch("app.api.v1.endpoints.status.Trainer")
-    def test_get_status_success(self, mock_trainer, client):
+    @patch("app.api.v1.endpoints.status.TaskManager")
+    def test_get_status_success(self, mock_task_manager, client):
         """Test getting status successfully."""
         mock_instance = Mock()
         mock_instance.get_status.return_value = "running"
-        mock_trainer.return_value = mock_instance
+        mock_task_manager.return_value = mock_instance
 
         response = client.get("/status/getStatus", params={"uuid": "test-uuid"})
 
@@ -192,12 +192,12 @@ class TestStatusRouter:
         assert data["success"] is True
         assert data["data"]["status"] == "running"
 
-    @patch("app.api.v1.endpoints.status.Trainer")
-    def test_get_status_not_found(self, mock_trainer, client):
+    @patch("app.api.v1.endpoints.status.TaskManager")
+    def test_get_status_not_found(self, mock_task_manager, client):
         """Test getting status for non-existent UUID."""
         mock_instance = Mock()
         mock_instance.get_status.return_value = "UUID Not Found"
-        mock_trainer.return_value = mock_instance
+        mock_task_manager.return_value = mock_instance
 
         response = client.get("/status/getStatus", params={"uuid": "non-existent"})
 
@@ -208,12 +208,12 @@ class TestStatusRouter:
         assert detail["success"] is False
         assert "UUID_NOT_FOUND" in detail.get("error", {}).get("code", "")
 
-    @patch("app.api.v1.endpoints.status.Trainer")
-    def test_update_status_success(self, mock_trainer, client):
+    @patch("app.api.v1.endpoints.status.TaskManager")
+    def test_update_status_success(self, mock_task_manager, client):
         """Test updating status successfully."""
         mock_instance = Mock()
         mock_instance.set_status.return_value = True
-        mock_trainer.return_value = mock_instance
+        mock_task_manager.return_value = mock_instance
 
         response = client.post(
             "/status/statusUpdate",
@@ -239,12 +239,12 @@ class TestStatusRouter:
         # Check that detail contains validation errors
         assert "detail" in data
 
-    @patch("app.api.v1.endpoints.status.Trainer")
-    def test_update_status_not_found(self, mock_trainer, client):
+    @patch("app.api.v1.endpoints.status.TaskManager")
+    def test_update_status_not_found(self, mock_task_manager, client):
         """Test updating status for non-existent UUID."""
         mock_instance = Mock()
         mock_instance.set_status.return_value = False
-        mock_trainer.return_value = mock_instance
+        mock_task_manager.return_value = mock_instance
 
         response = client.post(
             "/status/statusUpdate",

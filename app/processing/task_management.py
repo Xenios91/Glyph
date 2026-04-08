@@ -8,33 +8,17 @@ framework for processing binary analysis workflows.
 
 import atexit
 import logging
-import os
 import signal
 import threading
 import time
 import uuid
 from concurrent.futures import Future, ProcessPoolExecutor, wait, FIRST_COMPLETED
-from typing import Any, Callable, cast
+from typing import Any, Callable
 
-import numpy as np
-import pandas as pd
-from sklearn import preprocessing
-from sklearn.pipeline import Pipeline as SklearnPipeline
-
-from app.config.settings import get_settings, MAX_CPU_CORES
-from app.utils.persistence_util import (
-    FunctionPersistanceUtil,
-    MLPersistanceUtil,
-    MLTask,
-)
-from app.services.request_handler import (
-    GhidraRequest,
-    PredictionRequest,
-    TrainingRequest,
-)
+from app.config.settings import MAX_CPU_CORES
+from app.services.request_handler import GhidraRequest
 from app.services.task_service import TaskService
-from app.processing import ghidra_processor
-from app.processing.pipeline import PipelineContext, ProcessingPipeline
+from app.processing.pipeline import PipelineContext
 
 
 class EventWatcher:
@@ -311,372 +295,12 @@ class TaskManager:
         return False
 
 
-class Trainer(TaskManager):
-    """Task manager for training machine learning models.
-
-    This class supports both the legacy request-based interface and
-    the new pipeline-based interface for training ML models.
-    """
-
-    _trainer_instance: "Trainer | None" = None
-
-    def __new__(cls) -> "Trainer":
-        """Create or return the singleton instance of Trainer."""
-        if cls._trainer_instance is None:
-            cls._trainer_instance = cast("Trainer", super().__new__(cls))
-        return cls._trainer_instance
-
-    @classmethod
-    def _on_training_complete(
-        cls, training_request: TrainingRequest, future: Future
-    ) -> None:
-        """Callback to save functions to database after training completes.
-
-        Args:
-            training_request: The training request that completed.
-            future: The future containing the training results.
-        """
-        try:
-            future.result()  # Wait for training to complete and check for errors
-            FunctionPersistanceUtil.add_model_functions(training_request)
-            logging.info(
-                "Functions saved to database for model: %s, request: %s",
-                training_request.model_name,
-                training_request.uuid,
-            )
-        except Exception as exc:
-            logging.error(
-                "Error saving functions for training %s: %s",
-                training_request.uuid,
-                exc,
-            )
-
-    @classmethod
-    def start_training(
-        cls,
-        training_request: TrainingRequest,
-        on_complete: Callable[[TrainingRequest, Future], None] | None = None,
-    ) -> None:
-        """Start training a model with the given request.
-
-        Args:
-            training_request: The training request containing model data.
-            on_complete: Optional callback to invoke when training completes.
-        """
-        future: Future = cls._get_executor().submit(cls._train_model, training_request)
-        TaskService().service_queue.put((training_request, future))
-
-        callback = on_complete if on_complete is not None else cls._on_training_complete
-        EventWatcher().register_callback(
-            training_request.uuid, callback, training_request, future
-        )
-
-    @classmethod
-    def _train_model(cls, training_request: TrainingRequest) -> None:
-        """Train a model using the provided training request.
-
-        Args:
-            training_request: The training request containing model data.
-        """
-        # Validate that data was loaded successfully
-        if training_request.data is None:
-            logging.error(
-                "Training failed: data not loaded for request %s", training_request.uuid
-            )
-            training_request.status = "error"
-            return
-
-        pipeline: SklearnPipeline = MLTask.get_multi_class_pipeline()
-        label_encoder = preprocessing.LabelEncoder()
-        try:
-            _x: pd.Series = training_request.data["tokens"]
-            fit_encoder = label_encoder.fit(training_request.data["functionName"])
-            _y = np.array(fit_encoder.transform(training_request.data["functionName"]))
-
-            pipeline.fit(_x, _y)
-            MLPersistanceUtil.save_model(
-                training_request.model_name, label_encoder, pipeline
-            )
-            training_request.status = "complete"
-        except Exception as error:
-            logging.error("Training error: %s", error)
-            training_request.status = "error"
-
-    @classmethod
-    def train_with_pipeline(cls, context: PipelineContext) -> PipelineContext:
-        """Train a model using the pipeline framework.
-
-        This method provides a pipeline-based interface for training.
-
-        Args:
-            context: The pipeline context with training parameters.
-
-        Returns:
-            The updated pipeline context with training results.
-        """
-        from app.processing.steps import (
-            ValidationStep,
-            DecompileStep,
-            TokenizeStep,
-            FilterStep,
-            FeatureExtractStep,
-            TrainStep,
-        )
-
-        pipeline = ProcessingPipeline(
-            "ML Training Pipeline",
-            [
-                ValidationStep(),
-                DecompileStep(),
-                TokenizeStep(),
-                FilterStep(),
-                FeatureExtractStep(),
-                TrainStep(),
-            ],
-        )
-        return pipeline.execute(context)
-
-
-class Predictor(TaskManager):
-    """Task manager for running predictions on binary functions.
-
-    This class supports both the legacy request-based interface and
-    the new pipeline-based interface for predictions.
-    """
-
-    _predictor_instance: "Predictor | None" = None
-
-    def __new__(cls) -> "Predictor":
-        """Create or return the singleton instance of Predictor."""
-        if cls._predictor_instance is None:
-            cls._predictor_instance = cast("Predictor", super().__new__(cls))
-        return cls._predictor_instance
-
-    @classmethod
-    def get_threshold(cls) -> float:
-        """Get the prediction probability threshold from config.
-
-        Returns:
-            The threshold value as a float.
-        """
-        settings = get_settings()
-        return settings.prediction_probability_threshold
-
-    @classmethod
-    def start_prediction(
-        cls,
-        prediction_request: PredictionRequest,
-        on_complete: Callable[[PredictionRequest, Future], None] | None = None,
-    ) -> None:
-        """Start a prediction task with the given request.
-
-        Args:
-            prediction_request: The prediction request containing data.
-            on_complete: Optional callback to invoke when prediction completes.
-        """
-        future: Future = cls._get_executor().submit(
-            cls._run_prediction, prediction_request
-        )
-        TaskService().service_queue.put((prediction_request, future))
-
-        # Register callback with EventWatcher if provided
-        if on_complete is not None:
-            EventWatcher().register_callback(
-                prediction_request.uuid, on_complete, prediction_request, future
-            )
-
-    @classmethod
-    def _run_prediction(
-        cls, prediction_request: PredictionRequest
-    ) -> PredictionRequest:
-        """Run prediction on the provided request.
-
-        Args:
-            prediction_request: The prediction request containing data.
-
-        Returns:
-            The prediction request with results.
-        """
-        # Validate that data was loaded successfully
-        if prediction_request.data is None:
-            logging.error(
-                "Prediction failed: data not loaded for request %s",
-                prediction_request.uuid,
-            )
-            prediction_request.status = "error"
-            return prediction_request
-
-        try:
-            model, label_encoder = MLPersistanceUtil.load_model(
-                prediction_request.model_name
-            )
-            predictions = model.predict(prediction_request.data["tokens"])
-            prediction_probability = (
-                model.predict_proba(prediction_request.data["tokens"]) * 100
-            )
-            predicted_labels = label_encoder.inverse_transform(predictions)
-            Predictor._filter_uncertainty(prediction_probability, predicted_labels)
-            FunctionPersistanceUtil.add_prediction_functions(
-                prediction_request, predicted_labels
-            )
-
-            prediction_request.set_prediction_values(predicted_labels)
-        except Exception as exception:
-            logging.error("Prediction error: %s", exception)
-
-        return prediction_request
-
-    @classmethod
-    def _filter_uncertainty(
-        cls, prediction_probability: Any, predicted_labels: list[str]
-    ) -> None:
-        """Filter predictions below the probability threshold.
-
-        Args:
-            prediction_probability: Array of prediction probabilities.
-            predicted_labels: List of predicted labels to modify.
-        """
-        threshold = cls.get_threshold()
-        for ctr, probability in enumerate(prediction_probability):
-            if probability.max() < threshold:
-                predicted_labels[ctr] = "Unknown"
-
-    @classmethod
-    def predict_with_pipeline(cls, context: PipelineContext) -> PipelineContext:
-        """Run predictions using the pipeline framework.
-
-        This method provides a pipeline-based interface for predictions.
-
-        Args:
-            context: The pipeline context with prediction parameters.
-
-        Returns:
-            The updated pipeline context with prediction results.
-        """
-        from app.processing.steps import (
-            ValidationStep,
-            DecompileStep,
-            TokenizeStep,
-            FilterStep,
-            FeatureExtractStep,
-            PredictStep,
-        )
-
-        pipeline = ProcessingPipeline(
-            "ML Prediction Pipeline",
-            [
-                ValidationStep(),
-                DecompileStep(),
-                TokenizeStep(),
-                FilterStep(),
-                FeatureExtractStep(),
-                PredictStep(),
-            ],
-        )
-        return pipeline.execute(context)
-
-
 class Ghidra(TaskManager):
     """Task manager for running Ghidra analysis on binaries.
 
     This class integrates with the pipeline framework to provide
     end-to-end binary analysis workflows.
     """
-
-    @classmethod
-    def _on_analysis_complete(
-        cls, ghidra_request: GhidraRequest, future: Future
-    ) -> None:
-        """Callback to trigger training after Ghidra analysis completes.
-
-        Args:
-            ghidra_request: The Ghidra request that completed.
-            future: The future containing the analysis results.
-        """
-        try:
-            results = future.result()
-            num_functions = len(results.get("functions", []))
-            logging.info(
-                "Ghidra analysis completed - UUID: %s, binary: %s, functions found: %d",
-                ghidra_request.uuid,
-                ghidra_request.file_name,
-                num_functions,
-            )
-
-            # Only trigger training if this is a training request
-            if ghidra_request.is_training:
-                # Build training data from Ghidra results
-                training_data = {
-                    "binaryName": ghidra_request.file_name,
-                    "functionsMap": results,
-                }
-
-                training_request = TrainingRequest(
-                    req_uuid=ghidra_request.uuid,
-                    model_name=ghidra_request.model_name,
-                    data=training_data,
-                )
-
-                Trainer.start_training(training_request)
-                logging.info(
-                    "Training started for model: %s, request: %s",
-                    ghidra_request.model_name,
-                    ghidra_request.uuid,
-                )
-            else:
-                logging.info(
-                    "Ghidra analysis completed (prediction mode): %s",
-                    ghidra_request.uuid,
-                )
-
-        except Exception as exc:
-            logging.error(
-                "Error in Ghidra completion callback for %s: %s",
-                ghidra_request.uuid,
-                exc,
-            )
-
-    @classmethod
-    def start_task(
-        cls,
-        ghidra_request: GhidraRequest,
-        on_complete: Callable[[GhidraRequest, Future], None] | None = None,
-    ) -> None:
-        """Start a Ghidra analysis task.
-
-        Args:
-            ghidra_request: The Ghidra request containing analysis parameters.
-            on_complete: Optional callback to invoke when analysis completes.
-        """
-        future: Future = cls._get_executor().submit(cls._run_analysis, ghidra_request)
-        TaskService().service_queue.put((ghidra_request, future))
-
-        # Register the training pipeline callback for training requests
-        if ghidra_request.is_training:
-            EventWatcher().register_callback(
-                ghidra_request.uuid, cls._on_analysis_complete, ghidra_request, future
-            )
-
-        # Register any additional callback provided by the caller
-        if on_complete is not None:
-            EventWatcher().register_callback(
-                ghidra_request.uuid, on_complete, ghidra_request, future
-            )
-
-    @classmethod
-    def _run_analysis(cls, ghidra_request: GhidraRequest) -> dict[str, list]:
-        """Run Ghidra analysis on the provided binary.
-
-        Args:
-            ghidra_request: The Ghidra request containing analysis parameters.
-        """
-
-        file_path: str = os.path.join("./binaries", ghidra_request.file_name)
-        results: dict[str, list] = ghidra_processor.analyze_binary_and_decompile(
-            file_path
-        )
-
-        return results
 
     @classmethod
     def run_full_pipeline(
@@ -696,6 +320,17 @@ class Ghidra(TaskManager):
         Returns:
             The pipeline context with analysis results.
         """
+        from app.processing.steps import (
+            ValidationStep,
+            DecompileStep,
+            TokenizeStep,
+            FilterStep,
+            FeatureExtractStep,
+            TrainStep,
+            PredictStep,
+        )
+        from app.processing.pipeline import ProcessingPipeline
+
         context = PipelineContext(
             uuid=ghidra_request.uuid,
             binary_path=file_path,
@@ -710,6 +345,27 @@ class Ghidra(TaskManager):
         )
 
         if ghidra_request.is_training:
-            return Trainer.train_with_pipeline(context)
+            pipeline = ProcessingPipeline(
+                "ML Training Pipeline",
+                [
+                    ValidationStep(),
+                    DecompileStep(),
+                    TokenizeStep(),
+                    FilterStep(),
+                    FeatureExtractStep(),
+                    TrainStep(),
+                ],
+            )
         else:
-            return Predictor.predict_with_pipeline(context)
+            pipeline = ProcessingPipeline(
+                "ML Prediction Pipeline",
+                [
+                    ValidationStep(),
+                    DecompileStep(),
+                    TokenizeStep(),
+                    FilterStep(),
+                    FeatureExtractStep(),
+                    PredictStep(),
+                ],
+            )
+        return pipeline.execute(context)

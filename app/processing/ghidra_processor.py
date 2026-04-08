@@ -1,89 +1,6 @@
 """Ghidra processor module for binary decompilation and tokenization."""
 
-import re
 from typing import Any
-
-from app.config.settings import GlyphConfig
-
-_VARIABLE_PATTERNS = [
-    r"^var\d+$",
-    r"^local_[0-9a-fA-F]+$",
-    r"^[a-z]{1,2}Var\d+$",
-    r"^param_\d+$",
-    r"^(?:u)?stack_?[-?0-9a-fA-F]+$",
-    r"^(?:unaff|extraout)_.*$",
-]
-_VARIABLE_REGEX = re.compile(f"({'|'.join(_VARIABLE_PATTERNS)})", re.IGNORECASE)
-_COMMENT_REGEX = re.compile(r"/\*.*?\*/|//[^\n]*")
-
-
-def check_if_variable(token: str) -> bool:
-    """Check if a token matches Ghidra auto-naming patterns.
-
-    Args:
-        token: The token to check.
-
-    Returns:
-        True if the token matches a Ghidra auto-naming pattern.
-    """
-    return _VARIABLE_REGEX.match(token) is not None
-
-
-def remove_comments(tokens_list: list[str]) -> list[str]:
-    """Remove C-style comments from token list.
-
-    Args:
-        tokens_list: List of tokens to process.
-
-    Returns:
-        List of tokens with comments removed.
-    """
-    tokens_string: str = " ".join(tokens_list)
-    result: str = ""
-    i = 0
-    while i < len(tokens_string):
-        if tokens_string[i : i + 2] == "/*":
-            # Found start of comment, look for closing */
-            close_idx = tokens_string.find("*/", i + 2)
-            if close_idx == -1:
-                # Unclosed comment - stop processing
-                break
-            # Skip past the closed comment
-            i = close_idx + 2
-        else:
-            result += tokens_string[i]
-            i += 1
-    # Clean up whitespace
-    result = " ".join(result.split())
-    return result.split() if result else []
-
-
-def filter_tokens(tokens_list: list[str]) -> list[str]:
-    """Normalize addresses, functions, variables, and undefined types.
-
-    Args:
-        tokens_list: List of tokens to filter.
-
-    Returns:
-        List of filtered and normalized tokens.
-    """
-    filtered: list[str] = []
-    for token in tokens_list:
-        if not token or not token.strip():
-            continue
-
-        if "0x" in token:
-            filtered.append("HEX")
-        elif token.startswith("FUN_"):
-            filtered.append("FUNCTION")
-        elif check_if_variable(token):
-            filtered.append("VARIABLE")
-        elif re.match(r"^undefined\d+$", token):
-            filtered.append("undefined")
-        else:
-            filtered.append(token)
-
-    return remove_comments(filtered)
 
 
 def setup_decompiler(
@@ -179,7 +96,6 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list]:
         if "undefined" in return_type:
             return_type = "undefined"
         param_count = len(function.getParameters())
-        filtered_tokens: list[str] = filter_tokens(tokens)
 
         func_entry: dict[str, Any] = {
             "functionName": function.getName(),
@@ -187,7 +103,7 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list]:
             "highAddress": str(function.getBody().getMaxAddress()),
             "returnType": return_type,
             "parameterCount": param_count,
-            "tokenList": filtered_tokens,
+            "tokenList": tokens,
         }
 
         if any("/*" in tok for tok in tokens):

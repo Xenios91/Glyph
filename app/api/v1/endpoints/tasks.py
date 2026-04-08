@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from app.utils.persistence_util import MLPersistanceUtil
 from app.services.request_handler import PredictionRequest, TrainingRequest
-from app.processing.task_management import Predictor, Trainer
+from app.processing.task_management import TaskManager
 from app.utils.responses import create_success_response, create_error_response
 
 router = APIRouter()
@@ -81,7 +81,42 @@ def _run_training_task(training_request: TrainingRequest) -> None:
         training_request: The training request containing model data.
     """
     try:
-        Trainer().start_training(training_request)
+        # Use the pipeline framework for training
+        from app.processing.steps import (
+            ValidationStep,
+            DecompileStep,
+            TokenizeStep,
+            FilterStep,
+            FeatureExtractStep,
+            TrainStep,
+        )
+        from app.processing.pipeline import ProcessingPipeline, PipelineContext
+        
+        context = PipelineContext(
+            uuid=training_request.uuid,
+            binary_path="",  # Will be set by the pipeline
+            pipeline_type="ml_training",
+            metadata={
+                "model_name": training_request.model_name,
+            },
+        )
+        
+        pipeline = ProcessingPipeline(
+            "ML Training Pipeline",
+            [
+                ValidationStep(),
+                DecompileStep(),
+                TokenizeStep(),
+                FilterStep(),
+                FeatureExtractStep(),
+                TrainStep(),
+            ],
+        )
+        result = pipeline.execute(context)
+        
+        if result.error:
+            raise Exception(result.error)
+            
         logging.info("Training task started: %s", training_request.uuid)
     except Exception as exc:
         logging.error("Training task failed: %s - %s", training_request.uuid, exc)
@@ -95,7 +130,43 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
         prediction_request: The prediction request containing data.
     """
     try:
-        Predictor().start_prediction(prediction_request)
+        # Use the pipeline framework for predictions
+        from app.processing.steps import (
+            ValidationStep,
+            DecompileStep,
+            TokenizeStep,
+            FilterStep,
+            FeatureExtractStep,
+            PredictStep,
+        )
+        from app.processing.pipeline import ProcessingPipeline, PipelineContext
+        
+        context = PipelineContext(
+            uuid=prediction_request.uuid,
+            binary_path="",  # Will be set by the pipeline
+            pipeline_type="ml_prediction",
+            metadata={
+                "model_name": prediction_request.model_name,
+                "task_name": prediction_request.task_name,
+            },
+        )
+        
+        pipeline = ProcessingPipeline(
+            "ML Prediction Pipeline",
+            [
+                ValidationStep(),
+                DecompileStep(),
+                TokenizeStep(),
+                FilterStep(),
+                FeatureExtractStep(),
+                PredictStep(),
+            ],
+        )
+        result = pipeline.execute(context)
+        
+        if result.error:
+            raise Exception(result.error)
+            
         logging.info("Prediction task completed successfully: %s", prediction_request.uuid)
     except Exception as exc:
         logging.error("Prediction task failed: %s - %s", prediction_request.uuid, exc)
@@ -123,7 +194,7 @@ async def handle_task(
     
     # Safe to cast since we validated modelName is not None above
     model_name: str = request.modelName  # type: ignore[assignment]
-    uuid = request.uuid or Trainer().get_uuid()
+    uuid = request.uuid or TaskManager().get_uuid()
     
     if request.type == "training":
         _validate_model_not_exists(model_name, request.overwriteModel)

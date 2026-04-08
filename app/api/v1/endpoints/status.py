@@ -8,7 +8,7 @@ from pydantic import BaseModel, StringConstraints
 from typing_extensions import Annotated
 
 from app.api.types import UUID as UUIDType
-from app.processing.task_management import Trainer
+from app.processing.task_management import TaskManager
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 
 router = APIRouter()
@@ -40,7 +40,7 @@ async def get_status(uuid: UUIDType = Query(...)):
     Raises:
         HTTPException: If UUID is not found.
     """
-    status = Trainer().get_status(uuid)
+    status = TaskManager().get_status(uuid)
 
     if status == "UUID Not Found":
         raise HTTPException(
@@ -73,7 +73,7 @@ async def update_status(payload: StatusUpdatePayload):
         HTTPException: If UUID is not found.
     """
     # Validation is handled by Pydantic - status and uuid are already stripped and validated
-    updated: bool = Trainer().set_status(payload.status, payload.uuid)
+    updated: bool = TaskManager().set_status(payload.uuid, payload.status)
 
     if not updated:
         raise HTTPException(

@@ -15,7 +15,7 @@ from app.api.types import ModelName, FunctionName, TaskName
 from app.utils.helpers import ACCEPT_TYPE
 from app.utils.persistence_util import FunctionPersistanceUtil, PredictionPersistanceUtil
 from app.services.request_handler import PredictionRequest
-from app.processing.task_management import Predictor, Trainer
+from app.processing.task_management import TaskManager
 from app.utils.common import format_code
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 from app.utils.jinja_utils import configure_jinja2_templates
@@ -46,7 +46,43 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
         prediction_request: The prediction request containing data.
     """
     try:
-        Predictor().start_prediction(prediction_request)
+        # Use the pipeline framework for predictions
+        from app.processing.steps import (
+            ValidationStep,
+            DecompileStep,
+            TokenizeStep,
+            FilterStep,
+            FeatureExtractStep,
+            PredictStep,
+        )
+        from app.processing.pipeline import ProcessingPipeline, PipelineContext
+        
+        context = PipelineContext(
+            uuid=prediction_request.uuid,
+            binary_path="",  # Will be set by the pipeline
+            pipeline_type="ml_prediction",
+            metadata={
+                "model_name": prediction_request.model_name,
+                "task_name": prediction_request.task_name,
+            },
+        )
+        
+        pipeline = ProcessingPipeline(
+            "ML Prediction Pipeline",
+            [
+                ValidationStep(),
+                DecompileStep(),
+                TokenizeStep(),
+                FilterStep(),
+                FeatureExtractStep(),
+                PredictStep(),
+            ],
+        )
+        result = pipeline.execute(context)
+        
+        if result.error:
+            raise Exception(result.error)
+            
         logging.info("Prediction task completed successfully: %s", prediction_request.uuid)
     except Exception as exc:
         logging.error("Prediction task failed: %s - %s", prediction_request.uuid, exc)
@@ -72,7 +108,7 @@ async def predict_tokens(
     """
     try:
         model_name = request_values.modelName
-        uuid = request_values.uuid or Trainer().get_uuid()
+        uuid = request_values.uuid or TaskManager().get_uuid()
         data = request_values.model_dump()
         task_name = data.get("taskName", "")
 
