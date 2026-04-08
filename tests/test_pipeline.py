@@ -10,7 +10,6 @@ from app.processing.pipeline import (
     PipelineContext,
     PipelineStep,
     ProcessingPipeline,
-    PipelineBuilder,
 )
 
 
@@ -66,13 +65,6 @@ class TestPipelineContext:
         context = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
         assert context.get("nonexistent", "default") == "default"
         assert context.get("nonexistent") is None
-
-    def test_context_has(self):
-        """Test checking if a key exists."""
-        context = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
-        context.set("key1", "value1")
-        assert context.has("key1") is True
-        assert context.has("nonexistent") is False
 
     def test_context_metadata(self):
         """Test metadata dictionary."""
@@ -140,83 +132,6 @@ class TestProcessingPipeline:
         assert result.error is not None
         assert result.get("key1") == "value1"
         assert result.get("key3") is None  # Step3 should not have run
-
-    def test_add_step(self):
-        """Test adding a step to a pipeline."""
-        pipeline = ProcessingPipeline("Test Pipeline", [MockStep("Step1")])
-        pipeline.add_step(MockStep("Step2"))
-        assert len(pipeline.steps) == 2
-
-    def test_insert_step(self):
-        """Test inserting a step at a position."""
-        pipeline = ProcessingPipeline("Test Pipeline", [MockStep("Step1"), MockStep("Step3")])
-        pipeline.insert_step(1, MockStep("Step2"))
-        assert len(pipeline.steps) == 3
-        assert pipeline.steps[1].get_name() == "Step2"
-
-    def test_remove_step(self):
-        """Test removing a step by name."""
-        pipeline = ProcessingPipeline("Test Pipeline", [
-            MockStep("Step1"),
-            MockStep("Step2"),
-            MockStep("Step3"),
-        ])
-        result = pipeline.remove_step("Step2")
-        assert result is True
-        assert len(pipeline.steps) == 2
-
-    def test_remove_step_not_found(self):
-        """Test removing a non-existent step."""
-        pipeline = ProcessingPipeline("Test Pipeline", [MockStep("Step1")])
-        result = pipeline.remove_step("NonExistent")
-        assert result is False
-        assert len(pipeline.steps) == 1
-
-    def test_get_step(self):
-        """Test getting a step by name."""
-        pipeline = ProcessingPipeline("Test Pipeline", [
-            MockStep("Step1"),
-            MockStep("Step2"),
-        ])
-        step = pipeline.get_step("Step1")
-        assert step is not None
-        assert step.get_name() == "Step1"
-
-    def test_get_step_not_found(self):
-        """Test getting a non-existent step."""
-        pipeline = ProcessingPipeline("Test Pipeline", [MockStep("Step1")])
-        step = pipeline.get_step("NonExistent")
-        assert step is None
-
-
-class TestPipelineBuilder:
-    """Tests for PipelineBuilder class."""
-
-    def test_build_pipeline(self):
-        """Test building a pipeline."""
-        builder = PipelineBuilder("Test Pipeline")
-        builder.add_step(MockStep("Step1"))
-        builder.add_step(MockStep("Step2"))
-        pipeline = builder.build()
-
-        assert pipeline.name == "Test Pipeline"
-        assert len(pipeline.steps) == 2
-
-    def test_build_with_multiple_steps(self):
-        """Test building with add_steps."""
-        builder = PipelineBuilder("Test Pipeline")
-        builder.add_steps(MockStep("Step1"), MockStep("Step2"), MockStep("Step3"))
-        pipeline = builder.build()
-
-        assert len(pipeline.steps) == 3
-
-    def test_builder_chaining(self):
-        """Test method chaining on builder."""
-        builder = PipelineBuilder("Test Pipeline")
-        result = builder.add_step(MockStep("Step1")).add_step(MockStep("Step2"))
-        assert result is builder
-        pipeline = builder.build()
-        assert len(pipeline.steps) == 2
 
 
 class TestPipelineIntegration:

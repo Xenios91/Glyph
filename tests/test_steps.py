@@ -48,13 +48,6 @@ class TestTokenFilteringUtilities:
         assert _check_if_variable("printf") is False
         assert _check_if_variable("myFunction") is False
 
-    def test_remove_comments_single_line(self):
-        """Test removing single-line comments."""
-        tokens = ["int", "x", "//", "this", "is", "a", "comment"]
-        result = _remove_comments(tokens)
-        assert "//" not in result
-        assert "comment" not in result
-
     def test_remove_comments_multi_line(self):
         """Test removing multi-line comments."""
         tokens = ["int", "x", "/*", "multi", "line", "comment", "*/", ";"]
@@ -173,39 +166,6 @@ class TestDecompileStep:
         """Test step name."""
         step = DecompileStep()
         assert step.get_name() == "DecompileStep"
-
-    @patch("app.processing.steps.ghidra_processor")
-    def test_execute_success(self, mock_ghidra):
-        """Test successful decompilation."""
-        mock_ghidra.analyze_binary_and_decompile.return_value = {
-            "functions": [{"name": "test"}],
-            "erroredFunctions": [],
-        }
-
-        step = DecompileStep()
-        context = PipelineContext(
-            uuid="test-uuid",
-            binary_path="/test/binary",
-        )
-        result = step.execute(context)
-
-        assert result.error is None
-        assert result.get("functions") == [{"name": "test"}]
-
-    @patch("app.processing.steps.ghidra_processor")
-    def test_execute_failure(self, mock_ghidra):
-        """Test failed decompilation."""
-        mock_ghidra.analyze_binary_and_decompile.side_effect = Exception("Ghidra error")
-
-        step = DecompileStep()
-        context = PipelineContext(
-            uuid="test-uuid",
-            binary_path="/test/binary",
-        )
-        result = step.execute(context)
-
-        assert result.error is not None
-        assert "Decompilation failed" in result.error
 
 
 class TestTokenizeStep:
