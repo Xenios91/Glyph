@@ -56,14 +56,12 @@ class TestModelsRouter:
         """Test getting a function successfully with JSON response."""
         # The endpoint code accesses function_information[1], [2], [3]
         # so it expects a list/tuple format from SQLUtil
-        # FunctionPersistanceUtil.get_function returns function[0] if function else {}
-        # So we need to return a list containing the dict
-        mock_func_persistance.get_function.return_value = {
-            "model_name": "test_model",
-            "function_name": "test_func",
-            "entrypoint": "0x1000",
-            "tokens": "test tokens",
-        }
+        mock_func_persistance.get_function.return_value = [
+            "test_model",
+            "test_func",
+            "0x1000",
+            "test tokens",
+        ]
 
         response = client.get(
             "/models/getFunction",
@@ -71,9 +69,6 @@ class TestModelsRouter:
             headers={"Accept": "application/json"},
         )
 
-        # The endpoint has a bug - it returns (response, 200) tuple
-        # which causes ResponseValidationError. We test that the function
-        # was called correctly and the response structure is as expected.
         mock_func_persistance.get_function.assert_called_once_with("test_model", "test_func")
 
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
@@ -232,12 +227,12 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_function_html_response(self, mock_func_persistance, client):
         """Test getting a function returns HTML for browsers."""
-        mock_func_persistance.get_function.return_value = {
-            "model_name": "test_model",
-            "function_name": "test_func",
-            "entrypoint": "0x1000",
-            "tokens": "test tokens",
-        }
+        mock_func_persistance.get_function.return_value = [
+            "test_model",
+            "test_func",
+            "0x1000",
+            "test tokens",
+        ]
 
         response = client.get(
             "/models/getFunction",

@@ -77,7 +77,7 @@ def format_code(code: str) -> str:
             final_output.append(current_line)
             current_line = "    " * indent_level
         elif token == ";":
-            final_output.append(current_line + token)
+            final_output.append(current_line.rstrip() + token)
             current_line = "    " * indent_level
         elif token == "(":
             current_line += token
