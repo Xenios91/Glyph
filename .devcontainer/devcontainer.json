@@ -16,12 +16,12 @@
     "customizations": {
         "vscode": {
             "settings": {
-                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.defaultInterpreterPath": "/workspaces/${localWorkspaceFolderBasename}/glyph_venv/bin/python",
                 "python.analysis.extraPaths": [
                     "/workspaces/Ghidra/Ghidra/Features/Base/python"
                 ],
                 "terminal.integrated.env.linux": {
-                    "GHIDRA_INSTALL_DIR": "/workspaces/Ghidra",
+                    "GHIDRA_INSTALL_DIR": "/opt/Ghidra",
                     "PATH": "${env:PATH}:/workspaces/Ghidra/support",
                     "PYTHONPATH": "${containerEnv:PYTHONPATH}:/workspaces/Ghidra/Ghidra/Features/Base/python"
                 }
@@ -37,5 +37,5 @@
         }
     },
     "remoteUser": "vscode",
-    "postCreateCommand": "wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.0.4_build/ghidra_12.0.4_PUBLIC_20260303.zip && unzip ghidra_12.0.4_PUBLIC_20260303.zip && sudo mv ghidra_12.0.4_PUBLIC /workspaces/Ghidra && rm ghidra_12.0.4_PUBLIC_20260303.zip && python3 -m venv glyph_venv && pip3 install --user -r requirements.txt && export GHIDRA_INSTALL_DIR=/workspaces/Ghidra"
+    "postCreateCommand": "chmod +x .devcontainer/setup_ghidra.sh && ./.devcontainer/setup_ghidra.sh"
 }
