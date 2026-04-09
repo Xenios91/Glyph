@@ -22,4 +22,6 @@ python3 -m venv glyph_venv
 # Install requirements using the venv's pip to ensure isolation
 ./glyph_venv/bin/pip install -r requirements.txt
 
+sudo apt update && sudo apt install libxtst6 -y
+
 echo "--- Clanker environment setup complete ---"
