@@ -341,6 +341,7 @@ Create login/register templates:
 templates/
 ├── login.html
 ├── register.html
+├── profile.html          # User profile with API token management
 └── components/
     └── user_menu.html
 ```
@@ -361,34 +362,64 @@ tests/
 ## Security Considerations
 
 1. **Password Hashing**: Use Argon2id for password hashing
-2. **Token Security**: 
+2. **JWT Token Security**:
    - Access tokens: Short-lived (15 minutes)
-   - Refresh tokens: Longer-lived (7 days), stored securely
-3. **CSRF Protection**: Already implemented, ensure compatibility
-4. **Rate Limiting**: Implement rate limiting on auth endpoints
-5. **HTTPS**: Enforce HTTPS in production
-6. **Secure Cookies**: HttpOnly, Secure, SameSite=Strict
+   - Refresh tokens: Longer-lived (7 days), stored in HTTP-only cookies
+3. **API Token Security**:
+   - Tokens hashed with bcrypt before storage
+   - Plaintext token shown only once at creation
+   - Tokens can be revoked by user at any time
+   - Optional expiration dates
+4. **CSRF Protection**: Already implemented, ensure compatibility
+5. **Rate Limiting**: Implement rate limiting on auth endpoints
+6. **HTTPS**: Enforce HTTPS in production
+7. **Secure Cookies**: HttpOnly, Secure, SameSite=Strict
 
 ## API Documentation
 
 The authentication endpoints will be documented in FastAPI's automatic OpenAPI documentation at `/docs`.
 
-### Example API Usage
+### Example API Usage with API Token
 
 ```bash
-# Login and get tokens
-curl -X POST "http://localhost:8000/auth/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin&password=password"
+# Step 1: User logs in via web UI and creates an API token
+# (done through the web interface at /profile)
 
-# Use access token for API calls
+# Step 2: Use the API token for script-based API access
+export GLYPH_API_TOKEN="glp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# List models
 curl -X GET "http://localhost:8000/api/v1/models" \
-  -H "Authorization: Bearer <access_token>"
+  -H "Authorization: Bearer $GLYPH_API_TOKEN"
 
-# Refresh token
-curl -X POST "http://localhost:8000/auth/refresh" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "refresh_token=<refresh_token>"
+# Upload binary for analysis
+curl -X POST "http://localhost:8000/api/v1/binaries/upload" \
+  -H "Authorization: Bearer $GLYPH_API_TOKEN" \
+  -F "file=@/path/to/binary"
+
+# Get prediction status
+curl -X GET "http://localhost:8000/api/v1/status/task/{task_id}" \
+  -H "Authorization: Bearer $GLYPH_API_TOKEN"
+```
+
+### Example Web UI Usage
+
+```python
+# Python script using requests with session
+import requests
+
+# Create a session
+session = requests.Session()
+
+# Login
+session.post(
+    "http://localhost:8000/auth/token",
+    data={"username": "admin", "password": "password"}
+)
+
+# Cookies are automatically handled
+response = session.get("http://localhost:8000/api/v1/models")
+print(response.json())
 ```
 
 ## Migration Plan
