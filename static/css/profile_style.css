@@ -1,0 +1,400 @@
+/* =============================================================
+   GLYPH — PROFILE PAGE (profile_style.css)  NES Cyberpunk Theme
+   ============================================================= */
+
+/* ── Profile container ─────────────────────────────────────── */
+.profile-container {
+    max-width: 800px;
+    margin: 60px auto;
+    padding: 2rem 1rem;
+    position: relative;
+    z-index: 10;
+}
+
+/* ── Profile section card ──────────────────────────────────── */
+.profile-section {
+    background: #11111f !important;
+    border: 2px solid #2a5a5a !important;
+    box-shadow:
+        0 0 20px rgba(125, 216, 216, 0.12),
+        0 0 60px rgba(125, 216, 216, 0.05),
+        inset 0 0 24px rgba(125, 216, 216, 0.03);
+    padding: 2rem 1.75rem;
+    margin-bottom: 2rem;
+    position: relative;
+}
+
+.profile-section::before,
+.profile-section::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: #4a2244;
+    border-style: solid;
+}
+
+.profile-section::before {
+    top: -2px;
+    left: -2px;
+    border-width: 2px 0 0 2px;
+}
+
+.profile-section::after {
+    bottom: -2px;
+    right: -2px;
+    border-width: 0 2px 2px 0;
+}
+
+/* ── Section heading ──────────────────────────────────────── */
+.profile-section h2 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 1rem;
+    color: #a8ecec;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(125, 216, 216, 0.12);
+    letter-spacing: 0.1em;
+    text-shadow:
+        0 0 10px rgba(168, 236, 236, 0.30),
+        2px 2px 0 #4a2244;
+}
+
+/* ── Form groups ──────────────────────────────────────────── */
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    color: #7880a8;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.08em;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.6rem;
+    color: #cdd0e8;
+    background: #0d0d1a;
+    border: 2px solid #2a5a5a;
+    border-radius: 0;
+    transition: border-color 0.1s, box-shadow 0.1s;
+}
+
+.form-group input::placeholder {
+    color: #5a6080;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #7dd8d8;
+    box-shadow:
+        0 0 8px rgba(125, 216, 216, 0.25),
+        inset 0 0 8px rgba(125, 216, 216, 0.05);
+}
+
+.form-group input:hover {
+    border-color: #4a7a7a;
+}
+
+/* ── Error message ────────────────────────────────────────── */
+.error-message {
+    background: rgba(201, 84, 106, 0.15);
+    border: 2px solid #c9546a;
+    color: #c9546a;
+    padding: 0.75rem;
+    margin-bottom: 1.25rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.06em;
+    box-shadow:
+        0 0 10px rgba(201, 84, 106, 0.20),
+        inset 0 0 8px rgba(201, 84, 106, 0.05);
+    position: relative;
+}
+
+.error-message::before,
+.error-message::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #c9546a;
+}
+
+.error-message::before {
+    top: 0;
+    left: 0;
+    border-radius: 0 0 0 6px;
+}
+
+.error-message::after {
+    bottom: 0;
+    right: 0;
+    border-radius: 0 0 6px 0;
+}
+
+/* ── Success message ──────────────────────────────────────── */
+.success-message {
+    background: rgba(110, 201, 122, 0.15);
+    border: 2px solid #6ec97a;
+    color: #6ec97a;
+    padding: 0.75rem;
+    margin-bottom: 1.25rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.06em;
+    box-shadow:
+        0 0 10px rgba(110, 201, 122, 0.20),
+        inset 0 0 8px rgba(110, 201, 122, 0.05);
+    position: relative;
+}
+
+.success-message::before,
+.success-message::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #6ec97a;
+}
+
+.success-message::before {
+    top: 0;
+    left: 0;
+    border-radius: 0 0 0 6px;
+}
+
+.success-message::after {
+    bottom: 0;
+    right: 0;
+    border-radius: 0 0 6px 0;
+}
+
+/* ── API key item ─────────────────────────────────────────── */
+.api-key-item {
+    background: #0d0d1a;
+    border: 1px solid #2a5a5a;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: border-color 0.1s, box-shadow 0.1s;
+}
+
+.api-key-item:hover {
+    border-color: #4a7a7a;
+    box-shadow: 0 0 8px rgba(125, 216, 216, 0.10);
+}
+
+.api-key-info {
+    color: #cdd0e8;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.06em;
+}
+
+.api-key-info strong {
+    color: #a8ecec;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.api-key-prefix {
+    font-family: 'Press Start 2P', monospace;
+    color: #7dd8d8;
+    font-size: 0.5rem;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.api-key-info small {
+    color: #7880a8;
+    font-size: 0.45rem;
+}
+
+.api-key-secret {
+    font-family: 'Press Start 2P', monospace;
+    background: #0d0d1a;
+    border: 1px solid #2a5a5a;
+    padding: 0.75rem;
+    word-break: break-all;
+    margin-top: 0.75rem;
+    font-size: 0.5rem;
+    color: #7dd8d8;
+}
+
+.api-key-actions button {
+    margin-left: 0.5rem;
+}
+
+/* ── User info ────────────────────────────────────────────── */
+.user-info {
+    color: #cdd0e8;
+    margin-bottom: 1.5rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.06em;
+    line-height: 2;
+}
+
+.user-info p {
+    margin: 0.5rem 0;
+}
+
+.user-info strong {
+    color: #7dd8d8;
+}
+
+/* ── Modal overlay ────────────────────────────────────────── */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(13, 13, 26, 0.85);
+    z-index: 1000;
+}
+
+.modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #11111f !important;
+    border: 2px solid #2a5a5a !important;
+    box-shadow:
+        0 0 20px rgba(125, 216, 216, 0.12),
+        0 0 60px rgba(125, 216, 216, 0.05),
+        inset 0 0 24px rgba(125, 216, 216, 0.03);
+    padding: 2rem 1.75rem;
+    max-width: 400px;
+    width: 90%;
+    position: relative;
+}
+
+.modal-content::before,
+.modal-content::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: #4a2244;
+    border-style: solid;
+}
+
+.modal-content::before {
+    top: -2px;
+    left: -2px;
+    border-width: 2px 0 0 2px;
+}
+
+.modal-content::after {
+    bottom: -2px;
+    right: -2px;
+    border-width: 0 2px 2px 0;
+}
+
+.modal-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.75rem;
+    color: #a8ecec;
+    margin-bottom: 1.25rem;
+    letter-spacing: 0.1em;
+    text-shadow:
+        0 0 10px rgba(168, 236, 236, 0.30),
+        2px 2px 0 #4a2244;
+}
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.nes-btn {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.6rem !important;
+    letter-spacing: 0.1em !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 0 !important;
+}
+
+.nes-btn.is-primary {
+    background: #0d0d1a !important;
+    color: #7dd8d8 !important;
+    border: 2px solid #7dd8d8 !important;
+    box-shadow: 0 0 10px rgba(125, 216, 216, 0.20) !important;
+}
+
+.nes-btn.is-primary:hover {
+    background: #7dd8d8 !important;
+    color: #0d0d1a !important;
+    box-shadow: 0 0 18px rgba(125, 216, 216, 0.40) !important;
+}
+
+.nes-btn.is-warning {
+    background: #0d0d1a !important;
+    color: #d4c87a !important;
+    border: 2px solid #d4c87a !important;
+    box-shadow: 0 0 10px rgba(212, 200, 122, 0.20) !important;
+}
+
+.nes-btn.is-warning:hover {
+    background: #d4c87a !important;
+    color: #0d0d1a !important;
+    box-shadow: 0 0 18px rgba(212, 200, 122, 0.40) !important;
+}
+
+.nes-btn.is-error {
+    background: #0d0d1a !important;
+    color: #c9546a !important;
+    border: 2px solid #c9546a !important;
+    box-shadow: 0 0 10px rgba(201, 84, 106, 0.20) !important;
+}
+
+.nes-btn.is-error:hover {
+    background: #c9546a !important;
+    color: #0d0d1a !important;
+    box-shadow: 0 0 18px rgba(201, 84, 106, 0.40) !important;
+}
+
+.nes-btn.is-small {
+    font-size: 0.5rem !important;
+    padding: 0.3rem 0.6rem !important;
+}
+
+/* ── Utility classes ──────────────────────────────────────── */
+.api-keys-list {
+    margin-top: 1.25rem;
+}
+
+.modal-form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 1rem;
+}
+
+.api-key-secret-alert {
+    color: #c9546a;
+    margin-bottom: 10px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.5rem;
+}
+
+.api-key-secret-code {
+    color: #7dd8d8;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.5rem;
+}
+
+.no-api-keys {
+    color: #7880a8;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+}

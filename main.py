@@ -10,13 +10,14 @@ from app.core.lifespan import lifespan
 from app.core.csrf import CSRFMiddleware
 from app.api.router import api_router
 from app.web.endpoints.web import router as web_router
+from app.auth.endpoints import router as auth_router
 from app.utils.jinja_utils import configure_jinja2_templates
 
 templates = Jinja2Templates(directory="templates")
 configure_jinja2_templates(templates)
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
     handlers=[
         logging.FileHandler("glyph_log.log", encoding="utf-8"),
@@ -44,6 +45,10 @@ def create_app() -> FastAPI:
         logger.info("✅ Static files mounted at /static")
     except Exception as e:
         logger.warning("Static files mount failed: %s", e)
+
+    # Include auth router
+    app.include_router(auth_router)
+    logger.info("✅ Auth router registered at /auth")
 
     app.include_router(api_router, prefix="/api")
     logger.info("✅ API router registered at /api")

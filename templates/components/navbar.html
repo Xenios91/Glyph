@@ -8,5 +8,12 @@
         <a href="/getPredictions">PREDICTIONS</a>
         <a href="/uploadBinary">UPLOAD</a>
         <a href="/config">CONFIG</a>
+        {% if user %}
+        <a href="/profile">{{ user.username }}</a>
+        <a href="/auth/logout">Logout</a>
+        {% else %}
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+        {% endif %}
     </div>
 </nav>

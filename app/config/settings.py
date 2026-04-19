@@ -2,6 +2,7 @@
 
 import logging
 import os
+import secrets
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,22 @@ class GlyphSettings(BaseSettings):
     upload_folder: Path = Field(
         default=Path("./binaries"), description="Upload directory"
     )
+
+    # JWT Settings
+    jwt_secret_key: str = Field(
+        default_factory=lambda: secrets.token_urlsafe(32),
+        description="Secret key for JWT signing"
+    )
+    jwt_algorithm: str = Field(default="HS256")
+    access_token_expire_minutes: int = Field(default=15)
+    refresh_token_expire_days: int = Field(default=7)
+    
+    # OAuth2 Settings
+    oauth2_enabled: bool = Field(default=False)
+    oauth2_session_secret: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    
+    # Authentication Settings
+    auth_enabled: bool = Field(default=True, description="Whether authentication is enabled")
 
     model_config = {"env_prefix": "GLYPH_", "extra": "ignore"}
 

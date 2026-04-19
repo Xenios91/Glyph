@@ -2,8 +2,8 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, BLOB, DateTime, String, Text
-from sqlalchemy.orm import Mapped, declarative_base, mapped_column
+from sqlalchemy import BigInteger, BLOB, DateTime, ForeignKey, Integer, String, Text, Boolean
+from sqlalchemy.orm import Mapped, declarative_base, mapped_column, relationship
 
 Base = declarative_base()
 
@@ -83,3 +83,67 @@ class Function(Base):
     tokens: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
     modified_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
+
+
+class User(Base):
+    """Model representing a user in the database.
+    
+    Attributes:
+        id: Primary key
+        username: Unique username
+        email: Unique email address
+        hashed_password: Argon2id hashed password
+        full_name: User's full name
+        permissions: JSON array of permissions
+        is_active: Whether the user account is active
+        created_at: Timestamp when the user was created
+        modified_at: Timestamp when the user was last modified
+    """
+    
+    __tablename__ = "users"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(256), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(128), nullable=True)
+    permissions: Mapped[str] = mapped_column(String(512), default="[]", nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
+    modified_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
+    
+    # Relationship to API keys
+    api_keys: Mapped[list["APIKey"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class APIKey(Base):
+    """Model representing an API key for programmatic access.
+    
+    Attributes:
+        id: Primary key
+        user_id: Foreign key to User
+        name: Human-readable name for the API key
+        hashed_key: Bcrypt hashed API key
+        key_prefix: First 8 characters of the key for display
+        permissions: JSON array of permissions
+        expires_at: Optional expiration timestamp
+        is_active: Whether the API key is active
+        last_used_at: Timestamp when the key was last used
+        created_at: Timestamp when the key was created
+    """
+    
+    __tablename__ = "api_keys"
+    
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    hashed_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    key_prefix: Mapped[str] = mapped_column(String(8), nullable=False, index=True)
+    permissions: Mapped[str] = mapped_column(String(512), default="[]", nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
+    
+    # Relationship to user
+    user: Mapped["User"] = relationship(back_populates="api_keys")

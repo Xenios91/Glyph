@@ -5,8 +5,9 @@ prediction results.
 """
 
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.templating import Jinja2Templates
 from markupsafe import escape
 from pydantic import BaseModel
@@ -19,6 +20,8 @@ from app.processing.task_management import TaskManager
 from app.utils.common import format_code
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 from app.utils.jinja_utils import configure_jinja2_templates
+from app.auth.dependencies import get_current_active_user, get_optional_user
+from app.database.models import User
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -93,6 +96,7 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
 async def predict_tokens(
     background_tasks: BackgroundTasks,
     request_values: PredictTokensRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     """Creates a job to predict a function name based on the tokens supplied.
     
@@ -150,6 +154,7 @@ async def get_prediction(
     request: Request,
     model_name: ModelName = Query(...),
     task_name: TaskName = Query(...),
+    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """Obtain all predictions from one task.
     
@@ -195,7 +200,10 @@ async def get_prediction(
 
 
 @router.delete("/deletePrediction")
-async def delete_prediction(task_name: TaskName = Query(...)):
+async def delete_prediction(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    task_name: TaskName = Query(...),
+):
     """Deletes a prediction by task name.
     
     Args:
@@ -218,6 +226,7 @@ async def get_prediction_details(
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
     task_name: TaskName = Query(...),
+    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """Displays specific details of a prediction.
     

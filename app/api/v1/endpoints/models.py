@@ -5,11 +5,14 @@ including retrieving model information and function predictions.
 """
 
 import logging
-from fastapi import APIRouter, Request, Query, HTTPException
+from typing import Annotated
+from fastapi import APIRouter, Depends, Request, Query, HTTPException
 from fastapi.templating import Jinja2Templates
 
 
 from app.api.types import ModelName, FunctionName, TaskName
+from app.auth.dependencies import get_current_active_user, get_optional_user
+from app.database.models import User
 from app.utils.persistence_util import (
     FunctionPersistanceUtil,
     MLPersistanceUtil,
@@ -30,7 +33,10 @@ configure_jinja2_templates(templates)
 
 
 @router.delete("/deleteModel", response_model=SuccessResponse[dict])
-async def delete_model(model_name: ModelName = Query(...)):
+async def delete_model(
+    model_name: ModelName = Query(...),
+    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
+):
     """
     Handles a DELETE request to delete a supplied model by name.
 
@@ -63,6 +69,7 @@ async def get_function(
     request: Request,
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
+    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """
     Handles a GET request to return a specific function associated with a model.
@@ -115,7 +122,11 @@ async def get_function(
 
 
 @router.get("/getFunctions", response_model=SuccessResponse[dict])
-async def get_functions(request: Request, model_name: ModelName = Query(...)):
+async def get_functions(
+    request: Request,
+    model_name: ModelName = Query(...),
+    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
+):
     """
     Handles a GET request to return all identified functions associated with a model.
 
@@ -152,6 +163,7 @@ async def get_prediction_details(
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
     task_name: TaskName = Query(...),
+    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """Displays specific details of a prediction.
 

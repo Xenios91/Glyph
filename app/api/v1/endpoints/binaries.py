@@ -10,10 +10,12 @@ import stat
 from pathlib import Path
 import uuid
 import magic
+from typing import Annotated
 
 from fastapi import (
     APIRouter,
     BackgroundTasks,
+    Depends,
     File,
     Form,
     HTTPException,
@@ -33,6 +35,8 @@ from app.utils.responses import (
     SuccessResponse,
 )
 from app.utils.jinja_utils import configure_jinja2_templates
+from app.auth.dependencies import get_current_active_user
+from app.database.models import User
 
 
 class BinaryUploadForm(BaseModel):
@@ -255,6 +259,7 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
 async def post_upload_binary(
     background_tasks: BackgroundTasks,
     request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     binary_file: UploadFile = File(...),
     training_data: str = Form("false"),
     model_name: str = Form(...),
@@ -354,7 +359,9 @@ async def post_upload_binary(
 
 
 @router.get("/listBins", response_model=SuccessResponse[dict])
-async def list_bins():
+async def list_bins(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     Handles a GET request to retrieve all available binaries
     """

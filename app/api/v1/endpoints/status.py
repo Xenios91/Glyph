@@ -3,13 +3,15 @@
 This module provides endpoints for checking the status of tasks and operations.
 """
 
-from fastapi import APIRouter, Query, HTTPException
+from typing import Annotated
+from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, StringConstraints
-from typing_extensions import Annotated
 
 from app.api.types import UUID as UUIDType
 from app.processing.task_management import TaskManager
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
+from app.auth.dependencies import get_current_active_user, get_optional_user
+from app.database.models import User
 
 router = APIRouter()
 
@@ -27,7 +29,10 @@ class StatusUpdatePayload(BaseModel):
 
 
 @router.get("/getStatus", response_model=SuccessResponse[dict])
-async def get_status(uuid: UUIDType = Query(...)):
+async def get_status(
+    uuid: UUIDType = Query(...),
+    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
+):
     """
     Handles a GET request to obtain the supplied uuid task status.
     
@@ -58,7 +63,10 @@ async def get_status(uuid: UUIDType = Query(...)):
 
 
 @router.post("/statusUpdate", response_model=SuccessResponse[dict])
-async def update_status(payload: StatusUpdatePayload):
+async def update_status(
+    payload: StatusUpdatePayload,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     Handles a POST request (typically from Ghidra) to update
     the current status of a task.
