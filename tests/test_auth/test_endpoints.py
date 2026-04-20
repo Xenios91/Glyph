@@ -38,8 +38,8 @@ class TestRegisterEndpoint:
         response = auth_client.post(
             "/auth/register",
             json={
-                "username": "testuser",
-                "email": "test@example.com",
+                "username": "testuser_register_success",
+                "email": "test_register_success@example.com",
                 "password": "test_password_123",
                 "full_name": "Test User"
             },
@@ -48,8 +48,8 @@ class TestRegisterEndpoint:
         
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
-        assert data["username"] == "testuser"
-        assert data["email"] == "test@example.com"
+        assert data["username"] == "testuser_register_success"
+        assert data["email"] == "test_register_success@example.com"
         assert data["is_active"] is True
 
     def test_register_duplicate_username(self, auth_client):
@@ -343,8 +343,8 @@ class TestAPIKeyEndpoints:
         auth_client.post(
             "/auth/register",
             json={
-                "username": "testuser",
-                "email": "test@example.com",
+                "username": "testuser_create_api_key",
+                "email": "test_create_api_key@example.com",
                 "password": "test_password_123"
             },
             headers=headers
@@ -353,7 +353,7 @@ class TestAPIKeyEndpoints:
         login_response = auth_client.post(
             "/auth/token",
             json={
-                "username": "testuser",
+                "username": "testuser_create_api_key",
                 "password": "test_password_123"
             },
             headers=headers
@@ -366,7 +366,7 @@ class TestAPIKeyEndpoints:
             "/auth/api-keys",
             headers={"Authorization": f"Bearer {access_token}", "X-CSRF-Token": csrf_token},
             json={
-                "name": "Test API Key",
+                "name": "Test API Key Create",
                 "permissions": ["read", "write"],
                 "expires_days": 30
             }
@@ -374,7 +374,7 @@ class TestAPIKeyEndpoints:
         
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
-        assert data["name"] == "Test API Key"
+        assert data["name"] == "Test API Key Create"
         assert "secret" in data
         assert data["secret"].startswith("glp_")
 
@@ -386,8 +386,8 @@ class TestAPIKeyEndpoints:
         auth_client.post(
             "/auth/register",
             json={
-                "username": "testuser",
-                "email": "test@example.com",
+                "username": "testuser_list_api_keys",
+                "email": "test_list_api_keys@example.com",
                 "password": "test_password_123"
             },
             headers=headers
@@ -396,7 +396,7 @@ class TestAPIKeyEndpoints:
         login_response = auth_client.post(
             "/auth/token",
             json={
-                "username": "testuser",
+                "username": "testuser_list_api_keys",
                 "password": "test_password_123"
             },
             headers=headers
@@ -409,7 +409,7 @@ class TestAPIKeyEndpoints:
             "/auth/api-keys",
             headers={"Authorization": f"Bearer {access_token}", "X-CSRF-Token": csrf_token},
             json={
-                "name": "Test API Key",
+                "name": "Test API Key List",
                 "permissions": ["read"]
             }
         )
@@ -423,7 +423,7 @@ class TestAPIKeyEndpoints:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert len(data) == 1
-        assert data[0]["name"] == "Test API Key"
+        assert data[0]["name"] == "Test API Key List"
         assert "secret" not in data[0]
 
     def test_delete_api_key(self, auth_client):
