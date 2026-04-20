@@ -103,6 +103,11 @@ class JWTHandler:
             if decoded.get("type") != "access":
                 raise InvalidTokenError("Token is not an access token")
             
+            # Verify expiration
+            exp = decoded.get("exp")
+            if exp and datetime.now(timezone.utc).timestamp() > exp:
+                raise InvalidTokenError("Token has expired")
+            
             return dict(decoded)
         except (DecodeError, InvalidTokenError, BadSignatureError):
             raise
@@ -128,6 +133,11 @@ class JWTHandler:
             # Verify token type
             if decoded.get("type") != "refresh":
                 raise InvalidTokenError("Token is not a refresh token")
+            
+            # Verify expiration
+            exp = decoded.get("exp")
+            if exp and datetime.now(timezone.utc).timestamp() > exp:
+                raise InvalidTokenError("Token has expired")
             
             return dict(decoded)
         except (DecodeError, InvalidTokenError, BadSignatureError):

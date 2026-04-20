@@ -1,16 +1,23 @@
 """Tests for authentication repository."""
 
 import pytest
+import pytest_asyncio
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import select
 
 from app.auth.repository import UserRepository, APIKeyRepository, PasswordHasherService
 from app.database.models import User, APIKey
-from app.database.session_handler import get_async_session
+from app.database.session_handler import get_async_session, init_async_databases
 
 
-@pytest.fixture
-async def db():
+@pytest_asyncio.fixture(scope="session")
+async def init_db():
+    """Initialize async databases before tests."""
+    await init_async_databases()
+
+
+@pytest_asyncio.fixture
+async def db(init_db):
     """Create a test database session."""
     session = await get_async_session("auth")
     try:

@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime, timezone, timedelta
-from authlib.jose.errors import InvalidTokenError
+from authlib.jose.errors import InvalidTokenError, DecodeError
 
 from app.auth.jwt_handler import JWTHandler
 
@@ -77,7 +77,7 @@ class TestJWTHandler:
 
     def test_verify_invalid_token(self, jwt_handler):
         """Test that invalid tokens are rejected."""
-        with pytest.raises(InvalidTokenError):
+        with pytest.raises((InvalidTokenError, DecodeError)):
             jwt_handler.verify_access_token("invalid.token.here")
 
     def test_verify_expired_token(self, jwt_handler):
