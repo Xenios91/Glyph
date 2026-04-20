@@ -2,11 +2,8 @@
 
 import pytest
 import pytest_asyncio
-from datetime import datetime, timezone, timedelta
-from sqlalchemy import select
 
 from app.auth.repository import UserRepository, APIKeyRepository, PasswordHasherService
-from app.database.models import User, APIKey
 from app.database.session_handler import get_async_session, init_async_databases
 
 
@@ -115,14 +112,14 @@ class TestUserRepository:
         repo = UserRepository(db)
         
         user = await repo.create_user(
-            username="testuser",
-            email="test@example.com",
+            username="testuser_username",
+            email="test_username@example.com",
             password="test_password_123"
         )
         
-        retrieved = await repo.get_by_username("testuser")
+        retrieved = await repo.get_by_username("testuser_username")
         assert retrieved is not None
-        assert retrieved.username == "testuser"
+        assert retrieved.username == "testuser_username"
 
     @pytest.mark.asyncio
     async def test_get_by_email(self, db):
@@ -130,14 +127,14 @@ class TestUserRepository:
         repo = UserRepository(db)
         
         user = await repo.create_user(
-            username="testuser",
-            email="test@example.com",
+            username="testuser_email",
+            email="test_email@example.com",
             password="test_password_123"
         )
         
-        retrieved = await repo.get_by_email("test@example.com")
+        retrieved = await repo.get_by_email("test_email@example.com")
         assert retrieved is not None
-        assert retrieved.email == "test@example.com"
+        assert retrieved.email == "test_email@example.com"
 
     @pytest.mark.asyncio
     async def test_verify_credentials_correct(self, db):
@@ -145,14 +142,14 @@ class TestUserRepository:
         repo = UserRepository(db)
         
         await repo.create_user(
-            username="testuser",
-            email="test@example.com",
+            username="testuser_verify_correct",
+            email="test_verify_correct@example.com",
             password="test_password_123"
         )
         
-        user = await repo.verify_credentials("testuser", "test_password_123")
+        user = await repo.verify_credentials("testuser_verify_correct", "test_password_123")
         assert user is not None
-        assert user.username == "testuser"
+        assert user.username == "testuser_verify_correct"
 
     @pytest.mark.asyncio
     async def test_verify_credentials_incorrect(self, db):
@@ -160,12 +157,12 @@ class TestUserRepository:
         repo = UserRepository(db)
         
         await repo.create_user(
-            username="testuser",
-            email="test@example.com",
+            username="testuser_verify_incorrect",
+            email="test_verify_incorrect@example.com",
             password="test_password_123"
         )
         
-        user = await repo.verify_credentials("testuser", "wrong_password")
+        user = await repo.verify_credentials("testuser_verify_incorrect", "wrong_password")
         assert user is None
 
     @pytest.mark.asyncio
@@ -190,8 +187,8 @@ class TestUserRepository:
         repo = UserRepository(db)
         
         user = await repo.create_user(
-            username="testuser",
-            email="test@example.com",
+            username="testuser_change_password",
+            email="test_change_password@example.com",
             password="old_password"
         )
         
@@ -199,10 +196,10 @@ class TestUserRepository:
         assert success is True
         
         # Verify old password doesn't work
-        assert await repo.verify_credentials("testuser", "old_password") is None
+        assert await repo.verify_credentials("testuser_change_password", "old_password") is None
         
         # Verify new password works
-        user = await repo.verify_credentials("testuser", "new_password_123")
+        user = await repo.verify_credentials("testuser_change_password", "new_password_123")
         assert user is not None
 
     @pytest.mark.asyncio

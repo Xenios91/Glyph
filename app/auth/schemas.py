@@ -2,8 +2,9 @@
 
 from datetime import datetime
 from typing import Any
+import json
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserCreate(BaseModel):
@@ -86,6 +87,17 @@ class APIKeyResponse(BaseModel):
     is_active: bool = Field(..., description="Whether key is active")
     last_used_at: datetime | None = Field(None, description="Last used timestamp")
     created_at: datetime = Field(..., description="Creation timestamp")
+    
+    @field_validator("permissions", mode="before")
+    @classmethod
+    def parse_permissions(cls, v):
+        """Parse permissions from JSON string to list."""
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return v
     
     class Config:
         from_attributes = True

@@ -2,6 +2,7 @@
 
 from typing import Annotated
 
+from authlib.jose.errors import DecodeError
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -177,7 +178,7 @@ async def refresh_token(
                 detail="Invalid refresh token"
             )
         user_id = int(user_id)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, DecodeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token"
