@@ -1,6 +1,8 @@
 import sys
 from unittest.mock import MagicMock
 
+import pytest
+
 def pytest_configure(config):
     """Mocks the Ghidra/Java world so pytest can collect tests safely."""
     mock_modules = [
@@ -10,3 +12,6 @@ def pytest_configure(config):
     ]
     for mod in mock_modules:
         sys.modules[mod] = MagicMock()
+
+# Configure pytest-asyncio
+pytest_plugins = ('pytest_asyncio',)

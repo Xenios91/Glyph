@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from app.config.settings import get_settings
 from app.database.sql_service import SQLUtil
+from app.database.session_handler import init_async_databases
 from app.processing.task_management import EventWatcher
 from app.services.task_service import TaskService
 
@@ -30,6 +31,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.exception("❌ Failed to initialize database.")
         raise RuntimeError("Database initialization failed.") from e
+
+    try:
+        await init_async_databases()
+        logger.info("✅ Async databases initialized.")
+    except Exception as e:
+        logger.exception("❌ Failed to initialize async databases.")
+        raise RuntimeError("Async database initialization failed.") from e
 
     try:
         threading.Thread(target=TaskService.start_service, daemon=True).start()

@@ -3,11 +3,14 @@
 This module provides endpoints for managing application configuration.
 """
 
-from fastapi import APIRouter, HTTPException
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.config.settings import MAX_CPU_CORES, get_settings
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
+from app.auth.dependencies import get_current_active_user
+from app.database.models import User
 
 router = APIRouter()
 
@@ -25,7 +28,10 @@ class ConfigPayload(BaseModel):
 
 
 @router.post("/save", response_model=SuccessResponse[dict])
-async def save_config(payload: ConfigPayload):
+async def save_config(
+    payload: ConfigPayload,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     Saves the configuration settings
     

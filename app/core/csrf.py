@@ -4,7 +4,10 @@ This module provides CSRF token generation and validation for state-changing req
 Uses session-based CSRF tokens with SameSite cookie policy.
 """
 
+import logging
 import secrets
+
+logger = logging.getLogger(__name__)
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -33,23 +36,30 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         # Skip CSRF validation for static files and API documentation
         if self._is_excluded_path(request.url.path):
+            logger.debug(f"Skipping CSRF for excluded path: {request.url.path}")
             return await call_next(request)
 
         # Generate or retrieve CSRF token
         csrf_token = self._get_or_create_token(request)
+        logger.debug(f"CSRF token for {request.method} {request.url.path}: {csrf_token[:8]}...")
 
         # Store token in request state for template access (secure: same-origin only)
         request.state.csrf_token = csrf_token
 
         # For unsafe methods, validate the CSRF token
         if request.method in self.UNSAFE_METHODS:
+            logger.debug(f"Validating CSRF token for {request.method} {request.url.path}")
+            logger.debug(f"  Expected token: {csrf_token[:8]}...")
+            logger.debug(f"  Request headers: {dict(request.headers)}")
             if not await self._validate_csrf_token(request, csrf_token):
+                logger.warning(f"CSRF validation failed for {request.method} {request.url.path}")
                 # Return 403 Forbidden for invalid CSRF tokens
                 return Response(
                     content='{"detail": "CSRF token missing or invalid"}',
                     status_code=HTTP_403_FORBIDDEN,
                     media_type="application/json",
                 )
+            logger.debug(f"CSRF validation succeeded for {request.method} {request.url.path}")
 
         # Process the request
         response = await call_next(request)

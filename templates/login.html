@@ -1,0 +1,81 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/auth_style.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="auth-content">
+    <div class="auth-card nes-container with-title">
+        <h2 class="auth-title">LOGIN</h2>
+        
+        {% if error %}
+        <div class="auth-error">{{ error }}</div>
+        {% endif %}
+        
+        {% if success %}
+        <div class="auth-success">{{ success }}</div>
+        {% endif %}
+        
+        <form id="loginForm" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ get_csrf_token(request) }}">
+            
+            <div class="auth-form-group">
+                <label for="username" class="auth-form-label">USERNAME</label>
+                <input type="text" id="username" name="username" class="auth-form-input" required minlength="3" maxlength="64" placeholder="Enter username">
+            </div>
+            
+            <div class="auth-form-group">
+                <label for="password" class="auth-form-label">PASSWORD</label>
+                <input type="password" id="password" name="password" class="auth-form-input" required minlength="8" placeholder="Enter password">
+            </div>
+            
+            <button type="submit" class="auth-btn">
+                [ LOGIN ]
+            </button>
+        </form>
+        
+        <div class="auth-links">
+            <p>Don't have an account? <a href="/register">REGISTER HERE</a></p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = {
+        username: formData.get('username'),
+        password: formData.get('password')
+    };
+    
+    try {
+        const response = await fetch('/auth/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': formData.get('csrf_token')
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            // Redirect to home page
+            window.location.href = '/';
+        } else {
+            const error = await response.json();
+            document.querySelector('.auth-error')?.remove();
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'auth-error';
+            errorDiv.textContent = error.detail || 'Login failed';
+            e.target.insertBefore(errorDiv, e.target.firstChild);
+        }
+    } catch (err) {
+        console.error('Login error:', err);
+    }
+});
+</script>
+{% endblock %}

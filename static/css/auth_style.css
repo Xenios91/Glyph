@@ -1,0 +1,306 @@
+/* =============================================================
+   GLYPH — AUTH PAGES (auth_style.css)  NES Cyberpunk Theme
+   ============================================================= */
+
+/* ── Auth container ──────────────────────────────────────────── */
+.auth-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 56px - 48px);
+    padding: 2rem 1rem;
+    position: relative;
+    z-index: 10;
+}
+
+/* ── Auth card ───────────────────────────────────────────────── */
+.auth-card {
+    background: #11111f !important;
+    border: 2px solid #2a5a5a !important;
+    box-shadow:
+        0 0 20px rgba(125, 216, 216, 0.12),
+        0 0 60px rgba(125, 216, 216, 0.05),
+        inset 0 0 24px rgba(125, 216, 216, 0.03);
+    max-width: 440px;
+    width: 100%;
+    padding: 2rem 1.75rem;
+    position: relative;
+}
+
+.auth-card::before,
+.auth-card::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: #4a2244;
+    border-style: solid;
+}
+
+.auth-card::before {
+    top: -2px;
+    left: -2px;
+    border-width: 2px 0 0 2px;
+}
+
+.auth-card::after {
+    bottom: -2px;
+    right: -2px;
+    border-width: 0 2px 2px 0;
+}
+
+/* ── Auth title ──────────────────────────────────────────────── */
+.auth-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 1.25rem;
+    color: #a8ecec;
+    text-align: center;
+    margin-bottom: 1.75rem;
+    letter-spacing: 0.15em;
+    text-shadow:
+        0 0 10px rgba(168, 236, 236, 0.30),
+        2px 2px 0 #4a2244;
+    position: relative;
+}
+
+.auth-title::after {
+    content: '';
+    display: block;
+    margin: 0.75rem auto 0;
+    width: 60%;
+    height: 1px;
+    background: linear-gradient(90deg,
+            transparent 0%, #2a5a5a 20%, #4a2244 50%, #2a5a5a 80%, transparent 100%);
+}
+
+/* ── Form groups ────────────────────────────────────────────── */
+.auth-form-group {
+    margin-bottom: 1.25rem;
+}
+
+.auth-form-label {
+    display: block;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    color: #7880a8;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.08em;
+}
+
+.auth-form-input {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.6rem;
+    color: #cdd0e8;
+    background: #0d0d1a;
+    border: 2px solid #2a5a5a;
+    border-radius: 0;
+    transition: border-color 0.1s, box-shadow 0.1s;
+}
+
+.auth-form-input::placeholder {
+    color: #5a6080;
+}
+
+.auth-form-input:focus {
+    outline: none;
+    border-color: #7dd8d8;
+    box-shadow:
+        0 0 8px rgba(125, 216, 216, 0.25),
+        inset 0 0 8px rgba(125, 216, 216, 0.05);
+}
+
+.auth-form-input:hover {
+    border-color: #4a7a7a;
+}
+
+/* ── Auth button ────────────────────────────────────────────── */
+.auth-btn {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.65rem !important;
+    letter-spacing: 0.12em !important;
+    background: #0d0d1a !important;
+    color: #d4c87a !important;
+    border: 2px solid #d4c87a !important;
+    box-shadow: 0 0 10px rgba(212, 200, 122, 0.20) !important;
+    padding: 0.6rem 1.5rem !important;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    margin-top: 0.5rem;
+    transition: none;
+}
+
+.auth-btn:hover {
+    background: #d4c87a !important;
+    color: #0d0d1a !important;
+    box-shadow: 0 0 18px rgba(212, 200, 122, 0.40) !important;
+    transform: translate(-1px, -1px);
+}
+
+.auth-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: none !important;
+}
+
+.auth-btn::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: rgba(255, 255, 255, 0.03);
+    animation: auth-btn-sweep 3s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes auth-btn-sweep {
+    from {
+        top: -40%;
+    }
+    to {
+        top: 120%;
+    }
+}
+
+/* ── Error message ──────────────────────────────────────────── */
+.auth-error {
+    background: rgba(201, 84, 106, 0.15);
+    border: 2px solid #c9546a;
+    color: #c9546a;
+    padding: 0.75rem;
+    margin-bottom: 1.25rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.06em;
+    box-shadow:
+        0 0 10px rgba(201, 84, 106, 0.20),
+        inset 0 0 8px rgba(201, 84, 106, 0.05);
+    position: relative;
+}
+
+.auth-error::before,
+.auth-error::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #c9546a;
+}
+
+.auth-error::before {
+    top: 0;
+    left: 0;
+    border-radius: 0 0 0 6px;
+}
+
+.auth-error::after {
+    bottom: 0;
+    right: 0;
+    border-radius: 0 0 6px 0;
+}
+
+/* ── Success message ────────────────────────────────────────── */
+.auth-success {
+    background: rgba(110, 201, 122, 0.15);
+    border: 2px solid #6ec97a;
+    color: #6ec97a;
+    padding: 0.75rem;
+    margin-bottom: 1.25rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.06em;
+    box-shadow:
+        0 0 10px rgba(110, 201, 122, 0.20),
+        inset 0 0 8px rgba(110, 201, 122, 0.05);
+    position: relative;
+}
+
+.auth-success::before,
+.auth-success::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #6ec97a;
+}
+
+.auth-success::before {
+    top: 0;
+    left: 0;
+    border-radius: 0 0 0 6px;
+}
+
+.auth-success::after {
+    bottom: 0;
+    right: 0;
+    border-radius: 0 0 6px 0;
+}
+
+/* ── Auth links ─────────────────────────────────────────────── */
+.auth-links {
+    text-align: center;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid rgba(125, 216, 216, 0.12);
+}
+
+.auth-links p {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    color: #7880a8;
+    letter-spacing: 0.06em;
+}
+
+.auth-links a {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    color: #7dd8d8;
+    text-decoration: none;
+    position: relative;
+    padding: 2px 0;
+    transition: color 0.1s;
+    letter-spacing: 0.06em;
+}
+
+.auth-links a::before {
+    content: '< ';
+    opacity: 0;
+    transition: opacity 0.1s;
+    color: #c87ab8;
+}
+
+.auth-links a::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: #d4c87a;
+    transition: width 0.15s steps(4);
+}
+
+.auth-links a:hover {
+    color: #d4c87a;
+}
+
+.auth-links a:hover::before {
+    opacity: 1;
+}
+
+.auth-links a:hover::after {
+    width: 100%;
+}
+
+/* ── Divider ────────────────────────────────────────────────── */
+.auth-divider {
+    border: none;
+    height: 1px;
+    margin: 0.5rem 0 0;
+    background: linear-gradient(90deg,
+            transparent 0%, #2a5a5a 25%, #4a2244 50%, #2a5a5a 75%, transparent 100%);
+}

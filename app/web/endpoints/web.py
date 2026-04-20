@@ -1,5 +1,6 @@
 import logging
-from fastapi import APIRouter, HTTPException, Query, Request
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
@@ -10,6 +11,8 @@ from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUti
 from app.processing.task_management import TaskManager
 from app.utils.common import format_code, build_prediction_details_response
 from app.utils.jinja_utils import configure_jinja2_templates
+from app.auth.dependencies import get_current_active_user, get_optional_user
+from app.database.models import User
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -17,7 +20,10 @@ configure_jinja2_templates(templates)
 
 
 @router.get("/")
-async def home(request: Request):
+async def home(
+    request: Request,
+    current_user: Annotated[User | None, Depends(get_optional_user)]
+):
     """
     Loads the homepage of Glyph
     """
@@ -25,11 +31,17 @@ async def home(request: Request):
     if ACCEPT_TYPE not in accept:
         return JSONResponse(content={"version": _version.__version__})
 
-    return templates.TemplateResponse("main.html", {"request": request, "title": "Glyph"})
+    return templates.TemplateResponse(
+        "main.html",
+        {"request": request, "title": "Glyph", "user": current_user}
+    )
 
 
 @router.get("/config")
-async def config(request: Request):
+async def config(
+    request: Request,
+    current_user: Annotated[User | None, Depends(get_optional_user)]
+):
     """
     Loads the configuration page of Glyph
     """
@@ -42,6 +54,7 @@ async def config(request: Request):
             "max_cpu_cores": MAX_CPU_CORES,
             "current_cpu_cores": settings.cpu_cores,
             "current_max_file_size": settings.max_file_size_mb,
+            "user": current_user,
         },
     )
 
@@ -65,7 +78,10 @@ async def error_page(request: Request, type: str | None = None):
 
 
 @router.get("/uploadBinary")
-async def get_upload_binary(request: Request):
+async def get_upload_binary(
+    request: Request,
+    current_user: Annotated[User | None, Depends(get_optional_user)]
+):
     """
     Handles GET request to load the upload webpage
     """
@@ -79,12 +95,15 @@ async def get_upload_binary(request: Request):
     allow_prediction = len(models) > 0
     return templates.TemplateResponse(
         "upload.html",
-        {"request": request, "title": "Glyph - Upload Binary", "allow_prediction": allow_prediction, "models": models},
+        {"request": request, "title": "Glyph - Upload Binary", "allow_prediction": allow_prediction, "models": models, "user": current_user},
     )
 
 
 @router.get("/getModels")
-async def get_list_models(request: Request):
+async def get_list_models(
+    request: Request,
+    current_user: Annotated[User | None, Depends(get_optional_user)]
+):
     """
     Handles a GET request to obtain all models available
     """
@@ -100,12 +119,15 @@ async def get_list_models(request: Request):
 
     return templates.TemplateResponse(
         "get_models.html",
-        {"request": request, "title": "Models List", "models": models_status},
+        {"request": request, "title": "Models List", "models": models_status, "user": current_user},
     )
 
 
 @router.get("/getPredictions")
-async def get_list_predictions(request: Request):
+async def get_list_predictions(
+    request: Request,
+    current_user: Annotated[User | None, Depends(get_optional_user)]
+):
     """Obtain all predictions available"""
     logging.debug("GET /getPredictions called")
     logging.debug("Accept header: %s", request.headers.get("Accept", ""))
@@ -128,7 +150,7 @@ async def get_list_predictions(request: Request):
     logging.debug("Returning HTML template response")
     return templates.TemplateResponse(
         "get_predictions.html",
-        {"request": request, "title": "Predictions List", "predictions": predictions},
+        {"request": request, "title": "Predictions List", "predictions": predictions, "user": current_user},
     )
 
 
@@ -138,6 +160,7 @@ async def get_prediction_details(
     modelName: str = Query(...),
     functionName: str = Query(...),
     taskName: str = Query(...),
+    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """Displays specific details of a prediction"""
     model_name = modelName.strip()
@@ -177,6 +200,7 @@ async def get_prediction_details(
                 "function_name": func_name,
                 "model_tokens": model_tokens,
                 "prediction_tokens": prediction_tokens,
+                "user": current_user,
             },
         )
 
@@ -187,7 +211,10 @@ async def get_prediction_details(
 
 @router.get("/getPrediction")
 async def get_prediction(
-    request: Request, taskName: str = Query(...), modelName: str = Query(...)
+    request: Request,
+    taskName: str = Query(...),
+    modelName: str = Query(...),
+    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """Obtain predictions for a specific task and model"""
     logging.debug("GET /getPrediction called with taskName=%s, modelName=%s", taskName, modelName)
@@ -218,5 +245,67 @@ async def get_prediction(
             "task_name": prediction.task_name,
             "model_name": prediction.model_name,
             "prediction": {"predictions": prediction.predictions},
+            "user": current_user,
+        },
+    )
+
+
+@router.get("/login")
+async def login_page(
+    request: Request,
+    current_user: Annotated[User | None, Depends(get_optional_user)]
+):
+    """
+    Loads the login page
+    """
+    # Redirect to home if already logged in
+    if current_user:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/")
+    
+    return templates.TemplateResponse(
+        "login.html",
+        {"request": request, "title": "Glyph - Login", "user": current_user},
+    )
+
+
+@router.get("/register")
+async def register_page(
+    request: Request,
+    current_user: Annotated[User | None, Depends(get_optional_user)]
+):
+    """
+    Loads the registration page
+    """
+    # Redirect to home if already logged in
+    if current_user:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/")
+    
+    return templates.TemplateResponse(
+        "register.html",
+        {"request": request, "title": "Glyph - Register", "user": current_user},
+    )
+
+
+@router.get("/profile")
+async def profile_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)]
+):
+    """
+    Loads the user profile page
+    """
+    return templates.TemplateResponse(
+        "profile.html",
+        {
+            "request": request,
+            "title": "Glyph - Profile",
+            "user": {
+                "username": current_user.username,
+                "email": current_user.email,
+                "full_name": current_user.full_name,
+                "created_at": current_user.created_at
+            }
         },
     )
