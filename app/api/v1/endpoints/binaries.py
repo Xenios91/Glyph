@@ -226,6 +226,12 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
             else:
                 predictions = result.get("predictions")
                 filtered_functions = result.get("filtered_functions")
+                logging.info(
+                    "[PREDICTION] Processing results - predictions: %d, filtered_functions: %d, task_name: '%s'",
+                    len(predictions) if predictions else 0,
+                    len(filtered_functions) if filtered_functions else 0,
+                    ghidra_request.task_name,
+                )
                 if predictions and filtered_functions:
                     from app.services.request_handler import PredictionRequest
 
@@ -237,18 +243,35 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                             "erroredFunctions": result.get("errored_functions", []),
                         },
                     }
-                    prediction_request = PredictionRequest(
-                        req_uuid=ghidra_request.uuid,
-                        model_name=ghidra_request.model_name,
-                        data=prediction_data,
-                    )
-                    FunctionPersistanceUtil.add_prediction_functions(
-                        prediction_request, predictions
-                    )
                     logging.info(
-                        "Predictions saved to database for task: %s",
+                        "[PREDICTION] Creating PredictionRequest with task_name: '%s', uuid: %s",
                         ghidra_request.task_name,
+                        ghidra_request.uuid,
                     )
+                    try:
+                        prediction_request = PredictionRequest(
+                            req_uuid=ghidra_request.uuid,
+                            model_name=ghidra_request.model_name,
+                            data=prediction_data,
+                        )
+                        logging.info(
+                            "[PREDICTION] PredictionRequest created successfully, task_name from request: '%s'",
+                            prediction_request.task_name,
+                        )
+                        FunctionPersistanceUtil.add_prediction_functions(
+                            prediction_request, predictions
+                        )
+                        logging.info(
+                            "Predictions saved to database for task: %s",
+                            ghidra_request.task_name,
+                        )
+                    except Exception as pred_req_error:
+                        logging.error(
+                            "[PREDICTION] Failed to create PredictionRequest: %s",
+                            pred_req_error,
+                            exc_info=True,
+                        )
+                        raise
 
     except Exception as exc:
         logging.error("Pipeline task failed: %s - %s", ghidra_request.uuid, exc)

@@ -11,7 +11,6 @@
             <label class="mt-2">
                 <input id="generate-model-checkbox" type="checkbox" class="cyber-checkbox" aria-describedby="generate-model-desc" />
                 <span>Generate Model</span>
-                <span id="generate-model-desc" class="info-icon" title="This will train a new ML model from your binary. Models must be generated before predictions can be made.">i</span>
                 {% if not allow_prediction %}
                 <span class="info-icon" title="This will train a new ML model from your binary. Models must be generated before predictions can be made.">i</span>
                 {% endif %}
@@ -82,7 +81,5 @@
     </div>
 </div>
 
-<script src="{{ url_for('static', path='js/common.js') }}"></script>
-<script src="{{ url_for('static', path='js/toast.js') }}"></script>
 <script src="{{ url_for('static', path='js/upload.js') }}"></script>
 {% endblock content %}

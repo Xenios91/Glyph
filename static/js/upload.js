@@ -202,8 +202,13 @@ async function uploadBinary() {
     }
     
     const taskElement = document.getElementById('task_name');
-    if (taskElement && taskElement.value.trim() !== '') {
-        formData.append('task_name', taskElement.value);
+    const taskNameValue = taskElement ? taskElement.value.trim() : '';
+    console.log('[UPLOAD] Prediction mode - task_name value:', taskNameValue);
+    if (taskNameValue !== '') {
+        formData.append('task_name', taskNameValue);
+        console.log('[UPLOAD] Appended task_name to FormData:', taskNameValue);
+    } else {
+        console.log('[UPLOAD] Warning: task_name is empty, not appending to FormData');
     }
     
     const mlClassType = document.getElementById('ml_class_type').value;
@@ -214,6 +219,14 @@ async function uploadBinary() {
     formData.append('ml_class_type', mlClassType);
     
     // Set loading state
+    console.log('[UPLOAD] FormData contents before upload:');
+    for (let [key, value] of formData.entries()) {
+        if (value instanceof File) {
+            console.log(`  ${key}: File (${value.name}, ${value.size} bytes)`);
+        } else {
+            console.log(`  ${key}: ${value}`);
+        }
+    }
     setUploadLoading(true);
     
     try {
@@ -275,6 +288,8 @@ function initUploadPage() {
                 if (!validTypes.includes(fileType) && !file.name.match(/\.(exe|dll|so|bin|elf)$/i)) {
                     Toast.warning('File may not be a valid binary. Upload will continue but analysis may fail.');
                 }
+                // Trigger upload when file is selected
+                uploadBinary();
             }
         });
     }
