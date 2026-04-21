@@ -8,7 +8,7 @@
 #}
 <div class="cyber-container is-rounded white-bg token-scroll" style="margin-top: 2%; margin-left: auto; margin-right: auto;">
     {% if title %}
-    <p class="title">{{ title }}</p>
+    <p class="title" style="font-family: 'Press Start 2P', monospace; font-size: 0.85rem; color: var(--cyan-bright); letter-spacing: 0.12em; text-shadow: 0 0 10px rgba(168, 236, 236, 0.30); margin-bottom: 1rem; text-align: center;">{{ title }}</p>
     {% endif %}
-    <pre id="{{ id | default('tokens-display') }}" style="font-family: 'Source Code Pro', monospace;">{{ tokens }}</pre>
+    <pre id="{{ id | default('tokens-display') }}" style="font-family: 'Source Code Pro', monospace; font-size: 0.95rem; line-height: 1.8;">{{ tokens }}</pre>
 </div>

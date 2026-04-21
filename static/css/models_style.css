@@ -327,3 +327,48 @@
     margin-top: 1.5rem;
     display: inline-block;
 }
+
+/* ── Token Display Container ─────────────────────────────────── */
+.token-scroll {
+    max-width: 900px !important;
+    width: 95% !important;
+}
+
+/* ── Token Display Title ────────────────────────────────────── */
+.token-scroll .title {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.85rem !important;
+    color: var(--cyan-bright) !important;
+    letter-spacing: 0.12em;
+    text-shadow: 0 0 10px rgba(168, 236, 236, 0.30);
+    margin-bottom: 0.5rem;
+    text-align: center;
+    margin-top: 0;
+}
+
+/* ── Token Display Pre ──────────────────────────────────────── */
+.token-scroll pre {
+    font-family: 'Source Code Pro', monospace !important;
+    font-size: 0.95rem !important;
+    line-height: 1.8 !important;
+    color: var(--text-primary) !important;
+    margin: 0;
+}
+
+/* ── Function Page Header Elements ──────────────────────────── */
+.content.blue-bg .center-contents {
+    margin: 0.25rem 0 !important;
+    padding: 0.25rem 0 !important;
+}
+
+.content.blue-bg .center-contents span {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.7rem;
+    color: var(--cyan-bright);
+    letter-spacing: 0.08em;
+}
+
+/* Reduce margin on the button container */
+.content.blue-bg .center-contents[style*="margin-top"] {
+    margin-top: 0.5rem !important;
+}

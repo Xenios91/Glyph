@@ -12,7 +12,9 @@
             <span id="function-name">Function: {{ function_name }}</span>
         </div>
         
-        {% set title = 'Function Tokens' %}
+        <p class="token-title" style="font-family: 'Press Start 2P', monospace; font-size: 0.85rem; color: var(--cyan-bright); letter-spacing: 0.12em; text-shadow: 0 0 10px rgba(168, 236, 236, 0.30); margin-bottom: 1rem; text-align: center; margin-top: 2%;">Function Tokens</p>
+        
+        {% set title = None %}
         {% set id = 'tokens-display' %}
         {% include 'components/token_display.html' %}
         
