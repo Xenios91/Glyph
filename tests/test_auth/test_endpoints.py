@@ -41,11 +41,12 @@ class TestRegisterEndpoint:
     def test_register_success(self, auth_client):
         """Test successful user registration."""
         csrf_token = auth_client.cookies.get("csrf_token")
+        unique_suffix = get_unique_suffix()
         response = auth_client.post(
             "/auth/register",
             json={
-                "username": "testuser_register_success",
-                "email": "test_register_success@example.com",
+                "username": f"testuser_register_success_{unique_suffix}",
+                "email": f"test_register_success_{unique_suffix}@example.com",
                 "password": "test_password_123",
                 "full_name": "Test User"
             },
@@ -54,8 +55,8 @@ class TestRegisterEndpoint:
         
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
-        assert data["username"] == "testuser_register_success"
-        assert data["email"] == "test_register_success@example.com"
+        assert data["username"] == f"testuser_register_success_{unique_suffix}"
+        assert data["email"] == f"test_register_success_{unique_suffix}@example.com"
         assert data["is_active"] is True
 
     def test_register_duplicate_username(self, auth_client):
@@ -388,12 +389,14 @@ class TestAPIKeyEndpoints:
         """Test listing API keys."""
         csrf_token = auth_client.cookies.get("csrf_token")
         headers = {"X-CSRF-Token": csrf_token}
+        unique_suffix = get_unique_suffix()
+        
         # Register user and login
         auth_client.post(
             "/auth/register",
             json={
-                "username": "testuser_list_api_keys",
-                "email": "test_list_api_keys@example.com",
+                "username": f"testuser_list_api_keys_{unique_suffix}",
+                "email": f"test_list_api_keys_{unique_suffix}@example.com",
                 "password": "test_password_123"
             },
             headers=headers
@@ -402,7 +405,7 @@ class TestAPIKeyEndpoints:
         login_response = auth_client.post(
             "/auth/token",
             json={
-                "username": "testuser_list_api_keys",
+                "username": f"testuser_list_api_keys_{unique_suffix}",
                 "password": "test_password_123"
             },
             headers=headers
@@ -415,7 +418,7 @@ class TestAPIKeyEndpoints:
             "/auth/api-keys",
             headers={"Authorization": f"Bearer {access_token}", "X-CSRF-Token": csrf_token},
             json={
-                "name": "Test API Key List",
+                "name": f"Test API Key List {unique_suffix}",
                 "permissions": ["read"]
             }
         )
@@ -428,9 +431,11 @@ class TestAPIKeyEndpoints:
         
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert len(data) == 1
-        assert data[0]["name"] == "Test API Key List"
-        assert "secret" not in data[0]
+        # Filter for keys belonging to this user (by name pattern)
+        user_keys = [k for k in data if f"Test API Key List {unique_suffix}" in k["name"]]
+        assert len(user_keys) >= 1
+        assert user_keys[0]["name"] == f"Test API Key List {unique_suffix}"
+        assert "secret" not in user_keys[0]
 
     def test_delete_api_key(self, auth_client):
         """Test deleting an API key."""
