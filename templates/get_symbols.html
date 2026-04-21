@@ -10,33 +10,35 @@
     ] %}
     {% include 'components/page_header.html' %}
     
-    <div class="cyber-table-responsive">
-        <blockquote>
-            <table class="cyber-table is-bordered is-centered symbols-table" data-click-handler="goToFunctionURL">
-                <thead>
-                    <tr>
-                        <th scope="col">Function Name</th>
-                        <th scope="col">EntryPoint</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for functionInfo in functions %}
-                    <tr id="{{ functionInfo[1] }}-id"
-                        class="hover-row"
-                        tabindex="0"
-                        role="row"
-                        aria-label="Function: {{ functionInfo[1] | e }}">
-                        <td>{{ functionInfo[1] }}</td>
-                        <td>0x{{ functionInfo[2] }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </blockquote>
-    </div>
-    <div class="button-group">
-        <button type="button" class="cyber-btn is-primary" id="delete-model-btn" aria-label="Delete this model">Delete</button>
-        <button type="button" class="cyber-btn is-primary" onclick="history.back()" aria-label="Go back">Go Back</button>
+    <div class="table-wrapper">
+        <div class="cyber-table-responsive">
+            <blockquote>
+                <table class="cyber-table is-bordered is-centered symbols-table" data-click-handler="goToFunctionURL">
+                    <thead>
+                        <tr>
+                            <th scope="col">Function Name</th>
+                            <th scope="col">EntryPoint</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for functionInfo in functions %}
+                        <tr id="{{ functionInfo[1] }}-id"
+                            class="hover-row"
+                            tabindex="0"
+                            role="row"
+                            aria-label="Function: {{ functionInfo[1] | e }}">
+                            <td>{{ functionInfo[1] }}</td>
+                            <td>0x{{ functionInfo[2] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </blockquote>
+        </div>
+        <div class="button-group">
+            <button type="button" class="cyber-btn is-primary" id="delete-model-btn" aria-label="Delete this model">Delete</button>
+            <button type="button" class="cyber-btn is-primary" onclick="history.back()" aria-label="Go back">Go Back</button>
+        </div>
     </div>
 </div>
 

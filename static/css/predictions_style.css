@@ -12,7 +12,7 @@
     padding: 2.5rem 1.5rem;
     position: relative;
     z-index: 10;
-    gap: 1.75rem;
+    gap: 1rem;
 }
 
 /* ── Meta chips ─────────────────────────────────────────────── */
@@ -62,6 +62,36 @@
     gap: 1.25rem;
 }
 
+/* ── Table wrapper for dynamic layout with sticky buttons ────── */
+.table-wrapper {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    /* Fixed height: viewport minus navbar, footer, padding, header, and button area */
+    height: calc(100vh - 280px);
+    min-height: 300px;
+    max-height: calc(100vh - 200px);
+}
+
+/* Adjust for smaller screens */
+@media (max-width: 768px) {
+    .table-wrapper {
+        height: calc(100vh - 240px);
+        min-height: 250px;
+    }
+}
+
+/* Adjust for very small screens */
+@media (max-width: 480px) {
+    .table-wrapper {
+        height: calc(100vh - 200px);
+        min-height: 200px;
+    }
+}
+
 /* ── Table wrapper ───────────────────────────────────────────── */
 .m-table {
     width: 100%;
@@ -80,68 +110,37 @@
     max-width: 1200px;
     overflow-x: auto !important;
     overflow-y: auto !important;
-    max-height: 600px;
+    /* Dynamic height: fill available space in flex container */
+    flex: 1;
+    min-height: 200px;
     background: transparent;
-    border: 2px solid var(--cyan-dim);
-    box-shadow:
-        0 0 18px rgba(125, 216, 216, 0.10),
-        inset 0 0 20px rgba(125, 216, 216, 0.02);
     position: relative;
     padding: 0.5rem 0;
-    margin: 1.5rem auto 2rem;
+    margin: 0;
     -webkit-overflow-scrolling: touch;
     display: block !important;
     box-sizing: border-box;
 }
 
-/* Custom scrollbar for table containers */
+/* Custom scrollbar for table containers - hidden */
 .cyber-table-responsive::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
+    width: 0px;
+    height: 0px;
 }
 
 .cyber-table-responsive::-webkit-scrollbar-track {
-    background: var(--bg-panel);
-    border: 1px solid var(--cyan-dim);
+    background: transparent;
 }
 
 .cyber-table-responsive::-webkit-scrollbar-thumb {
-    background: var(--cyan-dim);
-    border: 1px solid var(--cyan);
+    background: transparent;
 }
 
-.cyber-table-responsive::-webkit-scrollbar-thumb:hover {
-    background: var(--cyan);
-}
-
-/* Firefox scrollbar */
+/* Firefox scrollbar - hidden */
 .cyber-table-responsive {
-    scrollbar-width: thin;
-    scrollbar-color: var(--cyan-dim) var(--bg-panel);
+    scrollbar-width: none;
 }
 
-.cyber-table-responsive::before,
-.cyber-table-responsive::after {
-    content: '';
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    border-color: var(--magenta-dim);
-    border-style: solid;
-    z-index: 2;
-}
-
-.cyber-table-responsive::before {
-    top: -2px;
-    left: -2px;
-    border-width: 2px 0 0 2px;
-}
-
-.cyber-table-responsive::after {
-    bottom: -2px;
-    right: -2px;
-    border-width: 0 2px 2px 0;
-}
 
 /* Blockquote inside table wrapper needs to not interfere with scrolling */
 .cyber-table-responsive blockquote {
@@ -227,6 +226,16 @@
 .cyber-table tbody td:nth-child(2) {
     color: var(--cyan) !important;
     letter-spacing: 0.08em;
+}
+
+/* ── Button group (always visible at bottom) ─────────────────── */
+.button-group {
+    display: flex;
+    gap: 1.25rem;
+    justify-content: center;
+    margin-top: auto;
+    padding: 1rem 0;
+    flex-shrink: 0;
 }
 
 /* ── Buttons ─────────────────────────────────────────────────── */

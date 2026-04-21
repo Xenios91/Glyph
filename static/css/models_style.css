@@ -38,12 +38,10 @@
     max-width: 1200px;
     overflow-x: auto !important;
     overflow-y: auto !important;
-    max-height: 600px;
+    /* Dynamic height: viewport height minus navbar (56px), footer (48px), content padding, headers, and button area */
+    max-height: calc(100vh - 280px) !important;
+    min-height: 300px;
     background: transparent;
-    border: 2px solid var(--cyan-dim);
-    box-shadow:
-        0 0 18px rgba(125, 216, 216, 0.10),
-        inset 0 0 20px rgba(125, 216, 216, 0.02);
     position: relative;
     padding: 0.5rem 0;
     margin: 1.5rem auto 2rem;
@@ -52,54 +50,41 @@
     box-sizing: border-box;
 }
 
-/* Custom scrollbar for table containers */
+/* Adjust for smaller screens */
+@media (max-width: 768px) {
+    .cyber-table-responsive {
+        max-height: calc(100vh - 240px) !important;
+        min-height: 250px;
+    }
+}
+
+/* Adjust for very small screens */
+@media (max-width: 480px) {
+    .cyber-table-responsive {
+        max-height: calc(100vh - 200px) !important;
+        min-height: 200px;
+    }
+}
+
+/* Custom scrollbar for table containers - hidden */
 .cyber-table-responsive::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
+    width: 0px;
+    height: 0px;
 }
 
 .cyber-table-responsive::-webkit-scrollbar-track {
-    background: var(--bg-panel);
-    border: 1px solid var(--cyan-dim);
+    background: transparent;
 }
 
 .cyber-table-responsive::-webkit-scrollbar-thumb {
-    background: var(--cyan-dim);
-    border: 1px solid var(--cyan);
+    background: transparent;
 }
 
-.cyber-table-responsive::-webkit-scrollbar-thumb:hover {
-    background: var(--cyan);
-}
-
-/* Firefox scrollbar */
+/* Firefox scrollbar - hidden */
 .cyber-table-responsive {
-    scrollbar-width: thin;
-    scrollbar-color: var(--cyan-dim) var(--bg-panel);
+    scrollbar-width: none;
 }
 
-.cyber-table-responsive::before,
-.cyber-table-responsive::after {
-    content: '';
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    border-color: var(--magenta-dim);
-    border-style: solid;
-    z-index: 2;
-}
-
-.cyber-table-responsive::before {
-    top: -2px;
-    left: -2px;
-    border-width: 2px 0 0 2px;
-}
-
-.cyber-table-responsive::after {
-    bottom: -2px;
-    right: -2px;
-    border-width: 0 2px 2px 0;
-}
 
 /* Blockquote inside table wrapper needs to not interfere with scrolling */
 .cyber-table-responsive blockquote {
