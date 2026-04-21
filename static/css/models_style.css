@@ -330,8 +330,30 @@
 
 /* ── Token Display Container ─────────────────────────────────── */
 .token-scroll {
+    width: 900px !important;
     max-width: 900px !important;
-    width: 95% !important;
+}
+
+/* Adjust width for smaller screens */
+@media (max-width: 1024px) {
+    .token-scroll {
+        width: 800px !important;
+        max-width: 800px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .token-scroll {
+        width: 600px !important;
+        max-width: 600px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .token-scroll {
+        width: 95% !important;
+        max-width: 95% !important;
+    }
 }
 
 /* ── Token Display Title ────────────────────────────────────── */
