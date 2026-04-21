@@ -285,39 +285,58 @@
     text-shadow: 0 0 6px var(--magenta);
 }
 
+/* ── Button container ─────────────────────────────────────────── */
+#config-box > div[style*="text-align: center"] {
+    margin-bottom: 2rem !important;
+}
+
 /* ── Buttons ─────────────────────────────────────────────────── */
 #config-box .cyber-btn.is-primary {
     background: var(--bg) !important;
     border-color: var(--cyan) !important;
     color: var(--cyan-bright) !important;
-    font-size: 0.5rem;
-    letter-spacing: 0.1em;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.15em !important;
     text-shadow: 0 0 8px rgba(168, 236, 236, 0.4);
     box-shadow: 0 0 12px rgba(125, 216, 216, 0.12), inset 0 0 8px rgba(125, 216, 216, 0.04);
-    transition: box-shadow 0.15s, background 0.1s;
+    padding: 0.875rem 2.25rem !important;
     cursor: crosshair;
+    transition: none;
 }
 
 #config-box .cyber-btn.is-primary:hover {
     background: rgba(125, 216, 216, 0.06) !important;
     box-shadow: 0 0 20px rgba(125, 216, 216, 0.25), inset 0 0 12px rgba(125, 216, 216, 0.08);
     color: #fff !important;
+    transform: translate(-2px, -2px);
+}
+
+#config-box .cyber-btn.is-primary:active {
+    transform: translate(2px, 2px);
+    box-shadow: none !important;
 }
 
 #config-box .cyber-btn:not(.is-primary) {
     background: var(--bg) !important;
     border-color: var(--magenta-dim) !important;
     color: var(--text-dim) !important;
-    font-size: 0.5rem;
-    letter-spacing: 0.08em;
-    transition: border-color 0.1s, color 0.1s;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.15em !important;
+    padding: 0.875rem 2.25rem !important;
     cursor: crosshair;
+    transition: none;
 }
 
 #config-box .cyber-btn:not(.is-primary):hover {
     border-color: var(--magenta) !important;
     color: var(--magenta) !important;
     box-shadow: 0 0 12px rgba(200, 122, 184, 0.15);
+    transform: translate(-2px, -2px);
+}
+
+#config-box .cyber-btn:not(.is-primary):active {
+    transform: translate(2px, 2px);
+    box-shadow: none !important;
 }
 
 /* ── Status messages ─────────────────────────────────────────── */
