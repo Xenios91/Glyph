@@ -1,27 +1,28 @@
 {% extends "layout.html" %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/predictions_style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/models_style.css') }}">
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
-    <div class="overflow">
+    <div class="overflow" style="display: flex; flex-direction: column; align-items: center;">
         <div class="center-contents">
             <span>Model: {{ model_name }}</span>
         </div>
         <div class="center-contents">
             <span id="function-name">Function: {{ function_name }}</span>
         </div>
-
+        
         {% set title = 'Function Tokens' %}
         {% set id = 'tokens-display' %}
         {% include 'components/token_display.html' %}
-
+        
         <div class="center-contents" style="margin-top: 2%;">
-            <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+            <button type="button" class="cyber-btn is-primary" onclick="history.back()" aria-label="Go back">Go Back</button>
         </div>
     </div>
 </div>
 
 <script src="{{ url_for('static', path='js/common.js') }}"></script>
+<script src="{{ url_for('static', path='js/toast.js') }}"></script>
 <script src="{{ url_for('static', path='js/functions.js') }}"></script>
 {% endblock content %}

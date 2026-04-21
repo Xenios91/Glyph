@@ -8,77 +8,78 @@
 {% set cpu_cores = current_cpu_cores | default(2) %}
 {% set max_cores = max_cpu_cores | default(32) %}
 <div class="page-content blue-bg">
-    <div id="config-box" class="nes-container with-title is-centered">
-        <p class="title">// SYSTEM CONFIGURATION</p>
-
-        <div class="nes-container with-title is-centered config-section">
-            <p class="title">UPLOAD SETTINGS</p>
+    <div id="config-box" class="cyber-container with-title is-centered" role="region" aria-labelledby="config-title">
+        <p class="title" id="config-title">// SYSTEM CONFIGURATION</p>
+        
+        <div class="cyber-container with-title is-centered config-section" role="group" aria-labelledby="upload-settings-title">
+            <p class="title" id="upload-settings-title">UPLOAD SETTINGS</p>
             <div class="config-section-inner">
-
+                
                 <div class="slider-row">
                     <label for="max-file-size">Max File Upload Size</label>
                     <div class="slider-track">
-                        <input id="max-file-size" type="range" class="nes-range is-success" min="1" max="2048"
+                        <input id="max-file-size" type="range" class="cyber-range is-success" min="1" max="2048"
                             value="{{ max_file_size }}" step="1"
-                            oninput="updateSlider('max-file-size', 'max-file-size-val', ' MB')">
+                            aria-describedby="max-file-size-val" aria-label="Maximum file upload size in megabytes">
                         <span class="slider-value" id="max-file-size-val">{{ max_file_size }} MB</span>
                     </div>
                 </div>
                 <div class="config-row">
                     <label for="max-file-size-input">Set Exact Value</label>
-                    <input type="number" id="max-file-size-input" class="nes-input" min="1" max="2048"
+                    <input type="number" id="max-file-size-input" class="cyber-input" min="1" max="2048"
                         value="{{ max_file_size }}"
-                        oninput="syncFromInput('max-file-size', 'max-file-size-val', this.value, ' MB')">
+                        aria-label="Exact maximum file upload size in megabytes">
                     <span class="unit-label">MB</span>
                 </div>
             </div>
         </div>
-
+        
         <hr class="divider">
-
-        <div class="nes-container with-title is-centered config-section">
-            <p class="title">CPU SETTINGS</p>
+        
+        <div class="cyber-container with-title is-centered config-section" role="group" aria-labelledby="cpu-settings-title">
+            <p class="title" id="cpu-settings-title">CPU SETTINGS</p>
             <div class="config-section-inner">
-
+                
                 <div class="slider-row">
                     <label for="cpu-cores">Total CPU Cores (Analysis Workers)</label>
                     <div class="slider-track">
-                        <input id="cpu-cores" type="range" class="nes-range is-warning" min="1"
+                        <input id="cpu-cores" type="range" class="cyber-range is-warning" min="1"
                             max="{{ max_cores }}" value="{{ cpu_cores }}"
-                            step="1" oninput="updateSlider('cpu-cores', 'cpu-cores-val', ' cores')">
+                            step="1" aria-describedby="cpu-cores-val" aria-label="Number of CPU cores for analysis workers">
                         <span class="slider-value is-warning" id="cpu-cores-val">{{ cpu_cores }} cores</span>
                     </div>
                 </div>
-
+                
                 <div class="config-row">
                     <label for="cpu-cores-input">Set Exact Value</label>
-                    <input type="number" id="cpu-cores-input" class="nes-input" min="1"
+                    <input type="number" id="cpu-cores-input" class="cyber-input" min="1"
                         max="{{ max_cores }}" value="{{ cpu_cores }}"
-                        oninput="syncFromInput('cpu-cores', 'cpu-cores-val', this.value, ' cores')">
+                        aria-label="Exact number of CPU cores for analysis workers">
                     <span class="unit-label">cores</span>
                 </div>
             </div>
         </div>
-
+        
         <hr class="divider">
-
+        
         <div style="text-align: center; margin-top: 1.2rem;">
-            <button type="button" class="nes-btn is-primary" onclick="saveConfig()">
+            <button type="button" class="cyber-btn is-primary" id="save-config-btn" aria-label="Save configuration settings">
                 [ SAVE CONFIGURATION ]
             </button>
             &nbsp;&nbsp;
-            <button type="button" class="nes-btn" onclick="resetDefaults()">
+            <button type="button" class="cyber-btn" id="reset-defaults-btn" aria-label="Reset to default settings">
                 RESET DEFAULTS
             </button>
         </div>
-
-        <div id="save-status" class="nes-container is-rounded" style="display: none;">
+        
+        <div id="save-status" class="cyber-container is-rounded" style="display: none;" role="status" aria-live="polite">
             <p id="save-status-msg"></p>
         </div>
-
+        
     </div>
 </div>
 
 <script src="{{ url_for('static', path='js/common.js') }}"></script>
+<script src="{{ url_for('static', path='js/toast.js') }}"></script>
 <script src="{{ url_for('static', path='js/config.js') }}"></script>
 {% endblock content %}

@@ -1,5 +1,6 @@
 /* =============================================================
-   GLYPH — PREDICTIONS PAGE (predictions_style.css) eye-friendly
+   GLYPH — PREDICTIONS PAGE (predictions_style.css)
+   Uses global theme variables from style.css
    ============================================================= */
 
 .content {
@@ -8,110 +9,119 @@
     align-items: center;
     justify-content: flex-start;
     min-height: calc(100vh - 56px - 48px);
-    padding: 2rem 1rem;
+    padding: 2.5rem 1.5rem;
     position: relative;
     z-index: 10;
-    gap: 0.75rem;
+    gap: 1.75rem;
 }
 
 /* ── Meta chips ─────────────────────────────────────────────── */
 .center-contents {
     text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.center-contents h2 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    color: var(--cyan-bright);
+    text-shadow:
+        0 0 10px rgba(168, 236, 236, 0.30),
+        2px 2px 0 var(--magenta-dim);
+    margin: 0;
+    padding-bottom: 0.75rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    border-bottom: 1px solid var(--cyan-dim);
 }
 
 .center-contents span {
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
     display: inline-block;
-    padding: 0.4rem 1rem;
+    padding: 0.5rem 1.25rem;
     border: 1px solid rgba(200, 122, 184, 0.20);
-    color: #c87ab8;
+    color: var(--magenta);
     background: rgba(200, 122, 184, 0.03);
 }
 
 .center-contents span::before {
     content: '> ';
-    color: #7dd8d8;
+    color: var(--cyan);
 }
 
 /* ── Table container ─────────────────────────────────────────── */
 .table-container {
     width: 100%;
-    max-width: 760px;
+    max-width: 1200px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.25rem;
 }
 
 /* ── Table wrapper ───────────────────────────────────────────── */
 .m-table {
     width: 100%;
-    max-width: 760px;
-    margin-top: 1rem;
-    display: block !important;
-    flex-direction: unset !important;
-    justify-content: unset !important;
-    align-items: unset !important;
-    gap: unset !important;
+    max-width: 1200px;
+    margin-top: 1.5rem;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    gap: 0 !important;
     min-height: unset !important;
 }
 
-.nes-table-responsive {
+.cyber-table-responsive {
     width: 100%;
+    max-width: 1200px;
     overflow-x: auto;
-}
-
-.overflow {
-    overflow-x: auto;
-}
-
-/* ── Button group ────────────────────────────────────────────── */
-.button-group {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin-top: 0.5rem;
-}
-
-blockquote {
-    border: 2px solid #2a5a5a;
-    background: #11111f;
+    background: transparent;
+    border: 2px solid var(--cyan-dim);
     box-shadow:
         0 0 18px rgba(125, 216, 216, 0.10),
         inset 0 0 20px rgba(125, 216, 216, 0.02);
-    padding: 0;
-    margin: 0 0 1.25rem;
     position: relative;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    gap: 0 !important;
+    min-height: unset !important;
+    padding: 0;
+    margin: 1.5rem auto 2rem;
 }
 
-blockquote::before,
-blockquote::after {
+.cyber-table-responsive::before,
+.cyber-table-responsive::after {
     content: '';
     position: absolute;
     width: 12px;
     height: 12px;
-    border-color: #4a2244;
+    border-color: var(--magenta-dim);
     border-style: solid;
     z-index: 2;
 }
 
-blockquote::before {
+.cyber-table-responsive::before {
     top: -2px;
     left: -2px;
     border-width: 2px 0 0 2px;
 }
 
-blockquote::after {
+.cyber-table-responsive::after {
     bottom: -2px;
     right: -2px;
     border-width: 0 2px 2px 0;
 }
 
 /* ── Table ───────────────────────────────────────────────────── */
-.nes-table {
+.cyber-table {
     width: 100%;
+    min-width: 300px;
     border-collapse: collapse;
     font-family: 'Press Start 2P', monospace;
     font-size: 0.65rem;
@@ -119,102 +129,98 @@ blockquote::after {
     background: transparent;
 }
 
-.nes-table thead tr {
-    border-bottom: 1px solid #2a5a5a;
+.cyber-table thead tr {
+    border-bottom: 1px solid var(--cyan-dim);
 }
 
-.nes-table thead td,
-.nes-table thead th {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+.cyber-table thead td,
+.cyber-table thead th {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.55rem !important;
     letter-spacing: 0.08em;
-    color: #d4c87a;
-    padding: 0.85rem 1.25rem;
-    text-align: left;
-    border: none;
-    border-right: 1px solid rgba(125, 216, 216, 0.10);
-    background: transparent;
+    color: var(--yellow) !important;
+    padding: 0.75rem 1rem !important;
+    text-align: left !important;
+    border: 2px solid var(--cyan-dim) !important;
+    background: rgba(42, 90, 90, 0.15) !important;
 }
 
-.nes-table thead td:last-child,
-.nes-table thead th:last-child {
+.cyber-table thead td:last-child,
+.cyber-table thead th:last-child {
     border-right: none;
 }
 
-.nes-table tbody tr {
-    border-bottom: 1px solid rgba(125, 216, 216, 0.08);
+.cyber-table tbody tr {
+    border-bottom: 1px solid var(--grid-line);
     cursor: pointer;
-    background: #11111f;
+    background: var(--bg-panel);
 }
 
-.nes-table tbody tr:hover {
+.cyber-table tbody tr:hover {
     background: rgba(125, 216, 216, 0.05) !important;
     outline: 1px solid rgba(125, 216, 216, 0.18);
 }
 
-.nes-table tbody tr:last-child {
+.cyber-table tbody tr:last-child {
     border-bottom: none;
 }
 
-.nes-table tbody td {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.5rem;
-    color: #cdd0e8;
-    padding: 0.7rem 1.25rem;
-    border: none;
-    border-right: 1px solid rgba(125, 216, 216, 0.08);
-    background: transparent;
+.cyber-table tbody td {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.75rem !important;
+    color: var(--text-primary) !important;
+    padding: 0.75rem 1rem !important;
+    border: 2px solid var(--cyan-dim) !important;
+    background: transparent !important;
     letter-spacing: 0.04em;
 }
 
-.nes-table tbody td:last-child {
-    border-right: none;
-}
-
 /* address column */
-.nes-table tbody td:nth-child(2) {
-    color: #7dd8d8;
+.cyber-table tbody td:nth-child(2) {
+    color: var(--cyan) !important;
     letter-spacing: 0.08em;
 }
 
 /* ── Buttons ─────────────────────────────────────────────────── */
-.nes-btn.is-primary {
+.cyber-btn.is-primary {
     font-family: 'Press Start 2P', monospace !important;
     font-size: 0.52rem !important;
     letter-spacing: 0.08em !important;
-    background: #0d0d1a !important;
-    color: #7dd8d8 !important;
-    border: 2px solid #2a5a5a !important;
+    background-color: var(--bg) !important;
+    color: var(--cyan) !important;
+    border: 2px solid var(--cyan-dim) !important;
     box-shadow: 0 0 10px rgba(125, 216, 216, 0.12) !important;
     padding: 0.6rem 1.25rem !important;
     cursor: pointer;
     position: relative;
     overflow: hidden;
-    transition: none;
+    transition: none !important;
+    border-radius: 0 !important;
 }
 
-.nes-btn.is-primary:hover {
-    background: #2a5a5a !important;
+.cyber-btn.is-primary:hover {
+    background-color: var(--cyan-dim) !important;
     color: #d4f0f0 !important;
     box-shadow: 0 0 16px rgba(125, 216, 216, 0.25) !important;
+    border-color: var(--cyan) !important;
     transform: translate(-2px, -2px);
 }
 
-.nes-btn.is-primary:active {
-    transform: translate(2px, 2px);
+.cyber-btn.is-primary:active {
+    transform: translate(2px, 2px) !important;
     box-shadow: none !important;
 }
 
-.nes-btn.is-primary::after {
-    content: '';
-    position: absolute;
-    top: -40%;
-    left: 0;
-    right: 0;
-    height: 40%;
-    background: rgba(255, 255, 255, 0.04);
-    animation: btn-sweep 3s linear infinite;
-    pointer-events: none;
+.cyber-btn.is-primary::after {
+    content: '' !important;
+    position: absolute !important;
+    top: -40% !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 40% !important;
+    background: rgba(125, 216, 216, 0.08) !important;
+    animation: btn-sweep 3s linear infinite !important;
+    pointer-events: none !important;
 }
 
 @keyframes btn-sweep {
@@ -228,15 +234,21 @@ blockquote::after {
 }
 
 /* Delete — red variant */
-.nes-btn.is-primary.mr-25 {
-    color: #c9546a !important;
+.cyber-btn.is-primary.mr-25 {
+    color: var(--red) !important;
     border-color: #5c2030 !important;
     box-shadow: 0 0 10px rgba(201, 84, 106, 0.12) !important;
-    margin-right: 1rem;
+    margin-right: 1.25rem;
 }
 
-.nes-btn.is-primary.mr-25:hover {
-    background: #5c2030 !important;
+.cyber-btn.is-primary.mr-25:hover {
+    background-color: #5c2030 !important;
     color: #f0c0c8 !important;
     box-shadow: 0 0 16px rgba(201, 84, 106, 0.25) !important;
+}
+
+/* Go Back button styling */
+.content .cyber-btn.is-primary:not(.view-prediction-btn):not(.mr-25) {
+    margin-top: 1.5rem;
+    display: inline-block;
 }

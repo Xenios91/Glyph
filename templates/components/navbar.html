@@ -1,19 +1,63 @@
-{# Navbar component #}
-<nav class="navbar">
+{# Navbar component with mobile responsive support and ARIA labels #}
+<nav class="navbar" role="navigation" aria-label="Main navigation">
     <a href="/" class="nav-logo" aria-label="Glyph home">
         <h1>GLYPH</h1>
     </a>
-    <div class="nav-links">
-        <a href="/getModels">VIEW MODELS</a>
-        <a href="/getPredictions">PREDICTIONS</a>
-        <a href="/uploadBinary">UPLOAD</a>
-        <a href="/config">CONFIG</a>
+    
+    <!-- Mobile hamburger menu toggle -->
+    <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+    
+    <div class="nav-links" id="nav-links">
+        <a href="/getModels" aria-label="View Models">VIEW MODELS</a>
+        <a href="/getPredictions" aria-label="View Predictions">PREDICTIONS</a>
+        <a href="/uploadBinary" aria-label="Upload Binary">UPLOAD</a>
+        <a href="/config" aria-label="Configuration">CONFIG</a>
         {% if user %}
-        <a href="/profile">{{ user.username }}</a>
-        <a href="/auth/logout">Logout</a>
+        <a href="/profile" aria-label="View Profile">{{ user.username }}</a>
+        <a href="/auth/logout" aria-label="Logout">Logout</a>
         {% else %}
-        <a href="/login">Login</a>
-        <a href="/register">Register</a>
+        <a href="/login" aria-label="Login">Login</a>
+        <a href="/register" aria-label="Register">Register</a>
         {% endif %}
     </div>
 </nav>
+
+<script>
+// Mobile navigation toggle
+(function() {
+    const navToggle = document.getElementById('nav-toggle');
+    const navLinks = document.getElementById('nav-links');
+    
+    if (navToggle && navLinks) {
+        navToggle.addEventListener('click', function() {
+            const isExpanded = navToggle.getAttribute('aria-expanded') === 'true';
+            navToggle.setAttribute('aria-expanded', !isExpanded);
+            navToggle.classList.toggle('is-active');
+            navLinks.classList.toggle('is-open');
+        });
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!navToggle.contains(e.target) && !navLinks.contains(e.target)) {
+                navToggle.setAttribute('aria-expanded', 'false');
+                navToggle.classList.remove('is-active');
+                navLinks.classList.remove('is-open');
+            }
+        });
+        
+        // Close menu on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                navToggle.setAttribute('aria-expanded', 'false');
+                navToggle.classList.remove('is-active');
+                navLinks.classList.remove('is-open');
+                navToggle.focus();
+            }
+        });
+    }
+})();
+</script>

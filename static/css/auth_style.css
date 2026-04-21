@@ -1,5 +1,5 @@
 /* =============================================================
-   GLYPH — AUTH PAGES (auth_style.css)  NES Cyberpunk Theme
+   GLYPH — AUTH PAGES (auth_style.css)  Cyberpunk Theme
    ============================================================= */
 
 /* ── Auth container ──────────────────────────────────────────── */
@@ -8,7 +8,7 @@
     align-items: center;
     justify-content: center;
     min-height: calc(100vh - 56px - 48px);
-    padding: 2rem 1rem;
+    padding: 2.5rem 1.5rem;
     position: relative;
     z-index: 10;
 }
@@ -23,7 +23,7 @@
         inset 0 0 24px rgba(125, 216, 216, 0.03);
     max-width: 440px;
     width: 100%;
-    padding: 2rem 1.75rem;
+    padding: 2.25rem 2rem;
     position: relative;
 }
 
@@ -55,7 +55,7 @@
     font-size: 1.25rem;
     color: #a8ecec;
     text-align: center;
-    margin-bottom: 1.75rem;
+    margin-bottom: 2rem;
     letter-spacing: 0.15em;
     text-shadow:
         0 0 10px rgba(168, 236, 236, 0.30),
@@ -66,7 +66,7 @@
 .auth-title::after {
     content: '';
     display: block;
-    margin: 0.75rem auto 0;
+    margin: 1rem auto 0;
     width: 60%;
     height: 1px;
     background: linear-gradient(90deg,
@@ -75,7 +75,7 @@
 
 /* ── Form groups ────────────────────────────────────────────── */
 .auth-form-group {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
 }
 
 .auth-form-label {
@@ -83,13 +83,13 @@
     font-family: 'Press Start 2P', monospace;
     font-size: 0.55rem;
     color: #7880a8;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.625rem;
     letter-spacing: 0.08em;
 }
 
 .auth-form-input {
     width: 100%;
-    padding: 0.6rem 0.75rem;
+    padding: 0.75rem 1rem;
     font-family: 'Press Start 2P', monospace;
     font-size: 0.6rem;
     color: #cdd0e8;
@@ -124,12 +124,12 @@
     color: #d4c87a !important;
     border: 2px solid #d4c87a !important;
     box-shadow: 0 0 10px rgba(212, 200, 122, 0.20) !important;
-    padding: 0.6rem 1.5rem !important;
+    padding: 0.75rem 1.75rem !important;
     cursor: pointer;
     position: relative;
     overflow: hidden;
     width: 100%;
-    margin-top: 0.5rem;
+    margin-top: 0.75rem;
     transition: none;
 }
 
@@ -171,8 +171,8 @@
     background: rgba(201, 84, 106, 0.15);
     border: 2px solid #c9546a;
     color: #c9546a;
-    padding: 0.75rem;
-    margin-bottom: 1.25rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
     font-family: 'Press Start 2P', monospace;
     font-size: 0.55rem;
     letter-spacing: 0.06em;
@@ -208,8 +208,8 @@
     background: rgba(110, 201, 122, 0.15);
     border: 2px solid #6ec97a;
     color: #6ec97a;
-    padding: 0.75rem;
-    margin-bottom: 1.25rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
     font-family: 'Press Start 2P', monospace;
     font-size: 0.55rem;
     letter-spacing: 0.06em;
@@ -243,8 +243,8 @@
 /* ── Auth links ─────────────────────────────────────────────── */
 .auth-links {
     text-align: center;
-    margin-top: 1.5rem;
-    padding-top: 1.25rem;
+    margin-top: 1.75rem;
+    padding-top: 1.5rem;
     border-top: 1px solid rgba(125, 216, 216, 0.12);
 }
 
@@ -261,7 +261,7 @@
     color: #7dd8d8;
     text-decoration: none;
     position: relative;
-    padding: 2px 0;
+    padding: 0.25rem 0.5rem;
     transition: color 0.1s;
     letter-spacing: 0.06em;
 }
@@ -300,7 +300,7 @@
 .auth-divider {
     border: none;
     height: 1px;
-    margin: 0.5rem 0 0;
+    margin: 0.75rem 0 0;
     background: linear-gradient(90deg,
             transparent 0%, #2a5a5a 25%, #4a2244 50%, #2a5a5a 75%, transparent 100%);
 }

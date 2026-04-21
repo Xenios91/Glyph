@@ -13,10 +13,11 @@
     {% else %}
     {% set message = 'Uh oh! it looks like no models have been generated! Try going to upload to start!' %}
     {% set error = true %}
-    {% set icon = 'nes-octocat' %}
+    {% set icon = 'cyber-octocat' %}
     {% set animate = true %}
     {% include 'components/empty_state.html' %}
     {% endif %}
+    <button type="button" class="cyber-btn is-primary" onclick="history.back()" aria-label="Go back">Go Back</button>
     <script src="{{ url_for('static', path='js/common.js') }}"></script>
     <script src="{{ url_for('static', path='js/models.js') }}"></script>
 </div>

@@ -8,10 +8,10 @@
     align-items: center;
     justify-content: center;
     min-height: calc(100vh - 56px - 48px);
-    padding: 2rem 1rem;
+    padding: 2.5rem 1.5rem;
     position: relative;
     z-index: 10;
-    gap: 1.5rem;
+    gap: 1.75rem;
 }
 
 /* ── Shared card base ───────────────────────────────────────── */
@@ -24,7 +24,7 @@
         inset 0 0 20px rgba(125, 216, 216, 0.02);
     max-width: 580px;
     width: 100%;
-    padding: 2rem !important;
+    padding: 2.25rem !important;
     position: relative;
     color: #cdd0e8;
 }
@@ -64,7 +64,7 @@
     letter-spacing: 0.12em;
     color: #d4c87a !important;
     background: #11111f !important;
-    padding: 0 0.5rem !important;
+    padding: 0.5rem 0.75rem !important;
 }
 
 /* ── Upload message (success state) ─────────────────────────── */
@@ -88,7 +88,7 @@
     line-height: 2.2;
     color: #6ec97a;
     text-align: center;
-    margin-top: 1rem;
+    margin-top: 1.25rem;
     animation: status-blink 1s step-end infinite;
 }
 
@@ -113,12 +113,12 @@
     color: #a8ecec;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.875rem;
     cursor: pointer;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.625rem;
 }
 
-.nes-checkbox+span {
+.cyber-checkbox+span {
     color: #a8ecec !important;
 }
 
@@ -152,7 +152,7 @@
     font-size: 0.55rem !important;
     font-weight: bold;
     cursor: help;
-    margin-left: 0.5rem;
+    margin-left: 0.625rem;
     border: 1px solid #d4a5e8;
     animation: pulse 2s ease-in-out infinite;
 }
@@ -177,8 +177,8 @@
 #prediction-config {
     background: rgba(125, 216, 216, 0.02) !important;
     border: 1px solid rgba(125, 216, 216, 0.15) !important;
-    margin: 1.5rem 0 !important;
-    padding: 1.5rem !important;
+    margin: 1.75rem 0 !important;
+    padding: 1.75rem !important;
     position: relative;
 }
 
@@ -189,11 +189,11 @@
     letter-spacing: 0.1em;
     color: #c87ab8 !important;
     background: #11111f !important;
-    padding: 0 0.4rem !important;
+    padding: 0.5rem 0.625rem !important;
 }
 
 /* ── Form labels ─────────────────────────────────────────────── */
-.nes-field label,
+.cyber-field label,
 #training-config label,
 #prediction-config label {
     font-family: 'Press Start 2P', monospace !important;
@@ -201,53 +201,53 @@
     letter-spacing: 0.06em;
     color: #7dd8d8 !important;
     display: block;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
 }
 
 /* ── Text inputs ─────────────────────────────────────────────── */
-.nes-input {
+.cyber-input {
     font-family: 'Press Start 2P', monospace !important;
     font-size: 0.52rem !important;
     background: #0d0d1a !important;
     color: #a8ecec !important;
     border: 1px solid #2a5a5a !important;
     box-shadow: inset 0 0 8px rgba(125, 216, 216, 0.03) !important;
-    padding: 0.6rem 0.75rem !important;
+    padding: 0.75rem 1rem !important;
     width: 100%;
     caret-color: #d4c87a;
     outline: none;
 }
 
-.nes-input:focus {
+.cyber-input:focus {
     border-color: #d4c87a !important;
     box-shadow: 0 0 8px rgba(212, 200, 122, 0.20) !important;
     color: #d4c87a !important;
 }
 
-.nes-input::placeholder {
+.cyber-input::placeholder {
     color: rgba(125, 216, 216, 0.25) !important;
 }
 
 /* ── Select dropdowns ────────────────────────────────────────── */
-.nes-select select {
+.cyber-select select {
     font-family: 'Press Start 2P', monospace !important;
     font-size: 0.52rem !important;
     background: #0d0d1a !important;
     color: #a8ecec !important;
     border: 1px solid #2a5a5a !important;
-    padding: 0.6rem 0.75rem !important;
+    padding: 0.75rem 1rem !important;
     width: 100%;
     appearance: none;
     cursor: pointer;
 }
 
-.nes-select select:focus {
+.cyber-select select:focus {
     border-color: #d4c87a !important;
     color: #d4c87a !important;
     outline: none;
 }
 
-.nes-select select option {
+.cyber-select select option {
     background: #0d0d1a;
     color: #a8ecec;
 }
@@ -258,8 +258,8 @@
     flex-direction: column;
     align-items: center;
     gap: 0.5rem;
-    margin-top: 1.25rem;
-    padding: 1.5rem;
+    margin-top: 1.5rem;
+    padding: 1.75rem;
     border: 2px dashed #2a5a5a;
     border-radius: 8px;
     background: rgba(125, 216, 216, 0.02);
@@ -288,7 +288,7 @@
 }
 
 /* ── File button ─────────────────────────────────────────────── */
-label.nes-btn.is-primary {
+label.cyber-btn.is-primary {
     font-family: 'Press Start 2P', monospace !important;
     font-size: 0.58rem !important;
     letter-spacing: 0.1em !important;
@@ -296,28 +296,28 @@ label.nes-btn.is-primary {
     color: #c87ab8 !important;
     border: 2px solid #4a2244 !important;
     box-shadow: 0 0 10px rgba(200, 122, 184, 0.15) !important;
-    padding: 0.75rem 1.5rem !important;
+    padding: 0.875rem 1.75rem !important;
     cursor: pointer;
     display: inline-block;
-    margin-top: 1.25rem;
+    margin-top: 1.5rem;
     position: relative;
     overflow: hidden;
     transition: none;
 }
 
-label.nes-btn.is-primary:hover {
+label.cyber-btn.is-primary:hover {
     background: #4a2244 !important;
     color: #f0cce8 !important;
     box-shadow: 0 0 16px rgba(200, 122, 184, 0.30) !important;
     transform: translate(-2px, -2px);
 }
 
-label.nes-btn.is-primary:active {
+label.cyber-btn.is-primary:active {
     transform: translate(2px, 2px);
     box-shadow: none !important;
 }
 
-label.nes-btn.is-primary::after {
+label.cyber-btn.is-primary::after {
     content: '';
     position: absolute;
     top: -40%;
@@ -339,7 +339,7 @@ label.nes-btn.is-primary::after {
     }
 }
 
-label.nes-btn.is-primary input[type="file"] {
+label.cyber-btn.is-primary input[type="file"] {
     position: absolute;
     opacity: 0;
     width: 100%;

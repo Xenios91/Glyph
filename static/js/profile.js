@@ -1,6 +1,7 @@
 /**
  * GLYPH — PROFILE PAGE (profile.js)
  * Handles user profile updates, password changes, and API key management
+ * Uses native fetch API and event listeners
  */
 
 // ── API Keys Management ──────────────────────────────────────────
@@ -12,13 +13,15 @@ async function loadApiKeys() {
     try {
         const response = await fetch('/auth/api-keys', {
             headers: {
-                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                'X-CSRF-Token': getCsrfToken() || ''
             }
         });
 
         if (response.ok) {
             const keys = await response.json();
             const container = document.getElementById('apiKeysList');
+            if (!container) return;
+            
             container.innerHTML = '';
 
             if (keys.length === 0) {
@@ -37,7 +40,7 @@ async function loadApiKeys() {
                         ${key.expires_at ? `<br><small>Expires: ${formatDate(key.expires_at)}</small>` : ''}
                     </div>
                     <div class="api-key-actions">
-                        <button class="nes-btn is-error is-small" onclick="deleteApiKey(${key.id})">Delete</button>
+                        <button class="cyber-btn is-error is-small delete-api-key-btn" data-key-id="${key.id}">Delete</button>
                     </div>
                 `;
                 container.appendChild(div);
@@ -45,6 +48,7 @@ async function loadApiKeys() {
         }
     } catch (err) {
         console.error('Error loading API keys:', err);
+        Toast.error('Failed to load API keys');
     }
 }
 
@@ -52,23 +56,29 @@ async function loadApiKeys() {
  * Show the create API key modal
  */
 function showCreateApiKeyModal() {
-    document.getElementById('createApiKeyModal').style.display = 'block';
-    document.getElementById('apiKeySecret').style.display = 'none';
-    document.getElementById('createApiKeyForm').style.display = 'block';
+    const modal = document.getElementById('createApiKeyModal');
+    const secretDiv = document.getElementById('apiKeySecret');
+    const form = document.getElementById('createApiKeyForm');
+    
+    if (modal) modal.style.display = 'block';
+    if (secretDiv) secretDiv.style.display = 'none';
+    if (form) form.style.display = 'block';
 }
 
 /**
  * Close the create API key modal
  */
 function closeCreateApiKeyModal() {
-    document.getElementById('createApiKeyModal').style.display = 'none';
+    const modal = document.getElementById('createApiKeyModal');
+    if (modal) modal.style.display = 'none';
 }
 
 /**
  * Create a new API key
  */
 async function createApiKey(formData) {
-    const permissions = Array.from(document.getElementById('key_permissions').selectedOptions).map(o => o.value);
+    const permissionsSelect = document.getElementById('key_permissions');
+    const permissions = Array.from(permissionsSelect.selectedOptions).map(o => o.value);
 
     const data = {
         name: formData.get('name'),
@@ -81,7 +91,7 @@ async function createApiKey(formData) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                'X-CSRF-Token': getCsrfToken() || ''
             },
             body: JSON.stringify(data)
         });
@@ -96,12 +106,14 @@ async function createApiKey(formData) {
                 <p class="api-key-secret-alert">⚠️ Copy this key now - it won't be shown again!</p>
                 <code class="api-key-secret-code">${escapeHtml(result.secret)}</code>
             `;
+            Toast.success('API key created successfully!');
         } else {
             const error = await response.json();
-            alert(error.detail || 'Failed to create API key');
+            Toast.error(error.detail || 'Failed to create API key');
         }
     } catch (err) {
         console.error('Error creating API key:', err);
+        Toast.error('Network error. Please try again.');
     }
 }
 
@@ -117,18 +129,20 @@ async function deleteApiKey(keyId) {
         const response = await fetch(`/auth/api-keys/${keyId}`, {
             method: 'DELETE',
             headers: {
-                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                'X-CSRF-Token': getCsrfToken() || ''
             }
         });
 
         if (response.ok) {
+            Toast.success('API key deleted successfully');
             loadApiKeys();
         } else {
             const error = await response.json();
-            alert(error.detail || 'Failed to delete API key');
+            Toast.error(error.detail || 'Failed to delete API key');
         }
     } catch (err) {
         console.error('Error deleting API key:', err);
+        Toast.error('Network error. Please try again.');
     }
 }
 
@@ -154,13 +168,17 @@ async function updateProfile(formData) {
         });
 
         if (response.ok) {
+            Toast.success('Profile updated successfully');
             location.reload();
         } else {
             const error = await response.json();
-            alert(error.detail || 'Failed to update profile');
+            showError('profile-error', error.detail || 'Failed to update profile');
+            Toast.error(error.detail || 'Failed to update profile');
         }
     } catch (err) {
         console.error('Error updating profile:', err);
+        showError('profile-error', 'Network error. Please try again.');
+        Toast.error('Network error. Please try again.');
     }
 }
 
@@ -174,7 +192,8 @@ async function changePassword(formData) {
     const confirmPassword = formData.get('confirm_password');
 
     if (newPassword !== confirmPassword) {
-        alert('Passwords do not match');
+        showError('password-error', 'Passwords do not match');
+        Toast.error('Passwords do not match');
         return;
     }
 
@@ -194,14 +213,18 @@ async function changePassword(formData) {
         });
 
         if (response.ok) {
-            alert('Password changed successfully');
+            Toast.success('Password changed successfully');
             formData.reset();
+            hideError('password-error');
         } else {
             const error = await response.json();
-            alert(error.detail || 'Failed to change password');
+            showError('password-error', error.detail || 'Failed to change password');
+            Toast.error(error.detail || 'Failed to change password');
         }
     } catch (err) {
         console.error('Error changing password:', err);
+        showError('password-error', 'Network error. Please try again.');
+        Toast.error('Network error. Please try again.');
     }
 }
 
@@ -223,9 +246,36 @@ function formatDate(dateString) {
     return new Date(dateString).toLocaleDateString();
 }
 
+/**
+ * Show error message
+ */
+function showError(elementId, message) {
+    const errorDiv = document.getElementById(elementId);
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        setTimeout(() => {
+            errorDiv.style.display = 'none';
+        }, 5000);
+    }
+}
+
+/**
+ * Hide error message
+ */
+function hideError(elementId) {
+    const errorDiv = document.getElementById(elementId);
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
+    }
+}
+
 // ── Event Listeners ──────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', function() {
+/**
+ * Initialize profile page event listeners
+ */
+function initProfilePage() {
     // Load API keys on page load
     loadApiKeys();
 
@@ -235,7 +285,21 @@ document.addEventListener('DOMContentLoaded', function() {
         profileForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
-            await updateProfile(formData);
+            const submitBtn = document.getElementById('profile-submit-btn');
+            
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Updating...';
+            }
+            
+            try {
+                await updateProfile(formData);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Update Profile';
+                }
+            }
         });
     }
 
@@ -245,8 +309,34 @@ document.addEventListener('DOMContentLoaded', function() {
         passwordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
-            await changePassword(formData);
+            const submitBtn = document.getElementById('password-submit-btn');
+            
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Changing...';
+            }
+            
+            try {
+                await changePassword(formData);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Change Password';
+                }
+            }
         });
+    }
+
+    // Create API key button
+    const createApiKeyBtn = document.getElementById('create-api-key-btn');
+    if (createApiKeyBtn) {
+        createApiKeyBtn.addEventListener('click', showCreateApiKeyModal);
+    }
+
+    // Cancel create API key button
+    const cancelCreateKeyBtn = document.getElementById('cancel-create-key-btn');
+    if (cancelCreateKeyBtn) {
+        cancelCreateKeyBtn.addEventListener('click', closeCreateApiKeyModal);
     }
 
     // Create API key form submission
@@ -255,9 +345,31 @@ document.addEventListener('DOMContentLoaded', function() {
         createApiKeyForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
-            await createApiKey(formData);
+            const submitBtn = document.getElementById('create-key-submit-btn');
+            
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Creating...';
+            }
+            
+            try {
+                await createApiKey(formData);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Create';
+                }
+            }
         });
     }
+
+    // Delete API key buttons (event delegation)
+    document.getElementById('apiKeysList').addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-api-key-btn')) {
+            const keyId = parseInt(e.target.dataset.keyId);
+            deleteApiKey(keyId);
+        }
+    });
 
     // Close modal when clicking outside
     const modal = document.getElementById('createApiKeyModal');
@@ -275,4 +387,11 @@ document.addEventListener('DOMContentLoaded', function() {
             closeCreateApiKeyModal();
         }
     });
-});
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initProfilePage);
+} else {
+    initProfilePage();
+}

@@ -9,11 +9,11 @@
         {'label': 'Model Name', 'value': model_name, 'id': 'model-name'}
     ] %}
     {% include 'components/page_header.html' %}
-
+    
     <div class="table-container">
-        <div class="nes-table-responsive">
+        <div class="cyber-table-responsive">
             <blockquote>
-                <table class="nes-table is-bordered is-centered">
+                <table class="cyber-table is-bordered is-centered symbols-table" data-click-handler="goToFunctionURL">
                     <thead>
                         <tr>
                             <th scope="col">Function Name</th>
@@ -22,8 +22,11 @@
                     </thead>
                     <tbody>
                         {% for functionInfo in functions %}
-                        <tr id="{{ functionInfo[1] }}-id" onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
-                            onmouseout="changeBackground(this.id, '#000000');" onclick="goToFunctionURL(this.id)">
+                        <tr id="{{ functionInfo[1] }}-id"
+                            class="hover-row"
+                            tabindex="0"
+                            role="row"
+                            aria-label="Function: {{ functionInfo[1] | e }}">
                             <td>{{ functionInfo[1] }}</td>
                             <td>0x{{ functionInfo[2] }}</td>
                         </tr>
@@ -33,12 +36,13 @@
             </blockquote>
         </div>
         <div class="button-group">
-            <button type="button" class="nes-btn is-primary" onclick="deleteModel()">Delete</button>
-            <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+            <button type="button" class="cyber-btn is-primary" id="delete-model-btn" aria-label="Delete this model">Delete</button>
+            <button type="button" class="cyber-btn is-primary" onclick="history.back()" aria-label="Go back">Go Back</button>
         </div>
     </div>
 </div>
 
 <script src="{{ url_for('static', path='js/common.js') }}"></script>
+<script src="{{ url_for('static', path='js/toast.js') }}"></script>
 <script src="{{ url_for('static', path='js/symbols.js') }}"></script>
 {% endblock content %}

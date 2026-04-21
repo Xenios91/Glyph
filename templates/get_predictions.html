@@ -7,10 +7,10 @@
     <div class="center-contents">
         <h2>Predictions List</h2>
     </div>
-
-    <div class="nes-table-responsive content m-table center-contents overflow">
+    
+    <div class="cyber-table-responsive content m-table center-contents overflow">
         <blockquote>
-            <table class="nes-table is-bordered is-centered">
+            <table class="cyber-table is-bordered is-centered">
                 <thead>
                     <tr>
                         <th scope="col">Task Name</th>
@@ -24,15 +24,18 @@
                     <tr id="prediction-{{ loop.index }}"
                         data-task-name="{{ prediction.task_name | e }}"
                         data-model-name="{{ prediction.model_name | e }}"
-                        onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
-                        onmouseout="changeBackground(this.id, '#000000');">
+                        class="hover-row"
+                        tabindex="0"
+                        role="row"
+                        aria-label="Prediction: {{ prediction.task_name | e }}">
                         <td>{{ prediction.task_name | e }}</td>
                         <td>{{ prediction.model_name | e }}</td>
                         <td>{{ prediction.predictions | length }}</td>
                         <td>
-                            <button type="button" class="nes-btn is-primary view-prediction-btn"
+                            <button type="button" class="cyber-btn is-primary view-prediction-btn"
                                 data-task-name="{{ prediction.task_name | e }}"
-                                data-model-name="{{ prediction.model_name | e }}">
+                                data-model-name="{{ prediction.model_name | e }}"
+                                aria-label="View prediction for {{ prediction.task_name | e }}">
                                 View
                             </button>
                         </td>
@@ -45,10 +48,11 @@
                 </tbody>
             </table>
         </blockquote>
-        <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
     </div>
+    <button type="button" class="cyber-btn is-primary" onclick="history.back()" aria-label="Go back">Go Back</button>
 </div>
 
 <script src="{{ url_for('static', path='js/common.js') }}"></script>
+<script src="{{ url_for('static', path='js/toast.js') }}"></script>
 <script src="{{ url_for('static', path='js/predictions.js') }}"></script>
 {% endblock content %}

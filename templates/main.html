@@ -4,27 +4,27 @@
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
-    <div class="nes-container with-title is-centered white-bg main-card">
+    <div class="cyber-container with-title is-centered white-bg main-card" role="region" aria-labelledby="glyph-title">
         <div class="hero-section">
-            <h1 class="pixel-title">GLYPH</h1>
+            <h1 class="cyber-title" id="glyph-title">GLYPH</h1>
         </div>
-
+        
         <div class="description-box">
-            <p class="nes-text is-primary">
+            <p class="cyber-text is-primary">
                 A binary analysis tool for <br>
-                <span class="nes-text is-error">fingerprinting functions</span>
+                <span class="cyber-text is-error">fingerprinting functions</span>
             </p>
         </div>
-
+        
         <div class="action-area">
-            <button type="button" class="nes-btn is-primary start-btn" onclick="location.href='/uploadBinary';">
+            <a href="/uploadBinary" class="cyber-btn is-primary start-btn" role="button" aria-label="Start binary analysis">
                 [ START ]
-            </button>
+            </a>
             <p class="blink_text mt-2" style="font-size: 1.0rem;">PRESS START TO BEGIN</p>
         </div>
-
-        <hr class="pixel-hr">
-
+        
+        <hr class="cyber-hr">
+        
     </div>
 </div>
 

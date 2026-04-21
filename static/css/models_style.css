@@ -1,5 +1,6 @@
 /* =============================================================
-   GLYPH — MODELS PAGE (models_style.css)  eye-friendly revision
+   GLYPH — MODELS PAGE (models_style.css)
+   Uses global theme variables from style.css
    ============================================================= */
 
 .content {
@@ -8,153 +9,186 @@
     align-items: center;
     justify-content: flex-start;
     min-height: calc(100vh - 56px - 48px);
-    padding: 2rem 1rem;
+    padding: 2.5rem 1.5rem;
     position: relative;
     z-index: 10;
-    gap: 1.5rem;
+    gap: 1.75rem;
 }
 
 /* ── Header label ───────────────────────────────────────────── */
 .content>div:first-child span {
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     letter-spacing: 0.15em;
-    color: #a8ecec;
+    color: var(--cyan-bright);
     display: block;
     text-align: center;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid #2a5a5a;
+    padding-bottom: 0.75rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    border-bottom: 1px solid var(--cyan-dim);
+    text-shadow:
+        0 0 10px rgba(168, 236, 236, 0.30),
+        2px 2px 0 var(--magenta-dim);
 }
 
 /* ── Table wrapper ──────────────────────────────────────────── */
-.nes-table-responsive {
-    width: auto;
-    max-width: 700px;
+.cyber-table-responsive {
+    width: 100%;
+    max-width: 1200px;
     overflow-x: auto;
-    background: #11111f;
-    border: 2px solid #2a5a5a;
+    background: transparent;
+    border: 2px solid var(--cyan-dim);
     box-shadow:
         0 0 18px rgba(125, 216, 216, 0.10),
         inset 0 0 20px rgba(125, 216, 216, 0.02);
     position: relative;
-    display: block !important;
-    flex-direction: unset !important;
-    justify-content: unset !important;
-    align-items: unset !important;
-    gap: unset !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    gap: 0 !important;
     min-height: unset !important;
     padding: 0;
-    margin: 0 auto;
+    margin: 1.5rem auto 2rem;
 }
 
-.nes-table-responsive::before,
-.nes-table-responsive::after {
+.cyber-table-responsive::before,
+.cyber-table-responsive::after {
     content: '';
     position: absolute;
     width: 12px;
     height: 12px;
-    border-color: #4a2244;
+    border-color: var(--magenta-dim);
     border-style: solid;
     z-index: 2;
 }
 
-.nes-table-responsive::before {
+.cyber-table-responsive::before {
     top: -2px;
     left: -2px;
     border-width: 2px 0 0 2px;
 }
 
-.nes-table-responsive::after {
+.cyber-table-responsive::after {
     bottom: -2px;
     right: -2px;
     border-width: 0 2px 2px 0;
 }
 
 /* ── Table ───────────────────────────────────────────────────── */
-.nes-table {
+.cyber-table {
     width: 100%;
+    min-width: 300px;
     border-collapse: collapse;
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+    font-size: 0.65rem;
     line-height: 1.8;
     background: transparent;
 }
 
-.nes-table thead tr {
-    border-bottom: 1px solid #2a5a5a;
+.cyber-table thead tr {
+    border-bottom: 1px solid var(--cyan-dim);
 }
 
-.nes-table thead th {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.58rem;
-    letter-spacing: 0.1em;
-    color: #d4c87a;
-    padding: 0.85rem 1.25rem;
-    text-align: left;
-    border: none;
-    border-right: 1px solid rgba(125, 216, 216, 0.10);
-    background: transparent;
+.cyber-table thead td,
+.cyber-table thead th {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.55rem !important;
+    letter-spacing: 0.08em;
+    color: var(--yellow) !important;
+    padding: 0.75rem 1rem !important;
+    text-align: left !important;
+    border: 2px solid var(--cyan-dim) !important;
+    background: rgba(42, 90, 90, 0.15) !important;
 }
 
-.nes-table thead th:last-child {
+.cyber-table thead td:last-child,
+.cyber-table thead th:last-child {
     border-right: none;
 }
 
-.nes-table tbody tr {
-    border-bottom: 1px solid rgba(125, 216, 216, 0.08);
+.cyber-table tbody tr {
+    border-bottom: 1px solid var(--grid-line);
     cursor: pointer;
-    background: #11111f;
-    transition: none;
+    background: var(--bg-panel);
 }
 
-.nes-table tbody tr:hover {
+.cyber-table tbody tr:hover {
     background: rgba(125, 216, 216, 0.05) !important;
     outline: 1px solid rgba(125, 216, 216, 0.18);
 }
 
-.nes-table tbody tr:last-child {
+.cyber-table tbody tr:last-child {
     border-bottom: none;
 }
 
-.nes-table tbody td {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.52rem;
-    color: #cdd0e8;
-    padding: 0.75rem 1.25rem;
-    border: none;
-    border-right: 1px solid rgba(125, 216, 216, 0.08);
-    background: transparent;
+.cyber-table tbody td {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.75rem !important;
+    color: var(--text-primary) !important;
+    padding: 0.75rem 1rem !important;
+    border: 2px solid var(--cyan-dim) !important;
+    background: transparent !important;
     letter-spacing: 0.04em;
 }
 
-.nes-table tbody td:last-child {
-    border-right: none;
+/* ── Status colors ──────────────────────────────────────────── */
+.model-status-cell.status-complete {
+    color: var(--green) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 65, 0.8) !important;
 }
 
-#td-model-name {
-    color: #a8ecec;
+.model-status-cell.status-pending,
+.model-status-cell.status-running {
+    color: var(--yellow) !important;
+    text-shadow: 0 0 8px rgba(255, 255, 0, 0.6) !important;
+    animation: status-blink 1.2s step-end infinite;
+}
+
+.model-status-cell.status-error,
+.model-status-cell.status-na {
+    color: var(--red) !important;
+    text-shadow: 0 0 8px rgba(255, 0, 68, 0.6) !important;
+}
+
+@keyframes status-blink {
+    0%, 49% {
+        opacity: 1;
+    }
+    50%, 100% {
+        opacity: 0.5;
+    }
+}
+
+.model-name-cell {
+    color: var(--cyan-bright) !important;
+    font-weight: bold;
+    text-shadow: 0 0 8px rgba(168, 236, 236, 0.25);
 }
 
 /* ── Status classes ─────────────────────────────────────────── */
-td[id$="-status"] {
-    font-size: 0.5rem;
+.model-status-cell {
+    font-size: 0.65rem;
     letter-spacing: 0.06em;
+    text-align: center;
+    padding: 0.75rem 1rem;
 }
 
 .status-complete {
-    color: #6ec97a !important;
-    text-shadow: 0 0 6px rgba(110, 201, 122, 0.30) !important;
+    color: var(--green) !important;
+    text-shadow: 0 0 8px rgba(110, 201, 122, 0.40) !important;
 }
 
 .status-pending,
 .status-running {
-    color: #d4c87a !important;
+    color: var(--yellow) !important;
     animation: status-blink 1.2s step-end infinite;
 }
 
 .status-error,
 .status-na {
-    color: #c9546a !important;
+    color: var(--red) !important;
 }
 
 @keyframes status-blink {
@@ -166,7 +200,7 @@ td[id$="-status"] {
 
     50%,
     100% {
-        opacity: 0.3;
+        opacity: 0.4;
     }
 }
 
@@ -175,30 +209,88 @@ td[id$="-status"] {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 1.25rem;
     max-width: 480px;
-    margin: 3rem auto;
+    margin: 3.75rem auto;
 }
 
-.nes-balloon.from-left {
-    background: #11111f !important;
-    border-color: #4a2244 !important;
+.cyber-balloon.from-left {
+    background: var(--bg-panel) !important;
+    border-color: var(--magenta-dim) !important;
     box-shadow: 0 0 12px rgba(200, 122, 184, 0.15);
 }
 
-.nes-balloon.from-left::before,
-.nes-balloon.from-left::after {
-    border-color: transparent #4a2244 transparent transparent !important;
+.cyber-balloon.from-left::before,
+.cyber-balloon.from-left::after {
+    border-color: transparent var(--magenta-dim) transparent transparent !important;
 }
 
-.nes-balloon p.nes-text.is-error {
+.cyber-balloon p.cyber-text.is-error {
     font-family: 'Press Start 2P', monospace;
     font-size: 1.0rem;
     line-height: 2;
-    color: #c87ab8 !important;
+    color: var(--magenta) !important;
     letter-spacing: 0.04em;
 }
 
-.nes-octocat {
+.cyber-octocat {
     filter: hue-rotate(200deg) saturate(1.2) brightness(0.85);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.cyber-btn.is-primary {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.52rem !important;
+    letter-spacing: 0.08em !important;
+    background-color: var(--bg) !important;
+    color: var(--cyan) !important;
+    border: 2px solid var(--cyan-dim) !important;
+    box-shadow: 0 0 10px rgba(125, 216, 216, 0.12) !important;
+    padding: 0.6rem 1.25rem !important;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: none !important;
+    border-radius: 0 !important;
+}
+
+.cyber-btn.is-primary:hover {
+    background-color: var(--cyan-dim) !important;
+    color: #d4f0f0 !important;
+    box-shadow: 0 0 16px rgba(125, 216, 216, 0.25) !important;
+    border-color: var(--cyan) !important;
+    transform: translate(-2px, -2px);
+}
+
+.cyber-btn.is-primary:active {
+    transform: translate(2px, 2px) !important;
+    box-shadow: none !important;
+}
+
+.cyber-btn.is-primary::after {
+    content: '' !important;
+    position: absolute !important;
+    top: -40% !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 40% !important;
+    background: rgba(125, 216, 216, 0.08) !important;
+    animation: btn-sweep 3s linear infinite !important;
+    pointer-events: none !important;
+}
+
+@keyframes btn-sweep {
+    from {
+        top: -40%;
+    }
+
+    to {
+        top: 120%;
+    }
+}
+
+/* Go Back button styling */
+.content .cyber-btn.is-primary {
+    margin-top: 1.5rem;
+    display: inline-block;
 }

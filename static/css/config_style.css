@@ -6,7 +6,7 @@
 /* ── Page wrapper ───────────────────────────────────────────── */
 .blue-bg {
     background: transparent;
-    padding: 2rem 1.5rem 4rem;
+    padding: 2.5rem 1.5rem 4rem;
 }
 
 /* ── Main config container ──────────────────────────────────── */
@@ -50,19 +50,19 @@
 /* extra bottom corners via a wrapper span trick isn't possible —
    we use box-shadow on the title bar instead */
 
-/* ── NES container title overrides ──────────────────────────── */
-#config-box.nes-container.with-title>.title,
-#config-box .nes-container.with-title>.title {
+/* ── Cyberpunk container title overrides ──────────────────────────── */
+#config-box.cyber-container.with-title>.title,
+#config-box .cyber-container.with-title>.title {
     background: var(--bg-panel) !important;
     color: var(--cyan-bright) !important;
     font-size: 0.65rem;
     letter-spacing: 0.2em;
     text-shadow: 0 0 8px rgba(168, 236, 236, 0.45);
-    padding: 0 0.5rem;
+    padding: 0.5rem 0.75rem;
 }
 
 /* section containers */
-#config-box .nes-container.with-title {
+#config-box .cyber-container.with-title {
     background: var(--bg-surface) !important;
     border-color: var(--magenta-dim) !important;
     color: var(--text-primary) !important;
@@ -70,17 +70,19 @@
     margin-bottom: 0;
 }
 
-#config-box .nes-container.with-title>.title {
+#config-box .cyber-container.with-title>.title {
     color: var(--magenta) !important;
     text-shadow: 0 0 8px rgba(200, 122, 184, 0.4);
     background: var(--bg-surface) !important;
     font-size: 0.65rem;
     letter-spacing: 0.25em;
+    padding: 0.5rem 0.75rem;
 }
 
 /* ── Section inner padding ───────────────────────────────────── */
 .config-section-inner {
-    margin: 5% 7%;
+    margin: 1.5rem 2rem;
+    padding: 1.5rem 0;
 }
 
 /* ── Labels ─────────────────────────────────────────────────── */
@@ -92,10 +94,11 @@
     font-size: 0.65rem;
     line-height: 2;
     letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
 }
 
 /* ── Number inputs ───────────────────────────────────────────── */
-#config-box .nes-input,
+#config-box .cyber-input,
 #config-box input[type="number"] {
     background: var(--bg) !important;
     border-color: var(--cyan-dim) !important;
@@ -104,10 +107,11 @@
     font-size: 0.55rem;
     caret-color: var(--cyan);
     width: 130px;
+    padding: 0.625rem 0.75rem;
     transition: border-color 0.1s, box-shadow 0.1s;
 }
 
-#config-box .nes-input:focus,
+#config-box .cyber-input:focus,
 #config-box input[type="number"]:focus {
     border-color: var(--cyan) !important;
     outline: none;
@@ -115,17 +119,18 @@
 }
 
 /* ── Selects ─────────────────────────────────────────────────── */
-#config-box .nes-select select {
+#config-box .cyber-select select {
     background: var(--bg) !important;
     border-color: var(--cyan-dim) !important;
     color: var(--yellow) !important;
     font-family: 'Press Start 2P', monospace;
     font-size: 0.5rem;
     min-width: 210px;
+    padding: 0.625rem 0.75rem;
     transition: border-color 0.1s;
 }
 
-#config-box .nes-select select:focus {
+#config-box .cyber-select select:focus {
     border-color: var(--yellow) !important;
     outline: none;
     box-shadow: 0 0 8px rgba(212, 200, 122, 0.15);
@@ -207,7 +212,7 @@
     text-align: right;
     background: var(--bg);
     border: 2px solid var(--cyan-dim);
-    padding: 4px 8px;
+    padding: 0.375rem 0.75rem;
     box-shadow: inset 0 0 8px rgba(125, 216, 216, 0.05);
     transition: color 0.1s, border-color 0.1s;
 }
@@ -230,8 +235,8 @@
 .config-row {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.4rem;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
     flex-wrap: wrap;
 }
 
@@ -242,15 +247,15 @@
 .slider-row {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.75rem;
     width: 100%;
-    margin-bottom: 1.6rem;
+    margin-bottom: 1.75rem;
 }
 
 .slider-track {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1.25rem;
 }
 
 /* ── Divider ─────────────────────────────────────────────────── */
@@ -258,7 +263,7 @@
     border: none;
     position: relative;
     height: 2px;
-    margin: 1.8rem 0;
+    margin: 2rem 0;
     background: linear-gradient(90deg,
             transparent 0%,
             var(--cyan-dim) 20%,
@@ -276,12 +281,12 @@
     font-size: 0.5rem;
     color: var(--magenta);
     background: var(--bg-panel);
-    padding: 0 6px;
+    padding: 0 0.75rem;
     text-shadow: 0 0 6px var(--magenta);
 }
 
 /* ── Buttons ─────────────────────────────────────────────────── */
-#config-box .nes-btn.is-primary {
+#config-box .cyber-btn.is-primary {
     background: var(--bg) !important;
     border-color: var(--cyan) !important;
     color: var(--cyan-bright) !important;
@@ -293,13 +298,13 @@
     cursor: crosshair;
 }
 
-#config-box .nes-btn.is-primary:hover {
+#config-box .cyber-btn.is-primary:hover {
     background: rgba(125, 216, 216, 0.06) !important;
     box-shadow: 0 0 20px rgba(125, 216, 216, 0.25), inset 0 0 12px rgba(125, 216, 216, 0.08);
     color: #fff !important;
 }
 
-#config-box .nes-btn:not(.is-primary) {
+#config-box .cyber-btn:not(.is-primary) {
     background: var(--bg) !important;
     border-color: var(--magenta-dim) !important;
     color: var(--text-dim) !important;
@@ -309,7 +314,7 @@
     cursor: crosshair;
 }
 
-#config-box .nes-btn:not(.is-primary):hover {
+#config-box .cyber-btn:not(.is-primary):hover {
     border-color: var(--magenta) !important;
     color: var(--magenta) !important;
     box-shadow: 0 0 12px rgba(200, 122, 184, 0.15);
@@ -317,13 +322,13 @@
 
 /* ── Status messages ─────────────────────────────────────────── */
 #save-status {
-    margin-top: 1.2rem;
+    margin-top: 1.5rem;
     text-align: center;
 }
 
-#save-status.nes-container {
+#save-status.cyber-container {
     font-size: 0.5rem;
-    padding: 1rem;
+    padding: 1.25rem 1.5rem;
     letter-spacing: 0.08em;
 }
 

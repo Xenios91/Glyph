@@ -1,6 +1,7 @@
 /**
  * Glyph - Predictions Page JavaScript
  * Handles prediction viewing and deletion
+ * Uses native fetch API and event listeners
  */
 
 /**
@@ -42,6 +43,7 @@ async function deletePrediction() {
     const taskNameElement = document.getElementById('task-name');
     if (!taskNameElement) {
         console.error('Task name element not found');
+        Toast.error('Task name not found');
         return;
     }
     
@@ -51,15 +53,26 @@ async function deletePrediction() {
     const url = '/models/deletePrediction?task_name=' + encodeURIComponent(taskToDelete);
     
     try {
-        await fetch(url, getFetchOptionsWithCsrf({
+        const response = await fetch(url, getFetchOptionsWithCsrf({
             method: 'DELETE',
             headers: { 'Content-type': 'application/json' }
         }));
         
-        // Redirect to home after deletion
-        window.location = '/';
+        if (response.ok) {
+            const data = await response.json();
+            Toast.success(data.message || 'Prediction deleted successfully');
+            // Redirect to home after deletion
+            setTimeout(() => {
+                window.location = '/';
+            }, 1000);
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData.detail || errorData.message || 'Failed to delete prediction';
+            Toast.error(errorMessage);
+        }
     } catch (error) {
         console.error('Error deleting prediction:', error);
+        Toast.error('Network error. Please try again.');
     }
 }
 
@@ -74,6 +87,17 @@ function initPredictionsPage() {
             const modelName = this.getAttribute('data-model-name');
             const taskName = this.getAttribute('data-task-name');
             goToURL(functionName, modelName, taskName);
+        });
+        
+        // Add keyboard support
+        row.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const functionName = this.getAttribute('data-function-name');
+                const modelName = this.getAttribute('data-model-name');
+                const taskName = this.getAttribute('data-task-name');
+                goToURL(functionName, modelName, taskName);
+            }
         });
     });
     
@@ -91,6 +115,34 @@ function initPredictionsPage() {
     if (deleteBtn) {
         deleteBtn.addEventListener('click', deletePrediction);
     }
+    
+    // Initialize hover effects for table rows
+    initTableHoverEffects();
+}
+
+/**
+ * Initialize hover effects for table rows
+ */
+function initTableHoverEffects() {
+    const hoverRows = document.querySelectorAll('.hover-row');
+    
+    hoverRows.forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.background = 'rgba(0, 255, 255, 0.07)';
+        });
+        
+        row.addEventListener('mouseleave', function() {
+            this.style.background = '#000000';
+        });
+        
+        row.addEventListener('focus', function() {
+            this.style.background = 'rgba(0, 255, 255, 0.07)';
+        });
+        
+        row.addEventListener('blur', function() {
+            this.style.background = '#000000';
+        });
+    });
 }
 
 // Initialize when DOM is ready

@@ -7,8 +7,18 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-Frame-Options" content="DENY">
     <meta name="csrf-token" content="{{ get_csrf_token(request) | default('', true) }}">
+    
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self'; 
+                   script-src 'self' 'unsafe-inline' https://code.jquery.com https://unpkg.com; 
+                   style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; 
+                   font-src 'self' https://fonts.gstatic.com; 
+                   img-src 'self' data: https:; 
+                   connect-src 'self'; 
+                   frame-ancestors 'none';">
+    
     <link rel="shortcut icon" href="{{ url_for('static', path='favicon.ico') }}">
-    <link href="https://unpkg.com/nes.css/css/nes.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,7 +46,7 @@
     {% include 'components/navbar.html' %}
 
     <!-- Page content -->
-    <div class="page-content">
+    <div class="page-content" role="main">
         {%- block content %}{%- endblock content %}
     </div>
 

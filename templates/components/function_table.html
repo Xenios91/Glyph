@@ -9,9 +9,12 @@
 #     'default_color': '#000000'
 #   } %}
 #}
-<div class="nes-table-responsive content m-table center-contents overflow">
+<div class="cyber-table-responsive content m-table center-contents overflow">
     <blockquote>
-        <table class="nes-table is-bordered is-centered">
+        <table class="cyber-table is-bordered is-centered function-table"
+               data-click-handler="{{ click_handler | default('') }}"
+               data-hover-color="{{ hover_color | default('rgba(0,255,255,0.07)') }}"
+               data-default-color="{{ default_color | default('#000000') }}">
             <thead>
                 <tr>
                     {% for column in columns %}
@@ -27,18 +30,20 @@
                 {% for row in rows %}
                 {% set row_id = row_id_prefix ~ '-' ~ loop.index %}
                 <tr id="{{ row_id }}"
-                    {% if click_handler %}onclick="{{ click_handler }}(this.id)"{% endif %}
-                    onmouseover="changeBackground(this.id, '{{ hover_color | default('rgba(0,255,255,0.07)') }}');"
-                    onmouseout="changeBackground(this.id, '{{ default_color | default('#000000') }}');">
+                    class="hover-row"
+                    tabindex="0"
+                    role="row"
+                    aria-label="Row {{ loop.index }}">
                     {% for cell in row.cells %}
                     <td>{{ cell | e }}</td>
                     {% endfor %}
                     {% if show_action %}
                     <td>
-                        <button type="button" class="nes-btn is-primary view-btn"
+                        <button type="button" class="cyber-btn is-primary view-btn"
                             {% for attr, value in action_attrs.items() %}
                             data-{{ attr }}="{{ value | e }}"
-                            {% endfor %}>
+                            {% endfor %}
+                            aria-label="{{ action_text | default('View') }} this item">
                             {{ action_text | default('View') }}
                         </button>
                     </td>

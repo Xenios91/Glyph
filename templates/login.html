@@ -6,31 +6,25 @@
 
 {% block content %}
 <div class="auth-content">
-    <div class="auth-card nes-container with-title">
-        <h2 class="auth-title">LOGIN</h2>
+    <div class="auth-card cyber-container with-title" role="region" aria-labelledby="login-title">
+        <h2 class="auth-title" id="login-title">LOGIN</h2>
         
-        {% if error %}
-        <div class="auth-error">{{ error }}</div>
-        {% endif %}
+        <div id="login-error" class="auth-error" role="alert" aria-live="assertive" style="display: none;"></div>
         
-        {% if success %}
-        <div class="auth-success">{{ success }}</div>
-        {% endif %}
-        
-        <form id="loginForm" method="POST">
+        <form id="loginForm" method="POST" novalidate>
             <input type="hidden" name="csrf_token" value="{{ get_csrf_token(request) }}">
             
             <div class="auth-form-group">
                 <label for="username" class="auth-form-label">USERNAME</label>
-                <input type="text" id="username" name="username" class="auth-form-input" required minlength="3" maxlength="64" placeholder="Enter username">
+                <input type="text" id="username" name="username" class="auth-form-input" required minlength="3" maxlength="64" placeholder="Enter username" aria-required="true">
             </div>
             
             <div class="auth-form-group">
                 <label for="password" class="auth-form-label">PASSWORD</label>
-                <input type="password" id="password" name="password" class="auth-form-input" required minlength="8" placeholder="Enter password">
+                <input type="password" id="password" name="password" class="auth-form-input" required minlength="8" placeholder="Enter password" aria-required="true">
             </div>
             
-            <button type="submit" class="auth-btn">
+            <button type="submit" class="auth-btn" id="login-submit-btn">
                 [ LOGIN ]
             </button>
         </form>
@@ -41,41 +35,132 @@
     </div>
 </div>
 
+<script src="{{ url_for('static', path='js/common.js') }}"></script>
+<script src="{{ url_for('static', path='js/toast.js') }}"></script>
 <script>
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+/**
+ * Initialize login form with validation and submission handling
+ */
+function initLoginForm() {
+    const form = document.getElementById('loginForm');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const submitBtn = document.getElementById('login-submit-btn');
+    const errorDiv = document.getElementById('login-error');
     
-    const formData = new FormData(e.target);
-    const data = {
-        username: formData.get('username'),
-        password: formData.get('password')
-    };
+    if (!form) return;
     
-    try {
-        const response = await fetch('/auth/token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': formData.get('csrf_token')
-            },
-            body: JSON.stringify(data)
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            // Redirect to home page
-            window.location.href = '/';
+    // Real-time validation for username
+    usernameInput.addEventListener('blur', function() {
+        if (this.value.length < 3) {
+            this.classList.add('is-error');
+            this.setAttribute('aria-invalid', 'true');
         } else {
-            const error = await response.json();
-            document.querySelector('.auth-error')?.remove();
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'auth-error';
-            errorDiv.textContent = error.detail || 'Login failed';
-            e.target.insertBefore(errorDiv, e.target.firstChild);
+            this.classList.remove('is-error');
+            this.setAttribute('aria-invalid', 'false');
         }
-    } catch (err) {
-        console.error('Login error:', err);
+    });
+    
+    usernameInput.addEventListener('input', function() {
+        if (this.classList.contains('is-error')) {
+            this.classList.remove('is-error');
+            this.setAttribute('aria-invalid', 'false');
+        }
+    });
+    
+    // Real-time validation for password
+    passwordInput.addEventListener('blur', function() {
+        if (this.value.length < 8) {
+            this.classList.add('is-error');
+            this.setAttribute('aria-invalid', 'true');
+        } else {
+            this.classList.remove('is-error');
+            this.setAttribute('aria-invalid', 'false');
+        }
+    });
+    
+    passwordInput.addEventListener('input', function() {
+        if (this.classList.contains('is-error')) {
+            this.classList.remove('is-error');
+            this.setAttribute('aria-invalid', 'false');
+        }
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Validate before submission
+        if (usernameInput.value.length < 3) {
+            usernameInput.classList.add('is-error');
+            Toast.error('Username must be at least 3 characters');
+            usernameInput.focus();
+            return;
+        }
+        
+        if (passwordInput.value.length < 8) {
+            passwordInput.classList.add('is-error');
+            Toast.error('Password must be at least 8 characters');
+            passwordInput.focus();
+            return;
+        }
+        
+        // Set loading state
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'LOGIN...';
+        
+        const formData = new FormData(form);
+        const data = {
+            username: formData.get('username'),
+            password: formData.get('password')
+        };
+        
+        try {
+            const response = await fetch('/auth/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': formData.get('csrf_token')
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                Toast.success('Login successful! Redirecting...');
+                // Redirect to home page
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 500);
+            } else {
+                const error = await response.json();
+                const errorMessage = error.detail || 'Login failed';
+                showError(errorMessage);
+                Toast.error(errorMessage);
+            }
+        } catch (err) {
+            console.error('Login error:', err);
+            showError('Network error. Please try again.');
+            Toast.error('Network error. Please try again.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '[ LOGIN ]';
+        }
+    });
+    
+    function showError(message) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        setTimeout(() => {
+            errorDiv.style.display = 'none';
+        }, 5000);
     }
-});
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initLoginForm);
+} else {
+    initLoginForm();
+}
 </script>
 {% endblock %}

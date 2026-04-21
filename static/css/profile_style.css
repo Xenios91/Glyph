@@ -1,12 +1,12 @@
 /* =============================================================
-   GLYPH — PROFILE PAGE (profile_style.css)  NES Cyberpunk Theme
+   GLYPH — PROFILE PAGE (profile_style.css)  Cyberpunk Theme
    ============================================================= */
 
 /* ── Profile container ─────────────────────────────────────── */
 .profile-container {
     max-width: 800px;
-    margin: 60px auto;
-    padding: 2rem 1rem;
+    margin: 3.75rem auto;
+    padding: 2.5rem 1.5rem;
     position: relative;
     z-index: 10;
 }
@@ -19,8 +19,8 @@
         0 0 20px rgba(125, 216, 216, 0.12),
         0 0 60px rgba(125, 216, 216, 0.05),
         inset 0 0 24px rgba(125, 216, 216, 0.03);
-    padding: 2rem 1.75rem;
-    margin-bottom: 2rem;
+    padding: 2.25rem 2rem;
+    margin-bottom: 2.25rem;
     position: relative;
 }
 
@@ -51,8 +51,8 @@
     font-family: 'Press Start 2P', monospace;
     font-size: 1rem;
     color: #a8ecec;
-    margin-bottom: 1.5rem;
-    padding-bottom: 0.75rem;
+    margin-bottom: 1.75rem;
+    padding-bottom: 1rem;
     border-bottom: 1px solid rgba(125, 216, 216, 0.12);
     letter-spacing: 0.1em;
     text-shadow:
@@ -62,7 +62,7 @@
 
 /* ── Form groups ──────────────────────────────────────────── */
 .form-group {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
 }
 
 .form-group label {
@@ -70,14 +70,14 @@
     font-family: 'Press Start 2P', monospace;
     font-size: 0.55rem;
     color: #7880a8;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.625rem;
     letter-spacing: 0.08em;
 }
 
 .form-group input,
 .form-group select {
     width: 100%;
-    padding: 0.6rem 0.75rem;
+    padding: 0.75rem 1rem;
     font-family: 'Press Start 2P', monospace;
     font-size: 0.6rem;
     color: #cdd0e8;
@@ -109,8 +109,8 @@
     background: rgba(201, 84, 106, 0.15);
     border: 2px solid #c9546a;
     color: #c9546a;
-    padding: 0.75rem;
-    margin-bottom: 1.25rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
     font-family: 'Press Start 2P', monospace;
     font-size: 0.55rem;
     letter-spacing: 0.06em;
@@ -146,8 +146,8 @@
     background: rgba(110, 201, 122, 0.15);
     border: 2px solid #6ec97a;
     color: #6ec97a;
-    padding: 0.75rem;
-    margin-bottom: 1.25rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
     font-family: 'Press Start 2P', monospace;
     font-size: 0.55rem;
     letter-spacing: 0.06em;
@@ -182,8 +182,8 @@
 .api-key-item {
     background: #0d0d1a;
     border: 1px solid #2a5a5a;
-    padding: 1rem;
-    margin-bottom: 0.75rem;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -205,7 +205,7 @@
 .api-key-info strong {
     color: #a8ecec;
     display: block;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.375rem;
 }
 
 .api-key-prefix {
@@ -213,7 +213,7 @@
     color: #7dd8d8;
     font-size: 0.5rem;
     display: block;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.375rem;
 }
 
 .api-key-info small {
@@ -225,21 +225,21 @@
     font-family: 'Press Start 2P', monospace;
     background: #0d0d1a;
     border: 1px solid #2a5a5a;
-    padding: 0.75rem;
+    padding: 1rem;
     word-break: break-all;
-    margin-top: 0.75rem;
+    margin-top: 1rem;
     font-size: 0.5rem;
     color: #7dd8d8;
 }
 
 .api-key-actions button {
-    margin-left: 0.5rem;
+    margin-left: 0.75rem;
 }
 
 /* ── User info ────────────────────────────────────────────── */
 .user-info {
     color: #cdd0e8;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.75rem;
     font-family: 'Press Start 2P', monospace;
     font-size: 0.55rem;
     letter-spacing: 0.06em;
@@ -247,7 +247,7 @@
 }
 
 .user-info p {
-    margin: 0.5rem 0;
+    margin: 0.625rem 0;
 }
 
 .user-info strong {
@@ -277,7 +277,7 @@
         0 0 20px rgba(125, 216, 216, 0.12),
         0 0 60px rgba(125, 216, 216, 0.05),
         inset 0 0 24px rgba(125, 216, 216, 0.03);
-    padding: 2rem 1.75rem;
+    padding: 2.25rem 2rem;
     max-width: 400px;
     width: 90%;
     position: relative;
@@ -309,7 +309,7 @@
     font-family: 'Press Start 2P', monospace;
     font-size: 0.75rem;
     color: #a8ecec;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
     letter-spacing: 0.1em;
     text-shadow:
         0 0 10px rgba(168, 236, 236, 0.30),
@@ -317,72 +317,72 @@
 }
 
 /* ── Buttons ──────────────────────────────────────────────── */
-.nes-btn {
+.cyber-btn {
     font-family: 'Press Start 2P', monospace !important;
     font-size: 0.6rem !important;
     letter-spacing: 0.1em !important;
-    padding: 0.5rem 1rem !important;
+    padding: 0.625rem 1.25rem !important;
     border-radius: 0 !important;
 }
 
-.nes-btn.is-primary {
+.cyber-btn.is-primary {
     background: #0d0d1a !important;
     color: #7dd8d8 !important;
     border: 2px solid #7dd8d8 !important;
     box-shadow: 0 0 10px rgba(125, 216, 216, 0.20) !important;
 }
 
-.nes-btn.is-primary:hover {
+.cyber-btn.is-primary:hover {
     background: #7dd8d8 !important;
     color: #0d0d1a !important;
     box-shadow: 0 0 18px rgba(125, 216, 216, 0.40) !important;
 }
 
-.nes-btn.is-warning {
+.cyber-btn.is-warning {
     background: #0d0d1a !important;
     color: #d4c87a !important;
     border: 2px solid #d4c87a !important;
     box-shadow: 0 0 10px rgba(212, 200, 122, 0.20) !important;
 }
 
-.nes-btn.is-warning:hover {
+.cyber-btn.is-warning:hover {
     background: #d4c87a !important;
     color: #0d0d1a !important;
     box-shadow: 0 0 18px rgba(212, 200, 122, 0.40) !important;
 }
 
-.nes-btn.is-error {
+.cyber-btn.is-error {
     background: #0d0d1a !important;
     color: #c9546a !important;
     border: 2px solid #c9546a !important;
     box-shadow: 0 0 10px rgba(201, 84, 106, 0.20) !important;
 }
 
-.nes-btn.is-error:hover {
+.cyber-btn.is-error:hover {
     background: #c9546a !important;
     color: #0d0d1a !important;
     box-shadow: 0 0 18px rgba(201, 84, 106, 0.40) !important;
 }
 
-.nes-btn.is-small {
+.cyber-btn.is-small {
     font-size: 0.5rem !important;
-    padding: 0.3rem 0.6rem !important;
+    padding: 0.375rem 0.75rem !important;
 }
 
 /* ── Utility classes ──────────────────────────────────────── */
 .api-keys-list {
-    margin-top: 1.25rem;
+    margin-top: 1.5rem;
 }
 
 .modal-form-actions {
     display: flex;
-    gap: 10px;
-    margin-top: 1rem;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
 }
 
 .api-key-secret-alert {
     color: #c9546a;
-    margin-bottom: 10px;
+    margin-bottom: 0.75rem;
     font-family: 'Press Start 2P', monospace;
     font-size: 0.5rem;
 }

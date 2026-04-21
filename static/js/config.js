@@ -1,6 +1,7 @@
 /**
  * Glyph - Configuration Page JavaScript
  * Handles configuration form interactions and saving
+ * Uses native fetch API and event listeners
  */
 
 /**
@@ -21,7 +22,10 @@ function updateSlider(sliderId, labelId, unit) {
     };
     
     if (map[sliderId]) {
-        document.getElementById(map[sliderId]).value = slider.value;
+        const input = document.getElementById(map[sliderId]);
+        if (input) {
+            input.value = slider.value;
+        }
     }
 }
 
@@ -42,48 +46,10 @@ function syncFromInput(sliderId, labelId, value, unit) {
     );
     
     slider.value = clamped;
-    document.getElementById(labelId).textContent = clamped + unit;
-}
-
-/**
- * Save configuration to server
- */
-async function saveConfig() {
-    const config = {
-        max_file_size_mb: parseInt(document.getElementById('max-file-size').value),
-        cpu_cores: parseInt(document.getElementById('cpu-cores').value),
-    };
-    
-    try {
-        const response = await fetch('/api/v1/config/save', getFetchOptionsWithCsrf({
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(config)
-        }));
-        
-        showStatus(
-            response.ok,
-            '[ ✔ ] CONFIGURATION SAVED SUCCESSFULLY.',
-            '[ ✘ ] ERROR: FAILED TO SAVE CONFIGURATION.'
-        );
-    } catch (error) {
-        showStatus(false, '', '[ ✘ ] ERROR: NETWORK FAILURE.');
+    const label = document.getElementById(labelId);
+    if (label) {
+        label.textContent = clamped + unit;
     }
-}
-
-/**
- * Reset all configuration values to defaults
- */
-function resetDefaults() {
-    document.getElementById('max-file-size').value = 512;
-    updateSlider('max-file-size', 'max-file-size-val', ' MB');
-    document.getElementById('max-file-size-input').value = 512;
-    
-    document.getElementById('cpu-cores').value = 2;
-    updateSlider('cpu-cores', 'cpu-cores-val', ' cores');
-    document.getElementById('cpu-cores-input').value = 2;
-    
-    showStatus(null, '[ ↺ ] DEFAULTS RESTORED. PRESS SAVE TO APPLY.', '');
 }
 
 /**
@@ -113,19 +79,125 @@ function showStatus(success, okMsg, errMsg) {
 }
 
 /**
+ * Save configuration to server
+ */
+async function saveConfig() {
+    const maxFileSizeSlider = document.getElementById('max-file-size');
+    const cpuCoresSlider = document.getElementById('cpu-cores');
+    
+    if (!maxFileSizeSlider || !cpuCoresSlider) {
+        Toast.error('Configuration form not fully loaded');
+        return;
+    }
+    
+    const config = {
+        max_file_size_mb: parseInt(maxFileSizeSlider.value),
+        cpu_cores: parseInt(cpuCoresSlider.value),
+    };
+    
+    try {
+        const response = await fetch('/api/v1/config/save', getFetchOptionsWithCsrf({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        }));
+        
+        if (response.ok) {
+            const data = await response.json();
+            showStatus(
+                true,
+                data.message ? `[ ✔ ] ${data.message}` : '[ ✔ ] CONFIGURATION SAVED SUCCESSFULLY.',
+                ''
+            );
+            Toast.success('Configuration saved successfully');
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData.detail || errorData.message || 'Failed to save configuration';
+            showStatus(false, '', `[ ✘ ] ERROR: ${errorMessage}`);
+            Toast.error(errorMessage);
+        }
+    } catch (error) {
+        console.error('Config save error:', error);
+        showStatus(false, '', '[ ✘ ] ERROR: NETWORK FAILURE.');
+        Toast.error('Network error. Please try again.');
+    }
+}
+
+/**
+ * Reset all configuration values to defaults
+ */
+function resetDefaults() {
+    const maxFileSizeSlider = document.getElementById('max-file-size');
+    const maxFileSizeInput = document.getElementById('max-file-size-input');
+    const cpuCoresSlider = document.getElementById('cpu-cores');
+    const cpuCoresInput = document.getElementById('cpu-cores-input');
+    
+    if (maxFileSizeSlider) {
+        maxFileSizeSlider.value = 512;
+        updateSlider('max-file-size', 'max-file-size-val', ' MB');
+    }
+    if (maxFileSizeInput) {
+        maxFileSizeInput.value = 512;
+    }
+    
+    if (cpuCoresSlider) {
+        cpuCoresSlider.value = 2;
+        updateSlider('cpu-cores', 'cpu-cores-val', ' cores');
+    }
+    if (cpuCoresInput) {
+        cpuCoresInput.value = 2;
+    }
+    
+    showStatus(null, '[ ↺ ] DEFAULTS RESTORED. PRESS SAVE TO APPLY.', '');
+    Toast.info('Defaults restored. Press Save to apply.');
+}
+
+/**
  * Initialize config page event listeners
  */
 function initConfigPage() {
     // Bind save button
-    const saveBtn = document.querySelector('button[onclick="saveConfig()"]');
+    const saveBtn = document.getElementById('save-config-btn');
     if (saveBtn) {
         saveBtn.addEventListener('click', saveConfig);
     }
     
     // Bind reset button
-    const resetBtn = document.querySelector('button[onclick="resetDefaults()"]');
+    const resetBtn = document.getElementById('reset-defaults-btn');
     if (resetBtn) {
         resetBtn.addEventListener('click', resetDefaults);
+    }
+    
+    // Bind slider events
+    const maxFileSizeSlider = document.getElementById('max-file-size');
+    const cpuCoresSlider = document.getElementById('cpu-cores');
+    
+    if (maxFileSizeSlider) {
+        maxFileSizeSlider.addEventListener('input', () => {
+            updateSlider('max-file-size', 'max-file-size-val', ' MB');
+        });
+    }
+    
+    if (cpuCoresSlider) {
+        cpuCoresSlider.addEventListener('input', () => {
+            updateSlider('cpu-cores', 'cpu-cores-val', ' cores');
+        });
+    }
+    
+    // Bind input field events
+    const maxFileSizeInput = document.getElementById('max-file-size-input');
+    const cpuCoresInput = document.getElementById('cpu-cores-input');
+    
+    if (maxFileSizeInput) {
+        maxFileSizeInput.addEventListener('input', (e) => {
+            syncFromInput('max-file-size', 'max-file-size-val', e.target.value, ' MB');
+        });
+    }
+    
+    if (cpuCoresInput) {
+        cpuCoresInput.addEventListener('input', (e) => {
+            syncFromInput('cpu-cores', 'cpu-cores-val', e.target.value, ' cores');
+        });
     }
 }
 
