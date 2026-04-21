@@ -152,9 +152,9 @@ async def predict_tokens(
 @router.get("/getPrediction")
 async def get_prediction(
     request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     task_name: TaskName = Query(...),
-    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """Obtain all predictions from one task.
     
@@ -223,10 +223,10 @@ async def delete_prediction(
 @router.get("/getPredictionDetails")
 async def get_prediction_details(
     request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
     task_name: TaskName = Query(...),
-    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """Displays specific details of a prediction.
     

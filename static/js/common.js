@@ -64,3 +64,54 @@ function getFetchOptionsWithCsrf(options) {
         headers: headers
     };
 }
+
+/**
+ * Get access token from cookie
+ * @returns {string|null} Access token or null if not found
+ */
+function getAccessToken() {
+    const match = document.cookie.match(/access_token_cookie=([^;]+)/);
+    return match ? match[1] : null;
+}
+
+/**
+ * Fetch with authentication handling
+ * Automatically adds auth token and handles 401 responses
+ * @param {string} url - URL to fetch
+ * @param {Object} options - Fetch options
+ * @returns {Promise<Response>} Fetch response
+ */
+async function authenticatedFetch(url, options = {}) {
+    const token = getAccessToken();
+    const headers = { ...options.headers };
+    
+    if (token && !headers['Authorization']) {
+        headers['Authorization'] = 'Bearer ' + token;
+    }
+    
+    const response = await fetch(url, { ...options, headers });
+    
+    if (response.status === 401) {
+        // Redirect to login, preserving current path
+        const redirectUrl = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+        window.location.href = redirectUrl;
+    }
+    
+    return response;
+}
+
+/**
+ * Check if user is authenticated
+ * @returns {Promise<boolean>} True if authenticated
+ */
+async function checkAuthStatus() {
+    try {
+        const response = await fetch('/auth/me', {
+            headers: { 'Accept': 'application/json' }
+        });
+        return response.status === 200;
+    } catch (error) {
+        console.error('Auth check failed:', error);
+        return false;
+    }
+}

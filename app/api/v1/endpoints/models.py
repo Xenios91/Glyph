@@ -34,8 +34,8 @@ configure_jinja2_templates(templates)
 
 @router.delete("/deleteModel", response_model=SuccessResponse[dict])
 async def delete_model(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
-    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """
     Handles a DELETE request to delete a supplied model by name.
@@ -67,9 +67,9 @@ async def delete_model(
 @router.get("/getFunction", response_model=SuccessResponse[dict])
 async def get_function(
     request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
-    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """
     Handles a GET request to return a specific function associated with a model.
@@ -124,8 +124,8 @@ async def get_function(
 @router.get("/getFunctions", response_model=SuccessResponse[dict])
 async def get_functions(
     request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
-    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """
     Handles a GET request to return all identified functions associated with a model.
@@ -160,10 +160,10 @@ async def get_functions(
 @router.get("/getPredictionDetails", response_model=SuccessResponse[dict])
 async def get_prediction_details(
     request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
     task_name: TaskName = Query(...),
-    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """Displays specific details of a prediction.
 

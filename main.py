@@ -2,7 +2,7 @@ import logging
 import sys
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -63,10 +63,16 @@ app = create_app()
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLResponse | JSONResponse:
-    """Handle HTTP exceptions with a nice error page for web requests.
+async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLResponse | JSONResponse | RedirectResponse:
+    """Handle HTTP exceptions with redirect to login for 401 on web requests.
     """
     accept = request.headers.get("Accept", "")
+    
+    # Redirect to login for 401 on web requests
+    if exc.status_code == 401 and "text/html" in accept:
+        redirect_url = "/login?redirect=" + request.url.path
+        return RedirectResponse(url=redirect_url, status_code=303)
+    
     if "text/html" in accept:
         return templates.TemplateResponse(
             "error.html",

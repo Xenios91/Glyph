@@ -30,8 +30,8 @@ class StatusUpdatePayload(BaseModel):
 
 @router.get("/getStatus", response_model=SuccessResponse[dict])
 async def get_status(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     uuid: UUIDType = Query(...),
-    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """
     Handles a GET request to obtain the supplied uuid task status.

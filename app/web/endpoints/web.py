@@ -22,7 +22,7 @@ configure_jinja2_templates(templates)
 @router.get("/")
 async def home(
     request: Request,
-    current_user: Annotated[User | None, Depends(get_optional_user)]
+    current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     """
     Loads the homepage of Glyph
@@ -40,7 +40,7 @@ async def home(
 @router.get("/config")
 async def config(
     request: Request,
-    current_user: Annotated[User | None, Depends(get_optional_user)]
+    current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     """
     Loads the configuration page of Glyph
@@ -80,7 +80,7 @@ async def error_page(request: Request, type: str | None = None):
 @router.get("/uploadBinary")
 async def get_upload_binary(
     request: Request,
-    current_user: Annotated[User | None, Depends(get_optional_user)]
+    current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     """
     Handles GET request to load the upload webpage
@@ -102,7 +102,7 @@ async def get_upload_binary(
 @router.get("/getModels")
 async def get_list_models(
     request: Request,
-    current_user: Annotated[User | None, Depends(get_optional_user)]
+    current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     """
     Handles a GET request to obtain all models available
@@ -126,7 +126,7 @@ async def get_list_models(
 @router.get("/getPredictions")
 async def get_list_predictions(
     request: Request,
-    current_user: Annotated[User | None, Depends(get_optional_user)]
+    current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     """Obtain all predictions available"""
     logging.debug("GET /getPredictions called")
@@ -157,10 +157,10 @@ async def get_list_predictions(
 @router.get("/getPredictionDetails")
 async def get_prediction_details(
     request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     modelName: str = Query(...),
     functionName: str = Query(...),
     taskName: str = Query(...),
-    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """Displays specific details of a prediction"""
     model_name = modelName.strip()
@@ -212,9 +212,9 @@ async def get_prediction_details(
 @router.get("/getPrediction")
 async def get_prediction(
     request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     taskName: str = Query(...),
     modelName: str = Query(...),
-    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ):
     """Obtain predictions for a specific task and model"""
     logging.debug("GET /getPrediction called with taskName=%s, modelName=%s", taskName, modelName)
