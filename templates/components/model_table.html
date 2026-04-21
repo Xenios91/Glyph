@@ -4,29 +4,31 @@
 #   {% include 'components/model_table.html' %}
 #}
 <div class="cyber-table-responsive">
-    <table class="cyber-table is-bordered is-centered model-table" data-click-handler="{{ click_handler | default('') }}">
-        <thead>
-            <tr>
-                <th scope="col">MODEL NAME</th>
-                <th scope="col">STATUS</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for model, status in models.items() %}
-            <tr class="hover-row"
-                tabindex="0"
-                role="row"
-                data-model-name="{{ model | e }}"
-                aria-label="Model: {{ model | e }}, Status: {{ status | e }}">
-                <td class="model-name-cell">{{ model }}</td>
-                <td class="model-status-cell status-{{ status | replace(' ', '-') | lower }}"
-                    {% if status == 'complete' %}data-status="complete"
-                    {% elif status == 'N/A' %}data-status="na"
-                    {% else %}data-status="pending"{% endif %}>
-                    {{ status }}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <blockquote>
+        <table class="cyber-table is-bordered is-centered model-table" data-click-handler="{{ click_handler | default('') }}">
+            <thead>
+                <tr>
+                    <th scope="col">MODEL NAME</th>
+                    <th scope="col">STATUS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for model, status in models.items() %}
+                <tr class="hover-row"
+                    tabindex="0"
+                    role="row"
+                    data-model-name="{{ model | e }}"
+                    aria-label="Model: {{ model | e }}, Status: {{ status | e }}">
+                    <td class="model-name-cell">{{ model }}</td>
+                    <td class="model-status-cell status-{{ status | replace(' ', '-') | lower }}"
+                        {% if status == 'complete' %}data-status="complete"
+                        {% elif status == 'N/A' %}data-status="na"
+                        {% else %}data-status="pending"{% endif %}>
+                        {{ status }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </blockquote>
 </div>

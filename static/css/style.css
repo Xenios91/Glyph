@@ -821,17 +821,106 @@ button:disabled {
     TABLE STYLES
     ============================================================= */
 
+/* Table wrapper - makes tables scrollable horizontally and vertically */
+.cyber-table-responsive {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    max-height: 600px;
+    background: transparent;
+    border: 2px solid var(--cyan-dim);
+    box-shadow:
+        0 0 18px rgba(125, 216, 216, 0.10),
+        inset 0 0 20px rgba(125, 216, 216, 0.02);
+    position: relative;
+    padding: 0.5rem 0;
+    margin: 1.5rem 0;
+    -webkit-overflow-scrolling: touch;
+    display: block !important;
+    box-sizing: border-box;
+}
+
+/* Custom scrollbar for table containers */
+.cyber-table-responsive::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.cyber-table-responsive::-webkit-scrollbar-track {
+    background: var(--bg-panel);
+    border: 1px solid var(--cyan-dim);
+}
+
+.cyber-table-responsive::-webkit-scrollbar-thumb {
+    background: var(--cyan-dim);
+    border: 1px solid var(--cyan);
+}
+
+.cyber-table-responsive::-webkit-scrollbar-thumb:hover {
+    background: var(--cyan);
+}
+
+/* Firefox scrollbar */
+.cyber-table-responsive {
+    scrollbar-width: thin;
+    scrollbar-color: var(--cyan-dim) var(--bg-panel);
+}
+
+/* Corner decorations for table wrapper */
+.cyber-table-responsive::before,
+.cyber-table-responsive::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-color: var(--magenta-dim);
+    border-style: solid;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.cyber-table-responsive::before {
+    top: -2px;
+    left: -2px;
+    border-width: 2px 0 0 2px;
+}
+
+.cyber-table-responsive::after {
+    bottom: -2px;
+    right: -2px;
+    border-width: 0 2px 2px 0;
+}
+
+/* Blockquote inside table wrapper needs to not interfere with scrolling */
+.cyber-table-responsive blockquote {
+    margin: 0;
+    padding: 0;
+    display: block;
+    min-width: 100%;
+}
+
 .cyber-table {
     width: 100% !important;
+    min-width: 600px !important;
     border-collapse: collapse !important;
     font-family: 'Press Start 2P', monospace !important;
     font-size: 0.85rem !important;
-    border: 2px solid #2a5a5a !important;
+    border: 2px solid var(--cyan-dim) !important;
     background: transparent !important;
+    display: table !important;
+    table-layout: auto !important;
+}
+
+.cyber-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg-surface) !important;
 }
 
 .cyber-table thead tr {
-    border-bottom: 2px solid #2a5a5a !important;
+    border-bottom: 2px solid var(--cyan-dim) !important;
 }
 
 .cyber-table thead th {
@@ -839,15 +928,17 @@ button:disabled {
     font-size: 0.9rem !important;
     padding: 1.25rem 1.5rem !important;
     text-align: left !important;
-    border: 2px solid #2a5a5a !important;
-    background: rgba(42, 90, 90, 0.15) !important;
-    color: #d4c87a !important;
+    border: 2px solid var(--cyan-dim) !important;
+    background: var(--bg-surface) !important;
+    color: var(--yellow) !important;
+    white-space: nowrap;
 }
 
 .cyber-table tbody tr {
     cursor: pointer !important;
-    background: #11111f !important;
+    background: var(--bg-panel) !important;
     transition: background 0.15s ease !important;
+    border-bottom: 1px solid var(--grid-line) !important;
 }
 
 .cyber-table tbody tr:hover {
@@ -859,13 +950,18 @@ button:disabled {
     outline: none !important;
 }
 
+.cyber-table tbody tr:last-child {
+    border-bottom: none !important;
+}
+
 .cyber-table tbody td {
     font-family: 'Press Start 2P', monospace !important;
     font-size: 0.82rem !important;
     padding: 1.25rem 1.5rem !important;
-    border: 2px solid #2a5a5a !important;
+    border: 2px solid var(--cyan-dim) !important;
     background: transparent !important;
-    color: #cdd0e8 !important;
+    color: var(--text-primary) !important;
+    white-space: nowrap;
 }
 
 /* Status cells in tables */
