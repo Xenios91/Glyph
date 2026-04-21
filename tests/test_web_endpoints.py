@@ -7,10 +7,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.web.endpoints.web import router, templates
+from app.auth.dependencies import get_optional_user
 
 
 class TestWebEndpoints:
     """Tests for web endpoint routes."""
+
+    @staticmethod
+    async def mock_optional_user():
+        """Mock function that returns None for optional user."""
+        return None
 
     @pytest.fixture
     def client(self):
@@ -25,6 +31,10 @@ class TestWebEndpoints:
             pass
         
         app.include_router(router)
+        
+        # Override the get_optional_user dependency to avoid async database initialization
+        app.dependency_overrides[get_optional_user] = self.mock_optional_user
+        
         return TestClient(app)
 
     @patch("app.web.endpoints.web.MLPersistanceUtil")

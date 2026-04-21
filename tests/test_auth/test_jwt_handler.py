@@ -2,9 +2,8 @@
 
 import pytest
 from datetime import datetime, timezone, timedelta
-from authlib.jose.errors import InvalidTokenError, DecodeError
 
-from app.auth.jwt_handler import JWTHandler
+from app.auth.jwt_handler import JWTHandler, InvalidTokenError, DecodeError
 
 
 @pytest.fixture
@@ -82,7 +81,11 @@ class TestJWTHandler:
 
     def test_verify_expired_token(self, jwt_handler):
         """Test that expired tokens are rejected."""
-        # Create a token with immediate expiration
+        # Create a token with immediate expiration using joserfc
+        from joserfc import jwt as joserfc_jwt
+        from joserfc.jwk import OctKey
+        import base64
+        
         now = datetime.now(timezone.utc)
         payload = {
             "sub": "123",
@@ -90,9 +93,12 @@ class TestJWTHandler:
             "exp": now - timedelta(minutes=15),
             "type": "access"
         }
-        header = {"alg": "HS256", "typ": "JWT"}
-        token = jwt_handler.jwt.encode(header, payload, jwt_handler.secret_key).decode("utf-8")
+        # Create key from secret
+        secret_b64 = base64.urlsafe_b64encode(b"test_secret_key").decode("utf-8")
+        key = OctKey.import_key({"k": secret_b64, "kty": "oct"})
+        token = joserfc_jwt.encode({"alg": "HS256"}, payload, key)
         
+        # joserfc automatically validates expiration, so this should raise InvalidTokenError
         with pytest.raises(InvalidTokenError):
             jwt_handler.verify_access_token(token)
 

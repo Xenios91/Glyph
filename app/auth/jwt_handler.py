@@ -1,17 +1,42 @@
-"""JWT handler using authlib for token generation and verification."""
+"""JWT handler using joserfc for token generation and verification.
 
+Uses joserfc library (recommended replacement for deprecated authlib.jose).
+"""
+
+import base64
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from authlib.jose import JsonWebToken
-from authlib.jose.errors import DecodeError, InvalidTokenError, BadSignatureError
+from joserfc import jwt
+from joserfc.jwk import OctKey
+from joserfc.errors import (
+    JoseError,
+    InvalidTokenError as JoserfcInvalidTokenError,
+    DecodeError as JoserfcDecodeError,
+    BadSignatureError as JoserfcBadSignatureError,
+)
+
+
+class InvalidTokenError(Exception):
+    """Raised when a token is invalid."""
+    pass
+
+
+class DecodeError(Exception):
+    """Raised when a token cannot be decoded."""
+    pass
+
+
+class BadSignatureError(Exception):
+    """Raised when a token signature is invalid."""
+    pass
 
 
 class JWTHandler:
-    """Handler for JWT token operations using authlib.
+    """Handler for JWT token operations using joserfc.
     
     Provides methods for creating and verifying access and refresh tokens.
-    Uses JsonWebToken from authlib.jose (v1.7.0+).
+    Uses joserfc library (recommended replacement for deprecated authlib.jose).
     """
     
     def __init__(self, secret_key: str, algorithm: str = "HS256"):
@@ -21,16 +46,17 @@ class JWTHandler:
             secret_key: Secret key for signing tokens
             algorithm: JWT algorithm to use (default: HS256)
         """
-        self.jwt = JsonWebToken([algorithm])
-        self.secret_key = secret_key
         self.algorithm = algorithm
+        # Convert secret key to base64url encoded string for OctKey
+        secret_b64 = base64.urlsafe_b64encode(secret_key.encode("utf-8")).decode("utf-8")
+        self._key = OctKey.import_key({"k": secret_b64, "kty": "oct"})
     
     def create_access_token(
-        self, 
-        subject: str, 
+        self,
+        subject: str,
         extra_claims: dict[str, Any] | None = None
     ) -> str:
-        """Generate an access token using authlib.
+        """Generate an access token using joserfc.
         
         Args:
             subject: The subject of the token (typically user ID)
@@ -50,16 +76,15 @@ class JWTHandler:
         if extra_claims:
             payload.update(extra_claims)
         
-        header = {"alg": self.algorithm, "typ": "JWT"}
-        token_bytes = self.jwt.encode(header, payload, self.secret_key)
-        return token_bytes.decode("utf-8")
+        token = jwt.encode({"alg": self.algorithm}, payload, self._key)
+        return token
     
     def create_refresh_token(
-        self, 
-        subject: str, 
+        self,
+        subject: str,
         extra_claims: dict[str, Any] | None = None
     ) -> str:
-        """Generate a refresh token using authlib.
+        """Generate a refresh token using joserfc.
         
         Args:
             subject: The subject of the token (typically user ID)
@@ -79,9 +104,21 @@ class JWTHandler:
         if extra_claims:
             payload.update(extra_claims)
         
-        header = {"alg": self.algorithm, "typ": "JWT"}
-        token_bytes = self.jwt.encode(header, payload, self.secret_key)
-        return token_bytes.decode("utf-8")
+        token = jwt.encode({"alg": self.algorithm}, payload, self._key)
+        return token
+    
+    def _check_expiration(self, claims: dict[str, Any]) -> None:
+        """Check if the token has expired.
+        
+        Args:
+            claims: The token claims
+            
+        Raises:
+            InvalidTokenError: If the token has expired
+        """
+        exp = claims.get("exp")
+        if exp and datetime.now(timezone.utc).timestamp() > exp:
+            raise InvalidTokenError("Token has expired")
     
     def verify_access_token(self, token: str) -> dict[str, Any]:
         """Verify and decode an access token.
@@ -97,22 +134,22 @@ class JWTHandler:
             DecodeError: If the token cannot be decoded
         """
         try:
-            decoded = self.jwt.decode(token, self.secret_key)
+            decoded = jwt.decode(token, self._key)
             
             # Verify token type
-            if decoded.get("type") != "access":
+            if decoded.claims.get("type") != "access":
                 raise InvalidTokenError("Token is not an access token")
             
-            # Verify expiration
-            exp = decoded.get("exp")
-            if exp and datetime.now(timezone.utc).timestamp() > exp:
-                raise InvalidTokenError("Token has expired")
+            # Check expiration
+            self._check_expiration(dict(decoded.claims))
             
-            return dict(decoded)
-        except (DecodeError, InvalidTokenError, BadSignatureError):
-            raise
+            return dict(decoded.claims)
+        except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
+            if isinstance(e, JoserfcBadSignatureError):
+                raise BadSignatureError(f"Invalid signature: {e}") from e
+            raise InvalidTokenError(f"Invalid token: {e}") from e
         except Exception as e:
-            raise InvalidTokenError(f"Failed to verify token: {e}")
+            raise InvalidTokenError(f"Failed to verify token: {e}") from e
     
     def verify_refresh_token(self, token: str) -> dict[str, Any]:
         """Verify and decode a refresh token.
@@ -128,22 +165,22 @@ class JWTHandler:
             DecodeError: If the token cannot be decoded
         """
         try:
-            decoded = self.jwt.decode(token, self.secret_key)
+            decoded = jwt.decode(token, self._key)
             
             # Verify token type
-            if decoded.get("type") != "refresh":
+            if decoded.claims.get("type") != "refresh":
                 raise InvalidTokenError("Token is not a refresh token")
             
-            # Verify expiration
-            exp = decoded.get("exp")
-            if exp and datetime.now(timezone.utc).timestamp() > exp:
-                raise InvalidTokenError("Token has expired")
+            # Check expiration
+            self._check_expiration(dict(decoded.claims))
             
-            return dict(decoded)
-        except (DecodeError, InvalidTokenError, BadSignatureError):
-            raise
+            return dict(decoded.claims)
+        except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
+            if isinstance(e, JoserfcBadSignatureError):
+                raise BadSignatureError(f"Invalid signature: {e}") from e
+            raise InvalidTokenError(f"Invalid token: {e}") from e
         except Exception as e:
-            raise InvalidTokenError(f"Failed to verify token: {e}")
+            raise InvalidTokenError(f"Failed to verify token: {e}") from e
     
     def verify_token(self, token: str) -> dict[str, Any]:
         """Verify and decode any token (access or refresh).
@@ -159,9 +196,15 @@ class JWTHandler:
             DecodeError: If the token cannot be decoded
         """
         try:
-            decoded = self.jwt.decode(token, self.secret_key)
-            return dict(decoded)
-        except (DecodeError, InvalidTokenError, BadSignatureError):
-            raise
+            decoded = jwt.decode(token, self._key)
+            
+            # Check expiration
+            self._check_expiration(dict(decoded.claims))
+            
+            return dict(decoded.claims)
+        except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
+            if isinstance(e, JoserfcBadSignatureError):
+                raise BadSignatureError(f"Invalid signature: {e}") from e
+            raise InvalidTokenError(f"Invalid token: {e}") from e
         except Exception as e:
-            raise InvalidTokenError(f"Failed to verify token: {e}")
+            raise InvalidTokenError(f"Failed to verify token: {e}") from e

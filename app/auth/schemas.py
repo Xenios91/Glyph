@@ -50,8 +50,7 @@ class UserResponse(BaseModel):
     is_active: bool = Field(..., description="Whether user is active")
     created_at: datetime = Field(..., description="Creation timestamp")
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class UserUpdate(BaseModel):
@@ -99,8 +98,7 @@ class APIKeyResponse(BaseModel):
                 return []
         return v
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class APIKeyWithSecret(APIKeyResponse):

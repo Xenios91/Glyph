@@ -1,6 +1,7 @@
 """Tests for authentication endpoints."""
 
 import pytest
+import time
 from httpx import AsyncClient
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -17,6 +18,11 @@ def auth_client():
         # Make an initial request to get CSRF token
         client.get("/auth/me")
         yield client
+
+
+def get_unique_suffix():
+    """Generate a unique suffix for test usernames to avoid conflicts."""
+    return int(time.time() * 1000) % 100000
 
 
 @pytest.fixture

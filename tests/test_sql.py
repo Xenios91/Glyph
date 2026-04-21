@@ -475,8 +475,8 @@ class TestSQLUtilSaveFunctions:
         monkeypatch.setattr("app.database.sql_service.sqlite3.connect", mock_connect)
 
         functions = [
-            {"functionName": "func1", "lowAddress": "0x1000", "tokens": "token1 token2"},
-            {"functionName": "func2", "lowAddress": "0x2000", "tokens": "token3 token4"}
+            {"functionName": "func1", "lowAddress": "0x1000", "tokenList": ["token1", "token2"]},
+            {"functionName": "func2", "lowAddress": "0x2000", "tokenList": ["token3", "token4"]}
         ]
 
         SQLUtil.save_functions("model1", functions)
