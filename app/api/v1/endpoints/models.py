@@ -117,6 +117,7 @@ async def get_function(
             "function_name": f_name,
             "function_entry": f_entry,
             "tokens": f_tokens,
+            "user": current_user,
         },
     )
 
@@ -153,6 +154,7 @@ async def get_functions(
             "bin_name": "test",
             "model_name": model_name,
             "functions": functions,
+            "user": current_user,
         },
     )
 
@@ -217,6 +219,9 @@ async def get_prediction_details(
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
+        logging.debug("API getPredictionDetails: Returning HTML template")
+        logging.debug("API getPredictionDetails: current_user=%s", current_user)
+        logging.debug("API getPredictionDetails: current_user.username=%s", current_user.username if current_user else None)
         return templates.TemplateResponse(
             "prediction_function_details.html",
             {
@@ -226,6 +231,7 @@ async def get_prediction_details(
                 "function_name": function_name,
                 "model_tokens": model_tokens,
                 "prediction_tokens": prediction_tokens,
+                "user": current_user,
             },
         )
 

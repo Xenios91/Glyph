@@ -190,6 +190,9 @@ async def get_prediction_details(
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
+        logging.debug("Web getPredictionDetails: Returning HTML template")
+        logging.debug("Web getPredictionDetails: current_user=%s", current_user)
+        logging.debug("Web getPredictionDetails: current_user.username=%s", current_user.username if current_user else None)
         return templates.TemplateResponse(
             "prediction_function_details.html",
             {
