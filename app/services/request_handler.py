@@ -26,12 +26,17 @@ class DataHandler:
         self._clean_dict()
 
     def _clean_dict(self) -> None:
-        """Remove duplicate functions from the request data."""
+        """Remove duplicate functions from the request data while preserving order."""
         functions_temp = list(self.get_functions())
-        unique_functions = [
-            json.loads(t)
-            for t in {json.dumps(d, sort_keys=True) for d in functions_temp}
-        ]
+        # Use dict.fromkeys() to preserve order while deduplicating
+        # Python 3.7+ guarantees dict insertion order is preserved
+        seen = set()
+        unique_functions = []
+        for func in functions_temp:
+            func_key = json.dumps(func, sort_keys=True)
+            if func_key not in seen:
+                seen.add(func_key)
+                unique_functions.append(func)
         self.json_dict["functionsMap"]["functions"] = unique_functions
 
     def _load_data(self) -> None:
