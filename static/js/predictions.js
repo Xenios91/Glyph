@@ -6,15 +6,39 @@
 
 /**
  * Navigate to prediction details page
+ * @param {string} id - Row ID element
+ */
+function goToPredictionDetailsURL(id) {
+    const functionName = id.slice(0, -3);
+    const taskNameElement = document.getElementById('task-name');
+    const modelNameElement = document.getElementById('model-name');
+    
+    if (!taskNameElement || !modelNameElement) {
+        console.error('Task name or model name element not found');
+        return;
+    }
+    
+    const taskName = taskNameElement.innerText.split(':')[1].replace(/\s+/, '');
+    const modelName = modelNameElement.innerText.split(':')[1].replace(/\s+/, '');
+    
+    const url = '/api/v1/models/getPredictionDetails?function_name=' +
+        encodeURIComponent(functionName) +
+        '&task_name=' + encodeURIComponent(taskName) +
+        '&model_name=' + encodeURIComponent(modelName);
+    
+    if (url) {
+        window.location = url;
+    }
+}
+
+/**
+ * Navigate to prediction details page (alternative signature)
  * @param {string} functionName - Name of the function
  * @param {string} modelName - Name of the model
  * @param {string} taskName - Name of the task
  */
 window.goToPredictionDetails = function goToPredictionDetails(functionName, modelName, taskName) {
-    const currentURL = window.location.href;
-    const splitIndex = currentURL.lastIndexOf('/');
-    const url = currentURL.substring(0, splitIndex) +
-        '/api/v1/models/getPredictionDetails?function_name=' + encodeURIComponent(functionName) +
+    const url = '/api/v1/models/getPredictionDetails?function_name=' + encodeURIComponent(functionName) +
         '&task_name=' + encodeURIComponent(taskName) +
         '&model_name=' + encodeURIComponent(modelName);
     
@@ -32,7 +56,7 @@ function viewPrediction(taskName, modelName) {
     const currentURL = window.location.href;
     const splitIndex = currentURL.lastIndexOf('/');
     const baseUrl = currentURL.substring(0, splitIndex);
-    window.location = baseUrl + '/getPrediction?task_name=' + 
+    window.location = baseUrl + '/getPrediction?task_name=' +
         encodeURIComponent(taskName) + '&model_name=' + encodeURIComponent(modelName);
 }
 
@@ -77,29 +101,41 @@ async function deletePrediction() {
 }
 
 /**
- * Initialize predictions page event listeners
+ * Initialize predictions table event handlers
  */
-function initPredictionsPage() {
-    // Handle row clicks for function details
-    document.querySelectorAll('tr[id^="prediction-func-"]').forEach(function(row) {
+function initPredictionsTable() {
+    const table = document.querySelector('.prediction-table');
+    if (!table) return;
+    
+    const clickHandler = table.dataset.clickHandler;
+    
+    // Add click handlers to rows
+    const rows = table.querySelectorAll('tbody tr.hover-row');
+    rows.forEach(row => {
         row.addEventListener('click', function() {
-            const functionName = this.getAttribute('data-function-name');
-            const modelName = this.getAttribute('data-model-name');
-            const taskName = this.getAttribute('data-task-name');
-            window.goToPredictionDetails(functionName, modelName, taskName);
+            if (clickHandler && typeof window[clickHandler] === 'function') {
+                window[clickHandler](this.id);
+            }
         });
         
-        // Add keyboard support
+        // Add keyboard support (Enter key)
         row.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                const functionName = this.getAttribute('data-function-name');
-                const modelName = this.getAttribute('data-model-name');
-                const taskName = this.getAttribute('data-task-name');
-                window.goToPredictionDetails(functionName, modelName, taskName);
+                if (clickHandler && typeof window[clickHandler] === 'function') {
+                    window[clickHandler](this.id);
+                }
             }
         });
     });
+}
+
+/**
+ * Initialize predictions page event listeners
+ */
+function initPredictionsPage() {
+    // Initialize table handlers
+    initPredictionsTable();
     
     // Handle clickable prediction rows (entire row click)
     document.querySelectorAll('.clickable-row').forEach(function(row) {
