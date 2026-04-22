@@ -6,7 +6,7 @@
 /* ── Page wrapper ───────────────────────────────────────────── */
 .blue-bg {
     background: transparent;
-    padding: 2.5rem 1.5rem 4rem;
+    padding: var(--space-xl) var(--space-md) var(--space-3xl);
 }
 
 /* ── Main config container ──────────────────────────────────── */
@@ -81,8 +81,8 @@
 
 /* ── Section inner padding ───────────────────────────────────── */
 .config-section-inner {
-    margin: 1.5rem 2rem;
-    padding: 1.5rem 0;
+    margin: var(--space-lg) var(--space-xl);
+    padding: var(--space-lg) 0;
 }
 
 /* ── Labels ─────────────────────────────────────────────────── */
@@ -91,10 +91,10 @@
 .slider-row label {
     color: var(--text-dim) !important;
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.65rem;
+    font-size: 0.625rem;
     line-height: 2;
     letter-spacing: 0.05em;
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--space-xs);
 }
 
 /* ── Number inputs ───────────────────────────────────────────── */
@@ -104,10 +104,10 @@
     border-color: var(--cyan-dim) !important;
     color: var(--cyan-bright) !important;
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+    font-size: 0.75rem;
     caret-color: var(--cyan);
     width: 130px;
-    padding: 0.625rem 0.75rem;
+    padding: 0.75rem 0.75rem;
     transition: border-color 0.1s, box-shadow 0.1s;
 }
 
@@ -124,9 +124,9 @@
     border-color: var(--cyan-dim) !important;
     color: var(--yellow) !important;
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.5rem;
+    font-size: 0.75rem;
     min-width: 210px;
-    padding: 0.625rem 0.75rem;
+    padding: 0.75rem 0.75rem;
     transition: border-color 0.1s;
 }
 
@@ -299,7 +299,8 @@
     letter-spacing: 0.15em !important;
     text-shadow: 0 0 8px rgba(168, 236, 236, 0.4);
     box-shadow: 0 0 12px rgba(125, 216, 216, 0.12), inset 0 0 8px rgba(125, 216, 216, 0.04);
-    padding: 0.875rem 2.25rem !important;
+    padding: 0.75rem 1.5rem !important;
+    min-height: 44px !important;
     cursor: crosshair;
     transition: none;
 }
@@ -322,7 +323,8 @@
     color: var(--text-dim) !important;
     font-size: 0.75rem !important;
     letter-spacing: 0.15em !important;
-    padding: 0.875rem 2.25rem !important;
+    padding: 0.75rem 1.5rem !important;
+    min-height: 44px !important;
     cursor: crosshair;
     transition: none;
 }

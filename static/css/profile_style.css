@@ -355,9 +355,10 @@ body.profile-page {
 /* ── Buttons ──────────────────────────────────────────────── */
 .cyber-btn {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.6rem !important;
+    font-size: 0.75rem !important;
     letter-spacing: 0.1em !important;
-    padding: 0.625rem 1.25rem !important;
+    padding: 0.75rem 1.5rem !important;
+    min-height: 44px !important;
     border-radius: 0 !important;
 }
 
@@ -389,13 +390,14 @@ body.profile-page {
 
 .cyber-btn.is-error {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.52rem !important;
+    font-size: 0.75rem !important;
     letter-spacing: 0.08em !important;
     background: #0d0d1a !important;
     color: #c9546a !important;
     border: 2px solid #c9546a !important;
     box-shadow: 0 0 10px rgba(201, 84, 106, 0.20) !important;
-    padding: 0.6rem 1.25rem !important;
+    padding: 0.75rem 1.5rem !important;
+    min-height: 44px !important;
     cursor: pointer;
     position: relative;
     overflow: hidden;

@@ -8,10 +8,10 @@
     align-items: center;
     justify-content: center;
     min-height: calc(100vh - 56px - 48px);
-    padding: 2.5rem 1.5rem;
+    padding: var(--space-xl) var(--space-md);
     position: relative;
     z-index: 10;
-    gap: 1.75rem;
+    gap: var(--space-lg);
 }
 
 /* ── Shared card base ───────────────────────────────────────── */
@@ -24,7 +24,7 @@
         inset 0 0 20px rgba(125, 216, 216, 0.02);
     max-width: 580px;
     width: 100%;
-    padding: 2.25rem !important;
+    padding: var(--space-lg) !important;
     position: relative;
     color: #cdd0e8;
 }
@@ -207,7 +207,7 @@
 /* ── Text inputs ─────────────────────────────────────────────── */
 .cyber-input {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.52rem !important;
+    font-size: 0.75rem !important;
     background: #0d0d1a !important;
     color: #a8ecec !important;
     border: 1px solid #2a5a5a !important;
@@ -231,7 +231,7 @@
 /* ── Select dropdowns ────────────────────────────────────────── */
 .cyber-select select {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.52rem !important;
+    font-size: 0.75rem !important;
     background: #0d0d1a !important;
     color: #a8ecec !important;
     border: 1px solid #2a5a5a !important;
@@ -290,16 +290,17 @@
 /* ── File button ─────────────────────────────────────────────── */
 label.cyber-btn.is-primary {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.58rem !important;
+    font-size: 0.75rem !important;
     letter-spacing: 0.1em !important;
     background: #0d0d1a !important;
     color: #c87ab8 !important;
     border: 2px solid #4a2244 !important;
     box-shadow: 0 0 10px rgba(200, 122, 184, 0.15) !important;
-    padding: 0.875rem 1.75rem !important;
+    padding: 0.75rem 1.5rem !important;
+    min-height: 44px !important;
     cursor: pointer;
     display: inline-block;
-    margin-top: 1.5rem;
+    margin-top: var(--space-lg);
     position: relative;
     overflow: hidden;
     transition: none;

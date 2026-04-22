@@ -7,7 +7,7 @@
     align-items: center;
     justify-content: center;
     min-height: calc(100vh - 56px - 48px);
-    padding: 2.5rem 1.5rem;
+    padding: var(--space-xl) var(--space-md);
     position: relative;
     z-index: 10;
 }
@@ -22,7 +22,7 @@
         inset 0 0 24px rgba(125, 216, 216, 0.03);
     max-width: 560px;
     width: 100%;
-    padding: 2.5rem 2rem 2.5rem;
+    padding: var(--space-xl) var(--space-lg);
     position: relative;
 }
 
@@ -109,15 +109,15 @@
 /* ── Description box ────────────────────────────────────────── */
 .description-box {
     text-align: center;
-    margin-bottom: 2rem;
-    padding: 1.25rem 1.5rem;
+    margin-bottom: var(--space-lg);
+    padding: var(--space-md) var(--space-lg);
     border: 1px solid rgba(125, 216, 216, 0.12);
     background: rgba(125, 216, 216, 0.02);
 }
 
 .description-box p {
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     line-height: 2.4;
     color: #a8ecec !important;
     letter-spacing: 0.04em;
@@ -142,7 +142,7 @@
 /* ── Action area ────────────────────────────────────────────── */
 .action-area {
     text-align: center;
-    margin-bottom: 1.75rem;
+    margin-bottom: var(--space-lg);
 }
 
 .start-btn {
@@ -153,7 +153,8 @@
     color: #d4c87a !important;
     border: 2px solid #d4c87a !important;
     box-shadow: 0 0 12px rgba(212, 200, 122, 0.22) !important;
-    padding: 0.875rem 2.25rem !important;
+    padding: 0.75rem 1.5rem !important;
+    min-height: 44px !important;
     cursor: pointer;
     position: relative;
     overflow: hidden;
