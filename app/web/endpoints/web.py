@@ -158,14 +158,14 @@ async def get_list_predictions(
 async def get_prediction_details(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    modelName: str = Query(...),
-    functionName: str = Query(...),
-    taskName: str = Query(...),
+    model_name: str = Query(...),
+    function_name: str = Query(...),
+    task_name: str = Query(...),
 ):
     """Displays specific details of a prediction"""
-    model_name = modelName.strip()
-    func_name = functionName.strip()
-    task_name = taskName.strip()
+    model_name = model_name.strip()
+    func_name = function_name.strip()
+    task_name = task_name.strip()
 
     try:
         model_info = FunctionPersistanceUtil.get_function(model_name, func_name)
@@ -213,14 +213,14 @@ async def get_prediction_details(
 async def get_prediction(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    taskName: str = Query(...),
-    modelName: str = Query(...),
+    task_name: str = Query(...),
+    model_name: str = Query(...),
 ):
     """Obtain predictions for a specific task and model"""
-    logging.debug("GET /getPrediction called with taskName=%s, modelName=%s", taskName, modelName)
+    logging.debug("GET /getPrediction called with task_name=%s, model_name=%s", task_name, model_name)
     logging.debug("Accept header: %s", request.headers.get("Accept", ""))
     
-    prediction = PredictionPersistanceUtil.get_predictions(taskName, modelName)
+    prediction = PredictionPersistanceUtil.get_predictions(task_name, model_name)
     logging.debug("Retrieved prediction: task_name=%s, model_name=%s, predictions_count=%d",
                  prediction.task_name, prediction.model_name, len(prediction.predictions))
     
