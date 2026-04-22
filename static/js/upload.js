@@ -203,12 +203,8 @@ async function uploadBinary() {
     
     const taskElement = document.getElementById('task_name');
     const taskNameValue = taskElement ? taskElement.value.trim() : '';
-    console.log('[UPLOAD] Prediction mode - task_name value:', taskNameValue);
     if (taskNameValue !== '') {
         formData.append('task_name', taskNameValue);
-        console.log('[UPLOAD] Appended task_name to FormData:', taskNameValue);
-    } else {
-        console.log('[UPLOAD] Warning: task_name is empty, not appending to FormData');
     }
     
     const mlClassType = document.getElementById('ml_class_type').value;
@@ -219,14 +215,6 @@ async function uploadBinary() {
     formData.append('ml_class_type', mlClassType);
     
     // Set loading state
-    console.log('[UPLOAD] FormData contents before upload:');
-    for (let [key, value] of formData.entries()) {
-        if (value instanceof File) {
-            console.log(`  ${key}: File (${value.name}, ${value.size} bytes)`);
-        } else {
-            console.log(`  ${key}: ${value}`);
-        }
-    }
     setUploadLoading(true);
     
     try {
@@ -236,8 +224,18 @@ async function uploadBinary() {
             body: formData
         });
         
+        const responseText = await response.text();
+        
         if (response.ok) {
-            const data = await response.json();
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseError) {
+                console.error('[UPLOAD] Failed to parse response as JSON:', parseError);
+                // If JSON parsing fails but response is ok, treat as success with generic message
+                showUploadStatus('Binary uploaded successfully');
+                return;
+            }
             showUploadStatus(data.message || 'Binary uploaded successfully');
         } else {
             // Handle specific error responses
