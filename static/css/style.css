@@ -25,19 +25,19 @@
     --font-body: 'Source Code Pro', monospace;    /* Body text, descriptions */
     --font-code: 'Source Code Pro', monospace;    /* Code, tokens */
     
-    /* Typography - Size Scale */
-    --text-xs:  0.625rem;   /* 10px - micro labels */
-    --text-sm:  0.75rem;    /* 12px - body text */
-    --text-md:  0.875rem;   /* 14px - emphasis */
-    --text-lg:  1rem;       /* 16px - subheaders */
-    --text-xl:  1.25rem;    /* 20px - headers */
-    --text-2xl: 1.5rem;     /* 24px - page titles */
-    --text-3xl: 2rem;       /* 32px - hero titles */
+    /* Typography - Size Scale (improved for readability) */
+    --text-xs:  0.75rem;    /* 12px - micro labels (was 10px) */
+    --text-sm:  0.875rem;   /* 14px - body text (was 12px) */
+    --text-md:  1rem;       /* 16px - emphasis (was 14px) */
+    --text-lg:  1.125rem;   /* 18px - subheaders (was 16px) */
+    --text-xl:  1.375rem;   /* 22px - headers (was 20px) */
+    --text-2xl: 1.625rem;   /* 26px - page titles (was 24px) */
+    --text-3xl: 2.125rem;   /* 34px - hero titles (was 32px) */
     
-    /* Typography - Line Heights */
-    --leading-tight:   1.25;
-    --leading-normal:  1.5;
-    --leading-relaxed: 1.75;
+    /* Typography - Line Heights (improved for readability) */
+    --leading-tight:   1.35;  /* was 1.25 */
+    --leading-normal:  1.6;   /* was 1.5 */
+    --leading-relaxed: 1.85;  /* was 1.75 */
     
     /* Spacing Scale */
     --space-1xs: 0.25rem;   /* 4px */
@@ -109,7 +109,9 @@
 body {
     background: var(--bg);
     color: var(--text-primary);
-    font-family: 'Press Start 2P', monospace;
+    font-family: var(--font-body);  /* Changed from Press Start 2P for better readability */
+    font-size: var(--text-sm);      /* Base font size for body text */
+    line-height: var(--leading-normal);
     min-height: 100vh;
     overflow-x: hidden;
     position: relative;
@@ -348,9 +350,9 @@ body::before {
 .nav-links { display: flex; gap: 2rem; }
 
 .nav-links a {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.12em;
+    font-family: var(--font-display);
+    font-size: var(--text-xs);  /* Changed from 0.65rem to 0.75rem (12px) for readability */
+    letter-spacing: 0.08em;     /* Reduced from 0.12em for better readability */
     color: var(--magenta);
     text-decoration: none;
     position: relative;
@@ -531,9 +533,9 @@ textarea:focus-visible,
     border: 2px solid;
     border-left-width: 6px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.6rem;
-    line-height: 1.6;
+    font-family: var(--font-body);  /* Changed from Press Start 2P for readability */
+    font-size: var(--text-sm);      /* Changed from 0.6rem to 0.875rem (14px) */
+    line-height: var(--leading-normal);
     animation: toast-slide-in 0.3s ease-out;
     cursor: pointer;
 }
@@ -797,17 +799,18 @@ button:disabled {
 }
 
 .empty-state-title {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.8rem;
+    font-family: var(--font-display);
+    font-size: var(--text-md);  /* Changed from 0.8rem to use variable (16px) */
     color: var(--text-primary);
     margin-bottom: 0.75rem;
 }
 
 .empty-state-description {
-    font-family: 'Source Code Pro', monospace;
-    font-size: 0.75rem;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);  /* Changed from 0.75rem to use variable (14px) */
     color: var(--text-dim);
     margin-bottom: 1.5rem;
+    line-height: var(--leading-normal);
 }
 
 /* =============================================================
@@ -832,8 +835,9 @@ button:disabled {
     white-space: pre-wrap;
     word-wrap: break-word;
     word-break: break-word;
-    font-size: 0.85rem;
-    line-height: 1.6;
+    font-family: var(--font-code);
+    font-size: var(--text-sm);  /* Changed from 0.85rem to use variable (14px) */
+    line-height: var(--leading-normal);
     color: var(--text-primary);
     max-width: 100%;
 }
@@ -962,8 +966,8 @@ button:disabled {
     width: 100% !important;
     min-width: 600px !important;
     border-collapse: collapse !important;
-    font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.85rem !important;
+    font-family: var(--font-body) !important;  /* Changed from Press Start 2P for readability */
+    font-size: var(--text-sm) !important;      /* Changed from 0.85rem to use variable */
     border: 2px solid var(--cyan-dim) !important;
     background: transparent !important;
     display: table !important;
@@ -982,14 +986,15 @@ button:disabled {
 }
 
 .cyber-table thead th {
-    font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.9rem !important;
+    font-family: var(--font-display) !important;
+    font-size: var(--text-xs) !important;  /* Changed from 0.9rem to use variable (12px) */
     padding: 1.25rem 1.5rem !important;
     text-align: left !important;
     border: 2px solid var(--cyan-dim) !important;
     background: var(--bg-surface) !important;
     color: var(--yellow) !important;
     white-space: nowrap;
+    letter-spacing: 0.06em;  /* Reduced from default for better readability */
 }
 
 .cyber-table tbody tr {
@@ -1013,18 +1018,19 @@ button:disabled {
 }
 
 .cyber-table tbody td {
-    font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.82rem !important;
+    font-family: var(--font-body) !important;  /* Changed from Press Start 2P for readability */
+    font-size: var(--text-sm) !important;       /* Changed from 0.82rem to use variable (14px) */
     padding: 1.25rem 1.5rem !important;
     border: 2px solid var(--cyan-dim) !important;
     background: transparent !important;
     color: var(--text-primary) !important;
     white-space: nowrap;
+    line-height: var(--leading-normal);
 }
 
 /* Status cells in tables */
 td[id$="-status"] {
-    font-size: 0.8rem !important;
+    font-size: var(--text-sm) !important;  /* Changed from 0.8rem to use variable (14px) */
 }
 
 /* =============================================================

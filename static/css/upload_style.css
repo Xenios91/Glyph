@@ -59,9 +59,9 @@
 /* ── Card titles ─────────────────────────────────────────────── */
 #upload-box .title,
 #upload-message .title {
-    font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.75rem !important;
-    letter-spacing: 0.12em;
+    font-family: var(--font-display) !important;
+    font-size: var(--text-sm) !important;  /* Changed from 0.75rem to use variable (14px) */
+    letter-spacing: 0.08em;  /* Reduced from 0.12em for better readability */
     color: #d4c87a !important;
     background: #11111f !important;
     padding: 0.5rem 0.75rem !important;
@@ -83,9 +83,9 @@
 }
 
 #upload-message p:not(.title) {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
-    line-height: 2.2;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);  /* Changed from 0.55rem to use variable (14px) */
+    line-height: var(--leading-normal);
     color: #6ec97a;
     text-align: center;
     margin-top: 1.25rem;
@@ -184,9 +184,9 @@
 
 #training-config .title,
 #prediction-config .title {
-    font-family: 'Press Start 2P', monospace !important;
-    font-size: var(--text-xs) !important;
-    letter-spacing: 0.1em;
+    font-family: var(--font-display) !important;
+    font-size: var(--text-sm) !important;  /* Changed from text-xs for better readability */
+    letter-spacing: 0.08em;  /* Reduced from 0.1em for better readability */
     color: #c87ab8 !important;
     background: #11111f !important;
     padding: 0.5rem 0.625rem !important;
@@ -196,8 +196,8 @@
 .cyber-field label,
 #training-config label,
 #prediction-config label {
-    font-family: 'Press Start 2P', monospace !important;
-    font-size: var(--text-xs) !important;
+    font-family: var(--font-display) !important;
+    font-size: var(--text-sm) !important;  /* Changed from text-xs for better readability */
     letter-spacing: 0.06em;
     color: #7dd8d8 !important;
     display: block;
@@ -274,22 +274,22 @@
 }
 
 .drop-zone-text {
-    font-family: 'Press Start 2P', monospace !important;
-    font-size: var(--text-xs) !important;
+    font-family: var(--font-display) !important;
+    font-size: var(--text-sm) !important;  /* Changed from text-xs for better readability */
     color: #7dd8d8;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;  /* Reduced from 0.08em for better readability */
 }
 
 .drop-zone-subtext {
-    font-family: 'Press Start 2P', monospace !important;
-    font-size: var(--text-xs) !important;
-    color: #4a5a6a;
-    letter-spacing: 0.1em;
+    font-family: var(--font-body) !important;
+    font-size: var(--text-sm) !important;  /* Changed from text-xs for better readability */
+    color: var(--text-dim);
+    letter-spacing: 0.04em;  /* Reduced from 0.1em for better readability */
 }
 
 /* ── File button ─────────────────────────────────────────────── */
 label.cyber-btn.is-primary {
-    font-family: 'Press Start 2P', monospace !important;
+    font-family: var(--font-display) !important;
     font-size: var(--text-sm) !important;
     letter-spacing: 0.1em !important;
     background: #0d0d1a !important;

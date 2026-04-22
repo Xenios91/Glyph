@@ -51,12 +51,12 @@
 
 /* ── Auth title ──────────────────────────────────────────────── */
 .auth-title {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 1.25rem;
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
     color: #a8ecec;
     text-align: center;
     margin-bottom: 2rem;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.1em;  /* Reduced from 0.15em for better readability */
     text-shadow:
         0 0 10px rgba(168, 236, 236, 0.30),
         2px 2px 0 #4a2244;
@@ -80,11 +80,11 @@
 
 .auth-form-label {
     display: block;
-    font-family: 'Press Start 2P', monospace;
+    font-family: var(--font-display);
     font-size: var(--text-xs);
-    color: #7880a8;
+    color: var(--text-dim);
     margin-bottom: 0.75rem;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;  /* Reduced from 0.08em for better readability */
 }
 
 .auth-form-input {
@@ -117,9 +117,9 @@
 
 /* ── Auth button ────────────────────────────────────────────── */
 .auth-btn {
-    font-family: 'Press Start 2P', monospace !important;
+    font-family: var(--font-display) !important;
     font-size: var(--text-sm) !important;
-    letter-spacing: 0.12em !important;
+    letter-spacing: 0.1em !important;  /* Reduced from 0.12em for better readability */
     background: #0d0d1a !important;
     color: #d4c87a !important;
     border: 2px solid #d4c87a !important;

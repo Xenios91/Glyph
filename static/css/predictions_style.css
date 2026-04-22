@@ -22,9 +22,9 @@
 }
 
 .center-contents h2 {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.75rem;
-    letter-spacing: 0.15em;
+    font-family: var(--font-display);
+    font-size: var(--text-sm);  /* Changed from 0.75rem to use variable (14px) */
+    letter-spacing: 0.08em;  /* Reduced from 0.15em for better readability */
     color: var(--cyan-bright);
     text-shadow:
         0 0 10px rgba(168, 236, 236, 0.30),
@@ -37,9 +37,9 @@
 }
 
 .center-contents span {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.75rem;
-    letter-spacing: 0.15em;
+    font-family: var(--font-display);
+    font-size: var(--text-sm);  /* Changed from 0.75rem to use variable (14px) */
+    letter-spacing: 0.08em;  /* Reduced from 0.15em for better readability */
     display: inline-block;
     padding: 0.5rem 1.25rem;
     border: 1px solid rgba(200, 122, 184, 0.20);
