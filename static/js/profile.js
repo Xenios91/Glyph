@@ -387,6 +387,39 @@ function initProfilePage() {
             closeCreateApiKeyModal();
         }
     });
+
+    // ── Accessibility: Dyslexia Font Toggle ──────────────────────────────────────────
+
+    /**
+     * Toggle dyslexia-friendly font mode
+     */
+    const dyslexiaToggle = document.getElementById('dyslexia-font-toggle');
+    if (dyslexiaToggle) {
+        // Check localStorage on load
+        const savedPreference = localStorage.getItem('dyslexia_font');
+        if (savedPreference === 'true') {
+            dyslexiaToggle.checked = true;
+            document.body.classList.add('font-dyslexia');
+        }
+
+        // Handle toggle change
+        dyslexiaToggle.addEventListener('change', function() {
+            const enabled = this.checked;
+            
+            // Apply font class to body
+            if (enabled) {
+                document.body.classList.add('font-dyslexia');
+            } else {
+                document.body.classList.remove('font-dyslexia');
+            }
+            
+            // Save preference to localStorage
+            localStorage.setItem('dyslexia_font', enabled);
+            
+            // Show toast notification
+            Toast.info(enabled ? 'Dyslexia-friendly font enabled' : 'Dyslexia-friendly font disabled');
+        });
+    }
 }
 
 // Initialize when DOM is ready

@@ -46,6 +46,12 @@
     --leading-normal:  1.7;   /* increased from 1.6 */
     --leading-relaxed: 1.9;   /* increased from 1.85 */
     
+    /* Typography - Fluid Sizing (responsive to viewport for graceful scaling) */
+    --text-sm-fluid:  clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+    --text-md-fluid:  clamp(1.125rem, 1.05rem + 0.375vw, 1.375rem);
+    --text-lg-fluid:  clamp(1.25rem, 1.15rem + 0.5vw, 1.5rem);
+    --text-xl-fluid:  clamp(1.5rem, 1.35rem + 0.75vw, 1.75rem);
+    
     /* Spacing Scale */
     --space-1xs: 0.25rem;   /* 4px */
     --space-xs:  0.5rem;    /* 8px */
@@ -1146,6 +1152,37 @@ label,
 .leading-tight { line-height: var(--leading-tight) !important; }
 .leading-normal { line-height: var(--leading-normal) !important; }
 .leading-relaxed { line-height: var(--leading-relaxed) !important; }
+
+/* Typography - Fluid size utility classes */
+.text-sm-fluid { font-size: var(--text-sm-fluid) !important; }
+.text-md-fluid { font-size: var(--text-md-fluid) !important; }
+.text-lg-fluid { font-size: var(--text-lg-fluid) !important; }
+.text-xl-fluid { font-size: var(--text-xl-fluid) !important; }
+
+/* =============================================================
+   ACCESSIBILITY - Dyslexia-Friendly Font Mode
+   ============================================================= */
+
+/* Dyslexia-friendly font overrides */
+.font-dyslexia,
+body.font-dyslexia {
+    --font-body: 'Atkinson Hyperlegible', 'Open Dyslexic', 'Source Code Pro', 'Fira Code', 'JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+    --font-display: 'Atkinson Hyperlegible', 'Open Dyslexic', 'Rajdhani', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-code: 'Atkinson Hyperlegible', 'Source Code Pro', 'Fira Code', 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+}
+
+/* Additional readability improvements for dyslexia */
+.font-dyslexia *,
+body.font-dyslexia * {
+    letter-spacing: 0.02em;
+    line-height: 1.8;
+}
+
+/* Increase font size slightly for dyslexia mode */
+.font-dyslexia,
+body.font-dyslexia {
+    font-size: 1.0625rem; /* 17px base */
+}
 
 /* =============================================================
    ACCESSIBILITY - Status Indicators with Icons
