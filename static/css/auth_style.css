@@ -56,7 +56,7 @@
     color: #a8ecec;
     text-align: center;
     margin-bottom: 2rem;
-    letter-spacing: 0.1em;  /* Reduced from 0.15em for better readability */
+    letter-spacing: 0.05em;  /* Reduced from 0.1em for better readability */
     text-shadow:
         0 0 10px rgba(168, 236, 236, 0.30),
         2px 2px 0 #4a2244;
@@ -84,7 +84,7 @@
     font-size: var(--text-xs);
     color: var(--text-dim);
     margin-bottom: 0.75rem;
-    letter-spacing: 0.06em;  /* Reduced from 0.08em for better readability */
+    letter-spacing: 0.05em;  /* Reduced from 0.06em for better readability */
 }
 
 .auth-form-input {
@@ -119,7 +119,7 @@
 .auth-btn {
     font-family: var(--font-display) !important;
     font-size: var(--text-sm) !important;
-    letter-spacing: 0.1em !important;  /* Reduced from 0.12em for better readability */
+    letter-spacing: 0.05em !important;  /* Reduced from 0.1em for better readability */
     background: #0d0d1a !important;
     color: #d4c87a !important;
     border: 2px solid #d4c87a !important;

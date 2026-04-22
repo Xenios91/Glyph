@@ -38,8 +38,8 @@
 
 .center-contents span {
     font-family: var(--font-display);
-    font-size: var(--text-sm);  /* Changed from 0.75rem to use variable (14px) */
-    letter-spacing: 0.08em;  /* Reduced from 0.15em for better readability */
+    font-size: var(--text-sm);
+    letter-spacing: 0.05em;  /* Reduced from 0.08em for better readability */
     display: inline-block;
     padding: 0.5rem 1.25rem;
     border: 1px solid rgba(200, 122, 184, 0.20);

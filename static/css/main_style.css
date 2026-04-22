@@ -59,8 +59,8 @@
     font-family: var(--font-display);
     font-size: clamp(2rem, 8vw, 3.5rem);
     color: #a8ecec;
-    letter-spacing: 0.1em;  /* Reduced from 0.18em for better readability */
-    line-height: 1.35;      /* Increased from 1.2 for better readability */
+    letter-spacing: 0.05em;  /* Reduced from 0.1em for better readability */
+    line-height: 1.4;        /* Increased from 1.35 for better readability */
     text-shadow:
         0 0 12px rgba(168, 236, 236, 0.30),
         3px 3px 0 #4a2244;
@@ -148,7 +148,7 @@
 .start-btn {
     font-family: var(--font-display) !important;
     font-size: var(--text-sm) !important;
-    letter-spacing: 0.1em !important;  /* Reduced from 0.15em for better readability */
+    letter-spacing: 0.05em !important;  /* Reduced from 0.1em for better readability */
     background: #0d0d1a !important;
     color: #d4c87a !important;
     border: 2px solid #d4c87a !important;
