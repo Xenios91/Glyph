@@ -5,8 +5,8 @@
 {% block content %}
 <div class="content blue-bg">
     {% if models is defined and models|length > 0 %}
-    <div>
-        <span>AVAILABLE MODELS</span>
+    <div class="center-contents">
+        <h2>Available Models</h2>
     </div>
     {% set click_handler = 'goToModelURL' %}
     {% include 'components/model_table.html' %}

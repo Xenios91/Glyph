@@ -15,21 +15,25 @@
     gap: 1.75rem;
 }
 
-/* ── Header label ───────────────────────────────────────────── */
-.content>div:first-child span {
+/* ── Meta chips ─────────────────────────────────────────────── */
+.center-contents {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.center-contents h2 {
     font-family: 'Press Start 2P', monospace;
     font-size: 0.75rem;
     letter-spacing: 0.15em;
     color: var(--cyan-bright);
-    display: block;
-    text-align: center;
+    text-shadow:
+        0 0 10px rgba(168, 236, 236, 0.30),
+        2px 2px 0 var(--magenta-dim);
+    margin: 0;
     padding-bottom: 0.75rem;
     padding-left: 1rem;
     padding-right: 1rem;
     border-bottom: 1px solid var(--cyan-dim);
-    text-shadow:
-        0 0 10px rgba(168, 236, 236, 0.30),
-        2px 2px 0 var(--magenta-dim);
 }
 
 /* ── Table wrapper ──────────────────────────────────────────── */
@@ -38,13 +42,13 @@
     max-width: 1200px;
     overflow-x: auto !important;
     overflow-y: auto !important;
-    /* Dynamic height: viewport height minus navbar (56px), footer (48px), content padding, headers, and button area */
-    max-height: calc(100vh - 280px) !important;
-    min-height: 300px;
+    /* Dynamic height: fill available space in flex container */
+    flex: 1;
+    min-height: 200px;
     background: transparent;
     position: relative;
     padding: 0.5rem 0;
-    margin: 1.5rem auto 2rem;
+    margin: 0;
     -webkit-overflow-scrolling: touch;
     display: block !important;
     box-sizing: border-box;
@@ -323,7 +327,7 @@
 }
 
 /* Go Back button styling */
-.content .cyber-btn.is-primary {
+.content .cyber-btn.is-primary:not(.view-prediction-btn) {
     margin-top: 1.5rem;
     display: inline-block;
 }
