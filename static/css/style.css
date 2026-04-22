@@ -348,6 +348,15 @@ body::before {
     min-height: 100vh;
 }
 
+/* Profile page specific - center content vertically */
+.page-content.profile-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-top: 60px;
+    padding-bottom: 60px;
+}
+
 /* ── Clouds ─────────────────────────────────────────────────── */
 .clouds {
     position: fixed;

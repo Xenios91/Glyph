@@ -3,6 +3,22 @@
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', path='css/profile_style.css') }}">
+<style>
+    /* Prevent full page scroll on profile page */
+    body {
+        overflow: hidden !important;
+        height: 100vh !important;
+    }
+    
+    /* Center the page content vertically */
+    .page-content {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        padding-top: 60px !important;
+        padding-bottom: 60px !important;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
