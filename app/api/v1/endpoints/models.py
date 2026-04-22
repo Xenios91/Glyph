@@ -113,6 +113,7 @@ async def get_function(
         "get_function.html",
         {
             "request": request,
+            "title": f"Glyph - Function: {f_name}",
             "model_name": model_name,
             "function_name": f_name,
             "function_entry": f_entry,
@@ -151,6 +152,7 @@ async def get_functions(
         "get_symbols.html",
         {
             "request": request,
+            "title": f"Glyph - Model: {model_name}",
             "bin_name": "test",
             "model_name": model_name,
             "functions": functions,
@@ -226,6 +228,7 @@ async def get_prediction_details(
             "prediction_function_details.html",
             {
                 "request": request,
+                "title": f"Glyph - Prediction: {function_name}",
                 "task_name": task_name,
                 "model_name": model_name,
                 "function_name": function_name,
