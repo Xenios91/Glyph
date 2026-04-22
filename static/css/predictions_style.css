@@ -290,22 +290,26 @@
     }
 }
 
-/* Delete — red variant */
-.cyber-btn.is-primary.mr-25 {
+/* Delete — red variant (modifier for is-primary) */
+.cyber-btn.is-primary.is-delete {
     color: var(--red) !important;
-    border-color: #5c2030 !important;
+    border-color: var(--red) !important;
     box-shadow: 0 0 10px rgba(201, 84, 106, 0.12) !important;
     margin-right: 1.25rem;
 }
 
-.cyber-btn.is-primary.mr-25:hover {
-    background-color: #5c2030 !important;
-    color: #f0c0c8 !important;
+.cyber-btn.is-primary.is-delete:hover {
+    background-color: var(--red) !important;
+    color: var(--bg) !important;
     box-shadow: 0 0 16px rgba(201, 84, 106, 0.25) !important;
 }
 
+.cyber-btn.is-primary.is-delete::after {
+    background: rgba(201, 84, 106, 0.08) !important;
+}
+
 /* Go Back button styling */
-.content .cyber-btn.is-primary:not(.view-prediction-btn):not(.mr-25) {
+.content .cyber-btn.is-primary:not(.view-prediction-btn) {
     margin-top: 1.5rem;
     display: inline-block;
 }

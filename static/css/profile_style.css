@@ -352,16 +352,43 @@
 }
 
 .cyber-btn.is-error {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.52rem !important;
+    letter-spacing: 0.08em !important;
     background: #0d0d1a !important;
     color: #c9546a !important;
     border: 2px solid #c9546a !important;
     box-shadow: 0 0 10px rgba(201, 84, 106, 0.20) !important;
+    padding: 0.6rem 1.25rem !important;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: none !important;
+    border-radius: 0 !important;
 }
 
 .cyber-btn.is-error:hover {
     background: #c9546a !important;
     color: #0d0d1a !important;
     box-shadow: 0 0 18px rgba(201, 84, 106, 0.40) !important;
+    transform: translate(-2px, -2px);
+}
+
+.cyber-btn.is-error:active {
+    transform: translate(2px, 2px) !important;
+    box-shadow: none !important;
+}
+
+.cyber-btn.is-error::after {
+    content: '' !important;
+    position: absolute !important;
+    top: -40% !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 40% !important;
+    background: rgba(201, 84, 106, 0.08) !important;
+    animation: btn-sweep 3s linear infinite !important;
+    pointer-events: none !important;
 }
 
 .cyber-btn.is-small {
