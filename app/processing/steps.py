@@ -10,8 +10,9 @@ Python 3.11+
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, cast
 
+from numpy.typing import NDArray
 from sklearn.pipeline import Pipeline as SklearnPipeline
 
 from app.processing.pipeline import PipelineContext, PipelineStep
@@ -411,13 +412,18 @@ class TrainStep(PipelineStep):
 
         # Encode labels
         label_encoder = preprocessing.LabelEncoder()
-        label_encoder.fit(labels)
-        y = np.array(label_encoder.transform(labels))
+        y = cast(NDArray, label_encoder.fit_transform(labels))
+        
 
         # Get ML pipeline
         ml_pipeline: SklearnPipeline = MLTask.get_multi_class_pipeline()
 
         try:
+            # Validate data before training
+            self._logger.info("Training data: %d tokens, %d labels", len(tokens), len(y))
+            self._logger.info("Token sample: %s", tokens[0][:100] if tokens else "empty")
+            self._logger.info("Label distribution: %s", np.bincount(y))
+            
             # Train the model - ML pipeline handles vectorization internally
             ml_pipeline.fit(tokens, y)
 
