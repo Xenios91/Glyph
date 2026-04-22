@@ -81,7 +81,7 @@
 .auth-form-label {
     display: block;
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.625rem;
+    font-size: var(--text-xs);
     color: #7880a8;
     margin-bottom: 0.75rem;
     letter-spacing: 0.08em;
@@ -90,8 +90,8 @@
 .auth-form-input {
     width: 100%;
     padding: 0.75rem 1rem;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.75rem;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
     color: #cdd0e8;
     background: #0d0d1a;
     border: 2px solid #2a5a5a;
@@ -118,7 +118,7 @@
 /* ── Auth button ────────────────────────────────────────────── */
 .auth-btn {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.75rem !important;
+    font-size: var(--text-sm) !important;
     letter-spacing: 0.12em !important;
     background: #0d0d1a !important;
     color: #d4c87a !important;
@@ -175,7 +175,7 @@
     padding: 1rem;
     margin-bottom: 1.5rem;
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+    font-size: var(--text-xs);
     letter-spacing: 0.06em;
     box-shadow:
         0 0 10px rgba(201, 84, 106, 0.20),
@@ -212,7 +212,7 @@
     padding: 1rem;
     margin-bottom: 1.5rem;
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+    font-size: var(--text-xs);
     letter-spacing: 0.06em;
     box-shadow:
         0 0 10px rgba(110, 201, 122, 0.20),
@@ -251,14 +251,14 @@
 
 .auth-links p {
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+    font-size: var(--text-xs);
     color: #7880a8;
     letter-spacing: 0.06em;
 }
 
 .auth-links a {
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+    font-size: var(--text-xs);
     color: #7dd8d8;
     text-decoration: none;
     position: relative;

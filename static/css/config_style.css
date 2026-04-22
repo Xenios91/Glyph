@@ -91,7 +91,7 @@
 .slider-row label {
     color: var(--text-dim) !important;
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.625rem;
+    font-size: var(--text-xs);
     line-height: 2;
     letter-spacing: 0.05em;
     margin-bottom: var(--space-xs);
@@ -103,8 +103,8 @@
     background: var(--bg) !important;
     border-color: var(--cyan-dim) !important;
     color: var(--cyan-bright) !important;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.75rem;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
     caret-color: var(--cyan);
     width: 130px;
     padding: 0.75rem 0.75rem;
@@ -123,8 +123,8 @@
     background: var(--bg) !important;
     border-color: var(--cyan-dim) !important;
     color: var(--yellow) !important;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.75rem;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
     min-width: 210px;
     padding: 0.75rem 0.75rem;
     transition: border-color 0.1s;
@@ -206,7 +206,7 @@
 /* ── Slider value badge ──────────────────────────────────────── */
 .slider-value {
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+    font-size: var(--text-xs);
     color: var(--cyan-bright);
     min-width: 100px;
     text-align: right;
@@ -226,7 +226,7 @@
 /* ── Unit label ──────────────────────────────────────────────── */
 .unit-label {
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+    font-size: var(--text-xs);
     color: var(--text-dim);
     min-width: 40px;
 }
@@ -295,7 +295,7 @@
     background: var(--bg) !important;
     border-color: var(--cyan) !important;
     color: var(--cyan-bright) !important;
-    font-size: 0.75rem !important;
+    font-size: var(--text-sm) !important;
     letter-spacing: 0.15em !important;
     text-shadow: 0 0 8px rgba(168, 236, 236, 0.4);
     box-shadow: 0 0 12px rgba(125, 216, 216, 0.12), inset 0 0 8px rgba(125, 216, 216, 0.04);
@@ -321,7 +321,7 @@
     background: var(--bg) !important;
     border-color: var(--magenta-dim) !important;
     color: var(--text-dim) !important;
-    font-size: 0.75rem !important;
+    font-size: var(--text-sm) !important;
     letter-spacing: 0.15em !important;
     padding: 0.75rem 1.5rem !important;
     min-height: 44px !important;
@@ -348,7 +348,7 @@
 }
 
 #save-status.cyber-container {
-    font-size: 0.5rem;
+    font-size: var(--text-xs);
     padding: 1.25rem 1.5rem;
     letter-spacing: 0.08em;
 }
@@ -369,7 +369,7 @@
 
 #save-status p {
     color: inherit !important;
-    font-size: 0.5rem;
+    font-size: var(--text-xs);
     margin: 0;
     text-shadow: 0 0 6px currentColor;
 }

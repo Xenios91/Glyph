@@ -116,9 +116,9 @@
 }
 
 .description-box p {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.75rem;
-    line-height: 2.4;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
     color: #a8ecec !important;
     letter-spacing: 0.04em;
 }
@@ -147,7 +147,7 @@
 
 .start-btn {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.75rem !important;
+    font-size: var(--text-sm) !important;
     letter-spacing: 0.15em !important;
     background: #0d0d1a !important;
     color: #d4c87a !important;
@@ -199,10 +199,10 @@
 .blink_text {
     font-family: 'Press Start 2P', monospace;
     color: #7880a8;
-    font-size: 0.55rem !important;
+    font-size: var(--text-xs) !important;
     margin-top: 1.25rem !important;
     letter-spacing: 0.08em;
-    animation: cyber-blink 1s step-end infinite;
+    animation: cyber-blink 3s step-end infinite;
 }
 
 .blink_text {

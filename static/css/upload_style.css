@@ -108,7 +108,7 @@
 /* ── Checkbox label ─────────────────────────────────────────── */
 #upload-box>div>label:first-child {
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.52rem;
+    font-size: var(--text-xs);
     letter-spacing: 0.06em;
     color: #a8ecec;
     display: flex;
@@ -149,7 +149,7 @@
     color: #11111f;
     border-radius: 50%;
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.55rem !important;
+    font-size: var(--text-xs) !important;
     font-weight: bold;
     cursor: help;
     margin-left: 0.625rem;
@@ -185,7 +185,7 @@
 #training-config .title,
 #prediction-config .title {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.58rem !important;
+    font-size: var(--text-xs) !important;
     letter-spacing: 0.1em;
     color: #c87ab8 !important;
     background: #11111f !important;
@@ -197,7 +197,7 @@
 #training-config label,
 #prediction-config label {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.65rem !important;
+    font-size: var(--text-xs) !important;
     letter-spacing: 0.06em;
     color: #7dd8d8 !important;
     display: block;
@@ -206,8 +206,8 @@
 
 /* ── Text inputs ─────────────────────────────────────────────── */
 .cyber-input {
-    font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.75rem !important;
+    font-family: var(--font-body) !important;
+    font-size: var(--text-sm) !important;
     background: #0d0d1a !important;
     color: #a8ecec !important;
     border: 1px solid #2a5a5a !important;
@@ -230,8 +230,8 @@
 
 /* ── Select dropdowns ────────────────────────────────────────── */
 .cyber-select select {
-    font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.75rem !important;
+    font-family: var(--font-body) !important;
+    font-size: var(--text-sm) !important;
     background: #0d0d1a !important;
     color: #a8ecec !important;
     border: 1px solid #2a5a5a !important;
@@ -275,14 +275,14 @@
 
 .drop-zone-text {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.55rem !important;
+    font-size: var(--text-xs) !important;
     color: #7dd8d8;
     letter-spacing: 0.08em;
 }
 
 .drop-zone-subtext {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.45rem !important;
+    font-size: var(--text-xs) !important;
     color: #4a5a6a;
     letter-spacing: 0.1em;
 }
@@ -290,7 +290,7 @@
 /* ── File button ─────────────────────────────────────────────── */
 label.cyber-btn.is-primary {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.75rem !important;
+    font-size: var(--text-sm) !important;
     letter-spacing: 0.1em !important;
     background: #0d0d1a !important;
     color: #c87ab8 !important;
