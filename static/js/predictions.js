@@ -10,12 +10,12 @@
  * @param {string} modelName - Name of the model
  * @param {string} taskName - Name of the task
  */
-function goToURL(functionName, modelName, taskName) {
+window.goToPredictionDetails = function goToPredictionDetails(functionName, modelName, taskName) {
     const currentURL = window.location.href;
     const splitIndex = currentURL.lastIndexOf('/');
-    const url = currentURL.substring(0, splitIndex) + 
-        '/models/getPredictionDetails?function_name=' + encodeURIComponent(functionName) + 
-        '&task_name=' + encodeURIComponent(taskName) + 
+    const url = currentURL.substring(0, splitIndex) +
+        '/api/v1/models/getPredictionDetails?function_name=' + encodeURIComponent(functionName) +
+        '&task_name=' + encodeURIComponent(taskName) +
         '&model_name=' + encodeURIComponent(modelName);
     
     if (url) {
@@ -86,7 +86,7 @@ function initPredictionsPage() {
             const functionName = this.getAttribute('data-function-name');
             const modelName = this.getAttribute('data-model-name');
             const taskName = this.getAttribute('data-task-name');
-            goToURL(functionName, modelName, taskName);
+            window.goToPredictionDetails(functionName, modelName, taskName);
         });
         
         // Add keyboard support
@@ -96,7 +96,7 @@ function initPredictionsPage() {
                 const functionName = this.getAttribute('data-function-name');
                 const modelName = this.getAttribute('data-model-name');
                 const taskName = this.getAttribute('data-task-name');
-                goToURL(functionName, modelName, taskName);
+                window.goToPredictionDetails(functionName, modelName, taskName);
             }
         });
     });

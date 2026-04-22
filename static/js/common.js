@@ -11,17 +11,6 @@ function changeBackground(id, color) {
     }
 }
 
-// Navigate to a URL based on element ID
-function goToURL(id) {
-    // Override this function in page-specific scripts if needed
-    console.log('goToURL called with id:', id);
-}
-
-// Delete an item by ID
-function deleteItem(id) {
-    // Override this function in page-specific scripts if needed
-    console.log('deleteItem called with id:', id);
-}
 
 // Utility function to encode URL parameters
 function encodeParams(params) {
