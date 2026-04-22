@@ -16,7 +16,6 @@
                         <th scope="col">Task Name</th>
                         <th scope="col">Model Name</th>
                         <th scope="col">Function Count</th>
-                        <th scope="col">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -24,25 +23,17 @@
                     <tr id="prediction-{{ loop.index }}"
                         data-task-name="{{ prediction.task_name | e }}"
                         data-model-name="{{ prediction.model_name | e }}"
-                        class="hover-row"
+                        class="hover-row clickable-row"
                         tabindex="0"
                         role="row"
                         aria-label="Prediction: {{ prediction.task_name | e }}">
                         <td>{{ prediction.task_name | e }}</td>
                         <td>{{ prediction.model_name | e }}</td>
                         <td>{{ prediction.predictions | length }}</td>
-                        <td>
-                            <button type="button" class="cyber-btn is-primary view-prediction-btn"
-                                data-task-name="{{ prediction.task_name | e }}"
-                                data-model-name="{{ prediction.model_name | e }}"
-                                aria-label="View prediction for {{ prediction.task_name | e }}">
-                                View
-                            </button>
-                        </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4" style="text-align: center;">No predictions available</td>
+                        <td colspan="3" style="text-align: center;">No predictions available</td>
                     </tr>
                     {% endfor %}
                 </tbody>

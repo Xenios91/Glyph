@@ -101,12 +101,22 @@ function initPredictionsPage() {
         });
     });
     
-    // Handle view prediction buttons
-    document.querySelectorAll('.view-prediction-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
+    // Handle clickable prediction rows (entire row click)
+    document.querySelectorAll('.clickable-row').forEach(function(row) {
+        row.addEventListener('click', function() {
             const taskName = this.getAttribute('data-task-name');
             const modelName = this.getAttribute('data-model-name');
             viewPrediction(taskName, modelName);
+        });
+        
+        // Add keyboard support
+        row.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const taskName = this.getAttribute('data-task-name');
+                const modelName = this.getAttribute('data-model-name');
+                viewPrediction(taskName, modelName);
+            }
         });
     });
     
