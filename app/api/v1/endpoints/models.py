@@ -202,8 +202,7 @@ async def get_prediction_details(
                 ).model_dump(),
             )
 
-        # model_info is a dict with keys: model_name, function_name, entrypoint, tokens
-        model_tokens = format_code(model_info.get("tokens", ""))
+        model_tokens = format_code(model_info[3] if len(model_info) >= 3 else "")
         prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
     except (TypeError, IndexError, KeyError) as exc:
