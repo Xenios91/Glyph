@@ -147,7 +147,33 @@ function initTableHoverEffects() {
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initPredictionsPage);
+    document.addEventListener('DOMContentLoaded', function() {
+        initPredictionsPage();
+        initSyncScroll();
+    });
 } else {
     initPredictionsPage();
+    initSyncScroll();
+}
+
+/**
+ * Initialize synchronized scrolling for token display containers
+ */
+function initSyncScroll() {
+    const modelTokensDiv = document.getElementById('model_tokens_div');
+    const predictionTokensDiv = document.getElementById('prediction_tokens_div');
+    
+    if (!modelTokensDiv || !predictionTokensDiv) {
+        return;
+    }
+    
+    // Scroll model_tokens_div when prediction_tokens_div scrolls
+    predictionTokensDiv.addEventListener('scroll', function() {
+        modelTokensDiv.scrollTop = this.scrollTop;
+    });
+    
+    // Scroll prediction_tokens_div when model_tokens_div scrolls
+    modelTokensDiv.addEventListener('scroll', function() {
+        predictionTokensDiv.scrollTop = this.scrollTop;
+    });
 }

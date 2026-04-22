@@ -312,22 +312,28 @@
 
 /* ── Token Display Container ─────────────────────────────────── */
 .token-scroll {
-    width: 900px !important;
-    max-width: 900px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* For prediction function details page - side by side layout */
+#model_tokens_div,
+#prediction_tokens_div {
+    max-width: 450px !important;
 }
 
 /* Adjust width for smaller screens */
 @media (max-width: 1024px) {
-    .token-scroll {
-        width: 800px !important;
-        max-width: 800px !important;
+    #model_tokens_div,
+    #prediction_tokens_div {
+        max-width: 400px !important;
     }
 }
 
 @media (max-width: 768px) {
-    .token-scroll {
-        width: 600px !important;
-        max-width: 600px !important;
+    #model_tokens_div,
+    #prediction_tokens_div {
+        max-width: 100% !important;
     }
 }
 
