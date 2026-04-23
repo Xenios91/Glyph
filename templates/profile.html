@@ -1,119 +1,162 @@
 {% extends "layout.html" %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', path='css/profile_style.css') }}">
-<style>
-    /* Prevent full page scroll on profile page */
-    body {
-        overflow: hidden !important;
-        height: 100vh !important;
-    }
-    
-    /* Center the page content vertically */
-    .page-content {
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: center !important;
-        padding-top: 60px !important;
-        padding-bottom: 60px !important;
-    }
-</style>
 {% endblock %}
 
 {% block content %}
 <div class="profile-container">
-    <div class="profile-section" role="region" aria-labelledby="profile-title">
-        <h2 id="profile-title">User Profile</h2>
-        
-        <div id="profile-error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
-        <div id="profile-success" class="success-message" role="status" aria-live="polite" style="display: none;"></div>
-        
-        <div class="user-info">
-            <p><strong>Username:</strong> {{ user.username }}</p>
-            <p><strong>Email:</strong> {{ user.email }}</p>
-            <p><strong>Full Name:</strong> {{ user.full_name or 'Not set' }}</p>
-            <p><strong>Member Since:</strong> {{ user.created_at }}</p>
-        </div>
-        
-        <form id="profileForm" novalidate>
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            
-            <div class="form-group">
-                <label for="full_name">Full Name</label>
-                <input type="text" id="full_name" name="full_name" value="{{ user.full_name or '' }}" maxlength="128" aria-describedby="full-name-hint">
-                <span id="full-name-hint" class="field-hint">Optional: Up to 128 characters</span>
+    <div class="profile-grid">
+        <!-- Left Column: User Info Sidebar -->
+        <aside class="profile-sidebar" role="complementary" aria-label="User Information">
+            <!-- Avatar Card -->
+            <div class="profile-card profile-avatar-card">
+                <div class="user-avatar" aria-hidden="true">
+                    <span class="avatar-initials">{{ (user.username[:2] if user.username else 'U').upper() }}</span>
+                </div>
+                <h2 class="profile-username">{{ user.username }}</h2>
+                <p class="profile-email">{{ user.email }}</p>
             </div>
             
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" value="{{ user.email }}" required aria-required="true">
+            <!-- User Details Card -->
+            <div class="profile-card profile-details-card">
+                <h3>Account Details</h3>
+                <dl class="user-details">
+                    <dt>Full Name</dt>
+                    <dd>{{ user.full_name or 'Not set' }}</dd>
+                    
+                    <dt>Member Since</dt>
+                    <dd>{{ user.created_at }}</dd>
+                </dl>
             </div>
-            
-            <div class="btn-group" style="margin-top: 1rem;">
-                <button type="submit" class="cyber-btn is-primary" id="profile-submit-btn">
-                    Update Profile
-                </button>
-            </div>
-        </form>
-    </div>
-    
-    <div class="profile-section" role="region" aria-labelledby="password-title">
-        <h2 id="password-title">Change Password</h2>
+        </aside>
         
-        <div id="password-error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
-        
-        <form id="passwordForm" novalidate>
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <!-- Right Column: Forms & Settings -->
+        <main class="profile-main" role="main">
+            <!-- Profile Form Card -->
+            <section class="profile-card" aria-labelledby="profile-title">
+                <h3 id="profile-title">Edit Profile</h3>
+                
+                <div id="profile-error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+                <div id="profile-success" class="success-message" role="status" aria-live="polite" style="display: none;"></div>
+                
+                <form id="profileForm" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    
+                    <div class="form-group">
+                        <label for="full_name">Full Name</label>
+                        <input type="text" 
+                               id="full_name" 
+                               name="full_name" 
+                               value="{{ user.full_name or '' }}" 
+                               maxlength="128" 
+                               aria-describedby="full-name-hint"
+                               placeholder="Enter your full name">
+                        <span id="full-name-hint" class="field-hint">Optional: Up to 128 characters</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" 
+                               id="email" 
+                               name="email" 
+                               value="{{ user.email }}" 
+                               required 
+                               aria-required="true"
+                               placeholder="Enter your email address">
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button type="submit" class="cyber-btn is-primary" id="profile-submit-btn">
+                            Update Profile
+                        </button>
+                    </div>
+                </form>
+            </section>
             
-            <div class="form-group">
-                <label for="current_password">Current Password</label>
-                <input type="password" id="current_password" name="current_password" required aria-required="true">
-            </div>
+            <!-- Password Form Card -->
+            <section class="profile-card" aria-labelledby="password-title">
+                <h3 id="password-title">Change Password</h3>
+                
+                <div id="password-error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+                
+                <form id="passwordForm" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    
+                    <div class="form-group">
+                        <label for="current_password">Current Password</label>
+                        <input type="password" 
+                               id="current_password" 
+                               name="current_password" 
+                               required 
+                               aria-required="true"
+                               placeholder="Enter your current password">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="new_password">New Password</label>
+                        <input type="password" 
+                               id="new_password" 
+                               name="new_password" 
+                               required 
+                               minlength="8" 
+                               aria-required="true" 
+                               aria-describedby="password-hint"
+                               placeholder="Enter your new password">
+                        <span id="password-hint" class="field-hint">Minimum 8 characters</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm New Password</label>
+                        <input type="password" 
+                               id="confirm_password" 
+                               name="confirm_password" 
+                               required 
+                               minlength="8" 
+                               aria-required="true"
+                               placeholder="Confirm your new password">
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button type="submit" class="cyber-btn is-warning" id="password-submit-btn">
+                            Change Password
+                        </button>
+                    </div>
+                </form>
+            </section>
             
-            <div class="form-group">
-                <label for="new_password">New Password</label>
-                <input type="password" id="new_password" name="new_password" required minlength="8" aria-required="true" aria-describedby="password-hint">
-                <span id="password-hint" class="field-hint">Minimum 8 characters</span>
-            </div>
+            <!-- API Keys Card -->
+            <section class="profile-card" aria-labelledby="api-keys-title">
+                <div class="api-keys-header">
+                    <h3 id="api-keys-title" style="margin: 0; padding: 0; border: none;">API Keys</h3>
+                    <button class="cyber-btn is-primary" 
+                            id="create-api-key-btn" 
+                            aria-label="Create a new API key">
+                        + Create New Key
+                    </button>
+                </div>
+                
+                <div id="apiKeysList" class="api-keys-list" aria-live="polite" aria-busy="false">
+                    <!-- API keys will be loaded here -->
+                </div>
+            </section>
             
-            <div class="form-group">
-                <label for="confirm_password">Confirm New Password</label>
-                <input type="password" id="confirm_password" name="confirm_password" required minlength="8" aria-required="true">
-            </div>
-            
-            <div class="btn-group" style="margin-top: 1rem;">
-                <button type="submit" class="cyber-btn is-warning" id="password-submit-btn">
-                    Change Password
-                </button>
-            </div>
-        </form>
-    </div>
-    
-    <div class="profile-section" role="region" aria-labelledby="api-keys-title">
-        <h2 id="api-keys-title">API Keys</h2>
-        
-        <div class="btn-group" style="margin-top: 1rem; justify-content: flex-start;">
-            <button class="cyber-btn is-primary" id="create-api-key-btn" aria-label="Create a new API key">
-                + Create New API Key
-            </button>
-        </div>
-        
-        <div id="apiKeysList" class="api-keys-list" aria-live="polite">
-            <!-- API keys will be loaded here -->
-        </div>
-    </div>
-    
-    <div class="profile-section" role="region" aria-labelledby="accessibility-title">
-        <h2 id="accessibility-title">Accessibility Preferences</h2>
-        
-        <div class="form-group">
-            <label for="dyslexia-font-toggle" class="checkbox-label">
-                <input type="checkbox" id="dyslexia-font-toggle" class="cyber-checkbox" aria-describedby="dyslexia-hint">
-                <span>Dyslexia-Friendly Font</span>
-            </label>
-            <span id="dyslexia-hint" class="field-hint">Uses Atkinson Hyperlegible font optimized for readability</span>
-        </div>
+            <!-- Accessibility Card -->
+            <section class="profile-card" aria-labelledby="accessibility-title">
+                <h3 id="accessibility-title">Accessibility Preferences</h3>
+                
+                <div class="accessibility-option">
+                    <label for="dyslexia-font-toggle">
+                        <input type="checkbox" 
+                               id="dyslexia-font-toggle" 
+                               class="cyber-checkbox"
+                               aria-describedby="dyslexia-hint">
+                        <span>Dyslexia-Friendly Font</span>
+                    </label>
+                    <span id="dyslexia-hint" class="field-hint">Uses Atkinson Hyperlegible font optimized for readability</span>
+                </div>
+            </section>
+        </main>
     </div>
 </div>
 
@@ -122,17 +165,26 @@
     <div class="modal-content">
         <h3 class="modal-title" id="modal-title">Create API Key</h3>
         
-        <div id="apiKeySecret" class="api-key-secret" style="display: none;" role="status" aria-live="polite"></div>
+        <div id="apiKeySecret" class="" style="display: none;" role="status" aria-live="polite"></div>
         
         <form id="createApiKeyForm" novalidate>
             <div class="form-group">
                 <label for="key_name">Name</label>
-                <input type="text" id="key_name" name="name" required maxlength="128" aria-required="true">
+                <input type="text" 
+                       id="key_name" 
+                       name="name" 
+                       required 
+                       maxlength="128" 
+                       aria-required="true"
+                       placeholder="Enter a name for this key">
             </div>
             
             <div class="form-group">
                 <label for="key_permissions">Permissions</label>
-                <select id="key_permissions" name="permissions" multiple style="width: 100%; height: 80px;" aria-describedby="permissions-hint">
+                <select id="key_permissions" 
+                        name="permissions" 
+                        multiple 
+                        aria-describedby="permissions-hint">
                     <option value="read" selected>Read</option>
                     <option value="write">Write</option>
                     <option value="admin">Admin</option>
@@ -142,13 +194,23 @@
             
             <div class="form-group">
                 <label for="expires_days">Expires In (days, optional)</label>
-                <input type="number" id="expires_days" name="expires_days" min="1" max="365" aria-describedby="expires-hint">
+                <input type="number" 
+                       id="expires_days" 
+                       name="expires_days" 
+                       min="1" 
+                       max="365" 
+                       aria-describedby="expires-hint"
+                       placeholder="e.g., 30">
                 <span id="expires-hint" class="field-hint">Leave empty for no expiration</span>
             </div>
             
             <div class="modal-form-actions">
-                <button type="submit" class="cyber-btn is-primary" id="create-key-submit-btn">Create</button>
-                <button type="button" class="cyber-btn is-primary is-delete" id="cancel-create-key-btn">Cancel</button>
+                <button type="submit" class="cyber-btn is-primary" id="create-key-submit-btn">
+                    Create Key
+                </button>
+                <button type="button" class="cyber-btn is-delete" id="cancel-create-key-btn">
+                    Cancel
+                </button>
             </div>
         </form>
     </div>

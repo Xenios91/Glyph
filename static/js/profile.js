@@ -10,6 +10,11 @@
  * Load API keys from the server and display them
  */
 async function loadApiKeys() {
+    const container = document.getElementById('apiKeysList');
+    if (!container) return;
+    
+    container.setAttribute('aria-busy', 'true');
+    
     try {
         const response = await fetch('/auth/api-keys', {
             headers: {
@@ -19,36 +24,38 @@ async function loadApiKeys() {
 
         if (response.ok) {
             const keys = await response.json();
-            const container = document.getElementById('apiKeysList');
-            if (!container) return;
-            
             container.innerHTML = '';
 
             if (keys.length === 0) {
                 container.innerHTML = '<p class="no-api-keys">No API keys created yet.</p>';
-                return;
+            } else {
+                keys.forEach(key => {
+                    const div = document.createElement('div');
+                    div.className = 'api-key-item';
+                    div.innerHTML = `
+                        <div class="api-key-info">
+                            <strong>${escapeHtml(key.name)}</strong>
+                            <span class="api-key-prefix">${escapeHtml(key.key_prefix)}...</span>
+                            <small>Created: ${formatDate(key.created_at)}</small>
+                            ${key.expires_at ? `<br><small>Expires: ${formatDate(key.expires_at)}</small>` : ''}
+                        </div>
+                        <div class="api-key-actions">
+                            <button class="cyber-btn is-error is-small delete-api-key-btn" 
+                                    data-key-id="${key.id}"
+                                    aria-label="Delete API key: ${escapeHtml(key.name)}">
+                                Delete
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
             }
-
-            keys.forEach(key => {
-                const div = document.createElement('div');
-                div.className = 'api-key-item';
-                div.innerHTML = `
-                    <div class="api-key-info">
-                        <strong>${escapeHtml(key.name)}</strong><br>
-                        <span class="api-key-prefix">${escapeHtml(key.key_prefix)}...</span><br>
-                        <small>Created: ${formatDate(key.created_at)}</small>
-                        ${key.expires_at ? `<br><small>Expires: ${formatDate(key.expires_at)}</small>` : ''}
-                    </div>
-                    <div class="api-key-actions">
-                        <button class="cyber-btn is-error is-small delete-api-key-btn" data-key-id="${key.id}">Delete</button>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
         }
     } catch (err) {
         console.error('Error loading API keys:', err);
-        Toast.error('Failed to load API keys');
+        showToast('Failed to load API keys', 'error');
+    } finally {
+        container.setAttribute('aria-busy', 'false');
     }
 }
 
@@ -60,9 +67,17 @@ function showCreateApiKeyModal() {
     const secretDiv = document.getElementById('apiKeySecret');
     const form = document.getElementById('createApiKeyForm');
     
-    if (modal) modal.style.display = 'block';
-    if (secretDiv) secretDiv.style.display = 'none';
-    if (form) form.style.display = 'block';
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+    if (secretDiv) {
+        secretDiv.style.display = 'none';
+        secretDiv.innerHTML = '';
+    }
+    if (form) {
+        form.style.display = 'block';
+        form.reset();
+    }
 }
 
 /**
@@ -70,7 +85,9 @@ function showCreateApiKeyModal() {
  */
 function closeCreateApiKeyModal() {
     const modal = document.getElementById('createApiKeyModal');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 /**
@@ -98,7 +115,7 @@ async function createApiKey(formData) {
 
         if (response.ok) {
             const result = await response.json();
-            // Show the secret
+            // Hide form and show the secret
             document.getElementById('createApiKeyForm').style.display = 'none';
             const secretDiv = document.getElementById('apiKeySecret');
             secretDiv.style.display = 'block';
@@ -106,14 +123,14 @@ async function createApiKey(formData) {
                 <p class="api-key-secret-alert">⚠️ Copy this key now - it won't be shown again!</p>
                 <code class="api-key-secret-code">${escapeHtml(result.secret)}</code>
             `;
-            Toast.success('API key created successfully!');
+            showToast('API key created successfully!', 'success');
         } else {
             const error = await response.json();
-            Toast.error(error.detail || 'Failed to create API key');
+            showToast(error.detail || 'Failed to create API key', 'error');
         }
     } catch (err) {
         console.error('Error creating API key:', err);
-        Toast.error('Network error. Please try again.');
+        showToast('Network error. Please try again.', 'error');
     }
 }
 
@@ -134,15 +151,15 @@ async function deleteApiKey(keyId) {
         });
 
         if (response.ok) {
-            Toast.success('API key deleted successfully');
+            showToast('API key deleted successfully', 'success');
             loadApiKeys();
         } else {
             const error = await response.json();
-            Toast.error(error.detail || 'Failed to delete API key');
+            showToast(error.detail || 'Failed to delete API key', 'error');
         }
     } catch (err) {
         console.error('Error deleting API key:', err);
-        Toast.error('Network error. Please try again.');
+        showToast('Network error. Please try again.', 'error');
     }
 }
 
@@ -168,17 +185,17 @@ async function updateProfile(formData) {
         });
 
         if (response.ok) {
-            Toast.success('Profile updated successfully');
+            showToast('Profile updated successfully', 'success');
             location.reload();
         } else {
             const error = await response.json();
             showError('profile-error', error.detail || 'Failed to update profile');
-            Toast.error(error.detail || 'Failed to update profile');
+            showToast(error.detail || 'Failed to update profile', 'error');
         }
     } catch (err) {
         console.error('Error updating profile:', err);
         showError('profile-error', 'Network error. Please try again.');
-        Toast.error('Network error. Please try again.');
+        showToast('Network error. Please try again.', 'error');
     }
 }
 
@@ -193,7 +210,7 @@ async function changePassword(formData) {
 
     if (newPassword !== confirmPassword) {
         showError('password-error', 'Passwords do not match');
-        Toast.error('Passwords do not match');
+        showToast('Passwords do not match', 'error');
         return;
     }
 
@@ -213,18 +230,18 @@ async function changePassword(formData) {
         });
 
         if (response.ok) {
-            Toast.success('Password changed successfully');
+            showToast('Password changed successfully', 'success');
             formData.reset();
             hideError('password-error');
         } else {
             const error = await response.json();
             showError('password-error', error.detail || 'Failed to change password');
-            Toast.error(error.detail || 'Failed to change password');
+            showToast(error.detail || 'Failed to change password', 'error');
         }
     } catch (err) {
         console.error('Error changing password:', err);
         showError('password-error', 'Network error. Please try again.');
-        Toast.error('Network error. Please try again.');
+        showToast('Network error. Please try again.', 'error');
     }
 }
 
@@ -268,6 +285,25 @@ function hideError(elementId) {
     if (errorDiv) {
         errorDiv.style.display = 'none';
     }
+}
+
+/**
+ * Show toast notification
+ */
+function showToast(message, type = 'info') {
+    if (typeof Toast !== 'undefined') {
+        Toast[type](message);
+    } else {
+        console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+}
+
+/**
+ * Get CSRF token from meta tag
+ */
+function getCsrfToken() {
+    const metaTag = document.querySelector('meta[name="csrf-token"]');
+    return metaTag ? metaTag.getAttribute('content') : '';
 }
 
 // ── Event Listeners ──────────────────────────────────────────
@@ -357,19 +393,22 @@ function initProfilePage() {
             } finally {
                 if (submitBtn) {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = 'Create';
+                    submitBtn.textContent = 'Create Key';
                 }
             }
         });
     }
 
     // Delete API key buttons (event delegation)
-    document.getElementById('apiKeysList').addEventListener('click', (e) => {
-        if (e.target.classList.contains('delete-api-key-btn')) {
-            const keyId = parseInt(e.target.dataset.keyId);
-            deleteApiKey(keyId);
-        }
-    });
+    const apiKeysList = document.getElementById('apiKeysList');
+    if (apiKeysList) {
+        apiKeysList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-api-key-btn')) {
+                const keyId = parseInt(e.target.dataset.keyId);
+                deleteApiKey(keyId);
+            }
+        });
+    }
 
     // Close modal when clicking outside
     const modal = document.getElementById('createApiKeyModal');
@@ -389,10 +428,6 @@ function initProfilePage() {
     });
 
     // ── Accessibility: Dyslexia Font Toggle ──────────────────────────────────────────
-
-    /**
-     * Toggle dyslexia-friendly font mode
-     */
     const dyslexiaToggle = document.getElementById('dyslexia-font-toggle');
     if (dyslexiaToggle) {
         // Check localStorage on load
@@ -417,7 +452,7 @@ function initProfilePage() {
             localStorage.setItem('dyslexia_font', enabled);
             
             // Show toast notification
-            Toast.info(enabled ? 'Dyslexia-friendly font enabled' : 'Dyslexia-friendly font disabled');
+            showToast(enabled ? 'Dyslexia-friendly font enabled' : 'Dyslexia-friendly font disabled', 'info');
         });
     }
 }
