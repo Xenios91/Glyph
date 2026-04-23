@@ -178,6 +178,11 @@ function closeCreateApiKeyModal() {
     if (modal) {
         modal.style.display = 'none';
     }
+    // Check if we're on the API keys tab and refresh the list
+    const apiKeysPanel = document.getElementById('panel-apikeys');
+    if (apiKeysPanel && apiKeysPanel.getAttribute('aria-hidden') === 'false') {
+        loadApiKeys();
+    }
 }
 
 /**
