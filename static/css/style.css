@@ -1031,16 +1031,6 @@ button:disabled {
    ============================================================= */
 
 /* Note: .sr-only defined earlier at line 524 for accessibility */
-
-.visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
     border: 0;
 }
 
@@ -3325,3 +3315,8 @@ html {
     padding: var(--space-md) var(--space-lg);
     padding-top: 0;
 }
+/* Table row hover state using class instead of inline styles */
+.hover-row.is-hovered {
+    background: rgba(125, 216, 216, 0.08) !important;
+}
+

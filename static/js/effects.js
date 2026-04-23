@@ -1,6 +1,7 @@
 /**
  * Glyph Background Effects
  * Handles stars, city lights, particles, and clouds animations
+ * Optimized: Reduced DOM elements from 238 to 99 (58% reduction)
  */
 
 (function() {
@@ -8,14 +9,16 @@
 
     /**
      * Create starfield effect
+     * Optimized: Reduced from 120 to 50 stars
      */
     function createStarfield() {
         const sf = document.getElementById('starfield');
         if (!sf) return;
 
         const colors = ['#e0e0ff', '#00ffff', '#ff00ff', '#ffffff'];
+        const starCount = 50; // Reduced from 120
 
-        for (let i = 0; i < 120; i++) {
+        for (let i = 0; i < starCount; i++) {
             const s = document.createElement('div');
             s.className = 'px-star';
             const sz = Math.random() < 0.2 ? 2 : 1;
@@ -28,14 +31,16 @@
 
     /**
      * Create city window lights effect
+     * Optimized: Reduced from 80 to 30 windows
      */
     function createCityLights() {
         const city = document.getElementById('cityline');
         if (!city) return;
 
         const winColors = ['#ffff00', '#00ffff', '#ff00ff', '#ff4400', '#ffffff'];
+        const windowCount = 30; // Reduced from 80
 
-        for (let i = 0; i < 80; i++) {
+        for (let i = 0; i < windowCount; i++) {
             const w = document.createElement('div');
             w.className = 'win';
             const col = winColors[Math.floor(Math.random() * winColors.length)];
@@ -47,6 +52,7 @@
 
     /**
      * Create falling data particles effect
+     * Optimized: Reduced from 30 to 15 particles
      */
     function createParticles() {
         const ptcl = document.getElementById('particles');
@@ -54,8 +60,9 @@
 
         const chars = '01 アイウエオカキクケコサシスセソ#@%&';
         const bitColors = ['#00ffff', '#ff00ff', '#00ff41', '#ffff00'];
+        const particleCount = 15; // Reduced from 30
 
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < particleCount; i++) {
             const b = document.createElement('div');
             b.className = 'data-bit';
             const col = bitColors[Math.floor(Math.random() * bitColors.length)];
@@ -70,12 +77,15 @@
 
     /**
      * Create cloud drift effect
+     * Optimized: Reduced from 8 to 4 clouds
      */
     function createClouds() {
         const cl = document.getElementById('clouds');
         if (!cl) return;
 
-        for (let i = 0; i < 8; i++) {
+        const cloudCount = 4; // Reduced from 8
+
+        for (let i = 0; i < cloudCount; i++) {
             const c = document.createElement('div');
             c.className = 'cloud';
             const dur = 20 + Math.random() * 40;

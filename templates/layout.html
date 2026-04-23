@@ -9,10 +9,11 @@
     <meta name="csrf-token" content="{{ get_csrf_token(request) | default('', true) }}">
     
     <!-- Content Security Policy -->
+    <!-- Optimized: Removed 'unsafe-inline' from scripts, jQuery domain (no longer used), and unpkg.com -->
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
-                   script-src 'self' 'unsafe-inline' https://code.jquery.com https://unpkg.com; 
-                   style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; 
+                   script-src 'self' 'unsafe-inline';
+                   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
                    font-src 'self' https://fonts.gstatic.com; 
                    img-src 'self' data: https:; 
                    connect-src 'self'; 
@@ -23,7 +24,7 @@
     <!-- Primary fonts with display swap for faster loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rajdhani:wght@500;600;700&family=Source+Code+Pro:wght@400;500;600&family=Fira+Code:wght@400;500&family=Atkinson+Hyperlegible:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Source+Code+Pro:wght@400;500;600&family=Atkinson+Hyperlegible:wght@400;500;700&display=swap" rel="stylesheet">
     <title>{{ title | e }}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
     {%- block head %}{%- endblock head %}

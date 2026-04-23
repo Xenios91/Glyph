@@ -1,7 +1,7 @@
 /**
  * Glyph - Predictions Page JavaScript
  * Handles prediction viewing and deletion
- * Uses native fetch API and event listeners
+ * Uses native fetch API and event listeners with event delegation
  */
 
 /**
@@ -53,9 +53,7 @@ window.goToPredictionDetails = function goToPredictionDetails(functionName, mode
  * @param {string} modelName - Name of the model
  */
 function viewPrediction(taskName, modelName) {
-    const currentURL = window.location.href;
-    const splitIndex = currentURL.lastIndexOf('/');
-    const baseUrl = currentURL.substring(0, splitIndex);
+    const baseUrl = getBaseUrl();
     window.location = baseUrl + '/getPrediction?task_name=' +
         encodeURIComponent(taskName) + '&model_name=' + encodeURIComponent(modelName);
 }
@@ -101,7 +99,8 @@ async function deletePrediction() {
 }
 
 /**
- * Initialize predictions table event handlers
+ * Initialize predictions table with event delegation
+ * Uses single event listener on table instead of individual row listeners
  */
 function initPredictionsTable() {
     const table = document.querySelector('.prediction-table');
@@ -109,51 +108,58 @@ function initPredictionsTable() {
     
     const clickHandler = table.dataset.clickHandler;
     
-    // Add click handlers to rows
-    const rows = table.querySelectorAll('tbody tr.hover-row');
-    rows.forEach(row => {
-        row.addEventListener('click', function() {
-            if (clickHandler && typeof window[clickHandler] === 'function') {
-                window[clickHandler](this.id);
-            }
-        });
+    // Event delegation: single listener on table for all row clicks
+    table.addEventListener('click', function(e) {
+        const row = e.target.closest('tbody tr.hover-row');
+        if (!row) return;
         
-        // Add keyboard support (Enter key)
-        row.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                if (clickHandler && typeof window[clickHandler] === 'function') {
-                    window[clickHandler](this.id);
-                }
+        if (clickHandler && typeof window[clickHandler] === 'function') {
+            window[clickHandler](row.id);
+        }
+    });
+    
+    // Event delegation: single listener for keyboard events
+    table.addEventListener('keydown', function(e) {
+        const row = e.target.closest('tbody tr.hover-row');
+        if (!row) return;
+        
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (clickHandler && typeof window[clickHandler] === 'function') {
+                window[clickHandler](row.id);
             }
-        });
+        }
     });
 }
 
 /**
- * Initialize predictions page event listeners
+ * Initialize predictions page event listeners with event delegation
  */
 function initPredictionsPage() {
-    // Initialize table handlers
+    // Initialize table handlers with event delegation
     initPredictionsTable();
     
-    // Handle clickable prediction rows (entire row click)
-    document.querySelectorAll('.clickable-row').forEach(function(row) {
-        row.addEventListener('click', function() {
-            const taskName = this.getAttribute('data-task-name');
-            const modelName = this.getAttribute('data-model-name');
-            viewPrediction(taskName, modelName);
-        });
+    // Event delegation for clickable rows - single listener on document
+    document.addEventListener('click', function(e) {
+        const row = e.target.closest('.clickable-row');
+        if (!row) return;
         
-        // Add keyboard support
-        row.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                const taskName = this.getAttribute('data-task-name');
-                const modelName = this.getAttribute('data-model-name');
-                viewPrediction(taskName, modelName);
-            }
-        });
+        const taskName = row.getAttribute('data-task-name');
+        const modelName = row.getAttribute('data-model-name');
+        viewPrediction(taskName, modelName);
+    });
+    
+    // Event delegation for keyboard events on clickable rows
+    document.addEventListener('keydown', function(e) {
+        const row = e.target.closest('.clickable-row');
+        if (!row) return;
+        
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const taskName = row.getAttribute('data-task-name');
+            const modelName = row.getAttribute('data-model-name');
+            viewPrediction(taskName, modelName);
+        }
     });
     
     // Handle delete prediction button
@@ -162,44 +168,8 @@ function initPredictionsPage() {
         deleteBtn.addEventListener('click', deletePrediction);
     }
     
-    // Initialize hover effects for table rows
+    // Initialize hover effects using CSS classes
     initTableHoverEffects();
-}
-
-/**
- * Initialize hover effects for table rows
- */
-function initTableHoverEffects() {
-    const hoverRows = document.querySelectorAll('.hover-row');
-    
-    hoverRows.forEach(row => {
-        row.addEventListener('mouseenter', function() {
-            this.style.background = 'rgba(0, 255, 255, 0.07)';
-        });
-        
-        row.addEventListener('mouseleave', function() {
-            this.style.background = '#000000';
-        });
-        
-        row.addEventListener('focus', function() {
-            this.style.background = 'rgba(0, 255, 255, 0.07)';
-        });
-        
-        row.addEventListener('blur', function() {
-            this.style.background = '#000000';
-        });
-    });
-}
-
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-        initPredictionsPage();
-        initSyncScroll();
-    });
-} else {
-    initPredictionsPage();
-    initSyncScroll();
 }
 
 /**
@@ -223,3 +193,9 @@ function initSyncScroll() {
         predictionTokensDiv.scrollTop = this.scrollTop;
     });
 }
+
+// Initialize when DOM is ready using utility
+onDomReady(function() {
+    initPredictionsPage();
+    initSyncScroll();
+});

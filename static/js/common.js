@@ -104,3 +104,60 @@ async function checkAuthStatus() {
         return false;
     }
 }
+
+/**
+ * DOM Ready utility - executes callback when DOM is ready
+ * @param {Function} callback - Function to execute when DOM is ready
+ */
+function onDomReady(callback) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', callback);
+    } else {
+        callback();
+    }
+}
+
+/**
+ * Add click and keyboard event listeners to an element
+ * @param {HTMLElement} element - Element to add listeners to
+ * @param {Function} clickHandler - Click event handler
+ * @param {Function} keyHandler - Keyboard event handler (optional)
+ */
+function addInteractiveListeners(element, clickHandler, keyHandler) {
+    element.addEventListener('click', clickHandler);
+    
+    if (keyHandler) {
+        element.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                keyHandler(e);
+            }
+        });
+    }
+}
+
+/**
+ * Initialize table row hover effects using CSS classes instead of inline styles
+ * @param {string} selector - CSS selector for hover rows
+ */
+function initTableHoverEffects(selector = '.hover-row') {
+    const hoverRows = document.querySelectorAll(selector);
+    
+    hoverRows.forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.classList.add('is-hovered');
+        });
+        
+        row.addEventListener('mouseleave', function() {
+            this.classList.remove('is-hovered');
+        });
+        
+        row.addEventListener('focus', function() {
+            this.classList.add('is-hovered');
+        });
+        
+        row.addEventListener('blur', function() {
+            this.classList.remove('is-hovered');
+        });
+    });
+}

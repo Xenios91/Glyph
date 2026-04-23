@@ -1,12 +1,12 @@
 /**
  * Glyph - Models Page JavaScript
  * Handles model viewing and deletion
- * Uses native fetch API and event listeners
+ * Uses native fetch API and event delegation
  */
 
 /**
  * Navigate to model functions page
- * @param {string} id - Model ID element
+ * @param {HTMLElement} rowElement - Model row element
  */
 function goToModelURL(rowElement) {
     const modelName = rowElement.dataset.modelName;
@@ -21,9 +21,7 @@ function goToModelURL(rowElement) {
     const statusText = statusCell.dataset.status;
     
     if (statusText === 'complete') {
-        const currentURL = window.location.href;
-        const splitIndex = currentURL.lastIndexOf('/');
-        const url = currentURL.substring(0, splitIndex) +
+        const url = getBaseUrl() +
             '/api/v1/models/getFunctions?model_name=' + encodeURIComponent(modelName);
         
         if (url) {
@@ -50,8 +48,7 @@ async function deleteModelEntry() {
     const selection = fileNameElement.innerText;
     const binToDelete = selection.split(':')[1].replace(/\s+/, '');
     
-    const currentURL = window.location.href;
-    const url = '/models/getSymbols?binaryDel=' + encodeURIComponent(binToDelete);
+    const url = getBaseUrl() + '/models/getSymbols?binaryDel=' + encodeURIComponent(binToDelete);
     
     if (url) {
         window.location = url;
@@ -59,7 +56,8 @@ async function deleteModelEntry() {
 }
 
 /**
- * Initialize model table event handlers
+ * Initialize model table with event delegation
+ * Uses single event listener on table instead of individual row listeners
  */
 function initModelTable() {
     const table = document.querySelector('.model-table');
@@ -67,30 +65,29 @@ function initModelTable() {
     
     const clickHandler = table.dataset.clickHandler;
     
-    // Add click handlers to rows
-    const rows = table.querySelectorAll('tbody tr.hover-row');
-    rows.forEach(row => {
-        row.addEventListener('click', function() {
-            if (clickHandler && typeof window[clickHandler] === 'function') {
-                window[clickHandler](this);
-            }
-        });
+    // Event delegation: single listener on table for all row clicks
+    table.addEventListener('click', function(e) {
+        const row = e.target.closest('tbody tr.hover-row');
+        if (!row) return;
         
-        // Add keyboard support (Enter key)
-        row.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                if (clickHandler && typeof window[clickHandler] === 'function') {
-                    window[clickHandler](this);
-                }
+        if (clickHandler && typeof window[clickHandler] === 'function') {
+            window[clickHandler](row);
+        }
+    });
+    
+    // Event delegation: single listener for keyboard events
+    table.addEventListener('keydown', function(e) {
+        const row = e.target.closest('tbody tr.hover-row');
+        if (!row) return;
+        
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (clickHandler && typeof window[clickHandler] === 'function') {
+                window[clickHandler](row);
             }
-        });
+        }
     });
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initModelTable);
-} else {
-    initModelTable();
-}
+// Initialize when DOM is ready using utility
+onDomReady(initModelTable);
