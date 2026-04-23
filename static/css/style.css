@@ -763,25 +763,28 @@ button:disabled {
    MOBILE RESPONSIVE
    ============================================================= */
 
-/* Mobile hamburger menu */
+/* Mobile hamburger menu - enhanced touch target */
 .nav-toggle {
     display: none;
     flex-direction: column;
     justify-content: space-between;
-    width: 30px;
-    height: 24px;
+    align-items: center;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
     background: transparent;
     border: none;
     cursor: pointer;
-    padding: 0;
+    padding: 12px;
 }
 
 .nav-toggle span {
     display: block;
     height: 3px;
-    width: 100%;
+    width: 24px;
     background: var(--cyan);
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-toggle.is-active span:nth-child(1) {
@@ -812,22 +815,27 @@ button:disabled {
         flex-direction: column;
         align-items: center;
         justify-content: flex-start;
-        padding-top: 40px;
-        gap: 1.5rem;
-        transition: right 0.3s ease;
+        padding-top: 60px;
+        gap: 0;
+        transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         border-bottom: 2px solid var(--cyan-dim);
     }
     
     .nav-links.is-open {
         right: 0;
+        animation: nav-slide-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
     .nav-links a {
-        font-size: 0.8rem;
+        width: 100%;
+        padding: 1.25rem 1rem;
+        font-size: 1rem;
+        border-bottom: 1px solid rgba(125, 216, 216, 0.1);
+        min-height: 56px;
     }
     
     .page-content {
-        padding: 80px 1rem 72px 1rem;
+        padding: max(80px, env(safe-area-inset-top)) 1rem max(72px, env(safe-area-inset-bottom)) 1rem;
     }
     
     /* Table responsiveness */
@@ -836,12 +844,100 @@ button:disabled {
         -webkit-overflow-scrolling: touch;
     }
     
-    /* Touch target sizes */
+    /* Touch target sizes - WCAG compliant */
     .cyber-btn,
-    .nav-links a {
+    .nav-links a,
+    .auth-btn,
+    .start-btn,
+    .cyber-table tbody tr,
+    .toast-close,
+    .accordion-header {
         min-height: 44px;
         min-width: 44px;
-        padding: 10px 16px;
+        padding: max(0.75rem, env(safe-area-inset-bottom));
+    }
+    
+    /* Increase font sizes for mobile readability */
+    :root {
+        --text-sm: 1.0625rem;  /* 17px on mobile */
+        --text-xs: 0.875rem;   /* 14px on mobile */
+    }
+}
+
+/* Mobile navigation slide-in animation */
+@keyframes nav-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Card-based table layout for mobile */
+@media (max-width: 768px) {
+    .cyber-table {
+        display: block;
+    }
+    
+    .cyber-table thead {
+        display: none;
+    }
+    
+    .cyber-table tbody tr {
+        display: block;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: var(--bg-panel);
+        border: 2px solid var(--cyan-dim);
+    }
+    
+    .cyber-table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border: none;
+    }
+    
+    /* Add labels before values using data-label attribute */
+    .cyber-table tbody td::before {
+        content: attr(data-label);
+        font-family: var(--font-display);
+        color: var(--yellow);
+        margin-right: 1rem;
+    }
+}
+
+/* Safe area support for notched devices */
+.navbar {
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
+}
+
+/* Touch-specific adjustments */
+@media (hover: none) and (pointer: coarse) {
+    .cyber-btn,
+    .nav-links a,
+    .cyber-table tbody tr,
+    .auth-btn,
+    .start-btn {
+        min-height: 44px;
+        min-width: 44px;
+        padding: max(0.75rem, env(safe-area-inset-bottom));
+    }
+    
+    /* Remove hover-only interactions on touch devices */
+    .cyber-table tbody tr:hover {
+        transform: none;
+    }
+    
+    /* Increase font sizes for touch devices */
+    :root {
+        --text-sm: 1.0625rem;
+        --text-xs: 0.875rem;
     }
 }
 
