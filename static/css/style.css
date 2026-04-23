@@ -16,8 +16,8 @@
     --green:        #6ec97a;   /* desaturated; was #00ff41                 */
     --red:          #c9546a;   /* desaturated; was #ff0044                 */
     --text-primary: #cdd0e8;   /* warm off-white, not blue-white           */
-    --text-dim:     #9aa0c8;   /* improved contrast: ~5.5:1 on --bg (was #8a92b8 at ~4.5:1) */
-    --text-muted:   #7880a8;   /* for truly decorative/secondary text      */
+    --text-dim:     #a8b0d8;   /* improved contrast: ~6.5:1 on --bg (was #9aa0c8 at ~5.5:1) */
+    --text-muted:   #8a92b8;   /* ~5.1:1 on --bg - use only for decorative text */
     --nav-bg:       rgba(13,13,26,0.90);
     --grid-line:    rgba(125,216,216,0.06);
     
@@ -478,6 +478,13 @@ body::before {
    ACCESSIBILITY - Focus Indicators
    ============================================================= */
 
+/* Universal focus-visible enhancement - more visible outline */
+:focus-visible {
+    outline: 3px solid var(--cyan);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 6px rgba(125, 216, 216, 0.2);
+}
+
 /* Global focus-visible styles for keyboard navigation */
 button:focus-visible,
 a:focus-visible,
@@ -485,18 +492,60 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-    outline: var(--focus-outline);
-    outline-offset: var(--focus-offset);
+    outline: 3px solid var(--cyan);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 6px rgba(125, 216, 216, 0.2);
 }
 
 /* Enhanced focus for interactive elements */
 .cyber-btn:focus-visible,
 .cyber-input:focus-visible,
-.cyber-select:focus-visible {
-    outline: var(--focus-outline);
-    outline-offset: var(--focus-offset);
+.cyber-select:focus-visible,
+.nav-links a:focus-visible,
+.cyber-table tbody tr:focus-visible,
+.toast:focus-visible {
+    outline: 3px solid var(--cyan);
+    outline-offset: 2px;
     box-shadow: 0 0 8px rgba(125, 216, 216, 0.4);
 }
+
+/* Make table rows keyboard accessible */
+.cyber-table tbody tr:focus {
+    outline: 2px solid var(--cyan);
+    outline-offset: -2px;
+    background: rgba(125, 216, 216, 0.1);
+}
+
+/* =============================================================
+   ACCESSIBILITY - Screen Reader Support
+   ============================================================= */
+
+/* Screen reader only class - visually hidden but accessible */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Live regions for dynamic content announcements */
+.sr-only-live {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 
 /* =============================================================
    PERFORMANCE - Reduced Motion Support
