@@ -1,6 +1,6 @@
 /* =============================================================
    GLYPH — PROFILE PAGE (profile_style.css)  Cyberpunk Theme
-   Two-Column Layout with Responsive Design
+   Two-Column Layout with Tab Navigation
    ============================================================= */
 
 /* ── Profile Container ──────────────────────────────────────── */
@@ -15,7 +15,7 @@
 /* ── Two-Column Grid Layout ────────────────────────────────── */
 .profile-grid {
     display: grid;
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: 260px 1fr;
     gap: var(--space-xl);
     align-items: start;
 }
@@ -91,11 +91,13 @@
 /* ── Avatar Card ───────────────────────────────────────────── */
 .profile-avatar-card {
     text-align: center;
+    padding-bottom: var(--space-lg);
+    border-bottom: 1px solid rgba(125, 216, 216, 0.1);
 }
 
 .user-avatar {
-    width: 100px;
-    height: 100px;
+    width: 80px;
+    height: 80px;
     margin: 0 auto var(--space-md);
     border-radius: 50%;
     background: var(--cyan-dim);
@@ -107,6 +109,7 @@
         0 0 15px rgba(125, 216, 216, 0.4),
         inset 0 0 10px rgba(125, 216, 216, 0.2);
     position: relative;
+    flex-shrink: 0;
 }
 
 .user-avatar::before {
@@ -125,14 +128,14 @@
 
 .avatar-initials {
     font-family: var(--font-display);
-    font-size: var(--text-2xl);
+    font-size: var(--text-xl);
     color: var(--bg);
     letter-spacing: 0.1em;
 }
 
 .profile-username {
     font-family: var(--font-display);
-    font-size: var(--text-lg);
+    font-size: var(--text-md);
     color: var(--cyan-bright);
     margin: 0 0 var(--space-xs);
     letter-spacing: 0.05em;
@@ -140,9 +143,103 @@
 
 .profile-email {
     font-family: var(--font-body);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     color: var(--text-dim);
     margin: 0;
+}
+
+/* ── Tab Navigation ────────────────────────────────────────── */
+.profile-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    margin-top: var(--space-md);
+}
+
+.profile-tab {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-dim);
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+    width: 100%;
+    border-radius: 0;
+    position: relative;
+}
+
+.profile-tab::before {
+    content: '>';
+    position: absolute;
+    left: 8px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    color: var(--cyan);
+}
+
+.profile-tab:hover {
+    background: rgba(125, 216, 216, 0.05);
+    border-color: var(--cyan-dim);
+    color: var(--cyan);
+}
+
+.profile-tab:hover::before {
+    opacity: 1;
+}
+
+.profile-tab[aria-selected="true"] {
+    background: rgba(125, 216, 216, 0.1);
+    border-color: var(--cyan);
+    color: var(--cyan-bright);
+    box-shadow: 0 0 10px rgba(125, 216, 216, 0.1);
+}
+
+.profile-tab[aria-selected="true"]::before {
+    opacity: 1;
+    animation: cursor-blink 1s step-end infinite;
+}
+
+@keyframes cursor-blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+
+.profile-tab:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+}
+
+.profile-tab-icon {
+    font-size: var(--text-sm);
+    flex-shrink: 0;
+}
+
+/* ── Tab Content Panels ────────────────────────────────────── */
+.tab-content {
+    display: none;
+}
+
+.tab-content[aria-hidden="false"] {
+    display: block;
+    animation: tab-fade-in 0.2s ease;
+}
+
+@keyframes tab-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* ── User Details Card ─────────────────────────────────────── */
@@ -523,17 +620,8 @@
 /* ── Responsive Design ─────────────────────────────────────── */
 @media (max-width: 1024px) {
     .profile-grid {
-        grid-template-columns: 280px 1fr;
+        grid-template-columns: 240px 1fr;
         gap: var(--space-lg);
-    }
-    
-    .user-avatar {
-        width: 80px;
-        height: 80px;
-    }
-    
-    .avatar-initials {
-        font-size: var(--text-xl);
     }
 }
 
@@ -555,13 +643,27 @@
         order: 2;
     }
     
-    .profile-card {
-        padding: var(--space-lg) var(--space-md);
+    /* Mobile: Tabs become horizontal scroll */
+    .profile-tabs {
+        flex-direction: row;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: var(--space-sm);
+        margin-top: var(--space-md);
+        scrollbar-width: none;
     }
     
-    .user-avatar {
-        width: 80px;
-        height: 80px;
+    .profile-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .profile-tab {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+    
+    .profile-card {
+        padding: var(--space-lg) var(--space-md);
     }
     
     .btn-group {
@@ -597,11 +699,24 @@
     .modal-content {
         padding: var(--space-lg) var(--space-md);
     }
+    
+    .user-avatar {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .avatar-initials {
+        font-size: var(--text-md);
+    }
 }
 
 /* ── Reduced Motion ────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
     .user-avatar::before {
+        animation: none;
+    }
+    
+    .tab-content[aria-hidden="false"] {
         animation: none;
     }
 }

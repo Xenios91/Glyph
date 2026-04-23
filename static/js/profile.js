@@ -1,8 +1,98 @@
 /**
  * GLYPH — PROFILE PAGE (profile.js)
- * Handles user profile updates, password changes, and API key management
+ * Handles user profile updates, password changes, API key management, and tab navigation
  * Uses native fetch API and event listeners
  */
+
+// ── Tab Navigation ──────────────────────────────────────────
+
+/**
+ * Switch to a specific tab
+ */
+function switchTab(tabId, panelId) {
+    // Deactivate all tabs
+    document.querySelectorAll('.profile-tab').forEach(tab => {
+        tab.setAttribute('aria-selected', 'false');
+        tab.setAttribute('tabindex', '-1');
+    });
+    
+    // Hide all panels
+    document.querySelectorAll('.tab-content').forEach(panel => {
+        panel.setAttribute('aria-hidden', 'true');
+    });
+    
+    // Activate selected tab
+    const selectedTab = document.getElementById(tabId);
+    const selectedPanel = document.getElementById(panelId);
+    
+    if (selectedTab && selectedPanel) {
+        selectedTab.setAttribute('aria-selected', 'true');
+        selectedTab.setAttribute('tabindex', '0');
+        selectedPanel.setAttribute('aria-hidden', 'false');
+        
+        // Load API keys if switching to API keys tab
+        if (panelId === 'panel-apikeys') {
+            loadApiKeys();
+        }
+    }
+}
+
+/**
+ * Initialize tab navigation
+ */
+function initTabNavigation() {
+    const tabs = document.querySelectorAll('.profile-tab');
+    
+    tabs.forEach(tab => {
+        // Click handler
+        tab.addEventListener('click', () => {
+            const panelId = tab.getAttribute('aria-controls');
+            const tabId = tab.id;
+            switchTab(tabId, panelId);
+        });
+        
+        // Keyboard handler
+        tab.addEventListener('keydown', (e) => {
+            const tabList = Array.from(document.querySelectorAll('.profile-tab'));
+            const currentIndex = tabList.indexOf(tab);
+            let newIndex;
+            
+            switch (e.key) {
+                case 'ArrowDown':
+                case 'ArrowRight':
+                    e.preventDefault();
+                    newIndex = (currentIndex + 1) % tabList.length;
+                    tabList[newIndex].focus();
+                    break;
+                    
+                case 'ArrowUp':
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    newIndex = (currentIndex - 1 + tabList.length) % tabList.length;
+                    tabList[newIndex].focus();
+                    break;
+                    
+                case 'Home':
+                    e.preventDefault();
+                    tabList[0].focus();
+                    break;
+                    
+                case 'End':
+                    e.preventDefault();
+                    tabList[tabList.length - 1].focus();
+                    break;
+                    
+                case 'Enter':
+                case ' ':
+                    e.preventDefault();
+                    const panelId = tab.getAttribute('aria-controls');
+                    const tabId = tab.id;
+                    switchTab(tabId, panelId);
+                    break;
+            }
+        });
+    });
+}
 
 // ── API Keys Management ──────────────────────────────────────────
 
@@ -312,8 +402,8 @@ function getCsrfToken() {
  * Initialize profile page event listeners
  */
 function initProfilePage() {
-    // Load API keys on page load
-    loadApiKeys();
+    // Initialize tab navigation
+    initTabNavigation();
 
     // Profile form submission
     const profileForm = document.getElementById('profileForm');

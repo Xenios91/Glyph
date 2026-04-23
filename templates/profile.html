@@ -7,7 +7,7 @@
 {% block content %}
 <div class="profile-container">
     <div class="profile-grid">
-        <!-- Left Column: User Info Sidebar -->
+        <!-- Left Column: Sidebar with Avatar and Tabs -->
         <aside class="profile-sidebar" role="complementary" aria-label="User Information">
             <!-- Avatar Card -->
             <div class="profile-card profile-avatar-card">
@@ -18,24 +18,59 @@
                 <p class="profile-email">{{ user.email }}</p>
             </div>
             
-            <!-- User Details Card -->
-            <div class="profile-card profile-details-card">
-                <h3>Account Details</h3>
-                <dl class="user-details">
-                    <dt>Full Name</dt>
-                    <dd>{{ user.full_name or 'Not set' }}</dd>
-                    
-                    <dt>Member Since</dt>
-                    <dd>{{ user.created_at }}</dd>
-                </dl>
-            </div>
+            <!-- Tab Navigation -->
+            <nav class="profile-tabs" role="tablist" aria-label="Profile sections">
+                <button class="profile-tab" 
+                        role="tab" 
+                        id="tab-profile" 
+                        aria-selected="true" 
+                        aria-controls="panel-profile"
+                        tabindex="0">
+                    <span class="profile-tab-icon">👤</span>
+                    Profile
+                </button>
+                
+                <button class="profile-tab" 
+                        role="tab" 
+                        id="tab-password" 
+                        aria-selected="false" 
+                        aria-controls="panel-password"
+                        tabindex="-1">
+                    <span class="profile-tab-icon">🔒</span>
+                    Password
+                </button>
+                
+                <button class="profile-tab" 
+                        role="tab" 
+                        id="tab-apikeys" 
+                        aria-selected="false" 
+                        aria-controls="panel-apikeys"
+                        tabindex="-1">
+                    <span class="profile-tab-icon">🔑</span>
+                    API Keys
+                </button>
+                
+                <button class="profile-tab" 
+                        role="tab" 
+                        id="tab-accessibility" 
+                        aria-selected="false" 
+                        aria-controls="panel-accessibility"
+                        tabindex="-1">
+                    <span class="profile-tab-icon">♿</span>
+                    Accessibility
+                </button>
+            </nav>
         </aside>
         
-        <!-- Right Column: Forms & Settings -->
+        <!-- Right Column: Tab Content Panels -->
         <main class="profile-main" role="main">
-            <!-- Profile Form Card -->
-            <section class="profile-card" aria-labelledby="profile-title">
-                <h3 id="profile-title">Edit Profile</h3>
+            <!-- Profile Tab Panel -->
+            <section class="profile-card tab-content" 
+                     id="panel-profile" 
+                     role="tabpanel" 
+                     aria-labelledby="tab-profile"
+                     aria-hidden="false">
+                <h3>Edit Profile</h3>
                 
                 <div id="profile-error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
                 <div id="profile-success" class="success-message" role="status" aria-live="polite" style="display: none;"></div>
@@ -74,9 +109,13 @@
                 </form>
             </section>
             
-            <!-- Password Form Card -->
-            <section class="profile-card" aria-labelledby="password-title">
-                <h3 id="password-title">Change Password</h3>
+            <!-- Password Tab Panel -->
+            <section class="profile-card tab-content" 
+                     id="panel-password" 
+                     role="tabpanel" 
+                     aria-labelledby="tab-password"
+                     aria-hidden="true">
+                <h3>Change Password</h3>
                 
                 <div id="password-error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
                 
@@ -125,10 +164,14 @@
                 </form>
             </section>
             
-            <!-- API Keys Card -->
-            <section class="profile-card" aria-labelledby="api-keys-title">
+            <!-- API Keys Tab Panel -->
+            <section class="profile-card tab-content" 
+                     id="panel-apikeys" 
+                     role="tabpanel" 
+                     aria-labelledby="tab-apikeys"
+                     aria-hidden="true">
                 <div class="api-keys-header">
-                    <h3 id="api-keys-title" style="margin: 0; padding: 0; border: none;">API Keys</h3>
+                    <h3 style="margin: 0; padding: 0; border: none;">Your API Keys</h3>
                     <button class="cyber-btn is-primary" 
                             id="create-api-key-btn" 
                             aria-label="Create a new API key">
@@ -141,9 +184,13 @@
                 </div>
             </section>
             
-            <!-- Accessibility Card -->
-            <section class="profile-card" aria-labelledby="accessibility-title">
-                <h3 id="accessibility-title">Accessibility Preferences</h3>
+            <!-- Accessibility Tab Panel -->
+            <section class="profile-card tab-content" 
+                     id="panel-accessibility" 
+                     role="tabpanel" 
+                     aria-labelledby="tab-accessibility"
+                     aria-hidden="true">
+                <h3>Accessibility Preferences</h3>
                 
                 <div class="accessibility-option">
                     <label for="dyslexia-font-toggle">
