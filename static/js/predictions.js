@@ -139,27 +139,29 @@ function initPredictionsPage() {
     // Initialize table handlers with event delegation
     initPredictionsTable();
     
-    // Event delegation for clickable rows - single listener on document
-    document.addEventListener('click', function(e) {
-        const row = e.target.closest('.clickable-row');
-        if (!row) return;
-        
-        const taskName = row.getAttribute('data-task-name');
-        const modelName = row.getAttribute('data-model-name');
-        viewPrediction(taskName, modelName);
-    });
-    
-    // Event delegation for keyboard events on clickable rows
-    document.addEventListener('keydown', function(e) {
-        const row = e.target.closest('.clickable-row');
-        if (!row) return;
-        
-        if (e.key === 'Enter' || e.key === ' ') {
+    // Add click handler directly to table rows for predictions list page
+    const clickableRows = document.querySelectorAll('.clickable-row');
+    clickableRows.forEach(row => {
+        row.addEventListener('click', function(e) {
             e.preventDefault();
-            const taskName = row.getAttribute('data-task-name');
-            const modelName = row.getAttribute('data-model-name');
+            e.stopPropagation();
+            
+            const taskName = this.getAttribute('data-task-name');
+            const modelName = this.getAttribute('data-model-name');
+            
+            console.log('Row clicked:', { taskName, modelName });
             viewPrediction(taskName, modelName);
-        }
+        });
+        
+        // Keyboard handler for accessibility
+        row.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const taskName = this.getAttribute('data-task-name');
+                const modelName = this.getAttribute('data-model-name');
+                viewPrediction(taskName, modelName);
+            }
+        });
     });
     
     // Handle delete prediction button

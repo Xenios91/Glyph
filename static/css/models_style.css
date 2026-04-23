@@ -8,11 +8,13 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    min-height: calc(100vh - 56px - 48px);
+    height: calc(100vh - 56px - 48px);
+    max-height: calc(100vh - 56px - 48px);
     padding: 2.5rem 1.5rem;
     position: relative;
     z-index: 10;
     gap: 1.75rem;
+    overflow: hidden;
 }
 
 /* ── Meta chips ─────────────────────────────────────────────── */
@@ -42,9 +44,9 @@
     max-width: 1200px;
     overflow-x: auto !important;
     overflow-y: auto !important;
-    /* Dynamic height: fill available space in flex container */
     flex: 1;
     min-height: 200px;
+    max-height: none !important;
     background: transparent;
     position: relative;
     padding: 0.5rem 0;
@@ -52,22 +54,6 @@
     -webkit-overflow-scrolling: touch;
     display: block !important;
     box-sizing: border-box;
-}
-
-/* Adjust for smaller screens */
-@media (max-width: 768px) {
-    .cyber-table-responsive {
-        max-height: calc(100vh - 240px) !important;
-        min-height: 250px;
-    }
-}
-
-/* Adjust for very small screens */
-@media (max-width: 480px) {
-    .cyber-table-responsive {
-        max-height: calc(100vh - 200px) !important;
-        min-height: 200px;
-    }
 }
 
 /* Custom scrollbar for table containers - hidden */
