@@ -1,4 +1,4 @@
-{# Navbar component with mobile responsive support and ARIA labels #}
+{# Navbar component with dropdown menus and mobile responsive support #}
 <nav class="navbar" role="navigation" aria-label="Main navigation">
     <a href="/" class="nav-logo" aria-label="Glyph home">
         <h1>GLYPH</h1>
@@ -13,14 +13,51 @@
     
     <div class="nav-links" id="nav-links">
         {% if user and user.username %}
-        <!-- Authenticated user menu -->
-        <a href="/" aria-label="Home">HOME</a>
-        <a href="/getModels" aria-label="View Models">VIEW MODELS</a>
-        <a href="/getPredictions" aria-label="View Predictions">PREDICTIONS</a>
-        <a href="/uploadBinary" aria-label="Upload Binary">UPLOAD</a>
-        <a href="/config" aria-label="Configuration">CONFIG</a>
-        <a href="/profile" aria-label="View Profile">PROFILE</a>
-        <a href="/auth/logout" aria-label="Logout">LOGOUT</a>
+        <!-- Authenticated user menu with dropdowns -->
+        
+        <!-- ANALYSIS Dropdown -->
+        <div class="nav-dropdown">
+            <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="analysis-menu">
+                ANALYSIS
+                <svg class="dropdown-arrow" aria-hidden="true" viewBox="0 0 10 6">
+                    <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+            </button>
+            <ul class="nav-dropdown-menu" id="analysis-menu" role="menu">
+                <li role="none"><a href="/" role="menuitem" aria-label="Home">HOME</a></li>
+                <li role="none"><a href="/uploadBinary" role="menuitem" aria-label="Upload Binary">UPLOAD</a></li>
+                <li role="none"><a href="/getModels" role="menuitem" aria-label="View Models">VIEW MODELS</a></li>
+                <li role="none"><a href="/getPredictions" role="menuitem" aria-label="View Predictions">PREDICTIONS</a></li>
+            </ul>
+        </div>
+        
+        <!-- SYSTEM Dropdown -->
+        <div class="nav-dropdown">
+            <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="system-menu">
+                SYSTEM
+                <svg class="dropdown-arrow" aria-hidden="true" viewBox="0 0 10 6">
+                    <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+            </button>
+            <ul class="nav-dropdown-menu" id="system-menu" role="menu">
+                <li role="none"><a href="/config" role="menuitem" aria-label="Configuration">CONFIG</a></li>
+            </ul>
+        </div>
+        
+        <!-- USER Dropdown -->
+        <div class="nav-dropdown">
+            <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="user-menu">
+                {{ user.username | upper }}
+                <svg class="dropdown-arrow" aria-hidden="true" viewBox="0 0 10 6">
+                    <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+            </button>
+            <ul class="nav-dropdown-menu" id="user-menu" role="menu">
+                <li role="none"><a href="/profile" role="menuitem" aria-label="View Profile">PROFILE</a></li>
+                <li role="none"><a href="/auth/logout" role="menuitem" aria-label="Logout">LOGOUT</a></li>
+            </ul>
+        </div>
+        
         {% else %}
         <!-- Unauthenticated user menu -->
         <a href="/login" aria-label="Login">LOGIN</a>
@@ -30,11 +67,12 @@
 </nav>
 
 <script>
-// Mobile navigation toggle
+// Mobile navigation toggle and dropdown functionality
 (function() {
     const navToggle = document.getElementById('nav-toggle');
     const navLinks = document.getElementById('nav-links');
     
+    // Mobile menu toggle
     if (navToggle && navLinks) {
         navToggle.addEventListener('click', function() {
             const isExpanded = navToggle.getAttribute('aria-expanded') === 'true';
@@ -42,25 +80,102 @@
             navToggle.classList.toggle('is-active');
             navLinks.classList.toggle('is-open');
         });
-        
-        // Close menu when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!navToggle.contains(e.target) && !navLinks.contains(e.target)) {
-                navToggle.setAttribute('aria-expanded', 'false');
-                navToggle.classList.remove('is-active');
-                navLinks.classList.remove('is-open');
-            }
-        });
-        
-        // Close menu on escape key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                navToggle.setAttribute('aria-expanded', 'false');
-                navToggle.classList.remove('is-active');
-                navLinks.classList.remove('is-open');
-                navToggle.focus();
-            }
-        });
     }
+    
+    // Dropdown functionality
+    const dropdowns = document.querySelectorAll('.nav-dropdown');
+    
+    dropdowns.forEach(dropdown => {
+        const toggle = dropdown.querySelector('.nav-dropdown-toggle');
+        const menu = dropdown.querySelector('.nav-dropdown-menu');
+        
+        if (toggle && menu) {
+            toggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+                
+                // On mobile, allow multiple dropdowns to be open
+                // On desktop, close other dropdowns
+                if (window.innerWidth > 768) {
+                    document.querySelectorAll('.nav-dropdown-menu').forEach(otherMenu => {
+                        if (otherMenu !== menu) {
+                            otherMenu.classList.remove('is-open');
+                            const otherToggle = otherMenu.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
+                            if (otherToggle) {
+                                otherToggle.setAttribute('aria-expanded', 'false');
+                                otherToggle.classList.remove('active');
+                            }
+                        }
+                    });
+                }
+                
+                // Toggle current dropdown
+                toggle.setAttribute('aria-expanded', !isExpanded);
+                menu.classList.toggle('is-open');
+                toggle.classList.toggle('active');
+            });
+        }
+    });
+    
+    // Close mobile menu when clicking outside
+    document.addEventListener('click', function(e) {
+        if (navToggle && navLinks && !navToggle.contains(e.target) && !navLinks.contains(e.target)) {
+            navToggle.setAttribute('aria-expanded', 'false');
+            navToggle.classList.remove('is-active');
+            navLinks.classList.remove('is-open');
+        }
+    });
+    
+    // Close dropdowns when clicking outside (desktop)
+    document.addEventListener('click', function(e) {
+        if (window.innerWidth > 768 && !e.target.closest('.nav-dropdown')) {
+            document.querySelectorAll('.nav-dropdown-menu').forEach(menu => {
+                menu.classList.remove('is-open');
+            });
+            document.querySelectorAll('.nav-dropdown-toggle').forEach(toggle => {
+                toggle.setAttribute('aria-expanded', 'false');
+                toggle.classList.remove('active');
+            });
+        }
+    });
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            // Close mobile menu
+            if (navToggle) {
+                navToggle.setAttribute('aria-expanded', 'false');
+                navToggle.classList.remove('is-active');
+                navLinks.classList.remove('is-open');
+            }
+            // Close all dropdowns
+            document.querySelectorAll('.nav-dropdown-menu').forEach(menu => {
+                menu.classList.remove('is-open');
+            });
+            document.querySelectorAll('.nav-dropdown-toggle').forEach(toggle => {
+                toggle.setAttribute('aria-expanded', 'false');
+                toggle.classList.remove('active');
+            });
+        }
+        
+        // Arrow key navigation within dropdowns
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            const activeDropdown = document.querySelector('.nav-dropdown-menu.is-open');
+            if (activeDropdown) {
+                e.preventDefault();
+                const links = activeDropdown.querySelectorAll('a');
+                const currentIndex = Array.from(links).indexOf(document.activeElement);
+                let newIndex;
+                
+                if (e.key === 'ArrowDown') {
+                    newIndex = (currentIndex + 1) % links.length;
+                } else {
+                    newIndex = (currentIndex - 1 + links.length) % links.length;
+                }
+                
+                links[newIndex].focus();
+            }
+        }
+    });
 })();
 </script>

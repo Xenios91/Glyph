@@ -323,6 +323,7 @@ body::before {
     background: var(--nav-bg);
     border-bottom: 2px solid var(--cyan-dim);
     box-shadow: 0 4px 24px rgba(125,216,216,0.07);
+    overflow: visible;
 }
 
 .navbar::before,
@@ -336,6 +337,25 @@ body::before {
 }
 .navbar::before { bottom: -1px; left: 0;  border-width: 0 0 2px 2px; }
 .navbar::after  { bottom: -1px; right: 0; border-width: 0 2px 2px 0; }
+
+/* Nav links container - ensure proper spacing */
+.nav-links {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Ensure navbar doesn't overflow on smaller screens */
+@media (max-width: 1024px) {
+    .navbar {
+        padding: 0.75rem 1rem;
+    }
+    
+    .nav-dropdown-toggle {
+        padding: 0.5rem 0.5rem;
+    }
+}
 
 /* ── Logo ───────────────────────────────────────────────────── */
 .nav-logo { text-decoration: none; }
@@ -416,6 +436,156 @@ body::before {
 @keyframes cursor-blink {
     0%, 49%  { opacity: 1; }
     50%, 100% { opacity: 0; }
+}
+
+/* ── Nav Dropdowns ──────────────────────────────────────────── */
+
+/* Dropdown container */
+.nav-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+/* Dropdown toggle button */
+.nav-dropdown-toggle {
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    letter-spacing: 0.05em;
+    color: var(--magenta);
+    background: transparent;
+    border: none;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: color 0.1s;
+    position: relative;
+}
+
+.nav-dropdown-toggle:hover {
+    color: var(--yellow);
+}
+
+.nav-dropdown-toggle.active {
+    color: var(--cyan-bright);
+}
+
+/* Dropdown arrow icon */
+.dropdown-arrow {
+    width: 10px;
+    height: 6px;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+}
+
+.nav-dropdown-toggle.active .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+/* Dropdown menu */
+.nav-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 180px;
+    background: var(--nav-bg);
+    border: 2px solid var(--cyan-dim);
+    border-top: none;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.15s ease;
+    z-index: 1000;
+    box-shadow: 0 4px 24px rgba(125, 216, 216, 0.07);
+}
+
+/* Right-align the last dropdown (USER) to prevent going off screen */
+.nav-dropdown:last-child .nav-dropdown-menu {
+    left: auto;
+    right: 0;
+}
+
+/* Dropdown menu corners decoration */
+.nav-dropdown-menu::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    width: 10px;
+    height: 10px;
+    border-color: var(--cyan-dim);
+    border-style: solid;
+    border-width: 2px 0 0 2px;
+}
+
+.nav-dropdown-menu::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    border-color: var(--cyan-dim);
+    border-style: solid;
+    border-width: 2px 2px 0 0;
+}
+
+.nav-dropdown-menu.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.nav-dropdown-menu li {
+    border-bottom: 1px solid rgba(125, 216, 216, 0.1);
+}
+
+.nav-dropdown-menu li:last-child {
+    border-bottom: none;
+}
+
+.nav-dropdown-menu a {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    transition: background 0.1s, color 0.1s;
+    position: relative;
+}
+
+.nav-dropdown-menu a:hover {
+    background: rgba(125, 216, 216, 0.1);
+    color: var(--cyan);
+}
+
+.nav-dropdown-menu a.nav-active {
+    color: var(--cyan-bright);
+    background: rgba(125, 216, 216, 0.05);
+}
+
+.nav-dropdown-menu a.nav-active::before {
+    content: '> ';
+    color: var(--cyan);
+    animation: cursor-blink 1s step-end infinite;
+}
+
+/* Focus styles for dropdowns */
+.nav-dropdown-toggle:focus-visible {
+    outline: 3px solid var(--cyan);
+    outline-offset: 2px;
+    box-shadow: 0 0 8px rgba(125, 216, 216, 0.4);
+}
+
+.nav-dropdown-menu a:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: -2px;
+    background: rgba(125, 216, 216, 0.1);
 }
 
 /* ── Page content ───────────────────────────────────────────── */
@@ -834,6 +1004,60 @@ button:disabled {
         min-height: 56px;
     }
     
+    /* Mobile dropdown styles */
+    .nav-dropdown {
+        display: block;
+        width: 100%;
+        border-bottom: 1px solid rgba(125, 216, 216, 0.1);
+    }
+    
+    .nav-dropdown-toggle {
+        width: 100%;
+        justify-content: space-between;
+        padding: 1.25rem 1rem;
+        min-height: 56px;
+        font-size: var(--text-sm);
+    }
+    
+    .nav-dropdown-menu {
+        position: static;
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        display: none;
+        background: rgba(13, 13, 26, 0.5);
+        border: none;
+        box-shadow: none;
+        min-width: 100%;
+    }
+    
+    .nav-dropdown-menu::before,
+    .nav-dropdown-menu::after {
+        display: none;
+    }
+    
+    .nav-dropdown-menu.is-open {
+        display: block;
+        animation: dropdown-slide-down 0.2s ease;
+    }
+    
+    .nav-dropdown-menu a {
+        padding-left: 2rem;
+        font-size: var(--text-sm);
+        border-bottom: 1px solid rgba(125, 216, 216, 0.05);
+    }
+    
+    @keyframes dropdown-slide-down {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
     .page-content {
         padding: max(80px, env(safe-area-inset-top)) 1rem max(72px, env(safe-area-inset-bottom)) 1rem;
     }
@@ -1027,12 +1251,10 @@ button:disabled {
 }
 
 /* =============================================================
-   UTILITY CLASSES
-   ============================================================= */
+    UTILITY CLASSES
+    ============================================================= */
 
-/* Note: .sr-only defined earlier at line 524 for accessibility */
-    border: 0;
-}
+/* Note: .sr-only defined earlier for accessibility */
 
 /* =============================================================
     TABLE STYLES
