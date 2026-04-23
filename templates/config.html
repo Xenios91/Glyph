@@ -1,80 +1,114 @@
 {% extends "layout.html" %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/upload_style.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', path='css/config_style.css') }}">
 {% endblock head %}
 {% block content %}
 {% set max_file_size = current_max_file_size | default(512) %}
 {% set cpu_cores = current_cpu_cores | default(2) %}
 {% set max_cores = max_cpu_cores | default(32) %}
+
 <div class="page-content blue-bg">
-    <div id="config-box" class="cyber-container with-title is-centered" role="region" aria-labelledby="config-title">
-        <p class="title" id="config-title">// SYSTEM CONFIGURATION</p>
-        
-        <div class="cyber-container with-title is-centered config-section" role="group" aria-labelledby="upload-settings-title">
-            <p class="title" id="upload-settings-title">UPLOAD SETTINGS</p>
-            <div class="config-section-inner">
-                
-                <div class="slider-row">
-                    <label for="max-file-size">Max File Upload Size</label>
-                    <div class="slider-track">
-                        <input id="max-file-size" type="range" class="cyber-range is-success" min="1" max="2048"
-                            value="{{ max_file_size }}" step="1"
-                            aria-describedby="max-file-size-val" aria-label="Maximum file upload size in megabytes">
-                        <span class="slider-value" id="max-file-size-val">{{ max_file_size }} MB</span>
+    <div class="config-page-wrapper">
+        <!-- Page Header -->
+        <header class="config-page-header">
+            <h1 class="config-page-title" id="config-title">// SYSTEM CONFIGURATION</h1>
+            <p class="config-page-subtitle">Adjust system parameters and performance settings</p>
+        </header>
+
+        <!-- Config Grid -->
+        <div class="config-grid" role="region" aria-labelledby="config-title">
+            <!-- Upload Settings Card -->
+            <article class="config-card upload-card" aria-labelledby="upload-settings-title">
+                <header class="config-card-header">
+                    <span class="card-icon" aria-hidden="true">📤</span>
+                    <h2 class="config-card-title" id="upload-settings-title">UPLOAD SETTINGS</h2>
+                </header>
+                <div class="config-card-body">
+                    <div class="config-setting">
+                        <label for="max-file-size" class="config-setting-label">
+                            Max File Upload Size
+                        </label>
+                        <p class="config-setting-description">
+                            Set the maximum allowed file size for binary uploads
+                        </p>
+                        
+                        <div class="control-group">
+                            <div class="slider-wrapper">
+                                <input id="max-file-size" type="range" class="cyber-range is-cyan" 
+                                    min="1" max="2048" value="{{ max_file_size }}" step="1"
+                                    aria-describedby="max-file-size-val" 
+                                    aria-label="Maximum file upload size in megabytes">
+                            </div>
+                            <span class="value-display is-cyan" id="max-file-size-val" aria-live="polite">
+                                {{ max_file_size }} MB
+                            </span>
+                        </div>
+                        
+                        <div class="precision-input-group">
+                            <label for="max-file-size-input" class="sr-only">Exact file size value</label>
+                            <input type="number" id="max-file-size-input" class="cyber-input precision-input" 
+                                min="1" max="2048" value="{{ max_file_size }}"
+                                aria-label="Exact maximum file upload size in megabytes">
+                            <span class="unit-label">MB</span>
+                        </div>
                     </div>
                 </div>
-                <div class="config-row">
-                    <label for="max-file-size-input">Set Exact Value</label>
-                    <input type="number" id="max-file-size-input" class="cyber-input" min="1" max="2048"
-                        value="{{ max_file_size }}"
-                        aria-label="Exact maximum file upload size in megabytes">
-                    <span class="unit-label">MB</span>
-                </div>
-            </div>
-        </div>
-        
-        <hr class="divider">
-        
-        <div class="cyber-container with-title is-centered config-section" role="group" aria-labelledby="cpu-settings-title">
-            <p class="title" id="cpu-settings-title">CPU SETTINGS</p>
-            <div class="config-section-inner">
-                
-                <div class="slider-row">
-                    <label for="cpu-cores">Total CPU Cores (Analysis Workers)</label>
-                    <div class="slider-track">
-                        <input id="cpu-cores" type="range" class="cyber-range is-warning" min="1"
-                            max="{{ max_cores }}" value="{{ cpu_cores }}"
-                            step="1" aria-describedby="cpu-cores-val" aria-label="Number of CPU cores for analysis workers">
-                        <span class="slider-value is-warning" id="cpu-cores-val">{{ cpu_cores }} cores</span>
+            </article>
+
+            <!-- CPU Settings Card -->
+            <article class="config-card cpu-card" aria-labelledby="cpu-settings-title">
+                <header class="config-card-header">
+                    <span class="card-icon" aria-hidden="true">⚡</span>
+                    <h2 class="config-card-title" id="cpu-settings-title">CPU SETTINGS</h2>
+                </header>
+                <div class="config-card-body">
+                    <div class="config-setting">
+                        <label for="cpu-cores" class="config-setting-label">
+                            CPU Cores (Analysis Workers)
+                        </label>
+                        <p class="config-setting-description">
+                            Number of CPU cores to use for binary analysis tasks
+                        </p>
+                        
+                        <div class="control-group">
+                            <div class="slider-wrapper">
+                                <input id="cpu-cores" type="range" class="cyber-range is-yellow" 
+                                    min="1" max="{{ max_cores }}" value="{{ cpu_cores }}" step="1"
+                                    aria-describedby="cpu-cores-val" 
+                                    aria-label="Number of CPU cores for analysis workers">
+                            </div>
+                            <span class="value-display is-yellow" id="cpu-cores-val" aria-live="polite">
+                                {{ cpu_cores }} cores
+                            </span>
+                        </div>
+                        
+                        <div class="precision-input-group">
+                            <label for="cpu-cores-input" class="sr-only">Exact CPU cores value</label>
+                            <input type="number" id="cpu-cores-input" class="cyber-input precision-input" 
+                                min="1" max="{{ max_cores }}" value="{{ cpu_cores }}"
+                                aria-label="Exact number of CPU cores for analysis workers">
+                            <span class="unit-label">cores</span>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="config-row">
-                    <label for="cpu-cores-input">Set Exact Value</label>
-                    <input type="number" id="cpu-cores-input" class="cyber-input" min="1"
-                        max="{{ max_cores }}" value="{{ cpu_cores }}"
-                        aria-label="Exact number of CPU cores for analysis workers">
-                    <span class="unit-label">cores</span>
-                </div>
-            </div>
+            </article>
         </div>
-        
-        <hr class="divider">
-        
-        <div class="btn-group" style="margin-top: 1.5rem;">
+
+        <!-- Action Buttons -->
+        <div class="config-actions btn-group">
             <button type="button" class="cyber-btn is-primary" id="save-config-btn" aria-label="Save configuration settings">
-                [ SAVE CONFIGURATION ]
+                <span aria-hidden="true">[ SAVE CONFIGURATION ]</span>
             </button>
-            <button type="button" class="cyber-btn" id="reset-defaults-btn" aria-label="Reset to default settings">
-                RESET DEFAULTS
+            <button type="button" class="cyber-btn is-magenta" id="reset-defaults-btn" aria-label="Reset to default settings">
+                <span aria-hidden="true">RESET DEFAULTS</span>
             </button>
         </div>
-        
-        <div id="save-status" class="cyber-container is-rounded" style="display: none;" role="status" aria-live="polite">
+
+        <!-- Status Messages -->
+        <div id="save-status" class="config-status" role="status" aria-live="polite" hidden>
+            <span class="status-icon" aria-hidden="true"></span>
             <p id="save-status-msg"></p>
         </div>
-        
     </div>
 </div>
 

@@ -1,5 +1,5 @@
 /* =============================================================
-   GLYPH — CONFIG PAGE STYLES
+   GLYPH — CONFIG PAGE STYLES (Card-Based Layout)
    Depends on GLYPH base theme (variables must be loaded first)
    ============================================================= */
 
@@ -9,378 +9,497 @@
     padding: var(--space-xl) var(--space-md) var(--space-3xl);
 }
 
-/* ── Main config container ──────────────────────────────────── */
-#config-box {
-    max-width: 720px;
+.config-page-wrapper {
+    max-width: 1000px;
     margin: 0 auto;
     position: relative;
-    background: var(--bg-panel) !important;
-    border: 2px solid var(--cyan-dim) !important;
-    box-shadow:
+}
+
+/* ── Page Header ───────────────────────────────────────────── */
+.config-page-header {
+    text-align: center;
+    margin-bottom: var(--space-2xl);
+    padding: var(--space-xl) var(--space-md);
+}
+
+.config-page-title {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    color: var(--cyan-bright);
+    text-shadow: 0 0 12px rgba(168, 236, 236, 0.4);
+    margin: 0 0 var(--space-sm) 0;
+    letter-spacing: 0.1em;
+}
+
+.config-page-subtitle {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-dim);
+    margin: 0;
+}
+
+/* ── Config Grid ───────────────────────────────────────────── */
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-lg);
+    margin-bottom: var(--space-2xl);
+}
+
+/* Mobile: single column */
+@media (max-width: 767px) {
+    .config-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Config Card ───────────────────────────────────────────── */
+.config-card {
+    background: var(--bg-panel);
+    border: 2px solid var(--cyan-dim);
+    border-radius: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 
         0 0 0 1px var(--bg),
-        0 0 24px rgba(125, 216, 216, 0.08),
-        inset 0 0 40px rgba(13, 13, 26, 0.6);
-    color: var(--text-primary) !important;
+        0 0 20px rgba(125, 216, 216, 0.08),
+        inset 0 0 30px rgba(13, 13, 26, 0.5);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-/* corner brackets on outer container */
-#config-box::before,
-#config-box::after {
-    content: '';
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    border-color: var(--cyan);
-    border-style: solid;
-    opacity: 0.7;
+.config-card:hover {
+    box-shadow: 
+        0 0 0 1px var(--bg),
+        0 0 24px rgba(125, 216, 216, 0.12),
+        inset 0 0 30px rgba(13, 13, 26, 0.5);
+    transform: translateY(-2px);
 }
 
-#config-box::before {
-    top: -2px;
-    left: -2px;
-    border-width: 2px 0 0 2px;
+/* Category-specific card styles */
+.upload-card {
+    border-color: var(--cyan-dim);
 }
 
-#config-box::after {
-    top: -2px;
-    right: -2px;
-    border-width: 2px 2px 0 0;
+.upload-card .config-card-header {
+    border-bottom-color: var(--cyan-dim);
+    background: linear-gradient(180deg, rgba(125, 216, 216, 0.08) 0%, transparent 100%);
 }
 
-/* extra bottom corners via a wrapper span trick isn't possible —
-   we use box-shadow on the title bar instead */
-
-/* ── Cyberpunk container title overrides ──────────────────────────── */
-#config-box.cyber-container.with-title>.title,
-#config-box .cyber-container.with-title>.title {
-    background: var(--bg-panel) !important;
-    color: var(--cyan-bright) !important;
-    font-size: 0.65rem;
-    letter-spacing: 0.2em;
-    text-shadow: 0 0 8px rgba(168, 236, 236, 0.45);
-    padding: 0.5rem 0.75rem;
+.upload-card .config-card-title {
+    color: var(--cyan);
 }
 
-/* section containers */
-#config-box .cyber-container.with-title {
-    background: var(--bg-surface) !important;
-    border-color: var(--magenta-dim) !important;
-    color: var(--text-primary) !important;
-    position: relative;
-    margin-bottom: 0;
+.upload-card .card-icon {
+    filter: drop-shadow(0 0 8px rgba(125, 216, 216, 0.5));
 }
 
-#config-box .cyber-container.with-title>.title {
-    color: var(--magenta) !important;
-    text-shadow: 0 0 8px rgba(200, 122, 184, 0.4);
-    background: var(--bg-surface) !important;
-    font-size: 0.65rem;
-    letter-spacing: 0.25em;
-    padding: 0.5rem 0.75rem;
+.cpu-card {
+    border-color: var(--yellow);
 }
 
-/* ── Section inner padding ───────────────────────────────────── */
-.config-section-inner {
-    margin: var(--space-lg) var(--space-xl);
-    padding: var(--space-lg) 0;
+.cpu-card .config-card-header {
+    border-bottom-color: var(--yellow);
+    background: linear-gradient(180deg, rgba(212, 200, 122, 0.08) 0%, transparent 100%);
 }
 
-/* ── Labels ─────────────────────────────────────────────────── */
-#config-box label,
-.config-row label,
-.slider-row label {
-    color: var(--text-dim) !important;
-    font-family: 'Press Start 2P', monospace;
+.cpu-card .config-card-title {
+    color: var(--yellow);
+}
+
+.cpu-card .card-icon {
+    filter: drop-shadow(0 0 8px rgba(212, 200, 122, 0.5));
+}
+
+/* ── Card Header ───────────────────────────────────────────── */
+.config-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 2px solid;
+    background: var(--bg-surface);
+}
+
+.card-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.config-card-title {
+    font-family: var(--font-display);
     font-size: var(--text-xs);
-    line-height: 2;
+    letter-spacing: 0.15em;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+/* ── Card Body ─────────────────────────────────────────────── */
+.config-card-body {
+    padding: var(--space-lg);
+    flex: 1;
+}
+
+/* ── Config Setting ────────────────────────────────────────── */
+.config-setting {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.config-setting-label {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    margin: 0;
     letter-spacing: 0.05em;
-    margin-bottom: var(--space-xs);
 }
 
-/* ── Number inputs ───────────────────────────────────────────── */
-#config-box .cyber-input,
-#config-box input[type="number"] {
-    background: var(--bg) !important;
-    border-color: var(--cyan-dim) !important;
-    color: var(--cyan-bright) !important;
+.config-setting-description {
     font-family: var(--font-body);
-    font-size: var(--text-sm);
-    caret-color: var(--cyan);
-    width: 130px;
-    padding: 0.75rem 0.75rem;
-    transition: border-color 0.1s, box-shadow 0.1s;
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+    margin: 0;
+    line-height: var(--leading-normal);
 }
 
-#config-box .cyber-input:focus,
-#config-box input[type="number"]:focus {
-    border-color: var(--cyan) !important;
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(125, 216, 216, 0.15), 0 0 12px rgba(125, 216, 216, 0.1);
+/* ── Control Group (Slider + Value Display) ────────────────── */
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin: var(--space-md) 0;
 }
 
-/* ── Selects ─────────────────────────────────────────────────── */
-#config-box .cyber-select select {
-    background: var(--bg) !important;
-    border-color: var(--cyan-dim) !important;
-    color: var(--yellow) !important;
-    font-family: var(--font-body);
-    font-size: var(--text-sm);
-    min-width: 210px;
-    padding: 0.75rem 0.75rem;
-    transition: border-color 0.1s;
+.slider-wrapper {
+    flex: 1;
+    min-width: 0;
 }
 
-#config-box .cyber-select select:focus {
-    border-color: var(--yellow) !important;
-    outline: none;
-    box-shadow: 0 0 8px rgba(212, 200, 122, 0.15);
-}
-
-/* ── Sliders ─────────────────────────────────────────────────── */
-#config-box input[type="range"] {
+/* ── Sliders ───────────────────────────────────────────────── */
+.cyber-range {
     -webkit-appearance: none;
     appearance: none;
-    flex: 1;
-    height: 4px;
-    background: var(--bg);
-    border: 2px solid var(--cyan-dim);
+    width: 100%;
+    height: 6px;
+    background: var(--bg-surface);
+    border: 2px solid;
     border-radius: 0;
     outline: none;
     cursor: crosshair;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-/* green slider track fill (upload) */
-#config-box input[type="range"].is-success {
+.cyber-range.is-cyan {
     border-color: var(--cyan-dim);
     accent-color: var(--cyan);
 }
 
-/* yellow slider track fill (cpu) */
-#config-box input[type="range"].is-warning {
+.cyber-range.is-cyan:hover {
+    border-color: var(--cyan);
+    box-shadow: 0 0 8px rgba(125, 216, 216, 0.2);
+}
+
+.cyber-range.is-yellow {
     border-color: var(--yellow);
     accent-color: var(--yellow);
 }
 
-/* square pixel thumb — green */
-#config-box input[type="range"]::-webkit-slider-thumb {
+.cyber-range.is-yellow:hover {
+    border-color: var(--yellow);
+    box-shadow: 0 0 8px rgba(212, 200, 122, 0.2);
+}
+
+/* Slider thumb - cyan */
+.cyber-range.is-cyan::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     background: var(--cyan);
     border: 2px solid var(--bg-panel);
     border-radius: 0;
     cursor: crosshair;
-    box-shadow: 0 0 8px rgba(125, 216, 216, 0.5);
-    transition: background 0.1s, box-shadow 0.1s;
+    box-shadow: 0 0 10px rgba(125, 216, 216, 0.5);
+    transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
-#config-box input[type="range"].is-warning::-webkit-slider-thumb {
-    background: var(--yellow);
-    box-shadow: 0 0 8px rgba(212, 200, 122, 0.5);
-}
-
-#config-box input[type="range"]::-webkit-slider-thumb:hover {
+.cyber-range.is-cyan::-webkit-slider-thumb:hover {
     background: var(--cyan-bright);
-    box-shadow: 0 0 14px rgba(168, 236, 236, 0.7);
+    box-shadow: 0 0 16px rgba(168, 236, 236, 0.7);
+    transform: scale(1.1);
 }
 
-#config-box input[type="range"].is-warning::-webkit-slider-thumb:hover {
-    box-shadow: 0 0 14px rgba(212, 200, 122, 0.7);
+/* Slider thumb - yellow */
+.cyber-range.is-yellow::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--yellow);
+    border: 2px solid var(--bg-panel);
+    border-radius: 0;
+    cursor: crosshair;
+    box-shadow: 0 0 10px rgba(212, 200, 122, 0.5);
+    transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
-/* Firefox */
-#config-box input[type="range"]::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
+.cyber-range.is-yellow::-webkit-slider-thumb:hover {
+    background: #e8dc8a;
+    box-shadow: 0 0 16px rgba(212, 200, 122, 0.7);
+    transform: scale(1.1);
+}
+
+/* Firefox slider thumb */
+.cyber-range.is-cyan::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
     background: var(--cyan);
     border: 2px solid var(--bg-panel);
     border-radius: 0;
-    box-shadow: 0 0 8px rgba(125, 216, 216, 0.5);
+    cursor: crosshair;
+    box-shadow: 0 0 10px rgba(125, 216, 216, 0.5);
 }
 
-#config-box input[type="range"].is-warning::-moz-range-thumb {
+.cyber-range.is-yellow::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
     background: var(--yellow);
+    border: 2px solid var(--bg-panel);
+    border-radius: 0;
+    cursor: crosshair;
+    box-shadow: 0 0 10px rgba(212, 200, 122, 0.5);
 }
 
-/* ── Slider value badge ──────────────────────────────────────── */
-.slider-value {
-    font-family: 'Press Start 2P', monospace;
+/* ── Value Display ─────────────────────────────────────────── */
+.value-display {
+    font-family: var(--font-display);
     font-size: var(--text-xs);
-    color: var(--cyan-bright);
-    min-width: 100px;
+    min-width: 90px;
     text-align: right;
     background: var(--bg);
-    border: 2px solid var(--cyan-dim);
-    padding: 0.375rem 0.75rem;
-    box-shadow: inset 0 0 8px rgba(125, 216, 216, 0.05);
-    transition: color 0.1s, border-color 0.1s;
+    border: 2px solid;
+    padding: 0.5rem 0.75rem;
+    letter-spacing: 0.05em;
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.3);
+    transition: border-color 0.15s, color 0.15s;
 }
 
-.slider-value.is-warning {
+.value-display.is-cyan {
+    color: var(--cyan-bright);
+    border-color: var(--cyan-dim);
+    box-shadow: inset 0 0 8px rgba(125, 216, 216, 0.1);
+}
+
+.value-display.is-yellow {
     color: var(--yellow);
     border-color: var(--yellow);
-    box-shadow: inset 0 0 8px rgba(212, 200, 122, 0.05);
+    box-shadow: inset 0 0 8px rgba(212, 200, 122, 0.1);
 }
 
-/* ── Unit label ──────────────────────────────────────────────── */
+/* ── Precision Input Group ─────────────────────────────────── */
+.precision-input-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+    padding-top: var(--space-md);
+    border-top: 1px dashed var(--grid-line);
+}
+
+.precision-input {
+    flex: 1;
+    max-width: 150px;
+    font-size: var(--text-sm);
+    padding: 0.5rem 0.75rem;
+}
+
 .unit-label {
-    font-family: 'Press Start 2P', monospace;
+    font-family: var(--font-display);
     font-size: var(--text-xs);
     color: var(--text-dim);
-    min-width: 40px;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
 }
 
-/* ── Layout helpers ──────────────────────────────────────────── */
-.config-row {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
+/* ── Config Actions (Buttons) ──────────────────────────────── */
+.config-actions {
+    justify-content: center;
+    margin-bottom: var(--space-xl);
 }
 
-.config-row label {
-    min-width: 200px;
+.config-actions .cyber-btn {
+    padding: var(--space-md) var(--space-xl);
+    min-width: 180px;
 }
 
-.slider-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    width: 100%;
-    margin-bottom: 1.75rem;
+/* Save button - cyan/primary */
+.config-actions .cyber-btn.is-primary {
+    border-color: var(--cyan);
+    color: var(--cyan-bright);
+    background: var(--bg);
+    box-shadow: 0 0 12px rgba(125, 216, 216, 0.15), inset 0 0 8px rgba(125, 216, 216, 0.05);
 }
 
-.slider-track {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
+.config-actions .cyber-btn.is-primary:hover {
+    background: rgba(125, 216, 216, 0.08);
+    box-shadow: 0 0 20px rgba(125, 216, 216, 0.25), inset 0 0 12px rgba(125, 216, 216, 0.1);
+    color: #fff;
+    transform: translate(-2px, -2px);
 }
 
-/* ── Divider ─────────────────────────────────────────────────── */
-.divider {
-    border: none;
-    position: relative;
-    height: 2px;
-    margin: 2rem 0;
-    background: linear-gradient(90deg,
-            transparent 0%,
-            var(--cyan-dim) 20%,
-            var(--magenta-dim) 50%,
-            var(--cyan-dim) 80%,
-            transparent 100%);
+.config-actions .cyber-btn.is-primary:active {
+    transform: translate(0, 0);
+    box-shadow: none;
 }
 
-.divider::before {
-    content: '◆';
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 0.5rem;
+/* Reset button - magenta */
+.config-actions .cyber-btn.is-magenta {
+    border-color: var(--magenta-dim);
+    color: var(--text-dim);
+    background: var(--bg);
+}
+
+.config-actions .cyber-btn.is-magenta:hover {
+    border-color: var(--magenta);
     color: var(--magenta);
-    background: var(--bg-panel);
-    padding: 0 0.75rem;
-    text-shadow: 0 0 6px var(--magenta);
-}
-
-/* ── Button container ─────────────────────────────────────────── */
-#config-box > div[style*="text-align: center"] {
-    margin-bottom: 2rem !important;
-}
-
-/* ── Buttons ─────────────────────────────────────────────────── */
-#config-box .cyber-btn.is-primary {
-    background: var(--bg) !important;
-    border-color: var(--cyan) !important;
-    color: var(--cyan-bright) !important;
-    font-size: var(--text-sm) !important;
-    letter-spacing: 0.15em !important;
-    text-shadow: 0 0 8px rgba(168, 236, 236, 0.4);
-    box-shadow: 0 0 12px rgba(125, 216, 216, 0.12), inset 0 0 8px rgba(125, 216, 216, 0.04);
-    padding: 0.75rem 1.5rem !important;
-    min-height: 44px !important;
-    cursor: crosshair;
-    transition: none;
-    margin-top: 1rem !important;
-    margin-bottom: 1rem !important;
-}
-
-#config-box .cyber-btn.is-primary:hover {
-    background: rgba(125, 216, 216, 0.06) !important;
-    box-shadow: 0 0 20px rgba(125, 216, 216, 0.25), inset 0 0 12px rgba(125, 216, 216, 0.08);
-    color: #fff !important;
+    box-shadow: 0 0 12px rgba(200, 122, 184, 0.2);
     transform: translate(-2px, -2px);
 }
 
-#config-box .cyber-btn.is-primary:active {
-    transform: translate(2px, 2px);
-    box-shadow: none !important;
+.config-actions .cyber-btn.is-magenta:active {
+    transform: translate(0, 0);
+    box-shadow: none;
 }
 
-#config-box .cyber-btn:not(.is-primary) {
-    background: var(--bg) !important;
-    border-color: var(--magenta-dim) !important;
-    color: var(--text-dim) !important;
-    font-size: var(--text-sm) !important;
-    letter-spacing: 0.15em !important;
-    padding: 0.75rem 1.5rem !important;
-    min-height: 44px !important;
-    cursor: crosshair;
-    transition: none;
-    margin-top: 1rem !important;
-    margin-bottom: 1rem !important;
-}
-
-#config-box .cyber-btn:not(.is-primary):hover {
-    border-color: var(--magenta) !important;
-    color: var(--magenta) !important;
-    box-shadow: 0 0 12px rgba(200, 122, 184, 0.15);
-    transform: translate(-2px, -2px);
-}
-
-#config-box .cyber-btn:not(.is-primary):active {
-    transform: translate(2px, 2px);
-    box-shadow: none !important;
-}
-
-/* ── Status messages ─────────────────────────────────────────── */
-#save-status {
-    margin-top: 1.5rem;
+/* ── Status Messages ───────────────────────────────────────── */
+.config-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    background: var(--bg-surface);
+    border: 2px solid var(--cyan-dim);
     text-align: center;
+    margin: 0 auto;
+    max-width: 400px;
+    transition: all 0.2s ease;
 }
 
-#save-status.cyber-container {
+.config-status.hidden,
+.config-status[hidden] {
+    display: none;
+}
+
+.config-status .status-icon {
+    font-family: var(--font-display);
+    font-size: var(--text-md);
+    line-height: 1;
+}
+
+.config-status p {
+    margin: 0;
+    font-family: var(--font-display);
     font-size: var(--text-xs);
-    padding: 1.25rem 1.5rem;
     letter-spacing: 0.08em;
 }
 
-#save-status.is-success {
-    background: rgba(110, 201, 122, 0.06) !important;
-    border-color: var(--green) !important;
-    color: var(--green) !important;
-    box-shadow: 0 0 16px rgba(110, 201, 122, 0.1);
+/* Success state */
+.config-status.is-success {
+    border-color: var(--green);
+    background: rgba(110, 201, 122, 0.08);
+    box-shadow: 0 0 16px rgba(110, 201, 122, 0.15);
 }
 
-#save-status.is-error {
-    background: rgba(201, 84, 106, 0.06) !important;
-    border-color: var(--red) !important;
-    color: var(--red) !important;
-    box-shadow: 0 0 16px rgba(201, 84, 106, 0.1);
+.config-status.is-success .status-icon {
+    color: var(--green);
 }
 
-#save-status p {
-    color: inherit !important;
-    font-size: var(--text-xs);
-    margin: 0;
-    text-shadow: 0 0 6px currentColor;
+.config-status.is-success p {
+    color: var(--green);
+    text-shadow: 0 0 6px rgba(110, 201, 122, 0.5);
 }
 
-/* neutral / reset status */
-#save-status:not(.is-success):not(.is-error) {
-    background: var(--bg-surface) !important;
-    border-color: var(--cyan-dim) !important;
-    color: var(--text-dim) !important;
+/* Error state */
+.config-status.is-error {
+    border-color: var(--red);
+    background: rgba(201, 84, 106, 0.08);
+    box-shadow: 0 0 16px rgba(201, 84, 106, 0.15);
+}
+
+.config-status.is-error .status-icon {
+    color: var(--red);
+}
+
+.config-status.is-error p {
+    color: var(--red);
+    text-shadow: 0 0 6px rgba(201, 84, 106, 0.5);
+}
+
+/* Info state */
+.config-status.is-info {
+    border-color: var(--cyan-dim);
+    background: var(--bg-surface);
+}
+
+.config-status.is-info .status-icon {
+    color: var(--cyan);
+}
+
+.config-status.is-info p {
+    color: var(--text-dim);
+}
+
+/* ── Responsive Adjustments ────────────────────────────────── */
+@media (max-width: 767px) {
+    .config-page-wrapper {
+        padding: 0 var(--space-sm);
+    }
+
+    .config-page-title {
+        font-size: var(--text-md);
+    }
+
+    .config-page-subtitle {
+        font-size: var(--text-xs);
+    }
+
+    .config-card-body {
+        padding: var(--space-md);
+    }
+
+    .config-actions {
+        flex-direction: column;
+    }
+
+    .config-actions .cyber-btn {
+        width: 100%;
+    }
+
+    .control-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .value-display {
+        text-align: center;
+        width: 100%;
+    }
+}
+
+@media (max-width: 479px) {
+    .blue-bg {
+        padding: var(--space-md) var(--space-sm) var(--space-2xl);
+    }
+
+    .config-page-header {
+        margin-bottom: var(--space-lg);
+        padding: var(--space-md) var(--space-sm);
+    }
+
+    .config-grid {
+        gap: var(--space-md);
+        margin-bottom: var(--space-xl);
+    }
 }

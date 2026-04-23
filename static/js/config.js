@@ -14,15 +14,19 @@ function updateSlider(sliderId, labelId, unit) {
     const slider = document.getElementById(sliderId);
     if (!slider) return;
     
-    document.getElementById(labelId).textContent = slider.value + unit;
+    const label = document.getElementById(labelId);
+    if (label) {
+        label.textContent = slider.value + unit;
+    }
     
-    const map = { 
+    // Sync with precision input field
+    const inputMap = { 
         'max-file-size': 'max-file-size-input', 
         'cpu-cores': 'cpu-cores-input' 
     };
     
-    if (map[sliderId]) {
-        const input = document.getElementById(map[sliderId]);
+    if (inputMap[sliderId]) {
+        const input = document.getElementById(inputMap[sliderId]);
         if (input) {
             input.value = slider.value;
         }
@@ -40,12 +44,15 @@ function syncFromInput(sliderId, labelId, value, unit) {
     const slider = document.getElementById(sliderId);
     if (!slider) return;
     
+    // Parse and clamp the value
+    const parsedValue = parseInt(value) || 0;
     const clamped = Math.min(
-        Math.max(parseInt(value) || slider.min, slider.min), 
-        slider.max
+        Math.max(parsedValue, parseInt(slider.min) || 1), 
+        parseInt(slider.max) || 100
     );
     
     slider.value = clamped;
+    
     const label = document.getElementById(labelId);
     if (label) {
         label.textContent = clamped + unit;
@@ -55,26 +62,50 @@ function syncFromInput(sliderId, labelId, value, unit) {
 /**
  * Show status message to user
  * @param {boolean|null} success - true for success, false for error, null for info
- * @param {string} okMsg - Success message
- * @param {string} errMsg - Error message
+ * @param {string} message - Message to display
  */
-function showStatus(success, okMsg, errMsg) {
+function showStatus(success, message) {
     const box = document.getElementById('save-status');
     const msg = document.getElementById('save-status-msg');
+    const icon = box?.querySelector('.status-icon');
     
     if (!box || !msg) return;
     
-    box.style.display = 'block';
-    box.classList.remove('is-success', 'is-error');
+    // Remove hidden attribute to show the status
+    box.removeAttribute('hidden');
+    
+    // Reset classes
+    box.classList.remove('is-success', 'is-error', 'is-info');
     
     if (success === true) { 
         box.classList.add('is-success'); 
-        msg.textContent = okMsg; 
+        if (icon) icon.textContent = '✓';
+        msg.textContent = message || 'CONFIGURATION SAVED SUCCESSFULLY';
     } else if (success === false) { 
         box.classList.add('is-error'); 
-        msg.textContent = errMsg; 
+        if (icon) icon.textContent = '✗';
+        msg.textContent = message || 'ERROR SAVING CONFIGURATION';
     } else { 
-        msg.textContent = okMsg; 
+        box.classList.add('is-info'); 
+        if (icon) icon.textContent = 'ℹ';
+        msg.textContent = message || 'INFORMATION';
+    }
+    
+    // Auto-hide success messages after 3 seconds
+    if (success === true) {
+        setTimeout(() => {
+            box.setAttribute('hidden', '');
+        }, 3000);
+    }
+}
+
+/**
+ * Hide status message
+ */
+function hideStatus() {
+    const box = document.getElementById('save-status');
+    if (box) {
+        box.setAttribute('hidden', '');
     }
 }
 
@@ -86,7 +117,7 @@ async function saveConfig() {
     const cpuCoresSlider = document.getElementById('cpu-cores');
     
     if (!maxFileSizeSlider || !cpuCoresSlider) {
-        Toast.error('Configuration form not fully loaded');
+        showStatus(false, 'Configuration form not fully loaded');
         return;
     }
     
@@ -105,21 +136,26 @@ async function saveConfig() {
         if (response.ok) {
             const data = await response.json();
             showStatus(
-                true,
-                data.message ? `[ ✔ ] ${data.message}` : '[ ✔ ] CONFIGURATION SAVED SUCCESSFULLY.',
-                ''
+                true, 
+                data.message || 'CONFIGURATION SAVED SUCCESSFULLY'
             );
-            Toast.success('Configuration saved successfully');
+            if (typeof Toast !== 'undefined') {
+                Toast.success('Configuration saved successfully');
+            }
         } else {
             const errorData = await response.json().catch(() => ({}));
             const errorMessage = errorData.detail || errorData.message || 'Failed to save configuration';
-            showStatus(false, '', `[ ✘ ] ERROR: ${errorMessage}`);
-            Toast.error(errorMessage);
+            showStatus(false, errorMessage);
+            if (typeof Toast !== 'undefined') {
+                Toast.error(errorMessage);
+            }
         }
     } catch (error) {
         console.error('Config save error:', error);
-        showStatus(false, '', '[ ✘ ] ERROR: NETWORK FAILURE.');
-        Toast.error('Network error. Please try again.');
+        showStatus(false, 'NETWORK ERROR - PLEASE TRY AGAIN');
+        if (typeof Toast !== 'undefined') {
+            Toast.error('Network error. Please try again.');
+        }
     }
 }
 
@@ -129,27 +165,38 @@ async function saveConfig() {
 function resetDefaults() {
     const maxFileSizeSlider = document.getElementById('max-file-size');
     const maxFileSizeInput = document.getElementById('max-file-size-input');
+    const maxFileSizeLabel = document.getElementById('max-file-size-val');
+    
     const cpuCoresSlider = document.getElementById('cpu-cores');
     const cpuCoresInput = document.getElementById('cpu-cores-input');
+    const cpuCoresLabel = document.getElementById('cpu-cores-val');
     
+    // Reset max file size to default (512 MB)
     if (maxFileSizeSlider) {
         maxFileSizeSlider.value = 512;
-        updateSlider('max-file-size', 'max-file-size-val', ' MB');
     }
     if (maxFileSizeInput) {
         maxFileSizeInput.value = 512;
     }
+    if (maxFileSizeLabel) {
+        maxFileSizeLabel.textContent = '512 MB';
+    }
     
+    // Reset CPU cores to default (2)
     if (cpuCoresSlider) {
         cpuCoresSlider.value = 2;
-        updateSlider('cpu-cores', 'cpu-cores-val', ' cores');
     }
     if (cpuCoresInput) {
         cpuCoresInput.value = 2;
     }
+    if (cpuCoresLabel) {
+        cpuCoresLabel.textContent = '2 cores';
+    }
     
-    showStatus(null, '[ ↺ ] DEFAULTS RESTORED. PRESS SAVE TO APPLY.', '');
-    Toast.info('Defaults restored. Press Save to apply.');
+    showStatus(null, 'DEFAULTS RESTORED - PRESS SAVE TO APPLY');
+    if (typeof Toast !== 'undefined') {
+        Toast.info('Defaults restored. Press Save to apply.');
+    }
 }
 
 /**
@@ -184,19 +231,59 @@ function initConfigPage() {
         });
     }
     
-    // Bind input field events
+    // Bind precision input field events
     const maxFileSizeInput = document.getElementById('max-file-size-input');
     const cpuCoresInput = document.getElementById('cpu-cores-input');
     
     if (maxFileSizeInput) {
         maxFileSizeInput.addEventListener('input', (e) => {
-            syncFromInput('max-file-size', 'max-file-size-val', e.target.value, ' MB');
+            const slider = document.getElementById('max-file-size');
+            if (!slider) return;
+            
+            const min = parseInt(slider.min) || 1;
+            const max = parseInt(slider.max) || 2048;
+            let value = parseInt(e.target.value);
+            
+            // Clamp value to valid range
+            if (isNaN(value) || value < min) {
+                value = min;
+            } else if (value > max) {
+                value = max;
+            }
+            
+            // Update input field with clamped value
+            e.target.value = value;
+            
+            // Sync slider and label
+            slider.value = value;
+            const label = document.getElementById('max-file-size-val');
+            if (label) label.textContent = value + ' MB';
         });
     }
     
     if (cpuCoresInput) {
         cpuCoresInput.addEventListener('input', (e) => {
-            syncFromInput('cpu-cores', 'cpu-cores-val', e.target.value, ' cores');
+            const slider = document.getElementById('cpu-cores');
+            if (!slider) return;
+            
+            const min = parseInt(slider.min) || 1;
+            const max = parseInt(slider.max) || 32;
+            let value = parseInt(e.target.value);
+            
+            // Clamp value to valid range
+            if (isNaN(value) || value < min) {
+                value = min;
+            } else if (value > max) {
+                value = max;
+            }
+            
+            // Update input field with clamped value
+            e.target.value = value;
+            
+            // Sync slider and label
+            slider.value = value;
+            const label = document.getElementById('cpu-cores-val');
+            if (label) label.textContent = value + ' cores';
         });
     }
 }
