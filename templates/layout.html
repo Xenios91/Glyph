@@ -28,17 +28,6 @@
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
     {%- block head %}{%- endblock head %}
 </head>
-<script>
-    (function () {
-        const path = window.location.pathname;
-        document.querySelectorAll('.nav-links a').forEach(function (link) {
-            const href = link.getAttribute('href');
-            if (href && path.startsWith(href) && href !== '/') {
-                link.classList.add('nav-active');
-            }
-        });
-    })();
-</script>
 
 <body>
 

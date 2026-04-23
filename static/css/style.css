@@ -1030,17 +1030,7 @@ button:disabled {
    UTILITY CLASSES
    ============================================================= */
 
-.sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
+/* Note: .sr-only defined earlier at line 524 for accessibility */
 
 .visually-hidden {
     position: absolute;
@@ -3040,28 +3030,7 @@ html {
     border: 1px solid rgba(125, 216, 216, 0.1);
 }
 
-/* Glow effects */
-.glow-cyan {
-    box-shadow: 0 0 20px rgba(125, 216, 216, 0.4);
-}
-
-.glow-magenta {
-    box-shadow: 0 0 20px rgba(200, 122, 184, 0.4);
-}
-
-.glow-yellow {
-    box-shadow: 0 0 20px rgba(212, 200, 122, 0.4);
-}
-
-.glow-green {
-    box-shadow: 0 0 20px rgba(110, 201, 122, 0.4);
-}
-
-.glow-red {
-    box-shadow: 0 0 20px rgba(201, 84, 106, 0.4);
-}
-
-/* Underline variants */
+/* Note: .glow-* classes defined earlier at line 2882 */
 .underline-cyber {
     text-decoration: none;
     border-bottom: 2px solid var(--cyan-dim);
