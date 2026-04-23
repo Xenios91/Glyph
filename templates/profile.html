@@ -50,9 +50,11 @@
                 <input type="email" id="email" name="email" value="{{ user.email }}" required aria-required="true">
             </div>
             
-            <button type="submit" class="cyber-btn is-primary" id="profile-submit-btn">
-                Update Profile
-            </button>
+            <div class="btn-group" style="margin-top: 1rem;">
+                <button type="submit" class="cyber-btn is-primary" id="profile-submit-btn">
+                    Update Profile
+                </button>
+            </div>
         </form>
     </div>
     
@@ -80,18 +82,22 @@
                 <input type="password" id="confirm_password" name="confirm_password" required minlength="8" aria-required="true">
             </div>
             
-            <button type="submit" class="cyber-btn is-warning" id="password-submit-btn">
-                Change Password
-            </button>
+            <div class="btn-group" style="margin-top: 1rem;">
+                <button type="submit" class="cyber-btn is-warning" id="password-submit-btn">
+                    Change Password
+                </button>
+            </div>
         </form>
     </div>
     
     <div class="profile-section" role="region" aria-labelledby="api-keys-title">
         <h2 id="api-keys-title">API Keys</h2>
         
-        <button class="cyber-btn is-primary" id="create-api-key-btn" aria-label="Create a new API key">
-            + Create New API Key
-        </button>
+        <div class="btn-group" style="margin-top: 1rem; justify-content: flex-start;">
+            <button class="cyber-btn is-primary" id="create-api-key-btn" aria-label="Create a new API key">
+                + Create New API Key
+            </button>
+        </div>
         
         <div id="apiKeysList" class="api-keys-list" aria-live="polite">
             <!-- API keys will be loaded here -->

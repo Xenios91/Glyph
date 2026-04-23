@@ -116,56 +116,8 @@
 }
 
 /* ── Auth button ────────────────────────────────────────────── */
-.auth-btn {
-    font-family: var(--font-display) !important;
-    font-size: var(--text-sm) !important;
-    letter-spacing: 0.05em !important;  /* Reduced from 0.1em for better readability */
-    background: #0d0d1a !important;
-    color: #d4c87a !important;
-    border: 2px solid #d4c87a !important;
-    box-shadow: 0 0 10px rgba(212, 200, 122, 0.20) !important;
-    padding: 0.75rem 1.5rem !important;
-    min-height: 44px !important;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    width: 100%;
-    margin-top: 0.75rem;
-    transition: none;
-}
-
-.auth-btn:hover {
-    background: #d4c87a !important;
-    color: #0d0d1a !important;
-    box-shadow: 0 0 18px rgba(212, 200, 122, 0.40) !important;
-    transform: translate(-1px, -1px);
-}
-
-.auth-btn:active {
-    transform: translate(1px, 1px);
-    box-shadow: none !important;
-}
-
-.auth-btn::after {
-    content: '';
-    position: absolute;
-    top: -40%;
-    left: 0;
-    right: 0;
-    height: 40%;
-    background: rgba(255, 255, 255, 0.03);
-    animation: auth-btn-sweep 3s linear infinite;
-    pointer-events: none;
-}
-
-@keyframes auth-btn-sweep {
-    from {
-        top: -40%;
-    }
-    to {
-        top: 120%;
-    }
-}
+/* Note: .auth-btn styles now defined in style.css for consistency */
+/* This file only contains auth-specific overrides if needed */
 
 /* ── Error message ──────────────────────────────────────────── */
 .auth-error {

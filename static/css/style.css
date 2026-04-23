@@ -1677,6 +1677,109 @@ button.cyber-btn::after {
 }
 
 /* =============================================================
+   UNIFIED BUTTON VARIANTS
+   ============================================================= */
+
+/* Auth button - unified with cyber-btn system */
+.auth-btn {
+    font-family: var(--font-display) !important;
+    font-size: var(--text-sm) !important;
+    letter-spacing: 0.1em !important;
+    background: var(--bg) !important;
+    color: var(--yellow) !important;
+    border: 2px solid var(--yellow) !important;
+    box-shadow: 0 0 10px rgba(212, 200, 122, 0.20) !important;
+    padding: var(--btn-padding-y) var(--btn-padding-x) !important;
+    min-height: var(--btn-min-height) !important;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    margin-top: var(--space-sm);
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border-radius: 0 !important;
+}
+
+.auth-btn:hover {
+    background: var(--yellow) !important;
+    color: var(--bg) !important;
+    box-shadow: 0 0 18px rgba(212, 200, 122, 0.40) !important;
+    transform: translate(-1px, -1px);
+}
+
+.auth-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: none !important;
+}
+
+.auth-btn::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: rgba(255, 255, 255, 0.03);
+    animation: btn-sweep 3s linear infinite;
+    pointer-events: none;
+}
+
+/* Start button - unified with cyber-btn system */
+.start-btn {
+    font-family: var(--font-display) !important;
+    font-size: var(--text-sm) !important;
+    letter-spacing: 0.1em !important;
+    background: var(--bg) !important;
+    color: var(--yellow) !important;
+    border: 2px solid var(--yellow) !important;
+    box-shadow: 0 0 12px rgba(212, 200, 122, 0.22) !important;
+    padding: var(--btn-padding-y) var(--btn-padding-x) !important;
+    min-height: var(--btn-min-height) !important;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border-radius: 0 !important;
+}
+
+.start-btn:hover {
+    background: var(--yellow) !important;
+    color: var(--bg) !important;
+    box-shadow: 0 0 20px rgba(212, 200, 122, 0.45) !important;
+    transform: translate(-2px, -2px);
+}
+
+.start-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: none !important;
+}
+
+.start-btn::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: rgba(255, 255, 255, 0.04);
+    animation: btn-sweep 3s linear infinite;
+    pointer-events: none;
+}
+
+/* Delete button variant */
+.cyber-btn.is-delete {
+    border-color: var(--red);
+    color: var(--red);
+    box-shadow: 0 0 10px rgba(201, 84, 106, 0.2);
+}
+
+.cyber-btn.is-delete:hover:not(:disabled) {
+    background: var(--red);
+    color: var(--bg);
+    box-shadow: 0 0 18px rgba(201, 84, 106, 0.4);
+}
+
+/* =============================================================
    FORM INPUT SYSTEM
    ============================================================= */
 

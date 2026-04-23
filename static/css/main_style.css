@@ -145,55 +145,7 @@
     margin-bottom: var(--space-lg);
 }
 
-.start-btn {
-    font-family: var(--font-display) !important;
-    font-size: var(--text-sm) !important;
-    letter-spacing: 0.05em !important;  /* Reduced from 0.1em for better readability */
-    background: #0d0d1a !important;
-    color: #d4c87a !important;
-    border: 2px solid #d4c87a !important;
-    box-shadow: 0 0 12px rgba(212, 200, 122, 0.22) !important;
-    padding: 0.75rem 1.5rem !important;
-    min-height: 44px !important;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    transition: none;
-}
-
-.start-btn:hover {
-    background: #d4c87a !important;
-    color: #0d0d1a !important;
-    box-shadow: 0 0 20px rgba(212, 200, 122, 0.45) !important;
-    transform: translate(-2px, -2px);
-}
-
-.start-btn:active {
-    transform: translate(2px, 2px);
-    box-shadow: none !important;
-}
-
-.start-btn::after {
-    content: '';
-    position: absolute;
-    top: -40%;
-    left: 0;
-    right: 0;
-    height: 40%;
-    background: rgba(255, 255, 255, 0.04);
-    animation: btn-sweep 3s linear infinite;
-    pointer-events: none;
-}
-
-@keyframes btn-sweep {
-    from {
-        top: -40%;
-    }
-
-    to {
-        top: 120%;
-    }
-}
+/* Note: .start-btn styles now defined in style.css for consistency */
 
 /* ── Blink text ─────────────────────────────────────────────── */
 .blink_text {

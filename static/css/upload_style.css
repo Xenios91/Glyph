@@ -257,17 +257,17 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    margin-top: 1.5rem;
-    padding: 1.75rem;
-    border: 2px dashed #2a5a5a;
-    border-radius: 8px;
+    gap: var(--space-sm);
+    margin-top: var(--space-lg);
+    padding: var(--space-xl);
+    border: 2px dashed var(--cyan-dim);
+    border-radius: 0;
     background: rgba(125, 216, 216, 0.02);
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .drop-zone.drag-over {
-    border-color: #7dd8d8;
+    border-color: var(--cyan);
     background: rgba(125, 216, 216, 0.08);
     box-shadow: 0 0 20px rgba(125, 216, 216, 0.2);
     transform: scale(1.02);
@@ -288,57 +288,7 @@
 }
 
 /* ── File button ─────────────────────────────────────────────── */
-label.cyber-btn.is-primary {
-    font-family: var(--font-display) !important;
-    font-size: var(--text-sm) !important;
-    letter-spacing: 0.1em !important;
-    background: #0d0d1a !important;
-    color: #c87ab8 !important;
-    border: 2px solid #4a2244 !important;
-    box-shadow: 0 0 10px rgba(200, 122, 184, 0.15) !important;
-    padding: 0.75rem 1.5rem !important;
-    min-height: 44px !important;
-    cursor: pointer;
-    display: inline-block;
-    margin-top: var(--space-lg);
-    position: relative;
-    overflow: hidden;
-    transition: none;
-}
-
-label.cyber-btn.is-primary:hover {
-    background: #4a2244 !important;
-    color: #f0cce8 !important;
-    box-shadow: 0 0 16px rgba(200, 122, 184, 0.30) !important;
-    transform: translate(-2px, -2px);
-}
-
-label.cyber-btn.is-primary:active {
-    transform: translate(2px, 2px);
-    box-shadow: none !important;
-}
-
-label.cyber-btn.is-primary::after {
-    content: '';
-    position: absolute;
-    top: -40%;
-    left: 0;
-    right: 0;
-    height: 40%;
-    background: rgba(255, 255, 255, 0.04);
-    animation: btn-sweep 3s linear infinite;
-    pointer-events: none;
-}
-
-@keyframes btn-sweep {
-    from {
-        top: -40%;
-    }
-
-    to {
-        top: 120%;
-    }
-}
+/* Note: .cyber-btn styles now defined in style.css for consistency */
 
 label.cyber-btn.is-primary input[type="file"] {
     position: absolute;

@@ -303,6 +303,8 @@
     min-height: 44px !important;
     cursor: crosshair;
     transition: none;
+    margin-top: 1rem !important;
+    margin-bottom: 1rem !important;
 }
 
 #config-box .cyber-btn.is-primary:hover {
@@ -327,6 +329,8 @@
     min-height: 44px !important;
     cursor: crosshair;
     transition: none;
+    margin-top: 1rem !important;
+    margin-bottom: 1rem !important;
 }
 
 #config-box .cyber-btn:not(.is-primary):hover {

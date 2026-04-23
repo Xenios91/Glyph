@@ -239,76 +239,7 @@
 }
 
 /* ── Buttons ─────────────────────────────────────────────────── */
-.cyber-btn.is-primary {
-    font-family: 'Press Start 2P', monospace !important;
-    font-size: var(--text-sm) !important;
-    letter-spacing: 0.08em !important;
-    background-color: var(--bg) !important;
-    color: var(--cyan) !important;
-    border: 2px solid var(--cyan-dim) !important;
-    box-shadow: 0 0 10px rgba(125, 216, 216, 0.12) !important;
-    padding: 0.75rem 1.5rem !important;
-    min-height: 44px !important;
-    min-width: 44px !important;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    transition: none !important;
-    border-radius: 0 !important;
-}
-
-.cyber-btn.is-primary:hover {
-    background-color: var(--cyan-dim) !important;
-    color: #d4f0f0 !important;
-    box-shadow: 0 0 16px rgba(125, 216, 216, 0.25) !important;
-    border-color: var(--cyan) !important;
-    transform: translate(-2px, -2px);
-}
-
-.cyber-btn.is-primary:active {
-    transform: translate(2px, 2px) !important;
-    box-shadow: none !important;
-}
-
-.cyber-btn.is-primary::after {
-    content: '' !important;
-    position: absolute !important;
-    top: -40% !important;
-    left: 0 !important;
-    right: 0 !important;
-    height: 40% !important;
-    background: rgba(125, 216, 216, 0.08) !important;
-    animation: btn-sweep 3s linear infinite !important;
-    pointer-events: none !important;
-}
-
-@keyframes btn-sweep {
-    from {
-        top: -40%;
-    }
-
-    to {
-        top: 120%;
-    }
-}
-
-/* Delete — red variant (modifier for is-primary) */
-.cyber-btn.is-primary.is-delete {
-    color: var(--red) !important;
-    border-color: var(--red) !important;
-    box-shadow: 0 0 10px rgba(201, 84, 106, 0.12) !important;
-    margin-right: 1.25rem;
-}
-
-.cyber-btn.is-primary.is-delete:hover {
-    background-color: var(--red) !important;
-    color: var(--bg) !important;
-    box-shadow: 0 0 16px rgba(201, 84, 106, 0.25) !important;
-}
-
-.cyber-btn.is-primary.is-delete::after {
-    background: rgba(201, 84, 106, 0.08) !important;
-}
+/* Note: .cyber-btn styles now defined in style.css for consistency */
 
 /* Go Back button styling */
 .content .cyber-btn.is-primary:not(.view-prediction-btn) {
