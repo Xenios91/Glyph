@@ -1294,23 +1294,34 @@ button:disabled {
     }
 }
 
-/* Custom scrollbar for table containers - hidden by default */
+/* Custom scrollbar for table containers - visible and styled */
 .cyber-table-responsive::-webkit-scrollbar {
-    width: 0px;
-    height: 0px;
+    width: 8px;
+    height: 8px;
 }
 
 .cyber-table-responsive::-webkit-scrollbar-track {
-    background: transparent;
+    background: var(--bg-panel);
+    border: 1px solid var(--cyan-dim);
 }
 
 .cyber-table-responsive::-webkit-scrollbar-thumb {
-    background: transparent;
+    background: var(--cyan-dim);
+    border: 1px solid var(--cyan);
 }
 
-/* Firefox scrollbar - hidden */
+.cyber-table-responsive::-webkit-scrollbar-thumb:hover {
+    background: var(--cyan);
+}
+
+.cyber-table-responsive::-webkit-scrollbar-corner {
+    background: var(--bg-panel);
+}
+
+/* Firefox scrollbar - visible and styled */
 .cyber-table-responsive {
-    scrollbar-width: none;
+    scrollbar-width: thin;
+    scrollbar-color: var(--cyan-dim) var(--bg-panel);
 }
 
 

@@ -15,6 +15,9 @@
         {% if user and user.username %}
         <!-- Authenticated user menu with dropdowns -->
         
+        <!-- HOME link -->
+        <a href="/" aria-label="Home">HOME</a>
+        
         <!-- ANALYSIS Dropdown -->
         <div class="nav-dropdown">
             <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="analysis-menu">
@@ -24,7 +27,6 @@
                 </svg>
             </button>
             <ul class="nav-dropdown-menu" id="analysis-menu" role="menu">
-                <li role="none"><a href="/" role="menuitem" aria-label="Home">HOME</a></li>
                 <li role="none"><a href="/uploadBinary" role="menuitem" aria-label="Upload Binary">UPLOAD</a></li>
                 <li role="none"><a href="/getModels" role="menuitem" aria-label="View Models">VIEW MODELS</a></li>
                 <li role="none"><a href="/getPredictions" role="menuitem" aria-label="View Predictions">PREDICTIONS</a></li>
