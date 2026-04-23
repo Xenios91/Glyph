@@ -2259,21 +2259,21 @@ div.cyber-card.with-title .title {
    ANIMATION & MOTION REFINEMENTS
    ============================================================= */
 
-/* Reduced glitch animation intensity */
+/* Refined glitch animation - smoother and less aggressive */
 @keyframes logo-glitch {
-    0%, 94%, 100% {
+    0%, 95%, 100% {
         text-shadow: 0 0 10px rgba(168, 236, 236, 0.35);
         transform: translate(0, 0);
     }
-    95% {
+    96% {
         transform: translate(-1px, 0);
         text-shadow: -1px 0 var(--magenta), 1px 0 var(--cyan);
     }
-    96% {
+    97% {
         transform: translate(1px, 0);
         text-shadow: 1px 0 var(--magenta), -1px 0 var(--cyan);
     }
-    97% { transform: translate(0, 0); }
+    98% { transform: translate(0, 0); }
 }
 
 @keyframes title-glitch {
@@ -2299,7 +2299,63 @@ div.cyber-card.with-title .title {
 /* Apply slower glitch animations */
 .nav-logo h1,
 .cyber-title {
-    animation-duration: 15s;  /* Slower than before */
+    animation-duration: 15s;
+}
+
+/* Smooth easing for transitions */
+.cyber-btn,
+.cyber-input,
+.cyber-card,
+.auth-btn,
+.auth-form-input,
+.start-btn {
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Subtle entrance animations */
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    animation: fade-in-up 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes slide-in-right {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.slide-in-right {
+    animation: slide-in-right 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.scale-in {
+    animation: scale-in 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* Enhanced reduced motion support */
@@ -2619,17 +2675,83 @@ div.cyber-card.with-title .title {
    VISUAL POLISH & DETAILS
    ============================================================= */
 
-/* Enhanced card gradients for depth */
+/* =============================================================
+   ENHANCED GLOW EFFECTS
+   ============================================================= */
+
+/* Standardized glow utility classes */
+.glow-subtle {
+    box-shadow: 0 0 8px rgba(125, 216, 216, 0.15);
+}
+
+.glow-medium {
+    box-shadow: 0 0 16px rgba(125, 216, 216, 0.25);
+}
+
+.glow-strong {
+    box-shadow:
+        0 0 24px rgba(125, 216, 216, 0.35),
+        0 0 48px rgba(125, 216, 216, 0.15);
+}
+
+/* Color-specific glow effects */
+.glow-cyan {
+    box-shadow: 0 0 20px rgba(125, 216, 216, 0.4);
+}
+
+.glow-magenta {
+    box-shadow: 0 0 20px rgba(200, 122, 184, 0.4);
+}
+
+.glow-yellow {
+    box-shadow: 0 0 20px rgba(212, 200, 122, 0.4);
+}
+
+.glow-green {
+    box-shadow: 0 0 20px rgba(110, 201, 122, 0.4);
+}
+
+.glow-red {
+    box-shadow: 0 0 20px rgba(201, 84, 106, 0.4);
+}
+
+/* =============================================================
+   CARD DEPTH ENHANCEMENT
+   ============================================================= */
+
+/* Multi-layer card depth with enhanced gradients */
 .cyber-card,
 .auth-card,
 .profile-section {
     background:
         linear-gradient(135deg,
-            rgba(17, 17, 31, 0.95) 0%,
+            rgba(17, 17, 31, 0.98) 0%,
             rgba(22, 22, 42, 0.95) 100%),
         radial-gradient(ellipse at top right,
-            rgba(125, 216, 216, 0.03) 0%,
+            rgba(125, 216, 216, 0.05) 0%,
+            transparent 50%),
+        radial-gradient(ellipse at bottom left,
+            rgba(200, 122, 184, 0.03) 0%,
             transparent 50%);
+    
+    box-shadow:
+        0 0 0 1px rgba(125, 216, 216, 0.1),
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        0 8px 24px rgba(0, 0, 0, 0.2),
+        inset 0 0 48px rgba(125, 216, 216, 0.02);
+}
+
+/* Hover lift effect for interactive cards */
+.cyber-card.is-hoverable:hover,
+.auth-card.is-hoverable:hover,
+.profile-section.is-hoverable:hover {
+    transform: translateY(-4px);
+    box-shadow:
+        0 0 0 1px rgba(125, 216, 216, 0.2),
+        0 8px 16px rgba(0, 0, 0, 0.4),
+        0 16px 48px rgba(0, 0, 0, 0.3),
+        0 0 24px rgba(125, 216, 216, 0.15),
+        inset 0 0 48px rgba(125, 216, 216, 0.04);
 }
 
 /* Subtle noise texture overlay for depth */
