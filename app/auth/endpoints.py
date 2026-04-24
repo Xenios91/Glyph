@@ -3,6 +3,15 @@
 from typing import Annotated
 
 from app.auth.jwt_handler import InvalidTokenError, DecodeError
+from app.auth.security_logger import (
+    log_login_attempt,
+    log_login_success,
+    log_login_failure,
+    log_logout,
+    log_token_refresh,
+    log_password_change,
+    log_suspicious_activity,
+)
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -99,10 +108,19 @@ async def login(
     Raises:
         HTTPException: If credentials are invalid
     """
+    # Get client info for logging
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    
     user_repo = UserRepository(db)
     user = await user_repo.verify_credentials(credentials.username, credentials.password)
     
     if not user:
+        log_login_failure(
+            username=credentials.username,
+            reason="Invalid credentials",
+            ip_address=ip_address
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -110,6 +128,11 @@ async def login(
         )
     
     if not user.is_active:
+        log_login_failure(
+            username=credentials.username,
+            reason="Account disabled",
+            ip_address=ip_address
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is disabled"
@@ -118,6 +141,13 @@ async def login(
     # Generate tokens
     access_token = jwt_handler.create_access_token(str(user.id))
     refresh_token = jwt_handler.create_refresh_token(str(user.id))
+    
+    # Log successful login
+    log_login_success(
+        user_id=user.id,
+        username=user.username,
+        ip_address=ip_address
+    )
     
     # Create response with cookies
     settings = get_settings()
@@ -179,6 +209,11 @@ async def refresh_token(
             )
         user_id = int(user_id)
     except (ValueError, TypeError, DecodeError, InvalidTokenError):
+        log_suspicious_activity(
+            user_id=None,
+            activity_type="invalid_refresh_token",
+            details={"error": "Token verification failed"}
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token"
@@ -188,6 +223,11 @@ async def refresh_token(
     user = await user_repo.get_by_id(user_id)
     
     if not user or not user.is_active:
+        log_suspicious_activity(
+            user_id=user_id,
+            activity_type="refresh_token_inactive_user",
+            details={"reason": "User not found or inactive"}
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive"
@@ -196,6 +236,9 @@ async def refresh_token(
     # Generate new tokens
     new_access_token = jwt_handler.create_access_token(str(user.id))
     new_refresh_token = jwt_handler.create_refresh_token(str(user.id))
+    
+    # Log token refresh
+    log_token_refresh(user_id=user.id, token_type="access_and_refresh")
     
     return Response(
         content=TokenResponse(
@@ -209,15 +252,22 @@ async def refresh_token(
 
 @router.post("/logout")
 @router.get("/logout")
-async def logout(request: Request) -> Response:
+async def logout(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> Response:
     """Logout user by clearing cookies.
     
     Args:
         request: FastAPI request object
+        current_user: Current authenticated user
         
     Returns:
         Redirect to home for web requests, JSON for API requests
     """
+    # Log logout
+    log_logout(user_id=current_user.id, username=current_user.username)
+    
     response = Response()
     response.delete_cookie("access_token_cookie")
     response.delete_cookie("refresh_token_cookie")
@@ -280,6 +330,11 @@ async def change_password(
         password_data.current_password,
         current_user.hashed_password
     ):
+        log_suspicious_activity(
+            user_id=current_user.id,
+            activity_type="password_change_failed",
+            details={"reason": "Current password incorrect"}
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect"
@@ -287,6 +342,9 @@ async def change_password(
     
     # Change password
     await user_repo.change_password(current_user.id, password_data.new_password)
+    
+    # Log password change
+    log_password_change(user_id=current_user.id, username=current_user.username)
     
     return {"message": "Password changed successfully"}
 

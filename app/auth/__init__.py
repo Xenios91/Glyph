@@ -10,6 +10,7 @@ Components:
 - endpoints: Authentication API endpoints
 - schemas: Pydantic schemas for authentication data
 - middleware: Authentication middleware
+- security_logger: Security event logging utilities
 """
 
 from app.auth.dependencies import (
@@ -39,6 +40,19 @@ from app.auth.schemas import (
     UserRegister,
     UserResponse,
     UserUpdate,
+)
+from app.auth.security_logger import (
+    log_login_attempt,
+    log_login_success,
+    log_login_failure,
+    log_logout,
+    log_token_refresh,
+    log_api_key_usage,
+    log_permission_denied,
+    log_suspicious_activity,
+    log_password_change,
+    log_account_lockout,
+    log_account_unlock,
 )
 
 __all__ = [
@@ -73,4 +87,16 @@ __all__ = [
     "UserRegister",
     "UserResponse",
     "UserUpdate",
+    # Security logging
+    "log_login_attempt",
+    "log_login_success",
+    "log_login_failure",
+    "log_logout",
+    "log_token_refresh",
+    "log_api_key_usage",
+    "log_permission_denied",
+    "log_suspicious_activity",
+    "log_password_change",
+    "log_account_lockout",
+    "log_account_unlock",
 ]

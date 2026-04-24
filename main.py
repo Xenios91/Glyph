@@ -1,6 +1,3 @@
-import logging
-import sys
-
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,23 +5,19 @@ from fastapi.templating import Jinja2Templates
 
 from app.core.lifespan import lifespan
 from app.core.csrf import CSRFMiddleware
+from app.core.request_tracing import RequestIDMiddleware
 from app.api.router import api_router
 from app.web.endpoints.web import router as web_router
 from app.auth.endpoints import router as auth_router
 from app.utils.jinja_utils import configure_jinja2_templates
+from app.utils.logging_config import setup_logging_from_config, get_logger
 
 templates = Jinja2Templates(directory="templates")
 configure_jinja2_templates(templates)
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-    handlers=[
-        logging.FileHandler("glyph_log.log", encoding="utf-8"),
-        logging.StreamHandler(sys.stdout),
-    ],
-)
-logger = logging.getLogger(__name__)
+# Set up logging from config
+setup_logging_from_config()
+logger = get_logger(__name__)
 
 
 def create_app() -> FastAPI:
@@ -35,6 +28,10 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         strict_content_type=True,
     )
+
+    # Add Request ID tracing middleware (must be first to capture all requests)
+    app.add_middleware(RequestIDMiddleware)
+    logger.info("✅ Request ID middleware added")
 
     # Add CSRF protection middleware
     app.add_middleware(CSRFMiddleware)
@@ -93,7 +90,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
 async def general_exception_handler(request: Request, exc: Exception) -> HTMLResponse | JSONResponse:
     """Handle unexpected exceptions with a nice error page for web requests.
     """
-    logging.error("Unexpected error: %s", exc, exc_info=True)
+    logger.error("Unexpected error: %s", exc, exc_info=True)
     accept = request.headers.get("Accept", "")
     if "text/html" in accept:
         return templates.TemplateResponse(

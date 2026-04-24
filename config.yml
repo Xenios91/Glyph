@@ -2,3 +2,21 @@ prediction_probability_threshold: 50.0 # must be a value between 0-100
 
 max_file_size_mb: 512 # maximum file size in MB for uploaded binaries
 cpu_cores: 2 # number of CPU cores to use for processing (must be between 1 and 32)
+
+# Logging configuration
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: json  # json or text
+  file:
+    path: logs/glyph.log
+    max_size_mb: 50
+    backup_count: 10
+    rotate: size  # time, size, or both
+    time_interval: midnight  # midnight, daily, weekly, monthly
+  console:
+    enabled: true
+    level: INFO
+    colorize: true
+  request_tracing:
+    enabled: true
+    header_name: X-Request-ID
