@@ -23,6 +23,7 @@ MarkupSafe==3.0.3
 mdurl==0.1.2
 numpy==2.4.3
 packaging==26.0
+pandas==3.0.1
 pluggy==1.6.0
 pydantic==2.12.5
 pydantic-extra-types==2.11.1

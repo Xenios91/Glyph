@@ -18,9 +18,11 @@ import asyncio
 import json
 import logging
 import os
+import random
 import re
 import stat
 import sys
+import threading
 import time
 from collections import defaultdict, deque
 from datetime import datetime, timezone
@@ -93,10 +95,11 @@ class SensitiveDataFilter(logging.Filter):
                     for k, v in record.args.items()
                 }
             elif isinstance(record.args, tuple):
+                # Only redact tuple args that match sensitive keyword patterns
+                sensitive_keywords = ['password', 'token', 'secret', 'api_key', 'passwd', 'pwd']
                 record.args = tuple(
                     '[REDACTED]' if isinstance(v, str) and any(
-                        len(v) > 40 and not v.startswith('/')
-                        for _ in [1]
+                        kw in record.msg.lower() for kw in sensitive_keywords
                     ) else v
                     for v in record.args
                 )
@@ -215,22 +218,15 @@ class RateLimitingFilter(logging.Filter):
         # Suppress the message but track count
         self._suppressed[key] += 1
 
-        # Every 100 suppressed messages, log a summary
+        # Every 100 suppressed messages, log a summary using the logger itself
         if self._suppressed[key] % 100 == 0:
-            summary_record = logging.LogRecord(
-                name=record.name,
-                level=logging.WARNING,
-                pathname=record.pathname,
-                lineno=record.lineno,
-                msg=f"[Rate Limited] {self._suppressed[key]} messages suppressed for: {record.msg[:100]}",
-                args=(),
-                exc_info=None,
+            # Use the standard logging mechanism instead of creating inline handlers
+            logger = logging.getLogger(record.name)
+            logger.warning(
+                "[Rate Limited] %d messages suppressed for: %s",
+                self._suppressed[key],
+                record.msg[:100],
             )
-            # Recursively format and output the summary (safe since it's a new record)
-            handler = logging.StreamHandler(sys.stderr)
-            handler.setFormatter(logging.Formatter("[RATE-LIMIT] %(message)s"))
-            handler.emit(summary_record)
-            handler.close()
 
         return False
 
@@ -355,8 +351,6 @@ class ColoredFormatter(logging.Formatter):
         timestamp = self.formatTime(record, self.datefmt)
 
         # Build colored format manually
-        formatted = f"{timestamp} | {color}{levelname}{reset}-8s | {record.name} | {record.getMessage()}"
-        # Fix the levelname padding
         formatted = f"{timestamp} | {color}{levelname:<8}{reset} | {record.name} | {record.getMessage()}"
 
         return formatted
@@ -443,7 +437,7 @@ class AsyncLogHandler(logging.Handler):
         self.target = target_handler
         self._queue: deque[logging.LogRecord] = deque(maxlen=max_queue_size)
         self._task: asyncio.Task | None = None
-        self._locked = False
+        self._lock = threading.Lock()
 
     def emit(self, record: logging.LogRecord) -> None:
         """Queue a log record for async processing.
@@ -460,8 +454,10 @@ class AsyncLogHandler(logging.Handler):
             self._process_sync()
             return
 
-        if self._task is None or self._task.done():
-            self._task = loop.create_task(self._process_queue())
+        # Use lock to prevent race condition when creating tasks
+        with self._lock:
+            if self._task is None or self._task.done():
+                self._task = loop.create_task(self._process_queue())
 
     def _process_sync(self) -> None:
         """Process queued records synchronously (no event loop)."""
@@ -509,10 +505,12 @@ class SamplingFilter(logging.Filter):
         """
         super().__init__()
         self.sample_rate = max(0.0, min(1.0, sample_rate))
-        self._counter = 0
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Determine if the record should be logged based on sample rate.
+
+        Uses random sampling for statistically representative results
+        instead of deterministic counter-based sampling.
 
         Args:
             record: The log record to filter.
@@ -524,9 +522,7 @@ class SamplingFilter(logging.Filter):
             return True
         if self.sample_rate <= 0.0:
             return False
-        self._counter += 1
-        interval = max(1, int(1.0 / self.sample_rate))
-        return (self._counter % interval) == 0
+        return random.random() < self.sample_rate
 
 
 class LoggingBestPracticeFilter(logging.Filter):
@@ -561,8 +557,10 @@ class LoggingBestPracticeFilter(logging.Filter):
         # Check for string formatting anti-patterns in message
         if isinstance(record.msg, str):
             # Warn about f-string remnants (should use % formatting)
-            if '{' in record.msg and '}' in record.msg:
-                key = f"unformatted_braces:{record.name}"
+            # Only flag if braces look like unformatted placeholders (e.g., {variable})
+            # but not JSON-like braces (e.g., {"key": "value"}) or literal braces
+            if re.search(r'\{[a-zA-Z_][a-zA-Z0-9_]*\}', record.msg):
+                key = f"unformatted_braces:{record.name}:{record.msg[:50]}"
                 if key not in self._warnings:
                     self._warnings.add(key)
                     sys.stderr.write(
@@ -598,6 +596,28 @@ def log_startup_summary() -> None:
         "Logging initialized",
         extra={"extra_data": {
             "event": "startup",
+            "log_level": logging.getLevelName(root_logger.level),
+            "handlers": handler_names,
+            "handler_count": len(handler_names),
+        }}
+    )
+
+
+def log_shutdown_summary() -> None:
+    """Log a shutdown summary with logging configuration details.
+
+    Outputs a structured log message showing the current logging
+    configuration and active handlers at shutdown time.
+    """
+    root_logger = logging.getLogger()
+    logger = get_logger("glyph.shutdown")
+
+    handler_names = [type(h).__name__ for h in root_logger.handlers]
+
+    logger.info(
+        "Logging shutdown summary",
+        extra={"extra_data": {
+            "event": "shutdown",
             "log_level": logging.getLevelName(root_logger.level),
             "handlers": handler_names,
             "handler_count": len(handler_names),
@@ -715,9 +735,11 @@ def setup_logging(
                 encoding="utf-8"
             )
         elif rotate == "both":
-            base_handler = RotatingFileHandler(
+            # Use TimedRotatingFileHandler which supports both time-based rotation
+            # and backup count (size is handled by backupCount limiting old files)
+            base_handler = TimedRotatingFileHandler(
                 filename=log_path,
-                maxBytes=max_size_mb * 1024 * 1024,
+                when=_get_time_interval(time_interval),
                 backupCount=backup_count,
                 encoding="utf-8"
             )
@@ -777,6 +799,8 @@ def setup_logging(
             console_handler.setFormatter(ColoredFormatter(colorize=colorize))
 
         console_handler.addFilter(sensitive_filter)
+        if rate_filter:
+            console_handler.addFilter(rate_filter)
         if sampling_filter:
             console_handler.addFilter(sampling_filter)
         if best_practice:

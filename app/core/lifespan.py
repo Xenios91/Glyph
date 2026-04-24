@@ -8,7 +8,7 @@ from app.database.sql_service import SQLUtil
 from app.database.session_handler import init_async_databases
 from app.processing.task_management import EventWatcher
 from app.services.task_service import TaskService
-from app.utils.logging_config import get_logger, log_startup_summary
+from app.utils.logging_config import get_logger, log_startup_summary, log_shutdown_summary
 
 logger = get_logger(__name__)
 
@@ -49,8 +49,9 @@ async def lifespan(app: FastAPI):
         logger.exception("Failed to start TaskService.")
         raise RuntimeError("Task service startup failed.") from e
 
+    event_watcher = EventWatcher()
     try:
-        EventWatcher().start_watching()
+        event_watcher.start_watching()
         logger.info("EventWatcher started.")
     except Exception as e:
         logger.exception("Failed to start EventWatcher.")
@@ -60,4 +61,5 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         logger.info("Shutting down Glyph service...")
-        EventWatcher().stop_watching()
+        event_watcher.stop_watching()
+        log_shutdown_summary()

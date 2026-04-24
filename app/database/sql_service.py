@@ -34,6 +34,7 @@ def _log_db_error(
         extra.update(context)
     logger.error(
         "Database error during %s: %s", operation, error,
+        exc_info=True,
         extra={"extra_data": extra},
     )
 

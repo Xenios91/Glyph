@@ -121,7 +121,14 @@ async def login(
     # Get client info for logging
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
-    
+
+    # Log the login attempt before processing
+    log_login_attempt(
+        username=credentials.username,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
     user_repo = UserRepository(db)
     user = await user_repo.verify_credentials(credentials.username, credentials.password)
     

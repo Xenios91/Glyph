@@ -102,40 +102,29 @@ def log_login_attempt(
     username: str,
     ip_address: str | None = None,
     user_agent: str | None = None,
-    success: bool = True,
-    reason: str | None = None,
 ) -> None:
-    """Log a login attempt.
+    """Log that a login attempt has been initiated.
+
+    This is called at the start of the login flow to record the attempt
+    before the outcome is known. Use log_login_success() or log_login_failure()
+    to record the final result.
 
     Args:
         username: The username that attempted to log in.
         ip_address: The IP address of the request.
         user_agent: The user agent string.
-        success: Whether the login was successful.
-        reason: Reason for failure (if success is False).
     """
     log_data: dict[str, Any] = {
         "event": "login_attempt",
         "username": username,
-        "success": success,
         "ip_address": ip_address,
         "user_agent": user_agent,
     }
 
-    if not success and reason:
-        log_data["reason"] = reason
-
-    if success:
-        logger.info("Login attempt: %s", username, extra={"extra_data": log_data})
-        # Reset failure tracker on successful login
-        _login_failure_tracker.reset(username)
-        if ip_address:
-            _login_failure_tracker.reset(ip_address)
-    else:
-        logger.warning(
-            "Login attempt failed: %s - %s", username, reason,
-            extra={"extra_data": log_data},
-        )
+    logger.info(
+        "Login attempt initiated: %s", username,
+        extra={"extra_data": log_data},
+    )
 
 
 def log_login_success(
