@@ -329,6 +329,16 @@ async def post_upload_binary(
     max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
 
     file_content = await binary_file.read()
+    
+    logging.info(
+        "Binary upload started: filename=%s, size=%d, training=%s, model=%s, task=%s",
+        binary_file.filename,
+        len(file_content),
+        form_data.training_data,
+        form_data.model_name,
+        form_data.task_name,
+    )
+    
     if len(file_content) > max_file_size_bytes:
         actual_size_mb = len(file_content) / (1024 * 1024)
         raise HTTPException(
@@ -371,6 +381,11 @@ async def post_upload_binary(
     )
 
     background_tasks.add_task(_run_pipeline_analysis, ghidra_task, file_path)
+
+    logging.info(
+        "Binary upload completed successfully: uuid=%s, file_path=%s",
+        unique_filename, file_path
+    )
 
     if "*/*" in accept:
         return templates.TemplateResponse("upload.html", {"request": request})

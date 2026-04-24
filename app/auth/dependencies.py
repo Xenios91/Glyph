@@ -90,6 +90,7 @@ async def get_current_user(
         token = request.cookies.get("access_token_cookie")
     
     if not token:
+        logger.warning("Authentication failed: no token provided")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
@@ -103,14 +104,18 @@ async def get_current_user(
         user_id = payload.get("sub")
         if user_id:
             user_id = int(user_id)
-    except Exception:
+            logger.info("JWT token verified for user_id=%s", user_id)
+    except Exception as jwt_error:
+        logger.debug("JWT verification failed, trying API key: %s", jwt_error)
         # If JWT verification fails, try API key
         api_key_repo = APIKeyRepository(db)
         api_key_record = await api_key_repo.verify_and_get(token)
         
         if api_key_record:
+            logger.info("API key verified for user_id=%s", api_key_record.user_id)
             user = await db.get(User, api_key_record.user_id)
             if not user or not user.is_active:
+                logger.warning("Authentication failed: user_id=%s not found or inactive (API key)", api_key_record.user_id)
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="User not found or inactive",
@@ -118,6 +123,7 @@ async def get_current_user(
                 )
             return user
         else:
+            logger.warning("Authentication failed: invalid API key")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
@@ -126,6 +132,7 @@ async def get_current_user(
     
     # Get user from database
     if not user_id:
+        logger.warning("Authentication failed: invalid token payload")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
@@ -134,12 +141,14 @@ async def get_current_user(
     
     user = await db.get(User, user_id)
     if not user or not user.is_active:
+        logger.warning("Authentication failed: user_id=%s not found or inactive", user_id)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    logger.info("User authenticated successfully: user_id=%s, username=%s", user.id, user.username)
     return user
 
 

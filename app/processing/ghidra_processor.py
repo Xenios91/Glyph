@@ -1,6 +1,9 @@
 """Ghidra processor module for binary decompilation and tokenization."""
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 def setup_decompiler(
@@ -59,7 +62,7 @@ def get_function_tokens(function: Any, decomp_interface: Any) -> list[str]:
 
         return [str(t) for t in token_list if str(t).strip()]
     except Exception as exc:
-        print("Error in %s: %s", function.getName(), exc)
+        logger.error("Decompilation error for function %s: %s", function.getName(), exc)
         return []
 
 

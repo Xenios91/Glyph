@@ -64,8 +64,9 @@ class SQLUtil:
                     (model_name, sqlite3.Binary(model), sqlite3.Binary(label_encoder)),
                 )
                 con.commit()
+                logging.info("Model '%s' saved successfully", model_name)
             except sqlite3.Error as error:
-                logging.error("Database error: %s", error)
+                logging.error("Database error saving model '%s': %s", model_name, error)
 
     @staticmethod
     def get_models_list() -> set[str]:
@@ -126,8 +127,9 @@ class SQLUtil:
                 sql = "DELETE FROM MODELS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
                 con.commit()
+                logging.info("Model '%s' deleted successfully", model_name)
             except sqlite3.Error as error:
-                logging.error("Database error: %s", error)
+                logging.error("Database error deleting model '%s': %s", model_name, error)
 
     @staticmethod
     def get_predictions_list() -> list[Prediction]:
@@ -255,8 +257,9 @@ class SQLUtil:
                     sql, (name, model_name, sqlite3.Binary(functions_serialized))
                 )
                 con.commit()
+                logging.info("Prediction for task '%s' with model '%s' saved successfully", name, model_name)
             except sqlite3.Error as error:
-                logging.error("Database error: %s", error)
+                logging.error("Database error saving prediction for task '%s': %s", name, error)
 
     @staticmethod
     def get_prediction_function(
@@ -336,8 +339,9 @@ class SQLUtil:
                         ),
                     )
                 con.commit()
+                logging.info("Saved %d functions to model '%s'", len(functions), model_name)
             except sqlite3.Error as error:
-                logging.error("Database error: %s", error)
+                logging.error("Database error saving functions for model '%s': %s", model_name, error)
 
     @staticmethod
     def get_functions(model_name: str) -> list:
@@ -395,8 +399,9 @@ class SQLUtil:
                 sql = "DELETE FROM FUNCTIONS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
                 con.commit()
+                logging.info("Functions for model '%s' deleted successfully", model_name)
             except sqlite3.Error as error:
-                logging.error("Database error: %s", error)
+                logging.error("Database error deleting functions for model '%s': %s", model_name, error)
 
     @staticmethod
     def delete_prediction(task_name: str) -> None:
@@ -411,8 +416,9 @@ class SQLUtil:
                 sql = "DELETE FROM PREDICTIONS WHERE name=?"
                 cur.execute(sql, (task_name,))
                 con.commit()
+                logging.info("Prediction for task '%s' deleted successfully", task_name)
             except sqlite3.Error as error:
-                logging.error("Database error: %s", error)
+                logging.error("Database error deleting prediction for task '%s': %s", task_name, error)
                 raise
 
     @staticmethod
@@ -428,8 +434,9 @@ class SQLUtil:
                 sql = "DELETE FROM PREDICTIONS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
                 con.commit()
+                logging.info("Predictions for model '%s' deleted successfully", model_name)
             except sqlite3.Error as error:
-                logging.error("Database error: %s", error)
+                logging.error("Database error deleting predictions for model '%s': %s", model_name, error)
 
     @staticmethod
     def task_name_exists(task_name: str) -> bool:

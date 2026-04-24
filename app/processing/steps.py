@@ -178,6 +178,10 @@ class DecompileStep(PipelineStep):
     the binary, extracting function information.
     """
 
+    def __init__(self) -> None:
+        """Initialize the decompile step."""
+        self._logger = logging.getLogger(self.__class__.__name__)
+
     def get_name(self) -> str:
         """Return the name of this step."""
         return "DecompileStep"
@@ -194,7 +198,6 @@ class DecompileStep(PipelineStep):
         from app.processing import ghidra_processor
 
         binary_path = context.binary_path
-        self._logger = logging.getLogger(self.__class__.__name__)
 
         try:
             results = ghidra_processor.analyze_binary_and_decompile(binary_path)
@@ -227,6 +230,10 @@ class TokenizeStep(PipelineStep):
     joining them into strings for further processing.
     """
 
+    def __init__(self) -> None:
+        """Initialize the tokenize step."""
+        self._logger = logging.getLogger(self.__class__.__name__)
+
     def get_name(self) -> str:
         """Return the name of this step."""
         return "TokenizeStep"
@@ -240,8 +247,6 @@ class TokenizeStep(PipelineStep):
         Returns:
             Updated context with tokenized functions.
         """
-        self._logger = logging.getLogger(self.__class__.__name__)
-
         functions = context.get("functions")
         if functions is None:
             context.error = (
@@ -274,6 +279,10 @@ class FilterStep(PipelineStep):
     variable names, and remove comments.
     """
 
+    def __init__(self) -> None:
+        """Initialize the filter step."""
+        self._logger = logging.getLogger(self.__class__.__name__)
+
     def get_name(self) -> str:
         """Return the name of this step."""
         return "FilterStep"
@@ -287,8 +296,6 @@ class FilterStep(PipelineStep):
         Returns:
             Updated context with filtered tokens.
         """
-        self._logger = logging.getLogger(self.__class__.__name__)
-
         tokenized_functions = context.get("tokenized_functions")
         if tokenized_functions is None:
             context.error = "No tokenized functions found in context"
@@ -372,6 +379,10 @@ class TrainStep(PipelineStep):
     the trained model to persistence.
     """
 
+    def __init__(self) -> None:
+        """Initialize the train step."""
+        self._logger = logging.getLogger(self.__class__.__name__)
+
     def get_name(self) -> str:
         """Return the name of this step."""
         return "TrainStep"
@@ -387,8 +398,6 @@ class TrainStep(PipelineStep):
         """
         import numpy as np
         from sklearn import preprocessing
-
-        self._logger = logging.getLogger(self.__class__.__name__)
 
         # Get required data
         filtered_functions = context.get("filtered_functions")
@@ -453,6 +462,10 @@ class PredictStep(PipelineStep):
     features, applying a probability threshold to filter uncertain predictions.
     """
 
+    def __init__(self) -> None:
+        """Initialize the predict step."""
+        self._logger = logging.getLogger(self.__class__.__name__)
+
     def get_name(self) -> str:
         """Return the name of this step."""
         return "PredictStep"
@@ -466,8 +479,6 @@ class PredictStep(PipelineStep):
         Returns:
             Updated context with predictions.
         """
-        self._logger = logging.getLogger(self.__class__.__name__)
-
         # Get required data
         filtered_functions = context.get("filtered_functions")
         tokens = context.get("tokens")
