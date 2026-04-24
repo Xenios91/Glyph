@@ -2,8 +2,8 @@
 
 <https://polyformproject.org/licenses/noncommercial/1.0.0>
 
-**Software:** glyph
-**Licensor:** xenios91
+**Software:** Glyph
+**Licensor:** Xenios91/Dr. Corey Hartman
 
 ---
 
