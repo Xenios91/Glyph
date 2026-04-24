@@ -2,22 +2,6 @@
 
 ## An architecture independent binary analysis tool for fingerprinting functions through NLP
 
-## Upcoming Features
-
-- Implementing Pyghidra to reduce setup requirements
-- Changing underlying server to fastapi
-- New UI themes
-- More configuration
-- Adding more AI/ML capabilities to include LLM code cleanup, assistant and ensemble models for higher accuracy
-- MCP integration
-- Bug fixes and better dockerization.
-- User accounts instead of single user
-- Better test
-- Pydantic implementation
-- Ability to switch databases
-- Higher performance
-- Processing pipeline
-
 ## Upcoming Release V0.1.0
 
 - Implementing Pyghidra to reduce setup requirements
