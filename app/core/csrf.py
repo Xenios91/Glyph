@@ -6,6 +6,7 @@ Uses session-based CSRF tokens with SameSite cookie policy.
 
 import secrets
 
+from app.auth.security_logger import log_csrf_failure
 from app.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -52,7 +53,14 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             logger.debug("Validating CSRF token for %s %s", request.method, request.url.path)
             logger.debug("Expected token: %s...", csrf_token[:8])
             if not await self._validate_csrf_token(request, csrf_token):
+                ip_address = request.client.host if request.client else None
                 logger.warning("CSRF validation failed for %s %s", request.method, request.url.path)
+                # Log CSRF failure for security audit
+                log_csrf_failure(
+                    ip_address=ip_address,
+                    path=request.url.path,
+                    method=request.method,
+                )
                 # Return 403 Forbidden for invalid CSRF tokens
                 return Response(
                     content='{"detail": "CSRF token missing or invalid"}',

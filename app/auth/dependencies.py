@@ -8,11 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt_handler import JWTHandler
 from app.auth.repository import UserRepository, APIKeyRepository
+from app.auth.security_logger import (
+    log_api_key_usage,
+    log_permission_denied,
+)
 from app.config.settings import get_settings
 from app.database.models import User
 from app.database.session_handler import get_async_session, close_async_session
 from app.utils.logging_config import get_logger
-from app.utils.request_context import set_request_context
+from app.utils.request_context import set_request_context, get_request_context
 
 logger = get_logger(__name__)
 
@@ -114,6 +118,14 @@ async def get_current_user(
         
         if api_key_record:
             logger.info("API key verified for user_id=%s", api_key_record.user_id)
+            # Log API key usage for security audit
+            ip_address = request.client.host if request.client else None
+            log_api_key_usage(
+                user_id=api_key_record.user_id,
+                api_key_prefix=api_key_record.key_prefix,
+                endpoint=request.url.path,
+                ip_address=ip_address,
+            )
             user = await db.get(User, api_key_record.user_id)
             if not user or not user.is_active:
                 logger.warning("Authentication failed: user_id=%s not found or inactive (API key)", api_key_record.user_id)
@@ -258,6 +270,13 @@ async def require_write_permission(
     
     permissions = json.loads(current_user.permissions or "[]")
     if "write" not in permissions:
+        # Log permission denied for security audit
+        log_permission_denied(
+            user_id=current_user.id,
+            username=current_user.username,
+            resource="write_permission",
+            required_permission="write",
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Write permission required"
@@ -283,6 +302,13 @@ async def require_admin_permission(
     
     permissions = json.loads(current_user.permissions or "[]")
     if "admin" not in permissions:
+        # Log permission denied for security audit
+        log_permission_denied(
+            user_id=current_user.id,
+            username=current_user.username,
+            resource="admin_permission",
+            required_permission="admin",
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin permission required"

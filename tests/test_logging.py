@@ -674,12 +674,19 @@ class TestLoginFailureTracker:
         """Test that suspicious activity is detected."""
         tracker = LoginFailureTracker(threshold=3, window=60.0)
 
-        # Below threshold
-        assert tracker.is_suspicious("test_user") is False
+        # Record failures separately from checking (recording and checking are now separate)
+        tracker.record_failure("test_user")
         assert tracker.is_suspicious("test_user") is False
 
-        # At threshold
+        tracker.record_failure("test_user")
+        assert tracker.is_suspicious("test_user") is False
+
+        # At threshold (3rd failure)
+        tracker.record_failure("test_user")
         assert tracker.is_suspicious("test_user") is True
+
+        # Should not alert again (already alerted)
+        assert tracker.is_suspicious("test_user") is False
 
     def test_tracker_resets_on_success(self):
         """Test that tracker resets after successful login."""

@@ -21,6 +21,9 @@ class LoginFailureTracker:
 
     Monitors login failures per username and IP address, triggering
     suspicious activity alerts when thresholds are exceeded.
+
+    Recording and checking are separated to avoid double-counting
+    when multiple keys (username + IP) are checked for the same event.
     """
 
     def __init__(
@@ -55,8 +58,24 @@ class LoginFailureTracker:
         self._failures[key].append(now)
         return len(self._failures[key])
 
+    def get_failure_count(self, key: str) -> int:
+        """Get current failure count without recording a new failure.
+
+        Args:
+            key: Unique identifier (username or IP).
+
+        Returns:
+            Current number of failures in the window.
+        """
+        now = time.time()
+        cutoff = now - self.window
+        return len([t for t in self._failures.get(key, []) if t > cutoff])
+
     def is_suspicious(self, key: str) -> bool:
         """Check if the key has exceeded the failure threshold.
+
+        This method checks the current failure count without recording
+        a new failure. Use record_failure() separately to add failures.
 
         Args:
             key: Unique identifier (username or IP).
@@ -64,7 +83,7 @@ class LoginFailureTracker:
         Returns:
             True if the key should be flagged as suspicious.
         """
-        count = self.record_failure(key)
+        count = self.get_failure_count(key)
         if count >= self.threshold and not self._alerted.get(key, False):
             self._alerted[key] = True
             return True
@@ -189,7 +208,11 @@ def log_login_failure(
         extra={"extra_data": log_data},
     )
 
-    # Track for brute-force detection
+    # Track for brute-force detection - record first, then check thresholds
+    _login_failure_tracker.record_failure(username)
+    if ip_address:
+        _login_failure_tracker.record_failure(ip_address)
+
     suspicious_username = _login_failure_tracker.is_suspicious(username)
     suspicious_ip = ip_address and _login_failure_tracker.is_suspicious(ip_address)
 
@@ -210,6 +233,7 @@ def log_logout(
     user_id: int,
     username: str,
     session_id: str | None = None,
+    ip_address: str | None = None,
 ) -> None:
     """Log a user logout.
 
@@ -217,12 +241,14 @@ def log_logout(
         user_id: The user's ID.
         username: The user's username.
         session_id: The session ID.
+        ip_address: The IP address of the request.
     """
     log_data: dict[str, Any] = {
         "event": "logout",
         "user_id": user_id,
         "username": username,
         "session_id": session_id,
+        "ip_address": ip_address,
     }
 
     logger.info(
@@ -421,5 +447,119 @@ def log_account_unlock(
 
     logger.info(
         "Account unlocked: user_id=%d, username=%s", user_id, username,
+        extra={"extra_data": log_data},
+    )
+
+
+def log_user_registration(
+    user_id: int,
+    username: str,
+    ip_address: str | None = None,
+) -> None:
+    """Log a user registration event.
+
+    This is a normal operational event logged at INFO level,
+    not classified as suspicious activity.
+
+    Args:
+        user_id: The user's ID.
+        username: The user's username.
+        ip_address: The IP address of the request.
+    """
+    log_data: dict[str, Any] = {
+        "event": "user_registration",
+        "user_id": user_id,
+        "username": username,
+        "ip_address": ip_address,
+    }
+
+    logger.info(
+        "User registered: user_id=%d, username=%s", user_id, username,
+        extra={"extra_data": log_data},
+    )
+
+
+def log_api_key_created(
+    user_id: int,
+    key_id: int,
+    key_prefix: str,
+    name: str,
+    ip_address: str | None = None,
+) -> None:
+    """Log an API key creation event.
+
+    Args:
+        user_id: The user's ID.
+        key_id: The API key record ID.
+        key_prefix: First 8 characters of the API key for identification.
+        name: Human-readable name for the key.
+        ip_address: The IP address of the request.
+    """
+    log_data: dict[str, Any] = {
+        "event": "api_key_created",
+        "user_id": user_id,
+        "key_id": key_id,
+        "key_prefix": key_prefix,
+        "name": name,
+        "ip_address": ip_address,
+    }
+
+    logger.info(
+        "API key created: user_id=%d, key_id=%d, name=%s, prefix=%s",
+        user_id, key_id, name, key_prefix,
+        extra={"extra_data": log_data},
+    )
+
+
+def log_api_key_deleted(
+    user_id: int,
+    key_id: int,
+    name: str,
+    ip_address: str | None = None,
+) -> None:
+    """Log an API key deletion event.
+
+    Args:
+        user_id: The user's ID.
+        key_id: The API key record ID.
+        name: Human-readable name for the key.
+        ip_address: The IP address of the request.
+    """
+    log_data: dict[str, Any] = {
+        "event": "api_key_deleted",
+        "user_id": user_id,
+        "key_id": key_id,
+        "name": name,
+        "ip_address": ip_address,
+    }
+
+    logger.info(
+        "API key deleted: user_id=%d, key_id=%d, name=%s",
+        user_id, key_id, name,
+        extra={"extra_data": log_data},
+    )
+
+
+def log_csrf_failure(
+    ip_address: str | None = None,
+    path: str | None = None,
+    method: str | None = None,
+) -> None:
+    """Log a CSRF validation failure.
+
+    Args:
+        ip_address: The IP address of the request.
+        path: The request path.
+        method: The HTTP method.
+    """
+    log_data: dict[str, Any] = {
+        "event": "csrf_failure",
+        "ip_address": ip_address,
+        "path": path,
+        "method": method,
+    }
+
+    logger.warning(
+        "CSRF validation failed: method=%s, path=%s", method, path,
         extra={"extra_data": log_data},
     )

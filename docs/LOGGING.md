@@ -209,31 +209,93 @@ metrics.log_summary()
 
 ```python
 from app.auth.security_logger import (
+    log_login_attempt,
     log_login_success,
     log_login_failure,
+    log_logout,
+    log_token_refresh,
     log_permission_denied,
     log_suspicious_activity,
+    log_user_registration,
+    log_password_change,
+    log_api_key_usage,
+    log_api_key_created,
+    log_api_key_deleted,
+    log_csrf_failure,
 )
 
-# Login events (automatically tracks failures for brute-force detection)
+# Authentication events
+log_login_attempt(username=username, ip_address=ip, user_agent=ua)
 log_login_success(user_id=user.id, username=user.username, ip_address=ip)
 log_login_failure(username=username, reason="Invalid password", ip_address=ip)
+log_logout(user_id=user.id, username=user.username, ip_address=ip)
+log_token_refresh(user_id=user.id, token_type="access", ip_address=ip)
 
-# Permission events
+# Authorization events
 log_permission_denied(
     user_id=user.id,
+    username=user.username,
     resource="/api/admin",
     required_permission="admin",
     ip_address=ip
 )
 
-# Suspicious activity
+# Account management
+log_user_registration(user_id=user.id, username=username, ip_address=ip)
+log_password_change(user_id=user.id, username=user.username, ip_address=ip)
+
+# API key lifecycle
+log_api_key_usage(user_id=user.id, api_key_prefix="glp_abc1", endpoint="/api/data", ip_address=ip)
+log_api_key_created(user_id=user.id, key_id=1, key_prefix="glp_abc1", name="My Key", ip_address=ip)
+log_api_key_deleted(user_id=user.id, key_id=1, name="My Key", ip_address=ip)
+
+# Security events
 log_suspicious_activity(
     user_id=user.id,
     activity_type="unusual_access_pattern",
     details={"endpoint": "/api/admin", "count": 50},
     ip_address=ip
 )
+log_csrf_failure(ip_address=ip, path="/api/data", method="POST")
+```
+
+### Security Event Reference
+
+| Function | Event Type | Log Level | Description |
+|----------|-----------|-----------|-------------|
+| [`log_login_attempt()`](app/auth/security_logger.py:101) | `login_attempt` | INFO | Login initiated |
+| [`log_login_success()`](app/auth/security_logger.py:130) | `login_success` | INFO | Successful login |
+| [`log_login_failure()`](app/auth/security_logger.py:163) | `login_failure` | WARNING | Failed login (triggers brute-force detection) |
+| [`log_logout()`](app/auth/security_logger.py:232) | `logout` | INFO | User logout |
+| [`log_token_refresh()`](app/auth/security_logger.py:259) | `token_refresh` | INFO | Token refreshed |
+| [`log_permission_denied()`](app/auth/security_logger.py:288) | `permission_denied` | WARNING | Authorization failure |
+| [`log_suspicious_activity()`](app/auth/security_logger.py:320) | `suspicious_activity` | WARNING | Suspicious pattern detected |
+| [`log_user_registration()`](app/auth/security_logger.py:451) | `user_registration` | INFO | New user registered |
+| [`log_password_change()`](app/auth/security_logger.py:376) | `password_change` | INFO | Password changed |
+| [`log_api_key_usage()`](app/auth/security_logger.py:259) | `api_key_usage` | INFO | API key used for authentication |
+| [`log_api_key_created()`](app/auth/security_logger.py:477) | `api_key_created` | INFO | New API key created |
+| [`log_api_key_deleted()`](app/auth/security_logger.py:503) | `api_key_deleted` | INFO | API key deleted |
+| [`log_csrf_failure()`](app/auth/security_logger.py:529) | `csrf_failure` | WARNING | CSRF validation failed |
+| [`log_account_lockout()`](app/auth/security_logger.py:375) | `account_lockout` | WARNING | Account locked |
+| [`log_account_unlock()`](app/auth/security_logger.py:403) | `account_unlock` | INFO | Account unlocked |
+
+### Brute-Force Detection
+
+The [`LoginFailureTracker`](app/auth/security_logger.py:19) monitors login failures per username and IP address:
+
+- **Recording and checking are separated** to avoid double-counting
+- Default threshold: 5 failures in 300 seconds triggers alert
+- Resets on successful login
+- Automatically logs `suspicious_activity` when threshold is exceeded
+
+```python
+from app.auth.security_logger import get_failure_tracker
+
+# Default: 5 failures in 300 seconds triggers alert
+tracker = get_failure_tracker()
+
+# Custom threshold
+tracker = LoginFailureTracker(threshold=3, window=60.0)
 ```
 
 ## Log Format

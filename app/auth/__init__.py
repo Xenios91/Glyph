@@ -53,6 +53,10 @@ from app.auth.security_logger import (
     log_password_change,
     log_account_lockout,
     log_account_unlock,
+    log_user_registration,
+    log_api_key_created,
+    log_api_key_deleted,
+    log_csrf_failure,
 )
 
 __all__ = [
@@ -99,4 +103,8 @@ __all__ = [
     "log_password_change",
     "log_account_lockout",
     "log_account_unlock",
+    "log_user_registration",
+    "log_api_key_created",
+    "log_api_key_deleted",
+    "log_csrf_failure",
 ]
