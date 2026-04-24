@@ -23,7 +23,6 @@ def configure_jinja2_templates(templates: Jinja2Templates) -> None:
     # Add CSRF token getter for templates
     def get_csrf_token(request):
         token = getattr(request.state, "csrf_token", None)
-        logger.debug(f"get_csrf_token called: request.state exists={hasattr(request, 'state')}, token={token[:8] + '...' if token else None}")
         return token
     
     templates.env.globals["get_csrf_token"] = get_csrf_token

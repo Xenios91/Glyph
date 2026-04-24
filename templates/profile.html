@@ -76,7 +76,7 @@
                 <div id="profile-success" class="success-message" role="status" aria-live="polite" style="display: none;"></div>
                 
                 <form id="profileForm" novalidate>
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="csrf_token" value="{{ get_csrf_token(request) }}">
                     
                     <div class="form-group">
                         <label for="full_name">Full Name</label>
@@ -120,7 +120,7 @@
                 <div id="password-error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
                 
                 <form id="passwordForm" novalidate>
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="csrf_token" value="{{ get_csrf_token(request) }}">
                     
                     <div class="form-group">
                         <label for="current_password">Current Password</label>
