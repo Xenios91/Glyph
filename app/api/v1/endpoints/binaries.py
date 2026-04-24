@@ -339,6 +339,14 @@ async def post_upload_binary(
         form_data.training_data,
         form_data.model_name,
         form_data.task_name,
+        extra={"extra_data": {
+            "event": "binary_upload",
+            "filename": binary_file.filename,
+            "file_size": len(file_content),
+            "training_data": form_data.training_data,
+            "model_name": form_data.model_name,
+            "task_name": form_data.task_name,
+        }}
     )
     
     if len(file_content) > max_file_size_bytes:
@@ -386,7 +394,12 @@ async def post_upload_binary(
 
     logger.info(
         "Binary upload completed successfully: uuid=%s, file_path=%s",
-        unique_filename, file_path
+        unique_filename, file_path,
+        extra={"extra_data": {
+            "event": "binary_upload_complete",
+            "uuid": unique_filename,
+            "file_path": file_path,
+        }}
     )
 
     if "*/*" in accept:

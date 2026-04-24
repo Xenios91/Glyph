@@ -12,6 +12,7 @@ from app.auth.security_logger import (
     log_password_change,
     log_suspicious_activity,
 )
+from app.utils.logging_config import get_logger
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +37,8 @@ from app.auth.schemas import (
 )
 from app.config.settings import get_settings
 from app.database.models import User
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -82,6 +85,13 @@ async def register(
         password=user_data.password,
         full_name=user_data.full_name,
         permissions=["read"]
+    )
+    
+    # Log user registration
+    log_suspicious_activity(
+        user_id=user.id,
+        activity_type="user_registered",
+        details={"username": user_data.username, "email": user_data.email},
     )
     
     return UserResponse.model_validate(user)
@@ -425,6 +435,8 @@ async def create_api_key(
         expires_days=key_data.expires_days
     )
     
+    logger.info("API key created: user_id=%d, key_name=%s", current_user.id, key_data.name)
+    
     return APIKeyWithSecret(
         **APIKeyResponse.model_validate(api_key_record).model_dump(),
         secret=secret
@@ -466,5 +478,6 @@ async def delete_api_key(
         )
     
     await api_key_repo.delete_api_key(key_id)
+    logger.info("API key deleted: user_id=%d, key_id=%d", current_user.id, key_id)
     
     return {"message": "API key deleted successfully"}

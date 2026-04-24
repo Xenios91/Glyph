@@ -9,6 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import User, APIKey
+from app.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class PasswordHasherService:
@@ -110,6 +113,7 @@ class UserRepository:
         self.db.add(user)
         await self.db.flush()
         await self.db.refresh(user)
+        logger.info("User created: user_id=%d, username=%s", user.id, username)
         return user
     
     async def get_by_id(self, user_id: int) -> User | None:
@@ -160,7 +164,9 @@ class UserRepository:
         """
         user = await self.get_by_username(username)
         if user and self.password_hasher.verify_password(password, user.hashed_password):
+            logger.debug("Credentials verified for user: user_id=%d, username=%s", user.id, username)
             return user
+        logger.warning("Credential verification failed for username: %s", username)
         return None
     
     async def update_user(
@@ -208,10 +214,12 @@ class UserRepository:
         """
         user = await self.get_by_id(user_id)
         if not user:
+            logger.warning("Password change failed: user_id=%d not found", user_id)
             return False
         
         user.hashed_password = self.password_hasher.hash_password(new_password)
         await self.db.flush()
+        logger.info("Password changed: user_id=%d", user_id)
         return True
     
     async def delete_user(self, user_id: int) -> bool:
@@ -225,10 +233,13 @@ class UserRepository:
         """
         user = await self.get_by_id(user_id)
         if not user:
+            logger.warning("User deletion failed: user_id=%d not found", user_id)
             return False
         
+        username = user.username
         await self.db.delete(user)
         await self.db.flush()
+        logger.info("User deleted: user_id=%d, username=%s", user_id, username)
         return True
 
 
@@ -317,7 +328,8 @@ class APIKeyRepository:
         self.db.add(api_key_record)
         await self.db.flush()
         await self.db.refresh(api_key_record)
-        
+        logger.info("API key created: key_id=%d, user_id=%d, name=%s, prefix=%s",
+                     api_key_record.id, user_id, name, key_prefix)
         return api_key_record, api_key
     
     async def get_by_id(self, key_id: int) -> APIKey | None:
@@ -355,30 +367,35 @@ class APIKeyRepository:
         """
         # Get the prefix
         if not api_key.startswith(self.token_prefix):
+            logger.debug("API key verification failed: invalid prefix")
             return None
         
         prefix = api_key[:8]
         api_key_record = await self.get_by_prefix(prefix)
         
         if not api_key_record:
+            logger.debug("API key verification failed: key not found for prefix=%s", prefix)
             return None
         
         # Verify the key
         if not self.verify_api_key(api_key, api_key_record.hashed_key):
+            logger.warning("API key verification failed: invalid key for prefix=%s", prefix)
             return None
         
         # Check if active
         if not api_key_record.is_active:
+            logger.warning("API key verification failed: key inactive for key_id=%d", api_key_record.id)
             return None
         
         # Check expiration
         if api_key_record.expires_at and datetime.now(timezone.utc) > api_key_record.expires_at:
+            logger.warning("API key verification failed: key expired for key_id=%d", api_key_record.id)
             return None
         
         # Update last used timestamp
         api_key_record.last_used_at = datetime.now(timezone.utc)
         await self.db.flush()
-        
+        logger.debug("API key verified: key_id=%d, user_id=%d", api_key_record.id, api_key_record.user_id)
         return api_key_record
     
     async def get_user_api_keys(self, user_id: int) -> list[APIKey]:
@@ -406,10 +423,13 @@ class APIKeyRepository:
         """
         api_key_record = await self.get_by_id(key_id)
         if not api_key_record:
+            logger.warning("API key deactivation failed: key_id=%d not found", key_id)
             return False
         
         api_key_record.is_active = False
         await self.db.flush()
+        logger.info("API key deactivated: key_id=%d, user_id=%d, name=%s",
+                     key_id, api_key_record.user_id, api_key_record.name)
         return True
     
     async def delete_api_key(self, key_id: int) -> bool:
@@ -423,8 +443,11 @@ class APIKeyRepository:
         """
         api_key_record = await self.get_by_id(key_id)
         if not api_key_record:
+            logger.warning("API key deletion failed: key_id=%d not found", key_id)
             return False
         
         await self.db.delete(api_key_record)
         await self.db.flush()
+        logger.info("API key deleted: key_id=%d, user_id=%d, name=%s",
+                     key_id, api_key_record.user_id, api_key_record.name)
         return True

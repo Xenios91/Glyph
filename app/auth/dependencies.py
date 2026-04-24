@@ -40,18 +40,15 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         AsyncSession for the auth database
     """
     session = await get_async_session("auth")
-    logger.info(f"Database session created: session_id={id(session)}")
     try:
         yield session
         await session.commit()
-        logger.info(f"Database session committed: session_id={id(session)}")
     except Exception as e:
         await session.rollback()
-        logger.error(f"Database session rolled back: session_id={id(session)}, error={e}")
+        logger.error("Database session rolled back: %s", e, exc_info=True)
         raise
     finally:
         await close_async_session(session)
-        logger.info(f"Database session closed: session_id={id(session)}")
 
 
 async def get_current_user(

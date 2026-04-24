@@ -160,6 +160,12 @@ class ProcessingPipeline:
             self._name,
             context.uuid,
             len(self._steps),
+            extra={"extra_data": {
+                "event": "pipeline_start",
+                "pipeline_name": self._name,
+                "uuid": context.uuid,
+                "step_count": len(self._steps),
+            }}
         )
 
         for step in self._steps:
@@ -171,7 +177,14 @@ class ProcessingPipeline:
                 if context.error is not None:
                     context.status = "error"
                     logger.error(
-                        "Step %s failed: %s", step.get_name(), context.error
+                        "Step %s failed: %s", step.get_name(), context.error,
+                        extra={"extra_data": {
+                            "event": "pipeline_step_failed",
+                            "pipeline_name": self._name,
+                            "uuid": context.uuid,
+                            "step_name": step.get_name(),
+                            "error": context.error,
+                        }}
                     )
                     break
 
@@ -187,11 +200,25 @@ class ProcessingPipeline:
                     step.get_name(),
                     step_error,
                     exc_info=True,
+                    extra={"extra_data": {
+                        "event": "pipeline_step_exception",
+                        "pipeline_name": self._name,
+                        "uuid": context.uuid,
+                        "step_name": step.get_name(),
+                        "exception": str(step_error),
+                    }}
                 )
                 break
 
         if context.status != "error":
             context.status = "complete"
-            logger.info("Pipeline '%s' execution completed successfully", self._name)
+            logger.info(
+                "Pipeline '%s' execution completed successfully", self._name,
+                extra={"extra_data": {
+                    "event": "pipeline_complete",
+                    "pipeline_name": self._name,
+                    "uuid": context.uuid,
+                }}
+            )
 
         return context

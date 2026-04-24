@@ -196,10 +196,13 @@ def setup_logging(
                 encoding="utf-8"
             )
         elif rotate == "both":
-            # Use RotatingFileHandler with size limit
-            handler = RotatingFileHandler(
+            # Python's standard library doesn't support true dual rotation.
+            # Use TimedRotatingFileHandler as the primary rotation mechanism,
+            # which ensures logs rotate at least by time. For true dual rotation,
+            # consider using logrotate or an external log management tool.
+            handler = TimedRotatingFileHandler(
                 filename=log_path,
-                maxBytes=max_size_mb * 1024 * 1024,
+                when=_get_time_interval(time_interval),
                 backupCount=backup_count,
                 encoding="utf-8"
             )
