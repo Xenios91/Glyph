@@ -276,7 +276,7 @@ def log_token_refresh(
         "ip_address": ip_address,
     }
 
-    logger.info(
+    logger.debug(
         "Token refreshed: user_id=%d, type=%s", user_id, token_type,
         extra={"extra_data": log_data},
     )
@@ -304,7 +304,7 @@ def log_api_key_usage(
         "ip_address": ip_address,
     }
 
-    logger.info(
+    logger.debug(
         "API key used: user_id=%d, key=%s..., endpoint=%s",
         user_id, api_key_prefix, endpoint,
         extra={"extra_data": log_data},

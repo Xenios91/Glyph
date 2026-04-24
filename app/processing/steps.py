@@ -169,7 +169,7 @@ class ValidationStep(PipelineStep):
             context.error = f"Binary file is empty: {binary_path}"
             return context
 
-        logger.info("Validation passed for %s (%d bytes)", binary_path, file_size)
+        logger.debug("Validation passed for %s (%d bytes)", binary_path, file_size)
         return context
 
 
@@ -263,7 +263,7 @@ class TokenizeStep(PipelineStep):
 
         context.set("tokenized_functions", tokenized_functions)
 
-        logger.info(
+        logger.debug(
             "Tokenization completed: %d functions tokenized", len(tokenized_functions)
         )
 
@@ -310,7 +310,7 @@ class FilterStep(PipelineStep):
 
         context.set("filtered_functions", filtered_functions)
 
-        logger.info(
+        logger.debug(
             "Filtering completed: %d functions filtered", len(filtered_functions)
         )
 
@@ -358,7 +358,7 @@ class FeatureExtractStep(PipelineStep):
         # the fit_transform operation during training
         context.set("tokens", tokens)
 
-        logger.info(
+        logger.debug(
             "Feature extraction completed: %d samples",
             len(tokens),
         )
@@ -422,11 +422,11 @@ class TrainStep(PipelineStep):
 
         try:
             # Validate data before training
-            logger.info("Training data: %d tokens, %d labels", len(tokens), len(y))
+            logger.debug("Training data: %d tokens, %d labels", len(tokens), len(y))
             # Guard expensive debug logging to avoid computation when disabled
-            if logger.isEnabledFor(logging.INFO):
-                logger.info("Token sample: %s", tokens[0][:100] if tokens else "empty")
-                logger.info("Label distribution: %s", np.bincount(y))
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Token sample: %s", tokens[0][:100] if tokens else "empty")
+                logger.debug("Label distribution: %s", np.bincount(y))
             
             # Train the model - ML pipeline handles vectorization internally
             ml_pipeline.fit(tokens, y)

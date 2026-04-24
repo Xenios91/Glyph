@@ -40,7 +40,7 @@ class TaskService:
                 user_id=ctx.user_id,
                 username=ctx.username,
             )
-            logger.info(
+            logger.debug(
                 "Job queued: job_uuid=%s", job_uuid,
                 extra={"extra_data": {"job_uuid": job_uuid, "task_id": job_uuid}},
             )

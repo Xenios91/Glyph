@@ -92,7 +92,7 @@ class EventWatcher:
         """
         self._callbacks[job_uuid] = callback
         self._watched_futures[job_uuid] = (request, future)
-        logger.info("Registered callback for job: job_uuid=%s", job_uuid)
+        logger.debug("Registered callback for job: job_uuid=%s", job_uuid)
 
     def start_watching(self) -> None:
         """Start watching for completed futures in a background thread."""
@@ -125,7 +125,7 @@ class EventWatcher:
     def _watch_loop(self) -> None:
         """Background loop that watches for completed futures."""
 
-        logger.info("EventWatcher loop started")
+        logger.debug("EventWatcher loop started")
         # Type guard: _stop_event is set in start_watching before this loop runs
         assert self._stop_event is not None
         while self._watching and not self._stop_event.is_set():
@@ -161,7 +161,7 @@ class EventWatcher:
                                         username=current_ctx.username,
                                     )
                                     self._callbacks[job_uuid](request, future)
-                                    logger.info(
+                                    logger.debug(
                                         "Callback invoked for job: job_uuid=%s",
                                         job_uuid,
                                         extra={"extra_data": {"job_uuid": job_uuid, "task_id": job_uuid}},
@@ -181,9 +181,9 @@ class EventWatcher:
                                 and self._watched_futures[job_uuid][1] is future
                             ):
                                 del self._watched_futures[job_uuid]
-                                logger.info("Cleaned up job: %s", job_uuid)
+                                logger.debug("Cleaned up job: %s", job_uuid)
                             else:
-                                logger.info(
+                                logger.debug(
                                     "Job %s was re-registered by callback, keeping alive.",
                                     job_uuid,
                                 )

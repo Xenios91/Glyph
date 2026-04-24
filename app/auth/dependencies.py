@@ -109,7 +109,7 @@ async def get_current_user(
         user_id = payload.get("sub")
         if user_id:
             user_id = int(user_id)
-            logger.info("JWT token verified for user_id=%s", user_id)
+            logger.debug("JWT token verified for user_id=%s", user_id)
     except Exception as jwt_error:
         logger.debug("JWT verification failed, trying API key: %s", jwt_error)
         # If JWT verification fails, try API key
@@ -117,7 +117,7 @@ async def get_current_user(
         api_key_record = await api_key_repo.verify_and_get(token)
         
         if api_key_record:
-            logger.info("API key verified for user_id=%s", api_key_record.user_id)
+            logger.debug("API key verified for user_id=%s", api_key_record.user_id)
             # Log API key usage for security audit
             ip_address = request.client.host if request.client else None
             log_api_key_usage(
@@ -165,7 +165,7 @@ async def get_current_user(
     
     # Set request context for downstream logging
     set_request_context(user_id=user.id, username=user.username)
-    logger.info("User authenticated successfully: user_id=%s, username=%s", user.id, user.username)
+    logger.debug("User authenticated successfully: user_id=%s, username=%s", user.id, user.username)
     return user
 
 

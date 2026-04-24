@@ -219,7 +219,7 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                         data=training_data,
                     )
                     FunctionPersistanceUtil.add_model_functions(training_request)
-                    logger.info(
+                    logger.debug(
                         "Functions saved to database for model: %s",
                         ghidra_request.model_name,
                     )
@@ -228,7 +228,7 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
             else:
                 predictions = result.get("predictions")
                 filtered_functions = result.get("filtered_functions")
-                logger.info(
+                logger.debug(
                     "[PREDICTION] Processing results - predictions: %d, filtered_functions: %d, task_name: '%s'",
                     len(predictions) if predictions else 0,
                     len(filtered_functions) if filtered_functions else 0,
@@ -245,7 +245,7 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                             "erroredFunctions": result.get("errored_functions", []),
                         },
                     }
-                    logger.info(
+                    logger.debug(
                         "[PREDICTION] Creating PredictionRequest with task_name: '%s', uuid: %s",
                         ghidra_request.task_name,
                         ghidra_request.uuid,
@@ -256,14 +256,14 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                             model_name=ghidra_request.model_name,
                             data=prediction_data,
                         )
-                        logger.info(
+                        logger.debug(
                             "[PREDICTION] PredictionRequest created successfully, task_name from request: '%s'",
                             prediction_request.task_name,
                         )
                         FunctionPersistanceUtil.add_prediction_functions(
                             prediction_request, predictions
                         )
-                        logger.info(
+                        logger.debug(
                             "Predictions saved to database for task: %s",
                             ghidra_request.task_name,
                         )

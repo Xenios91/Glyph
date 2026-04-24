@@ -170,7 +170,7 @@ class ProcessingPipeline:
 
         for step in self._steps:
             try:
-                logger.info("Executing step: %s", step.get_name())
+                logger.debug("Executing step: %s", step.get_name())
                 context = step.execute(context)
 
                 # Check if step set an error
@@ -188,7 +188,7 @@ class ProcessingPipeline:
                     )
                     break
 
-                logger.info(
+                logger.debug(
                     "Step %s completed successfully", step.get_name()
                 )
 
