@@ -7,9 +7,14 @@ This module provides:
 - Request context support for tracing
 - Sensitive data redaction filter
 - Rate limiting filter to prevent log spam
+- Async logging handler for non-blocking I/O
+- Log sampling filter for high-volume scenarios
+- Logging best practice validation filter
 - Utility functions for getting configured loggers
+- Startup/shutdown health summary logging
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -17,7 +22,7 @@ import re
 import stat
 import sys
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from pathlib import Path
@@ -38,10 +43,14 @@ class SensitiveDataFilter(logging.Filter):
     SENSITIVE_PATTERNS = [
         # JWT tokens (Bearer tokens)
         (r'(?i)bearer\s+[A-Za-z0-9\-\._~\+\/]+=*', 'Bearer [REDACTED]'),
+        # Database connection strings
+        (r'(?i)(sqlite|postgresql|mysql|mongodb|redis)(\+[\w]+)?://\S+', '[CONNECTION_STRING_REDACTED]'),
         # Generic token assignments
         (r'(?i)(token|secret|password|passwd|pwd)\s*[=:]\s*\S+', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0))),
         # API keys (common prefixes)
         (r'(?i)(api[_-]?key|apikey)\s*[=:]\s*\S+', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0))),
+        # Generic secrets in environment variable format
+        (r'(?i)(secret_key|jwt_secret|oauth_secret)\s*[=:]\s*\S+', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0))),
         # Email addresses in sensitive contexts
         (r'(?i)(password|token|secret)[^@]*@[A-Za-z0-9\.-]+\.[A-Za-z]{2,}', '[REDACTED]'),
     ]
@@ -107,6 +116,7 @@ class RateLimitingFilter(logging.Filter):
         max_messages: int = 10,
         period: float = 60.0,
         key_func: Any = None,
+        max_keys: int = 1000,
     ):
         """Initialize the rate limiting filter.
 
@@ -115,13 +125,17 @@ class RateLimitingFilter(logging.Filter):
             period: Time period in seconds.
             key_func: Custom function to generate rate limit keys.
                       Defaults to using logger name + first 50 chars of message.
+            max_keys: Maximum number of unique keys to track (memory bound).
         """
         super().__init__()
         self.max_messages = max_messages
         self.period = period
         self.key_func = key_func or self._default_key_func
+        self.max_keys = max_keys
         self._buckets: dict[str, list[float]] = defaultdict(list)
         self._suppressed: dict[str, int] = defaultdict(int)
+        self._last_cleanup = time.monotonic()
+        self._cleanup_interval = 300.0  # 5 minutes
 
     @staticmethod
     def _default_key_func(record: logging.LogRecord) -> str:
@@ -146,6 +160,31 @@ class RateLimitingFilter(logging.Filter):
         cutoff = now - self.period
         self._buckets[key] = [t for t in self._buckets[key] if t > cutoff]
 
+    def _cleanup_stale_keys(self, now: float) -> None:
+        """Remove stale keys and evict oldest if over memory limit.
+
+        Args:
+            now: Current monotonic timestamp.
+        """
+        cutoff = now - self.period
+        # Clean old timestamps and remove empty buckets
+        for key in list(self._buckets):
+            self._buckets[key] = [t for t in self._buckets[key] if t > cutoff]
+            if not self._buckets[key]:
+                del self._buckets[key]
+                self._suppressed.pop(key, None)
+
+        # Evict oldest keys if over limit
+        if len(self._buckets) > self.max_keys:
+            keys_by_activity = sorted(
+                self._buckets.keys(),
+                key=lambda k: max(self._buckets[k]) if self._buckets[k] else 0,
+            )
+            keys_to_remove = keys_by_activity[:len(self._buckets) - self.max_keys]
+            for key in keys_to_remove:
+                del self._buckets[key]
+                self._suppressed.pop(key, None)
+
     def filter(self, record: logging.LogRecord) -> bool:
         """Check if the log record should be allowed through.
 
@@ -158,7 +197,15 @@ class RateLimitingFilter(logging.Filter):
         key = self.key_func(record)
         now = time.monotonic()
 
+        # Periodic cleanup of stale keys
+        if now - self._last_cleanup > self._cleanup_interval:
+            self._cleanup_stale_keys(now)
+
         self._cleanup_old_timestamps(key, now)
+
+        # Evict if over key limit
+        if len(self._buckets) > self.max_keys:
+            self._cleanup_stale_keys(now)
 
         if len(self._buckets[key]) < self.max_messages:
             self._buckets[key].append(now)
@@ -189,25 +236,30 @@ class RateLimitingFilter(logging.Filter):
 
 
 class JSONFormatter(logging.Formatter):
-    """JSON formatter for structured logging.
+    """Optimized JSON formatter for structured logging.
 
-    Formats log records as JSON with standard fields:
-    - timestamp: ISO 8601 format with timezone (from record.created)
-    - level: Log level
+    Formats log records as JSON with standard fields using lazy context
+    evaluation and shorter field names for reduced payload size:
+    - t: ISO 8601 timestamp
+    - l: Log level
     - logger: Logger name
-    - message: Log message
-    - request_id: Request ID if available
-    - user_id: User ID if available
-    - username: Username if available
+    - msg: Log message
+    - rid: Request ID if available
+    - uid: User ID if available
+    - user: Username if available
+    - tid: Task ID for background tasks if available
+    - exc: Exception traceback if present
     - extra: Additional context-specific fields
     """
 
     def __init__(self, include_context: bool = True):
         super().__init__()
         self.include_context = include_context
+        # Local reference for faster serialization
+        self._json_dumps = json.dumps
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format a log record as JSON.
+        """Format a log record as JSON with lazy context evaluation.
 
         Args:
             record: The log record to format.
@@ -215,46 +267,48 @@ class JSONFormatter(logging.Formatter):
         Returns:
             str: JSON string representation of the log record.
         """
-        # Use record.created for accurate timestamp instead of calling datetime.now()
         timestamp = datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat()
 
         log_data: dict[str, Any] = {
-            "timestamp": timestamp,
-            "level": record.levelname,
+            "t": timestamp,
+            "l": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            "msg": record.getMessage(),
         }
 
-        # Add request context if enabled
+        # Lazy context - only add non-null values
         if self.include_context:
             ctx = get_request_context()
-            log_data["request_id"] = ctx.request_id
-            log_data["user_id"] = ctx.user_id
-            log_data["username"] = ctx.username
+            if ctx.request_id:
+                log_data["rid"] = ctx.request_id
+            if ctx.user_id is not None:
+                log_data["uid"] = ctx.user_id
+            if ctx.username:
+                log_data["user"] = ctx.username
+            if ctx.task_id:
+                log_data["tid"] = ctx.task_id
 
-        # Add exception info if present
+        # Add exception info only if present
         if record.exc_info and record.exc_info[0] is not None:
-            log_data["exception"] = self.formatException(record.exc_info)
+            log_data["exc"] = self.formatException(record.exc_info)
 
-        # Add stack info if present
+        # Add stack info only if present
         if record.stack_info:
             log_data["stack"] = self.formatStack(record.stack_info)
 
-        # Add extra fields
+        # Add extra fields only if present
         extra_data = getattr(record, 'extra_data', None)
         if extra_data:
             log_data["extra"] = extra_data
 
-        # Add standard extra fields from record (only in debug mode to reduce overhead)
+        # Debug-only fields
         if record.levelno <= logging.DEBUG:
-            extra_fields = ['filename', 'funcName', 'lineno', 'pathname', 'threadName']
-            for field in extra_fields:
-                if hasattr(record, field):
-                    value = getattr(record, field)
-                    if value:
-                        log_data[f"_{field}"] = value
+            for field in ('filename', 'funcName', 'lineno', 'pathname', 'threadName'):
+                value = getattr(record, field, None)
+                if value:
+                    log_data[f"_{field}"] = value
 
-        return json.dumps(log_data, default=str)
+        return self._json_dumps(log_data, default=str)
 
 
 class ColoredFormatter(logging.Formatter):
@@ -367,6 +421,190 @@ class _RotatingFileHandlerWithPermissions:
         _set_log_file_permissions(log_path)
 
 
+class AsyncLogHandler(logging.Handler):
+    """Non-blocking async log handler using a queue.
+
+    Queues log records and processes them asynchronously to avoid
+    blocking the event loop during request handling.
+    """
+
+    def __init__(
+        self,
+        target_handler: logging.Handler,
+        max_queue_size: int = 1000,
+    ):
+        """Initialize the async log handler.
+
+        Args:
+            target_handler: The handler to forward records to.
+            max_queue_size: Maximum number of records to queue.
+        """
+        super().__init__()
+        self.target = target_handler
+        self._queue: deque[logging.LogRecord] = deque(maxlen=max_queue_size)
+        self._task: asyncio.Task | None = None
+        self._locked = False
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Queue a log record for async processing.
+
+        Args:
+            record: The log record to queue.
+        """
+        self._queue.append(record)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running event loop (e.g., during startup/shutdown)
+            # Process synchronously
+            self._process_sync()
+            return
+
+        if self._task is None or self._task.done():
+            self._task = loop.create_task(self._process_queue())
+
+    def _process_sync(self) -> None:
+        """Process queued records synchronously (no event loop)."""
+        while self._queue:
+            record = self._queue.popleft()
+            try:
+                self.target.emit(record)
+            except Exception:
+                self.handleError(record)
+
+    async def _process_queue(self) -> None:
+        """Process queued records asynchronously."""
+        while self._queue:
+            record = self._queue.popleft()
+            try:
+                self.target.emit(record)
+            except Exception:
+                self.handleError(record)
+            await asyncio.sleep(0)  # Yield to event loop
+
+    def flush(self) -> None:
+        """Flush all queued records synchronously."""
+        self._process_sync()
+
+    def close(self) -> None:
+        """Close the handler and flush remaining records."""
+        self.flush()
+        self.target.close()
+        super().close()
+
+
+class SamplingFilter(logging.Filter):
+    """Sample log messages to reduce volume in high-traffic scenarios.
+
+    Allows a configurable percentage of log messages through,
+    useful for reducing log volume in production.
+    """
+
+    def __init__(self, sample_rate: float = 1.0):
+        """Initialize the sampling filter.
+
+        Args:
+            sample_rate: Fraction of messages to allow (0.0 to 1.0).
+                         1.0 means all messages, 0.1 means 10%.
+        """
+        super().__init__()
+        self.sample_rate = max(0.0, min(1.0, sample_rate))
+        self._counter = 0
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Determine if the record should be logged based on sample rate.
+
+        Args:
+            record: The log record to filter.
+
+        Returns:
+            True to include the record, False to suppress.
+        """
+        if self.sample_rate >= 1.0:
+            return True
+        if self.sample_rate <= 0.0:
+            return False
+        self._counter += 1
+        interval = max(1, int(1.0 / self.sample_rate))
+        return (self._counter % interval) == 0
+
+
+class LoggingBestPracticeFilter(logging.Filter):
+    """Development-only filter that validates logging best practices.
+
+    Warns about common anti-patterns like string concatenation in log messages
+    or missing exception info when logging errors.
+    """
+
+    def __init__(self, enabled: bool = False):
+        """Initialize the best practice filter.
+
+        Args:
+            enabled: Whether to enable validation (default: False for production).
+        """
+        super().__init__()
+        self.enabled = enabled
+        self._warnings: set[str] = set()
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Validate the log record against best practices.
+
+        Args:
+            record: The log record to validate.
+
+        Returns:
+            True to always include the record (this filter only warns).
+        """
+        if not self.enabled:
+            return True
+
+        # Check for string formatting anti-patterns in message
+        if isinstance(record.msg, str):
+            # Warn about f-string remnants (should use % formatting)
+            if '{' in record.msg and '}' in record.msg:
+                key = f"unformatted_braces:{record.name}"
+                if key not in self._warnings:
+                    self._warnings.add(key)
+                    sys.stderr.write(
+                        f"[LOGGING WARNING] Potential unformatted braces in log message "
+                        f"in {record.name}. Use % formatting instead of f-strings.\n"
+                    )
+
+            # Warn about error logs without exception info
+            if record.levelno == logging.ERROR and not record.exc_info:
+                key = f"error_no_exc:{record.name}:{record.msg[:50]}"
+                if key not in self._warnings:
+                    self._warnings.add(key)
+                    sys.stderr.write(
+                        f"[LOGGING WARNING] Error log without exc_info in {record.name}. "
+                        f"Consider using logger.exception() or exc_info=True.\n"
+                    )
+
+        return True
+
+
+def log_startup_summary() -> None:
+    """Log a startup summary with logging configuration details.
+
+    Outputs a structured log message showing the current logging
+    configuration, active handlers, and system state.
+    """
+    root_logger = logging.getLogger()
+    logger = get_logger("glyph.startup")
+
+    handler_names = [type(h).__name__ for h in root_logger.handlers]
+
+    logger.info(
+        "Logging initialized",
+        extra={"extra_data": {
+            "event": "startup",
+            "log_level": logging.getLevelName(root_logger.level),
+            "handlers": handler_names,
+            "handler_count": len(handler_names),
+        }}
+    )
+
+
 def setup_logging(
     level: str = "INFO",
     format: str = "json",
@@ -381,6 +619,13 @@ def setup_logging(
     rate_limit: bool = False,
     rate_limit_max: int = 10,
     rate_limit_period: float = 60.0,
+    rate_limit_max_keys: int = 1000,
+    module_levels: dict[str, str] | None = None,
+    async_logging: bool = False,
+    async_max_queue: int = 1000,
+    sampling_enabled: bool = False,
+    sampling_rate: float = 1.0,
+    best_practice_filter: bool = False,
 ) -> None:
     """Set up logging configuration.
 
@@ -389,7 +634,11 @@ def setup_logging(
     - Console handler with optional colors
     - JSON or text formatting
     - Sensitive data redaction
-    - Optional rate limiting
+    - Optional rate limiting with memory bounds
+    - Per-module log level overrides
+    - Async logging support
+    - Log sampling for high-volume scenarios
+    - Best practice validation filter
 
     Args:
         level: Log level for file handler (DEBUG, INFO, WARNING, ERROR, CRITICAL).
@@ -405,6 +654,13 @@ def setup_logging(
         rate_limit: Whether to enable rate limiting.
         rate_limit_max: Maximum messages per period when rate limiting enabled.
         rate_limit_period: Time period in seconds for rate limiting.
+        rate_limit_max_keys: Maximum unique keys to track in rate limiter.
+        module_levels: Dict mapping module names to log level overrides.
+        async_logging: Whether to wrap handlers in AsyncLogHandler.
+        async_max_queue: Maximum queue size for async logging.
+        sampling_enabled: Whether to enable log sampling.
+        sampling_rate: Fraction of messages to allow (0.0 to 1.0).
+        best_practice_filter: Whether to enable logging best practice validation.
     """
     # Get log level
     log_level = getattr(logging, level.upper(), logging.INFO)
@@ -417,6 +673,12 @@ def setup_logging(
     # Remove existing handlers to avoid duplicates
     root_logger.handlers.clear()
 
+    # Apply per-module log level overrides
+    if module_levels:
+        for module_name, module_level in module_levels.items():
+            module_logger = logging.getLogger(module_name)
+            module_logger.setLevel(getattr(logging, module_level.upper(), logging.INFO))
+
     # Create shared filters
     sensitive_filter = SensitiveDataFilter()
 
@@ -425,7 +687,19 @@ def setup_logging(
         rate_filter = RateLimitingFilter(
             max_messages=rate_limit_max,
             period=rate_limit_period,
+            max_keys=rate_limit_max_keys,
         )
+
+    sampling_filter: SamplingFilter | None = None
+    if sampling_enabled:
+        sampling_filter = SamplingFilter(sample_rate=sampling_rate)
+
+    best_practice: LoggingBestPracticeFilter | None = None
+    if best_practice_filter:
+        best_practice = LoggingBestPracticeFilter(enabled=True)
+
+    # Build base handler
+    base_handler: logging.Handler | None = None
 
     # Set up file handler if log_file is specified
     if log_file:
@@ -434,24 +708,21 @@ def setup_logging(
 
         # Create appropriate handler based on rotation policy
         if rotate == "time":
-            handler = TimedRotatingFileHandler(
+            base_handler = TimedRotatingFileHandler(
                 filename=log_path,
                 when=_get_time_interval(time_interval),
                 backupCount=backup_count,
                 encoding="utf-8"
             )
         elif rotate == "both":
-            # Use size-based rotation as primary since Python stdlib
-            # doesn't support true dual rotation. The size-based handler
-            # ensures logs don't grow unbounded.
-            handler = RotatingFileHandler(
+            base_handler = RotatingFileHandler(
                 filename=log_path,
                 maxBytes=max_size_mb * 1024 * 1024,
                 backupCount=backup_count,
                 encoding="utf-8"
             )
         else:  # size or default
-            handler = RotatingFileHandler(
+            base_handler = RotatingFileHandler(
                 filename=log_path,
                 maxBytes=max_size_mb * 1024 * 1024,
                 backupCount=backup_count,
@@ -459,32 +730,41 @@ def setup_logging(
             )
 
         # Enable compression for rotated log files (Python 3.9+)
-        handler.compress = True  # type: ignore[attr-defined]
+        if hasattr(base_handler, 'compress'):
+            base_handler.compress = True  # type: ignore[attr-defined]
 
         # Set file mode for append
-        handler.mode = "a"
-
-        handler.setLevel(log_level)
+        base_handler.mode = "a"
+        base_handler.setLevel(log_level)
 
         # Set file permissions after handler is configured
         _set_log_file_permissions(log_path)
 
-        # Set formatter based on format
-        if format == "json":
-            handler.setFormatter(JSONFormatter(include_context=True))
-        else:
-            handler.setFormatter(
-                logging.Formatter(
-                    "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-                )
-            )
+    # Wrap in async handler if enabled
+    file_handler: logging.Handler = base_handler if base_handler else logging.NullHandler()
+    if async_logging and base_handler:
+        file_handler = AsyncLogHandler(target_handler=base_handler, max_queue_size=async_max_queue)
+        file_handler.setLevel(log_level)
 
-        # Add filters
-        handler.addFilter(sensitive_filter)
-        if rate_filter:
-            handler.addFilter(rate_filter)
+    # Set formatter
+    if format == "json":
+        file_handler.setFormatter(JSONFormatter(include_context=True))
+    else:
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
+        )
 
-        root_logger.addHandler(handler)
+    # Add filters to file handler
+    file_handler.addFilter(sensitive_filter)
+    if rate_filter:
+        file_handler.addFilter(rate_filter)
+    if sampling_filter:
+        file_handler.addFilter(sampling_filter)
+    if best_practice:
+        file_handler.addFilter(best_practice)
+
+    if log_file:
+        root_logger.addHandler(file_handler)
 
     # Set up console handler
     if console_enabled:
@@ -496,8 +776,11 @@ def setup_logging(
         else:
             console_handler.setFormatter(ColoredFormatter(colorize=colorize))
 
-        # Add sensitive data filter to console as well
         console_handler.addFilter(sensitive_filter)
+        if sampling_filter:
+            console_handler.addFilter(sampling_filter)
+        if best_practice:
+            console_handler.addFilter(best_practice)
 
         root_logger.addHandler(console_handler)
 
@@ -525,6 +808,26 @@ def setup_logging_from_config() -> None:
     # Get logging config from settings (LoggingConfig Pydantic model)
     log_config = settings.logging
 
+    # Access Pydantic model attributes directly (not .get())
+    rate_limit_config = getattr(log_config, 'rate_limit', None)
+    rate_limit_enabled = rate_limit_config.enabled if rate_limit_config else False
+    rate_limit_max = rate_limit_config.max_messages if rate_limit_config else 10
+    rate_limit_period = rate_limit_config.period if rate_limit_config else 60.0
+    rate_limit_max_keys = rate_limit_config.max_keys if rate_limit_config else 1000
+
+    # Build module levels
+    module_levels = getattr(log_config, 'module_levels', None)
+
+    # Build async logging config
+    async_config = getattr(log_config, 'async_logging', None)
+    async_enabled = async_config.enabled if async_config else False
+    async_max_queue = async_config.max_queue_size if async_config else 1000
+
+    # Build sampling config
+    sampling_config = getattr(log_config, 'sampling', None)
+    sampling_enabled = sampling_config.enabled if sampling_config else False
+    sampling_rate = sampling_config.rate if sampling_config else 1.0
+
     setup_logging(
         level=log_config.level,
         format=log_config.format,
@@ -536,4 +839,14 @@ def setup_logging_from_config() -> None:
         console_enabled=log_config.console.enabled,
         console_level=log_config.console.level,
         colorize=log_config.console.colorize,
+        rate_limit=rate_limit_enabled,
+        rate_limit_max=rate_limit_max,
+        rate_limit_period=rate_limit_period,
+        rate_limit_max_keys=rate_limit_max_keys,
+        module_levels=dict(module_levels) if module_levels else None,
+        async_logging=async_enabled,
+        async_max_queue=async_max_queue,
+        sampling_enabled=sampling_enabled,
+        sampling_rate=sampling_rate,
+        best_practice_filter=False,  # Only enable in dev mode via env var
     )

@@ -31,27 +31,27 @@ def create_app() -> FastAPI:
 
     # Add Request ID tracing middleware (must be first to capture all requests)
     app.add_middleware(RequestIDMiddleware)
-    logger.info("✅ Request ID middleware added")
+    logger.info("Middleware registered: RequestIDMiddleware")
 
     # Add CSRF protection middleware
     app.add_middleware(CSRFMiddleware)
-    logger.info("✅ CSRF middleware added")
+    logger.info("Middleware registered: CSRFMiddleware")
 
     try:
         app.mount("/static", StaticFiles(directory="static"), name="static")
-        logger.info("✅ Static files mounted at /static")
+        logger.info("Static files mounted at /static")
     except Exception as e:
         logger.warning("Static files mount failed: %s", e)
 
     # Include auth router
     app.include_router(auth_router)
-    logger.info("✅ Auth router registered at /auth")
+    logger.info("Router registered: auth at /auth")
 
     app.include_router(api_router, prefix="/api")
-    logger.info("✅ API router registered at /api")
+    logger.info("Router registered: api at /api")
 
     app.include_router(web_router)
-    logger.info("✅ Web router registered")
+    logger.info("Router registered: web")
 
     return app
 

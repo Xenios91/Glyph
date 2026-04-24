@@ -1,5 +1,6 @@
 """SQL utility module for database operations."""
 
+import logging
 import os
 import sqlite3
 from io import BytesIO
@@ -12,6 +13,29 @@ from app.utils.logging_config import get_logger
 from app.utils.secure_deserializer import secure_load, SecureDeserializationError
 
 logger = get_logger(__name__)
+
+
+def _log_db_error(
+    logger: logging.Logger,
+    operation: str,
+    error: Exception,
+    context: dict[str, Any] | None = None,
+) -> None:
+    """Log a database error with structured context.
+
+    Args:
+        logger: The logger instance to use.
+        operation: The database operation that failed.
+        error: The exception that occurred.
+        context: Optional additional context data.
+    """
+    extra: dict[str, Any] = {"operation": operation}
+    if context:
+        extra.update(context)
+    logger.error(
+        "Database error during %s: %s", operation, error,
+        extra={"extra_data": extra},
+    )
 
 
 class SQLUtil:
@@ -30,7 +54,7 @@ class SQLUtil:
                     )
                     con.commit()
                 except sqlite3.Error as error:
-                    logger.error("Database error: %s", error)
+                    _log_db_error(logger, "init_models_db", error)
 
         if not os.path.exists("predictions.db"):
             with sqlite3.connect("predictions.db") as con:
@@ -42,7 +66,7 @@ class SQLUtil:
                     )
                     con.commit()
                 except sqlite3.Error as error:
-                    logger.error("Database error: %s", error)
+                    _log_db_error(logger, "init_predictions_db", error)
 
     @staticmethod
     def save_model(model_name: str, label_encoder, model: bytes) -> None:
@@ -68,7 +92,7 @@ class SQLUtil:
                 con.commit()
                 logger.info("Model '%s' saved successfully", model_name)
             except sqlite3.Error as error:
-                logger.error("Database error saving model '%s': %s", model_name, error)
+                _log_db_error(logger, "save_model", error, {"model_name": model_name})
 
     @staticmethod
     def get_models_list() -> set[str]:
@@ -87,7 +111,7 @@ class SQLUtil:
                     for model in models:
                         models_set.add(model[0])
                 except sqlite3.Error as error:
-                    logger.error("Database error: %s", error)
+                    _log_db_error(logger, "get_models_list", error)
         return models_set
 
     @staticmethod
@@ -112,7 +136,7 @@ class SQLUtil:
                 logger.warning("Model '%s' not found.", model_name)
                 return None
         except sqlite3.Error as error:
-            logger.error("Database error: %s", error)
+            _log_db_error(logger, "get_model", error, {"model_name": model_name})
             return None
 
     @staticmethod
@@ -131,7 +155,7 @@ class SQLUtil:
                 con.commit()
                 logger.info("Model '%s' deleted successfully", model_name)
             except sqlite3.Error as error:
-                logger.error("Database error deleting model '%s': %s", model_name, error)
+                _log_db_error(logger, "delete_model", error, {"model_name": model_name})
 
     @staticmethod
     def get_predictions_list() -> list[Prediction]:
@@ -172,7 +196,7 @@ class SQLUtil:
                                 deserial_error,
                             )
                 except sqlite3.Error as error:
-                    logger.error("Database error: %s", error)
+                    _log_db_error(logger, "get_predictions_list", error)
         return prediction_results
 
     @staticmethod
@@ -228,7 +252,7 @@ class SQLUtil:
                     task_name=task_name, model_name=model_name, pred=prediction_data
                 )
         except sqlite3.Error as error:
-            logger.error("Database error: %s", error)
+            _log_db_error(logger, "get_predictions", error, {"task_name": task_name, "model_name": model_name})
             return None
         except Exception as error:
             logger.error("Unexpected error: %s", error)
@@ -261,7 +285,7 @@ class SQLUtil:
                 con.commit()
                 logger.info("Prediction for task '%s' with model '%s' saved successfully", name, model_name)
             except sqlite3.Error as error:
-                logger.error("Database error saving prediction for task '%s': %s", name, error)
+                _log_db_error(logger, "save_predictions", error, {"task_name": name, "model_name": model_name})
 
     @staticmethod
     def get_prediction_function(
@@ -309,7 +333,7 @@ class SQLUtil:
                     )
                     return {}
             except sqlite3.Error as error:
-                logger.error("Database error: %s", error)
+                _log_db_error(logger, "get_prediction_function", error, {"task_name": task_name, "model_name": model_name, "function_name": function_name})
         return {}
 
     @staticmethod
@@ -343,7 +367,7 @@ class SQLUtil:
                 con.commit()
                 logger.info("Saved %d functions to model '%s'", len(functions), model_name)
             except sqlite3.Error as error:
-                logger.error("Database error saving functions for model '%s': %s", model_name, error)
+                _log_db_error(logger, "save_functions", error, {"model_name": model_name})
 
     @staticmethod
     def get_functions(model_name: str) -> list:
@@ -362,7 +386,7 @@ class SQLUtil:
                 sql = "SELECT * FROM FUNCTIONS WHERE model_name=?"
                 functions = cur.execute(sql, (model_name,)).fetchall()
             except sqlite3.Error as error:
-                logger.error("Database error: %s", error)
+                _log_db_error(logger, "get_functions", error, {"model_name": model_name})
         return functions
 
     @staticmethod
@@ -385,7 +409,7 @@ class SQLUtil:
                     sql, (model_name, function_name)
                 ).fetchone()
             except sqlite3.Error as error:
-                logger.error("Database error: %s", error)
+                _log_db_error(logger, "get_function", error, {"model_name": model_name, "function_name": function_name})
             return function_information
 
     @staticmethod
@@ -403,7 +427,7 @@ class SQLUtil:
                 con.commit()
                 logger.info("Functions for model '%s' deleted successfully", model_name)
             except sqlite3.Error as error:
-                logger.error("Database error deleting functions for model '%s': %s", model_name, error)
+                _log_db_error(logger, "delete_functions", error, {"model_name": model_name})
 
     @staticmethod
     def delete_prediction(task_name: str) -> None:
@@ -420,7 +444,7 @@ class SQLUtil:
                 con.commit()
                 logger.info("Prediction for task '%s' deleted successfully", task_name)
             except sqlite3.Error as error:
-                logger.error("Database error deleting prediction for task '%s': %s", task_name, error)
+                _log_db_error(logger, "delete_prediction", error, {"task_name": task_name})
                 raise
 
     @staticmethod
@@ -438,7 +462,7 @@ class SQLUtil:
                 con.commit()
                 logger.info("Predictions for model '%s' deleted successfully", model_name)
             except sqlite3.Error as error:
-                logger.error("Database error deleting predictions for model '%s': %s", model_name, error)
+                _log_db_error(logger, "delete_model_predictions", error, {"model_name": model_name})
 
     @staticmethod
     def task_name_exists(task_name: str) -> bool:
@@ -462,5 +486,5 @@ class SQLUtil:
                 count = result[0] if result else 0
                 return count > 0
         except sqlite3.Error as error:
-            logger.error("Database error checking task name: %s", error)
+            _log_db_error(logger, "task_name_exists", error, {"task_name": task_name})
             return False

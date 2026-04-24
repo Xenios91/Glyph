@@ -154,9 +154,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                     token_from_form, expected_token
                 ):
                     return True
-            except Exception:
+            except Exception as e:
                 # If we can't parse form data, fall through to return False
-                pass
+                logger.debug("Failed to parse form data for CSRF validation: %s", e, exc_info=True)
 
         return False
 

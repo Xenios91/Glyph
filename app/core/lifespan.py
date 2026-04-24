@@ -8,7 +8,7 @@ from app.database.sql_service import SQLUtil
 from app.database.session_handler import init_async_databases
 from app.processing.task_management import EventWatcher
 from app.services.task_service import TaskService
-from app.utils.logging_config import get_logger
+from app.utils.logging_config import get_logger, log_startup_summary
 
 logger = get_logger(__name__)
 
@@ -24,6 +24,9 @@ async def lifespan(app: FastAPI):
     except RuntimeError as e:
         logger.critical("Configuration failed: %s", e)
         raise
+
+    # Log startup summary
+    log_startup_summary()
 
     try:
         SQLUtil.init_db()

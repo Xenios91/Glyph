@@ -19,8 +19,33 @@ from app.services.request_handler import GhidraRequest
 from app.services.task_service import TaskService
 from app.processing.pipeline import PipelineContext
 from app.utils.logging_config import get_logger
+from app.utils.request_context import get_request_context, set_request_context, clear_request_context
 
 logger = get_logger(__name__)
+
+
+def _run_with_context(job_uuid: str, target: Callable[..., Any], *args: Any) -> None:
+    """Run a target function with propagated request context.
+
+    Captures the current request context before entering the background thread
+    and restores it within the target execution.
+
+    Args:
+        job_uuid: The job UUID to set as task_id.
+        target: The callable to execute.
+        *args: Arguments to pass to the target.
+    """
+    ctx = get_request_context()
+    try:
+        set_request_context(
+            request_id=ctx.request_id,
+            task_id=job_uuid,
+            user_id=ctx.user_id,
+            username=ctx.username,
+        )
+        target(*args)
+    finally:
+        clear_request_context()
 
 
 class EventWatcher:
@@ -127,17 +152,30 @@ class EventWatcher:
                             # Invoke registered callback
                             if job_uuid in self._callbacks:
                                 try:
+                                    # Propagate request context to callback thread
+                                    current_ctx = get_request_context()
+                                    set_request_context(
+                                        request_id=current_ctx.request_id,
+                                        task_id=job_uuid,
+                                        user_id=current_ctx.user_id,
+                                        username=current_ctx.username,
+                                    )
                                     self._callbacks[job_uuid](request, future)
                                     logger.info(
                                         "Callback invoked for job: job_uuid=%s",
                                         job_uuid,
+                                        extra={"extra_data": {"job_uuid": job_uuid, "task_id": job_uuid}},
                                     )
                                 except Exception as callback_error:
                                     logger.error(
                                         "Callback error for job_uuid=%s: %s",
                                         job_uuid,
                                         callback_error,
+                                        exc_info=True,
+                                        extra={"extra_data": {"job_uuid": job_uuid}},
                                     )
+                                finally:
+                                    clear_request_context()
                             if (
                                 self._watched_futures.get(job_uuid)
                                 and self._watched_futures[job_uuid][1] is future

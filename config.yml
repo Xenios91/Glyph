@@ -20,3 +20,23 @@ logging:
   request_tracing:
     enabled: true
     header_name: X-Request-ID
+  # Per-module log level overrides
+  module_levels:
+    app.database: WARNING
+    app.auth: INFO
+    app.processing: DEBUG
+    uvicorn: INFO
+  # Rate limiting to prevent log spam
+  rate_limit:
+    enabled: false
+    max_messages: 10
+    period: 60.0
+    max_keys: 1000
+  # Async logging for non-blocking I/O
+  async_logging:
+    enabled: false
+    max_queue_size: 1000
+  # Log sampling for high-volume scenarios
+  sampling:
+    enabled: false
+    rate: 0.1  # Log 10% of messages when enabled

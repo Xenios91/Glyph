@@ -43,9 +43,15 @@ def init_databases() -> None:
     for name, engine in engines.items():
         try:
             Base.metadata.create_all(bind=engine)
-            logger.info("Database '%s' initialized successfully", name)
+            logger.info(
+                "Database '%s' initialized successfully", name,
+                extra={"extra_data": {"database": name, "operation": "init_db"}},
+            )
         except Exception as exc:
-            logger.error("Failed to initialize database '%s': %s", name, exc)
+            logger.error(
+                "Failed to initialize database '%s': %s", name, exc,
+                extra={"extra_data": {"database": name, "operation": "init_db"}},
+            )
 
 
 async def init_async_databases() -> None:
@@ -59,7 +65,10 @@ async def init_async_databases() -> None:
         
         async with async_engines[name].begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        logger.info("Async database '%s' initialized successfully", name)
+        logger.info(
+            "Async database '%s' initialized successfully", name,
+            extra={"extra_data": {"database": name, "operation": "init_async_db"}},
+        )
 
 
 @contextmanager
@@ -84,7 +93,10 @@ def get_session(database: str = "models") -> Generator[Session, None, None]:
         session.commit()
     except Exception as exc:
         session.rollback()
-        logger.error("Database error in '%s': %s", database, exc)
+        logger.error(
+            "Database error in '%s': %s", database, exc,
+            extra={"extra_data": {"database": database, "operation": "get_session"}},
+        )
         raise
     finally:
         session.close()
@@ -131,7 +143,12 @@ def get_db(database: str = "models") -> Generator[Session, None, None]:
     try:
         yield session
         session.commit()
-    except Exception:
+    except Exception as exc:
+        logger.debug(
+            "Database error in '%s', rolling back: %s", database, exc,
+            exc_info=True,
+            extra={"extra_data": {"database": database, "operation": "get_db"}},
+        )
         session.rollback()
         raise
     finally:

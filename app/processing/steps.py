@@ -7,6 +7,7 @@ filtering, feature extraction, training, and prediction.
 Python 3.11+
 """
 
+import logging
 import os
 import re
 from typing import Any, cast
@@ -422,8 +423,10 @@ class TrainStep(PipelineStep):
         try:
             # Validate data before training
             logger.info("Training data: %d tokens, %d labels", len(tokens), len(y))
-            logger.info("Token sample: %s", tokens[0][:100] if tokens else "empty")
-            logger.info("Label distribution: %s", np.bincount(y))
+            # Guard expensive debug logging to avoid computation when disabled
+            if logger.isEnabledFor(logging.INFO):
+                logger.info("Token sample: %s", tokens[0][:100] if tokens else "empty")
+                logger.info("Label distribution: %s", np.bincount(y))
             
             # Train the model - ML pipeline handles vectorization internally
             ml_pipeline.fit(tokens, y)

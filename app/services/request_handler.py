@@ -84,6 +84,10 @@ class TrainingRequest(DataHandler):
 
             self.data = pd.DataFrame(unique_functions)
         except Exception as tr_exception:
+            logger.debug(
+                "Error processing training data for UUID=%s: %s",
+                self.uuid, tr_exception, exc_info=True
+            )
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing training data for UUID: {self.uuid}")
             raise exc from tr_exception

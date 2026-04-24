@@ -44,6 +44,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     try:
         yield session
         await session.commit()
+    except HTTPException:
+        await session.rollback()
+        raise
     except Exception as e:
         await session.rollback()
         logger.error("Database session rolled back: %s", e, exc_info=True)
@@ -214,8 +217,9 @@ async def get_optional_user(
         user_id = payload.get("sub")
         if user_id:
             user_id = int(user_id)
-    except Exception:
+    except Exception as e:
         # If JWT verification fails, try API key
+        logger.debug("JWT verification failed, trying API key: %s", e, exc_info=True)
         api_key_repo = APIKeyRepository(db)
         api_key_record = await api_key_repo.verify_and_get(token)
         

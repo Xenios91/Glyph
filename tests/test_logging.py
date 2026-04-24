@@ -294,10 +294,10 @@ class TestJSONFormatter:
         output = formatter.format(record)
         data = json.loads(output)
 
-        assert data["level"] == "INFO"
+        assert data["l"] == "INFO"
         assert data["logger"] == "test.logger"
-        assert data["message"] == "Test message"
-        assert "timestamp" in data
+        assert data["msg"] == "Test message"
+        assert "t" in data
 
     def test_json_formatter_uses_record_timestamp(self):
         """Test that JSON formatter uses record.created for timestamp."""
@@ -321,7 +321,7 @@ class TestJSONFormatter:
 
         # Parse the timestamp and verify it matches record.created
         from datetime import datetime, timezone
-        parsed = datetime.fromisoformat(data["timestamp"])
+        parsed = datetime.fromisoformat(data["t"])
         assert abs(parsed.timestamp() - known_time) < 1
 
     def test_json_formatter_with_context(self):
@@ -346,9 +346,9 @@ class TestJSONFormatter:
         output = formatter.format(record)
         data = json.loads(output)
 
-        assert data["request_id"] == "test-request-id"
-        assert data["user_id"] == 123
-        assert data["username"] == "testuser"
+        assert data["rid"] == "test-request-id"
+        assert data["uid"] == 123
+        assert data["user"] == "testuser"
 
         clear_request_context()
 
@@ -374,8 +374,8 @@ class TestJSONFormatter:
             output = formatter.format(record)
             data = json.loads(output)
 
-            assert "exception" in data
-            assert "ValueError" in data["exception"]
+            assert "exc" in data
+            assert "ValueError" in data["exc"]
 
     def test_json_formatter_with_extra_data(self):
         """Test JSON formatting with extra_data."""
@@ -734,9 +734,9 @@ class TestLoggingIntegration:
 
         output = log_stream.getvalue()
         data = json.loads(output)
-        assert data["request_id"] == "integration-test-id"
-        assert data["user_id"] == 999
-        assert data["username"] == "integration_user"
+        assert data["rid"] == "integration-test-id"
+        assert data["uid"] == 999
+        assert data["user"] == "integration_user"
 
         test_logger.removeHandler(handler)
         clear_request_context()
@@ -777,7 +777,279 @@ class TestLoggingIntegration:
 
         output = log_stream.getvalue()
         data = json.loads(output)
-        assert "eyJhbGci" not in data["message"]
-        assert "[REDACTED]" in data["message"]
+        assert "eyJhbGci" not in data["msg"]
+        assert "[REDACTED]" in data["msg"]
 
         test_logger.removeHandler(handler)
+
+
+class TestAsyncLogHandler:
+    """Tests for AsyncLogHandler."""
+
+    def test_async_handler_queues_and_processes(self):
+        """Test that async handler queues records and processes them."""
+        from app.utils.logging_config import AsyncLogHandler
+
+        log_stream = StringIO()
+        target = logging.StreamHandler(log_stream)
+        target.setFormatter(logging.Formatter("%(message)s"))
+
+        async_handler = AsyncLogHandler(target, max_queue_size=100)
+
+        test_logger = get_logger("test.async")
+        test_logger.setLevel(logging.INFO)
+        test_logger.addHandler(async_handler)
+
+        test_logger.info("Async test message 1")
+        test_logger.info("Async test message 2")
+
+        # Flush to process queued records
+        async_handler.flush()
+
+        output = log_stream.getvalue()
+        assert "Async test message 1" in output
+        assert "Async test message 2" in output
+
+        async_handler.close()
+        test_logger.removeHandler(async_handler)
+
+    def test_async_handler_close_flushes(self):
+        """Test that closing async handler flushes remaining records."""
+        from app.utils.logging_config import AsyncLogHandler
+
+        log_stream = StringIO()
+        target = logging.StreamHandler(log_stream)
+        target.setFormatter(logging.Formatter("%(message)s"))
+
+        async_handler = AsyncLogHandler(target, max_queue_size=100)
+
+        test_logger = get_logger("test.async_close")
+        test_logger.setLevel(logging.INFO)
+        test_logger.addHandler(async_handler)
+
+        test_logger.info("Message before close")
+        async_handler.close()
+
+        output = log_stream.getvalue()
+        assert "Message before close" in output
+        test_logger.removeHandler(async_handler)
+
+
+class TestSamplingFilter:
+    """Tests for SamplingFilter."""
+
+    def test_sampling_rate_100_passes_all(self):
+        """Test that 100% sample rate passes all messages."""
+        from app.utils.logging_config import SamplingFilter
+
+        filter = SamplingFilter(sample_rate=1.0)
+        for i in range(100):
+            record = logging.LogRecord(
+                name="test", level=logging.INFO,
+                pathname="test.py", lineno=i,
+                msg=f"Message {i}", args=(), exc_info=None,
+            )
+            assert filter.filter(record)
+
+    def test_sampling_rate_50_samples_half(self):
+        """Test that 50% sample rate passes approximately half."""
+        from app.utils.logging_config import SamplingFilter
+
+        filter = SamplingFilter(sample_rate=0.5)
+        passed = 0
+        for i in range(100):
+            record = logging.LogRecord(
+                name="test", level=logging.INFO,
+                pathname="test.py", lineno=i,
+                msg=f"Message {i}", args=(), exc_info=None,
+            )
+            if filter.filter(record):
+                passed += 1
+
+        # Should be approximately 50 (between 40-60)
+        assert 40 <= passed <= 60
+
+    def test_sampling_rate_0_blocks_all(self):
+        """Test that 0% sample rate blocks all messages."""
+        from app.utils.logging_config import SamplingFilter
+
+        filter = SamplingFilter(sample_rate=0.0)
+        for i in range(10):
+            record = logging.LogRecord(
+                name="test", level=logging.INFO,
+                pathname="test.py", lineno=i,
+                msg=f"Message {i}", args=(), exc_info=None,
+            )
+            assert not filter.filter(record)
+
+
+class TestLoggingBestPracticeFilter:
+    """Tests for LoggingBestPracticeFilter."""
+
+    def test_best_practice_filter_disabled_by_default(self):
+        """Test that the filter is disabled by default."""
+        from app.utils.logging_config import LoggingBestPracticeFilter
+
+        filter = LoggingBestPracticeFilter(enabled=False)
+        record = logging.LogRecord(
+            name="test", level=logging.ERROR,
+            pathname="test.py", lineno=1,
+            msg="Error with {braces}", args=(), exc_info=None,
+        )
+        assert filter.filter(record)
+
+    def test_best_practice_filter_enabled_warns(self, capsys):
+        """Test that the filter warns about anti-patterns when enabled."""
+        from app.utils.logging_config import LoggingBestPracticeFilter
+
+        filter = LoggingBestPracticeFilter(enabled=True)
+        record = logging.LogRecord(
+            name="test", level=logging.ERROR,
+            pathname="test.py", lineno=1,
+            msg="Error without exc_info", args=(), exc_info=None,
+        )
+        filter.filter(record)
+
+        captured = capsys.readouterr()
+        assert "LOGGING WARNING" in captured.err
+
+
+class TestRateLimitingFilterMemoryBounds:
+    """Tests for RateLimitingFilter memory bounds."""
+
+    def test_max_keys_eviction(self):
+        """Test that keys are evicted when max_keys is exceeded."""
+        from app.utils.logging_config import RateLimitingFilter
+
+        filter = RateLimitingFilter(max_messages=1, period=60.0, max_keys=3)
+        filter._cleanup_interval = 0  # Force cleanup on every call
+
+        # Create 10 different message keys to trigger eviction
+        for i in range(10):
+            record = logging.LogRecord(
+                name="test", level=logging.INFO,
+                pathname="test.py", lineno=1,
+                msg=f"Unique message number {i}", args=(), exc_info=None,
+            )
+            filter.filter(record)
+
+        # Should have at most max_keys + 1 tracked (off-by-one from add-then-evict)
+        assert len(filter._buckets) <= 4
+
+    def test_cleanup_stale_keys(self):
+        """Test that stale keys are cleaned up."""
+        from app.utils.logging_config import RateLimitingFilter
+
+        filter = RateLimitingFilter(max_messages=1, period=0.1, max_keys=100)
+        filter._cleanup_interval = 0.05  # Force cleanup quickly
+
+        # Create several keys
+        for i in range(5):
+            record = logging.LogRecord(
+                name="test", level=logging.INFO,
+                pathname="test.py", lineno=1,
+                msg=f"Message {i}", args=(), exc_info=None,
+            )
+            filter.filter(record)
+
+        # Wait for period to expire
+        time.sleep(0.15)
+
+        # Trigger cleanup with new record
+        new_record = logging.LogRecord(
+            name="test", level=logging.INFO,
+            pathname="test.py", lineno=1,
+            msg="New message", args=(), exc_info=None,
+        )
+        filter.filter(new_record)
+
+        # Old keys should be cleaned up
+        assert len(filter._buckets) == 1
+
+
+class TestModuleLevels:
+    """Tests for per-module log level configuration."""
+
+    def test_module_level_override(self):
+        """Test that module level overrides work."""
+        setup_logging(
+            level="INFO",
+            format="text",
+            log_file=None,
+            console_enabled=False,
+            module_levels={"app.test_module": "DEBUG"},
+        )
+
+        module_logger = logging.getLogger("app.test_module")
+        assert module_logger.level == logging.DEBUG
+
+        root_logger = logging.getLogger()
+        root_logger.handlers.clear()
+
+
+class TestStartupSummary:
+    """Tests for log_startup_summary."""
+
+    def test_startup_summary_logs(self):
+        """Test that startup summary logs configuration details."""
+        from app.utils.logging_config import log_startup_summary, setup_logging
+
+        setup_logging(
+            level="DEBUG",
+            format="json",
+            log_file=None,
+            console_enabled=True,
+            console_level="DEBUG",
+        )
+
+        # Capture from the console handler
+        log_stream = StringIO()
+        root_logger = logging.getLogger()
+        # Replace console handler with our capture handler
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
+
+        capture_handler = logging.StreamHandler(log_stream)
+        capture_handler.setLevel(logging.DEBUG)
+        from app.utils.logging_config import JSONFormatter
+        capture_handler.setFormatter(JSONFormatter(include_context=False))
+        root_logger.addHandler(capture_handler)
+
+        log_startup_summary()
+
+        output = log_stream.getvalue()
+        assert "Logging initialized" in output
+
+        root_logger.handlers.clear()
+
+
+class TestSensitiveDataFilterExtended:
+    """Tests for extended sensitive data patterns."""
+
+    def test_redacts_connection_strings(self):
+        """Test that database connection strings are redacted."""
+        from app.utils.logging_config import SensitiveDataFilter
+
+        filter = SensitiveDataFilter()
+        record = logging.LogRecord(
+            name="test", level=logging.INFO,
+            pathname="test.py", lineno=1,
+            msg="Connecting to sqlite:///secret.db", args=(), exc_info=None,
+        )
+        filter.filter(record)
+        assert "sqlite:///secret.db" not in record.msg
+        assert "CONNECTION_STRING_REDACTED" in record.msg
+
+    def test_redacts_jwt_secrets(self):
+        """Test that JWT secrets are redacted."""
+        from app.utils.logging_config import SensitiveDataFilter
+
+        filter = SensitiveDataFilter()
+        record = logging.LogRecord(
+            name="test", level=logging.INFO,
+            pathname="test.py", lineno=1,
+            msg="jwt_secret=my_super_secret_key_12345", args=(), exc_info=None,
+        )
+        filter.filter(record)
+        assert "my_super_secret_key_12345" not in record.msg
+        assert "REDACTED" in record.msg

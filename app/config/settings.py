@@ -41,6 +41,26 @@ class LoggingRequestTracingConfig(BaseModel):
     header_name: str = "X-Request-ID"
 
 
+class LoggingRateLimitConfig(BaseModel):
+    """Rate limiting configuration."""
+    enabled: bool = False
+    max_messages: int = Field(default=10, ge=1)
+    period: float = Field(default=60.0, gt=0)
+    max_keys: int = Field(default=1000, ge=1)
+
+
+class LoggingAsyncConfig(BaseModel):
+    """Async logging configuration."""
+    enabled: bool = False
+    max_queue_size: int = Field(default=1000, ge=1)
+
+
+class LoggingSamplingConfig(BaseModel):
+    """Log sampling configuration."""
+    enabled: bool = False
+    rate: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
 class LoggingConfig(BaseModel):
     """Logging configuration."""
     level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
@@ -48,6 +68,10 @@ class LoggingConfig(BaseModel):
     file: LoggingFileConfig = LoggingFileConfig()
     console: LoggingConsoleConfig = LoggingConsoleConfig()
     request_tracing: LoggingRequestTracingConfig = LoggingRequestTracingConfig()
+    module_levels: dict[str, str] = Field(default_factory=dict)
+    rate_limit: LoggingRateLimitConfig = Field(default_factory=LoggingRateLimitConfig)
+    async_logging: LoggingAsyncConfig = Field(default_factory=LoggingAsyncConfig)
+    sampling: LoggingSamplingConfig = Field(default_factory=LoggingSamplingConfig)
 
 
 class GlyphSettings(BaseSettings):
@@ -157,10 +181,16 @@ class GlyphConfig:
             GlyphConfig._initialized = True
             return True
         except FileNotFoundError:
-            logger.error("config.yml not found.")
+            logger.error(
+                "config.yml not found.",
+                extra={"extra_data": {"file": "config.yml", "operation": "load_config"}},
+            )
             return False
         except yaml.YAMLError as yaml_error:
-            logger.error("Failed to parse config.yml: %s", yaml_error)
+            logger.error(
+                "Failed to parse config.yml: %s", yaml_error,
+                extra={"extra_data": {"file": "config.yml", "operation": "load_config"}},
+            )
             return False
 
     @staticmethod
