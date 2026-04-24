@@ -18,7 +18,7 @@
 - Higher performance
 - Processing pipeline
 
-## Upcoming Release V0.0.3
+## Upcoming Release V0.1.0
 
 - Implementing Pyghidra to reduce setup requirements
 - Changing underlying server to fastapi
@@ -29,6 +29,7 @@
 - Pydantic implementation
 - Anti-XSS
 - Anti-CSRF
+- User accounts
 
 
 ![Black Hat Arsenal 2022](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2022.svg)
