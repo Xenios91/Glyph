@@ -413,6 +413,7 @@ class SQLUtil:
                 con.commit()
             except sqlite3.Error as error:
                 logging.error("Database error: %s", error)
+                raise
 
     @staticmethod
     def delete_model_predictions(model_name: str) -> None:

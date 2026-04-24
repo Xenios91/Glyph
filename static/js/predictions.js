@@ -72,7 +72,7 @@ async function deletePrediction() {
     const selection = taskNameElement.innerText;
     const taskToDelete = selection.split(':')[1].replace(/\s+/, '');
     
-    const url = '/models/deletePrediction?task_name=' + encodeURIComponent(taskToDelete);
+    const url = '/api/v1/predictions/deletePrediction?task_name=' + encodeURIComponent(taskToDelete);
     
     try {
         const response = await fetch(url, getFetchOptionsWithCsrf({

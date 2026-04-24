@@ -212,12 +212,30 @@ async def delete_prediction(
     Returns:
         Success response when prediction is deleted.
     """
-    # Validation is handled by Pydantic - task_name is already stripped and validated
-    PredictionPersistanceUtil.delete_prediction(task_name)
-    return create_success_response(
-        data={},
-        message="Prediction deleted successfully",
-    )
+    try:
+        # Validation is handled by Pydantic - task_name is already stripped and validated
+        PredictionPersistanceUtil.delete_prediction(task_name)
+        
+        return create_success_response(
+            data={},
+            message="Prediction deleted successfully",
+        )
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="VALIDATION_ERROR",
+                error_message=str(ve),
+            ).model_dump(),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=create_error_response(
+                error_code="DELETE_ERROR",
+                error_message=f"Failed to delete prediction: {exc}",
+            ).model_dump(),
+        )
 
 
 @router.get("/getPredictionDetails")
