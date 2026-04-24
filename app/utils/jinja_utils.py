@@ -4,11 +4,11 @@ This module provides centralized configuration for Jinja2 templates,
 including CSRF token exposure and other global template functions.
 """
 
-import logging
-
 from fastapi.templating import Jinja2Templates
 
-logger = logging.getLogger(__name__)
+from app.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def configure_jinja2_templates(templates: Jinja2Templates) -> None:

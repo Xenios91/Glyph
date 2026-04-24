@@ -11,8 +11,9 @@ This module provides:
 import json
 import logging
 import os
+import stat
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from pathlib import Path
 from typing import Any
@@ -49,7 +50,7 @@ class JSONFormatter(logging.Formatter):
             str: JSON string representation of the log record.
         """
         log_data: dict[str, Any] = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -210,7 +211,17 @@ def setup_logging(
                 encoding="utf-8"
             )
         
+        # Enable compression for rotated log files (Python 3.9+)
+        # Note: 'compress' attribute exists on BaseRotatingHandler but type stubs may not reflect it
+        handler.compress = True  # type: ignore[attr-defined]
+        
+        # Set restrictive file permissions (0o640 = owner read/write, group read)
+        handler.mode = "a"
+        
         handler.setLevel(log_level)
+        
+        # Set file permissions after handler opens the file
+        _set_log_file_permissions(log_path)
         
         # Set formatter based on format
         if format == "json":
@@ -236,6 +247,22 @@ def setup_logging(
         
         root_logger.addHandler(console_handler)
 
+
+def _set_log_file_permissions(log_path: Path) -> None:
+    """Set restrictive permissions on the log file.
+    
+    Sets file permissions to 0o640 (owner read/write, group read only)
+    to protect sensitive log data.
+    
+    Args:
+        log_path: Path to the log file.
+    """
+    try:
+        if log_path.exists():
+            os.chmod(log_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP)
+    except OSError:
+        # Silently ignore permission errors (e.g., on Windows)
+        pass
 
 def _get_time_interval(interval: str) -> str:
     """Convert time interval string to TimedRotatingFileHandler format.

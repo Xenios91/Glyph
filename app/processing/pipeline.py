@@ -11,7 +11,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-import logging
+from app.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -125,7 +127,6 @@ class ProcessingPipeline:
         """
         self._name = name
         self._steps = steps
-        self._logger = logging.getLogger(self.__class__.__name__)
 
     @property
     def name(self) -> str:
@@ -154,7 +155,7 @@ class ProcessingPipeline:
         Returns:
             The final pipeline context after all steps complete.
         """
-        self._logger.info(
+        logger.info(
             "Starting pipeline '%s' execution for UUID: %s, steps: %d",
             self._name,
             context.uuid,
@@ -163,25 +164,25 @@ class ProcessingPipeline:
 
         for step in self._steps:
             try:
-                self._logger.info("Executing step: %s", step.get_name())
+                logger.info("Executing step: %s", step.get_name())
                 context = step.execute(context)
 
                 # Check if step set an error
                 if context.error is not None:
                     context.status = "error"
-                    self._logger.error(
+                    logger.error(
                         "Step %s failed: %s", step.get_name(), context.error
                     )
                     break
 
-                self._logger.info(
+                logger.info(
                     "Step %s completed successfully", step.get_name()
                 )
 
             except Exception as step_error:
                 context.status = "error"
                 context.error = str(step_error)
-                self._logger.error(
+                logger.error(
                     "Step %s raised exception: %s",
                     step.get_name(),
                     step_error,
@@ -191,6 +192,6 @@ class ProcessingPipeline:
 
         if context.status != "error":
             context.status = "complete"
-            self._logger.info("Pipeline '%s' execution completed successfully", self._name)
+            logger.info("Pipeline '%s' execution completed successfully", self._name)
 
         return context

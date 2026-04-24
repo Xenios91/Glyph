@@ -1,6 +1,5 @@
 """Database session management for Glyph application."""
 
-import logging
 from contextlib import contextmanager
 from typing import Generator
 
@@ -9,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database.models import Base
+from app.utils.logging_config import get_logger
 
 DATABASE_URLS = {
     "models": "sqlite:///models.db",
@@ -35,7 +35,7 @@ ASYNC_DATABASE_URLS = {
 async_engines: dict[str, AsyncEngine] = {}
 async_session_factories: dict[str, async_sessionmaker[AsyncSession]] = {}
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def init_databases() -> None:

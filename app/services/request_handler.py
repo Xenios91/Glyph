@@ -1,11 +1,14 @@
 """Request handler module for processing training and prediction requests."""
 
 import json
-import logging
 from uuid import uuid4
 from typing import Any, cast
 from pathlib import Path
 import pandas as pd
+
+from app.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class DataHandler:
@@ -116,7 +119,7 @@ class PredictionRequest(DataHandler):
 
             self.data = pd.DataFrame(unique_functions)
         except Exception as unknown_exception:
-            logging.error("Error processing prediction data: %s", unknown_exception)
+            logger.error("Error processing prediction data: %s", unknown_exception, exc_info=True)
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing prediction data for UUID: {self.uuid}")
             raise exc from unknown_exception

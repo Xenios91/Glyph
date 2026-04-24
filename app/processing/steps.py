@@ -7,7 +7,6 @@ filtering, feature extraction, training, and prediction.
 Python 3.11+
 """
 
-import logging
 import os
 import re
 from typing import Any, cast
@@ -17,7 +16,10 @@ from sklearn.pipeline import Pipeline as SklearnPipeline
 
 from app.processing.pipeline import PipelineContext, PipelineStep
 from app.utils.persistence_util import MLPersistanceUtil, MLTask
+from app.utils.logging_config import get_logger
 from app.config.settings import get_settings
+
+logger = get_logger(__name__)
 
 
 # ============================================================================
@@ -126,7 +128,6 @@ class ValidationStep(PipelineStep):
             max_size_mb: Maximum allowed file size in megabytes.
         """
         self._max_size_bytes = int(max_size_mb * 1024 * 1024)
-        self._logger = logging.getLogger(self.__class__.__name__)
 
     def get_name(self) -> str:
         """Return the name of this step."""
@@ -167,7 +168,7 @@ class ValidationStep(PipelineStep):
             context.error = f"Binary file is empty: {binary_path}"
             return context
 
-        self._logger.info("Validation passed for %s (%d bytes)", binary_path, file_size)
+        logger.info("Validation passed for %s (%d bytes)", binary_path, file_size)
         return context
 
 
@@ -180,8 +181,6 @@ class DecompileStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the decompile step."""
-        self._logger = logging.getLogger(self.__class__.__name__)
-
     def get_name(self) -> str:
         """Return the name of this step."""
         return "DecompileStep"
@@ -208,7 +207,7 @@ class DecompileStep(PipelineStep):
             context.set("functions", functions)
             context.set("errored_functions", errored_functions)
 
-            self._logger.info(
+            logger.info(
                 "Decompilation completed: %d functions, %d errors",
                 len(functions),
                 len(errored_functions),
@@ -216,7 +215,7 @@ class DecompileStep(PipelineStep):
 
         except Exception as decompile_error:
             context.error = f"Decompilation failed: {decompile_error}"
-            self._logger.error(
+            logger.error(
                 "Decompilation error: %s", decompile_error, exc_info=True
             )
 
@@ -232,8 +231,6 @@ class TokenizeStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the tokenize step."""
-        self._logger = logging.getLogger(self.__class__.__name__)
-
     def get_name(self) -> str:
         """Return the name of this step."""
         return "TokenizeStep"
@@ -265,7 +262,7 @@ class TokenizeStep(PipelineStep):
 
         context.set("tokenized_functions", tokenized_functions)
 
-        self._logger.info(
+        logger.info(
             "Tokenization completed: %d functions tokenized", len(tokenized_functions)
         )
 
@@ -281,8 +278,6 @@ class FilterStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the filter step."""
-        self._logger = logging.getLogger(self.__class__.__name__)
-
     def get_name(self) -> str:
         """Return the name of this step."""
         return "FilterStep"
@@ -314,7 +309,7 @@ class FilterStep(PipelineStep):
 
         context.set("filtered_functions", filtered_functions)
 
-        self._logger.info(
+        logger.info(
             "Filtering completed: %d functions filtered", len(filtered_functions)
         )
 
@@ -332,8 +327,6 @@ class FeatureExtractStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the feature extraction step."""
-        self._logger = logging.getLogger(self.__class__.__name__)
-
     def get_name(self) -> str:
         """Return the name of this step."""
         return "FeatureExtractStep"
@@ -364,7 +357,7 @@ class FeatureExtractStep(PipelineStep):
         # the fit_transform operation during training
         context.set("tokens", tokens)
 
-        self._logger.info(
+        logger.info(
             "Feature extraction completed: %d samples",
             len(tokens),
         )
@@ -381,8 +374,6 @@ class TrainStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the train step."""
-        self._logger = logging.getLogger(self.__class__.__name__)
-
     def get_name(self) -> str:
         """Return the name of this step."""
         return "TrainStep"
@@ -424,14 +415,15 @@ class TrainStep(PipelineStep):
         y = cast(NDArray, label_encoder.fit_transform(labels))
         
 
+
         # Get ML pipeline
         ml_pipeline: SklearnPipeline = MLTask.get_multi_class_pipeline()
 
         try:
             # Validate data before training
-            self._logger.info("Training data: %d tokens, %d labels", len(tokens), len(y))
-            self._logger.info("Token sample: %s", tokens[0][:100] if tokens else "empty")
-            self._logger.info("Label distribution: %s", np.bincount(y))
+            logger.info("Training data: %d tokens, %d labels", len(tokens), len(y))
+            logger.info("Token sample: %s", tokens[0][:100] if tokens else "empty")
+            logger.info("Label distribution: %s", np.bincount(y))
             
             # Train the model - ML pipeline handles vectorization internally
             ml_pipeline.fit(tokens, y)
@@ -442,7 +434,7 @@ class TrainStep(PipelineStep):
             context.set("label_encoder", label_encoder)
             context.set("model", ml_pipeline)
 
-            self._logger.info(
+            logger.info(
                 "Training completed for model '%s': %d classes",
                 model_name,
                 len(label_encoder.classes_),
@@ -450,8 +442,7 @@ class TrainStep(PipelineStep):
 
         except Exception as train_error:
             context.error = f"Training failed: {train_error}"
-            self._logger.error("Training error: %s", train_error, exc_info=True)
-
+            logger.error("Training error: %s", train_error, exc_info=True)
         return context
 
 
@@ -464,8 +455,6 @@ class PredictStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the predict step."""
-        self._logger = logging.getLogger(self.__class__.__name__)
-
     def get_name(self) -> str:
         """Return the name of this step."""
         return "PredictStep"
@@ -515,7 +504,7 @@ class PredictStep(PipelineStep):
             context.set("predictions", predicted_labels.tolist())
             context.set("prediction_probabilities", prediction_probability.tolist())
 
-            self._logger.info(
+            logger.info(
                 "Prediction completed: %d predictions for model '%s'",
                 len(predicted_labels),
                 model_name,
@@ -523,6 +512,6 @@ class PredictStep(PipelineStep):
 
         except Exception as predict_error:
             context.error = f"Prediction failed: {predict_error}"
-            self._logger.error("Prediction error: %s", predict_error, exc_info=True)
+            logger.error("Prediction error: %s", predict_error, exc_info=True)
 
         return context

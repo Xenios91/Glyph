@@ -1,4 +1,3 @@
-import logging
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -11,8 +10,11 @@ from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUti
 from app.processing.task_management import TaskManager
 from app.utils.common import format_code, build_prediction_details_response
 from app.utils.jinja_utils import configure_jinja2_templates
+from app.utils.logging_config import get_logger
 from app.auth.dependencies import get_current_active_user, get_optional_user
 from app.database.models import User
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -173,7 +175,7 @@ async def get_prediction_details(
     except HTTPException:
         raise
     except (TypeError, IndexError, KeyError) as exc:
-        logging.error("Failed to retrieve prediction details: %s", exc)
+        logger.error("Failed to retrieve prediction details: %s", exc, exc_info=True)
         raise HTTPException(status_code=400, detail="Could not retrieve details") from exc
 
     accept = request.headers.get("Accept", "")

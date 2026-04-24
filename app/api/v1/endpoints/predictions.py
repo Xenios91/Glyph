@@ -4,7 +4,6 @@ This module provides endpoints for making predictions and retrieving
 prediction results.
 """
 
-import logging
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
@@ -18,10 +17,13 @@ from app.utils.persistence_util import FunctionPersistanceUtil, PredictionPersis
 from app.services.request_handler import PredictionRequest
 from app.processing.task_management import TaskManager
 from app.utils.common import format_code
+from app.utils.logging_config import get_logger
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 from app.utils.jinja_utils import configure_jinja2_templates
 from app.auth.dependencies import get_current_active_user, get_optional_user
 from app.database.models import User
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -86,9 +88,9 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
         if result.error:
             raise Exception(result.error)
             
-        logging.info("Prediction task completed successfully: %s", prediction_request.uuid)
+        logger.info("Prediction task completed successfully: %s", prediction_request.uuid)
     except Exception as exc:
-        logging.error("Prediction task failed: %s - %s", prediction_request.uuid, exc)
+        logger.error("Prediction task failed: %s - %s", prediction_request.uuid, exc, exc_info=True)
         raise
 
 
@@ -139,7 +141,7 @@ async def predict_tokens(
     except HTTPException:
         raise
     except Exception as exc:
-        logging.error("Prediction error: %s", exc)
+        logger.error("Prediction error: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
@@ -270,7 +272,7 @@ async def get_prediction_details(
         prediction_tokens = format_code(prediction_data["tokens"])
 
     except (TypeError, IndexError) as e:
-        logging.error(
+        logger.error(
             "Failed to retrieve prediction details for task=%s, model=%s, function=%s: %s",
             task_name, model_name, function_name, e, exc_info=True
         )

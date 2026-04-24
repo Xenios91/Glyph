@@ -1,6 +1,5 @@
 """Persistence utilities for ML models and predictions."""
 
-import logging
 from io import BytesIO
 from typing import Any
 
@@ -11,7 +10,10 @@ from sklearn.pipeline import Pipeline
 
 from app.services.request_handler import Prediction, PredictionRequest, TrainingRequest
 from app.database.sql_service import SQLUtil
+from app.utils.logging_config import get_logger
 from app.utils.secure_deserializer import secure_load, SecureDeserializationError
+
+logger = get_logger(__name__)
 
 
 class MLTask:
@@ -146,7 +148,7 @@ class MLPersistanceUtil:
 
             SQLUtil.save_model(model_name, serialized_encoder, serialized_model)
         except Exception as error:
-            logging.error("Failed to serialize model '%s': %s", model_name, error)
+            logger.error("Failed to serialize model '%s': %s", model_name, error)
             raise RuntimeError(
                 f"Could not serialize model data for '{model_name}'"
             ) from error
@@ -171,11 +173,11 @@ class MLPersistanceUtil:
         model_row: tuple[Any, ...] | None = SQLUtil.get_model(model_name)
 
         if model_row is None:
-            logging.error("Model '%s' not found in database", model_name)
+            logger.error("Model '%s' not found in database", model_name)
             raise ValueError(f"Model '{model_name}' not found.")
 
         if len(model_row) < 3:
-            logging.error(
+            logger.error(
                 "Model '%s' has invalid schema (expected 3 fields, got %d)",
                 model_name,
                 len(model_row),
@@ -193,7 +195,7 @@ class MLPersistanceUtil:
 
             return loaded_model, label_encoder
         except SecureDeserializationError as error:
-            logging.error(
+            logger.error(
                 "Secure deserialization blocked model '%s': %s: %s",
                 model_name,
                 type(error).__name__,
@@ -203,7 +205,7 @@ class MLPersistanceUtil:
                 f"Model data for '{model_name}' failed security validation"
             ) from error
         except Exception as error:
-            logging.error(
+            logger.error(
                 "Failed to deserialize model '%s': %s: %s",
                 model_name,
                 type(error).__name__,
@@ -341,7 +343,7 @@ class FunctionPersistanceUtil:
                 task_name, prediction_request.model_name, functions
             )
         elif functions:
-            logging.warning(
+            logger.warning(
                 "Mismatch between functions (%d) and predictions (%d) for task '%s'",
                 len(functions),
                 len(predictions),

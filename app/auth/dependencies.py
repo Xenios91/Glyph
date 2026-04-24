@@ -1,6 +1,5 @@
 """Authentication dependencies for FastAPI."""
 
-import logging
 from typing import Annotated, AsyncGenerator
 
 from fastapi import Depends, HTTPException, status, Request
@@ -12,8 +11,9 @@ from app.auth.repository import UserRepository, APIKeyRepository
 from app.config.settings import get_settings
 from app.database.models import User
 from app.database.session_handler import get_async_session, close_async_session
+from app.utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Initialize OAuth2 password bearer

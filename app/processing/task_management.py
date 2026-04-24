@@ -7,7 +7,6 @@ framework for processing binary analysis workflows.
 """
 
 import atexit
-import logging
 import signal
 import threading
 import time
@@ -19,6 +18,9 @@ from app.config.settings import MAX_CPU_CORES
 from app.services.request_handler import GhidraRequest
 from app.services.task_service import TaskService
 from app.processing.pipeline import PipelineContext
+from app.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class EventWatcher:
@@ -65,12 +67,12 @@ class EventWatcher:
         """
         self._callbacks[job_uuid] = callback
         self._watched_futures[job_uuid] = (request, future)
-        logging.info("Registered callback for job: job_uuid=%s", job_uuid)
+        logger.info("Registered callback for job: job_uuid=%s", job_uuid)
 
     def start_watching(self) -> None:
         """Start watching for completed futures in a background thread."""
         if self._watching:
-            logging.warning("EventWatcher is already watching")
+            logger.warning("EventWatcher is already watching")
             return
 
         self._watching = True
@@ -79,26 +81,26 @@ class EventWatcher:
             target=self._watch_loop, name="EventWatcher", daemon=True
         )
         self._watch_thread.start()
-        logging.info("EventWatcher started")
+        logger.info("EventWatcher started")
 
     def stop_watching(self) -> None:
         """Stop watching for completed futures."""
         if not self._watching:
             return
 
-        logging.info("Stopping EventWatcher...")
+        logger.info("Stopping EventWatcher...")
         self._watching = False
         if self._stop_event is not None:
             self._stop_event.set()
         if self._watch_thread is not None:
             self._watch_thread.join(timeout=5.0)
             self._watch_thread = None
-        logging.info("EventWatcher stopped")
+        logger.info("EventWatcher stopped")
 
     def _watch_loop(self) -> None:
         """Background loop that watches for completed futures."""
 
-        logging.info("EventWatcher loop started")
+        logger.info("EventWatcher loop started")
         # Type guard: _stop_event is set in start_watching before this loop runs
         assert self._stop_event is not None
         while self._watching and not self._stop_event.is_set():
@@ -126,12 +128,12 @@ class EventWatcher:
                             if job_uuid in self._callbacks:
                                 try:
                                     self._callbacks[job_uuid](request, future)
-                                    logging.info(
+                                    logger.info(
                                         "Callback invoked for job: job_uuid=%s",
                                         job_uuid,
                                     )
                                 except Exception as callback_error:
-                                    logging.error(
+                                    logger.error(
                                         "Callback error for job_uuid=%s: %s",
                                         job_uuid,
                                         callback_error,
@@ -141,9 +143,9 @@ class EventWatcher:
                                 and self._watched_futures[job_uuid][1] is future
                             ):
                                 del self._watched_futures[job_uuid]
-                                logging.info("Cleaned up job: %s", job_uuid)
+                                logger.info("Cleaned up job: %s", job_uuid)
                             else:
-                                logging.info(
+                                logger.info(
                                     "Job %s was re-registered by callback, keeping alive.",
                                     job_uuid,
                                 )
@@ -151,11 +153,11 @@ class EventWatcher:
                             break
 
             except Exception as loop_error:
-                logging.error("Error in EventWatcher loop: %s", loop_error)
+                logger.error("Error in EventWatcher loop: %s", loop_error, exc_info=True)
                 # Wait before retrying
                 time.sleep(1.0)
 
-        logging.info("EventWatcher loop stopped")
+        logger.info("EventWatcher loop stopped")
 
 
 class TaskManager:
@@ -204,7 +206,7 @@ class TaskManager:
             cls.exec_pool.shutdown(wait=False, cancel_futures=True)
             cls.exec_pool = None
             cls._executor_shutdown = True
-            logging.info("ProcessPoolExecutor shut down successfully")
+            logger.info("ProcessPoolExecutor shut down successfully")
 
     @classmethod
     def _signal_handler(cls, signum: int, _frame: Any) -> None:
@@ -214,7 +216,7 @@ class TaskManager:
             signum: The signal number received.
             _frame: The current stack frame (unused).
         """
-        logging.info("Received signal %d, shutting down executor...", signum)
+        logger.info("Received signal %d, shutting down executor...", signum)
         cls._shutdown_executor()
 
     @classmethod

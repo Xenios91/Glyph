@@ -4,7 +4,6 @@ This module provides endpoints for managing machine learning models,
 including retrieving model information and function predictions.
 """
 
-import logging
 from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Query, HTTPException
 from fastapi.templating import Jinja2Templates
@@ -20,12 +19,15 @@ from app.utils.persistence_util import (
 )
 from app.utils.helpers import ACCEPT_TYPE
 from app.utils.common import format_code, build_prediction_details_response
+from app.utils.logging_config import get_logger
 from app.utils.responses import (
     create_success_response,
     create_error_response,
     SuccessResponse,
 )
 from app.utils.jinja_utils import configure_jinja2_templates
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -54,7 +56,7 @@ async def delete_model(
             message="Model deleted successfully",
         )
     except Exception as exc:
-        logging.error("Failed to delete model '%s': %s", model_name, exc)
+        logger.error("Failed to delete model '%s': %s", model_name, exc, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=create_error_response(
@@ -210,7 +212,7 @@ async def get_prediction_details(
         prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
     except (TypeError, IndexError, KeyError) as exc:
-        logging.error("Failed to retrieve prediction details: %s", exc)
+        logger.error("Failed to retrieve prediction details: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=400,
             detail=create_error_response(

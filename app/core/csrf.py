@@ -4,10 +4,11 @@ This module provides CSRF token generation and validation for state-changing req
 Uses session-based CSRF tokens with SameSite cookie policy.
 """
 
-import logging
 import secrets
 
-logger = logging.getLogger(__name__)
+from app.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request

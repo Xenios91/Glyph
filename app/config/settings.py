@@ -1,5 +1,6 @@
 """Configuration module for Glyph application settings."""
 
+import logging
 import os
 import secrets
 from pathlib import Path
@@ -9,6 +10,10 @@ from pydantic import Field, BaseModel
 from pydantic_settings import BaseSettings, YamlConfigSettingsSource
 
 import yaml
+
+# Use logging.getLogger directly to avoid circular import
+# (logging_config imports get_settings from this module)
+logger = logging.getLogger(__name__)
 
 MAX_CPU_CORES = os.cpu_count() or 1
 
@@ -152,10 +157,10 @@ class GlyphConfig:
             GlyphConfig._initialized = True
             return True
         except FileNotFoundError:
-            print("Error: config.yml not found.")
+            logger.error("config.yml not found.")
             return False
         except yaml.YAMLError as yaml_error:
-            print(f"Error: Failed to parse config.yml: {yaml_error}")
+            logger.error("Failed to parse config.yml: %s", yaml_error)
             return False
 
     @staticmethod
@@ -185,15 +190,15 @@ class GlyphConfig:
             TypeError: If the maximum file size is not an integer.
         """
         if not isinstance(size, int):
-            print("Error: Maximum file size must be an integer.")
+            logger.error("Maximum file size must be an integer.")
             return False
 
         if size < 1:
-            print("Error: Attempted to set a file size of 0 MB or smaller.")
+            logger.error("Attempted to set a file size of 0 MB or smaller.")
             return False
 
         if size > 2048:
-            print("Error: Attempted to set a maximum file size greater than 2048 MB.")
+            logger.error("Attempted to set a maximum file size greater than 2048 MB.")
             return False
 
         GlyphConfig._config["max_file_size_mb"] = size
@@ -214,15 +219,15 @@ class GlyphConfig:
             TypeError: If the number of cores is not an integer.
         """
         if not isinstance(cores, int):
-            print("Error: Number of CPU cores must be an integer.")
+            logger.error("Number of CPU cores must be an integer.")
             return False
 
         if cores <= 0:
-            print("Error: Attempted to set a non-positive or 0 number of CPU cores.")
+            logger.error("Attempted to set a non-positive or 0 number of CPU cores.")
             return False
 
         if cores > MAX_CPU_CORES:
-            print(f"Error: Attempted to set more than {MAX_CPU_CORES} CPU cores.")
+            logger.error("Attempted to set more than %d CPU cores.", MAX_CPU_CORES)
             return False
 
         GlyphConfig._config["cpu_cores"] = cores

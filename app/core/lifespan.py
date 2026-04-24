@@ -1,4 +1,3 @@
-import logging
 import threading
 from contextlib import asynccontextmanager
 
@@ -9,8 +8,9 @@ from app.database.sql_service import SQLUtil
 from app.database.session_handler import init_async_databases
 from app.processing.task_management import EventWatcher
 from app.services.task_service import TaskService
+from app.utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
