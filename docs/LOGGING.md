@@ -7,16 +7,18 @@ This document outlines the logging architecture and best practices for the Glyph
 Glyph uses a centralized logging configuration that provides:
 - Structured JSON logging for easy parsing and analysis
 - Request tracing with unique request IDs
-- Log rotation with size and time-based policies
-- Performance monitoring utilities
-- Security event logging
+- Log rotation with size-based policies
+- Performance monitoring utilities with threshold support
+- Security event logging with brute-force detection
+- Sensitive data redaction
+- Rate limiting to prevent log spam
 
 ## Architecture
 
 ### Components
 
 1. **`app/utils/logging_config.py`** - Centralized logging setup
-2. **`app/utils/request_context.py`** - Request context management
+2. **`app/utils/request_context.py`** - Request context management (ContextVar-based)
 3. **`app/core/request_tracing.py`** - Request ID middleware
 4. **`app/utils/performance_logger.py`** - Performance timing utilities
 5. **`app/auth/security_logger.py`** - Security event logging
@@ -33,7 +35,7 @@ logging:
     path: logs/glyph.log
     max_size_mb: 50
     backup_count: 10
-    rotate: size  # time, size, or both
+    rotate: size  # time or size
     time_interval: midnight  # midnight, daily, weekly, monthly
   console:
     enabled: true
@@ -67,8 +69,10 @@ from app.utils.request_context import get_request_context
 def handle_request(request):
     ctx = get_request_context()
     logger.info("Processing request", extra={
-        "request_id": ctx.request_id,
-        "user_id": request.user.id
+        "extra_data": {
+            "request_id": ctx.request_id,
+            "user_id": request.user.id
+        }
     })
 ```
 
@@ -82,9 +86,18 @@ with PerformanceTimer("binary_analysis") as timer:
     result = analyze_binary(file_path)
 print(f"Elapsed: {timer.elapsed:.3f}s")
 
+# Context manager with threshold (only logs if > 100ms)
+with PerformanceTimer("fast_operation", unit="milliseconds", threshold=100):
+    result = fast_operation()
+
 # Decorator
 @log_performance
 async def process_binary(request: BinaryUploadRequest):
+    ...
+
+# Decorator with threshold
+@log_performance(unit="milliseconds", threshold=500)
+def expensive_operation():
     ...
 
 # Pipeline step decorator
@@ -102,7 +115,7 @@ from app.auth.security_logger import (
     log_permission_denied,
 )
 
-# Login events
+# Login events (automatically tracks failures for brute-force detection)
 log_login_success(user_id=user.id, username=user.username, ip_address=ip)
 log_login_failure(username=username, reason="Invalid password", ip_address=ip)
 
@@ -110,7 +123,8 @@ log_login_failure(username=username, reason="Invalid password", ip_address=ip)
 log_permission_denied(
     user_id=user.id,
     resource="/api/admin",
-    required_permission="admin"
+    required_permission="admin",
+    ip_address=ip
 )
 ```
 
@@ -120,7 +134,7 @@ log_permission_denied(
 
 ```json
 {
-  "timestamp": "2024-01-15T10:30:45.123Z",
+  "timestamp": "2024-01-15T10:30:45.123456+00:00",
   "level": "INFO",
   "logger": "app.api.v1.endpoints.binaries",
   "message": "Binary upload started",
@@ -175,7 +189,7 @@ logger.info("API key used: %s...", api_key[:4])
 logger.info("Token: %s", token)  # NEVER DO THIS
 ```
 
-### 3. Include Context
+### 3. Include Context with extra_data
 
 ```python
 # Good
@@ -211,6 +225,49 @@ if logger.isEnabledFor(logging.DEBUG):
 
 # Bad - always executes expensive operation
 logger.debug("Debug data: %s", expensive_debug_operation())
+```
+
+## Security Features
+
+### Sensitive Data Redaction
+
+The `SensitiveDataFilter` automatically redacts sensitive patterns from log messages:
+- Bearer tokens
+- Password assignments
+- API keys
+- Secrets
+
+This filter is applied to all log handlers by default.
+
+### Rate Limiting
+
+The `RateLimitingFilter` prevents log spam by limiting messages per time window:
+- Configurable message count per period
+- Uses token bucket algorithm
+- Logs summary when messages are suppressed
+
+Enable in `setup_logging()`:
+```python
+setup_logging(
+    rate_limit=True,
+    rate_limit_max=10,
+    rate_limit_period=60.0,
+)
+```
+
+### Brute-Force Detection
+
+The security logger includes a `LoginFailureTracker` that:
+- Tracks login failures per username and IP
+- Triggers `suspicious_activity` alerts after threshold exceeded
+- Resets on successful login
+
+```python
+from app.auth.security_logger import get_failure_tracker
+
+# Customize threshold
+tracker = get_failure_tracker()
+# Default: 5 failures in 300 seconds triggers alert
 ```
 
 ## Request Tracing
@@ -269,6 +326,12 @@ jq 'select(.request_id == "abc123")' logs/glyph.log
 
 # Get unique users
 jq -r '.username | select(. != null)' logs/glyph.log | sort -u
+
+# Filter by event type
+jq 'select(.extra.event == "login_failure")' logs/glyph.log
+
+# Get performance metrics
+jq 'select(.extra.performance)' logs/glyph.log
 ```
 
 ### Integration with Log Aggregation
@@ -296,4 +359,11 @@ The JSON format is compatible with:
 
 1. Use text format instead of JSON for console output
 2. Reduce log level in production
-3. Consider async logging for high-throughput scenarios
+3. Use threshold-based performance logging to reduce noise
+4. Consider async logging for high-throughput scenarios
+
+### Sensitive data appearing in logs
+
+1. Verify `SensitiveDataFilter` is applied (automatic by default)
+2. Add custom patterns via `SensitiveDataFilter(additional_patterns=[...])`
+3. Review log messages for accidental secret exposure

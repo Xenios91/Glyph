@@ -10,11 +10,12 @@ Security measures:
 3. Sandbox execution environment
 """
 
-import logging
 import io
 from typing import Any, Set, Type
 
 from joblib.numpy_pickle import NumpyUnpickler
+
+from app.utils.logging_config import get_logger
 
 # Whitelist of allowed classes for deserialization
 # These are the only classes that are safe to deserialize in our application
@@ -113,7 +114,7 @@ BLOCKED_BUILTINS: Set[str] = {
     "builtins.__import__",
 }
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SecureDeserializationError(Exception):

@@ -12,6 +12,7 @@ from app.config.settings import get_settings
 from app.database.models import User
 from app.database.session_handler import get_async_session, close_async_session
 from app.utils.logging_config import get_logger
+from app.utils.request_context import set_request_context
 
 logger = get_logger(__name__)
 
@@ -118,6 +119,8 @@ async def get_current_user(
                     detail="User not found or inactive",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
+            # Set request context for downstream logging
+            set_request_context(user_id=user.id, username=user.username)
             return user
         else:
             logger.warning("Authentication failed: invalid API key")
@@ -145,6 +148,8 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Set request context for downstream logging
+    set_request_context(user_id=user.id, username=user.username)
     logger.info("User authenticated successfully: user_id=%s, username=%s", user.id, user.username)
     return user
 
