@@ -9,9 +9,12 @@ from pydantic import BaseModel, StringConstraints
 
 from app.api.types import UUID as UUIDType
 from app.processing.task_management import TaskManager
+from app.utils.logging_config import get_logger
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 from app.auth.dependencies import get_current_active_user, get_optional_user
 from app.database.models import User
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -48,6 +51,15 @@ async def get_status(
     status = TaskManager().get_status(uuid)
 
     if status == "UUID Not Found":
+        logger.warning(
+            "Status check failed: UUID not found: %s by user_id=%s",
+            uuid, current_user.id,
+            extra={"extra_data": {
+                "event": "status_not_found",
+                "uuid": uuid,
+                "user_id": current_user.id,
+            }}
+        )
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
@@ -55,6 +67,11 @@ async def get_status(
                 error_message="UUID Not Found",
             ).model_dump(),
         )
+
+    logger.debug(
+        "Status retrieved for UUID: %s by user_id=%s, status=%s",
+        uuid, current_user.id, status,
+    )
 
     return create_success_response(
         data={"status": status},
@@ -70,13 +87,13 @@ async def update_status(
     """
     Handles a POST request (typically from Ghidra) to update
     the current status of a task.
-    
+
     Args:
         payload: The status update payload with validated status and uuid.
-        
+
     Returns:
         Success response when status is updated.
-        
+
     Raises:
         HTTPException: If UUID is not found.
     """
@@ -84,6 +101,15 @@ async def update_status(
     updated: bool = TaskManager().set_status(payload.uuid, payload.status)
 
     if not updated:
+        logger.warning(
+            "Status update failed: UUID not found: %s by user_id=%s",
+            payload.uuid, current_user.id,
+            extra={"extra_data": {
+                "event": "status_update_failed",
+                "uuid": payload.uuid,
+                "user_id": current_user.id,
+            }}
+        )
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
@@ -91,6 +117,17 @@ async def update_status(
                 error_message="UUID not found",
             ).model_dump(),
         )
+
+    logger.info(
+        "Status updated for UUID: %s to '%s' by user_id=%s",
+        payload.uuid, payload.status, current_user.id,
+        extra={"extra_data": {
+            "event": "status_updated",
+            "uuid": payload.uuid,
+            "new_status": payload.status,
+            "user_id": current_user.id,
+        }}
+    )
 
     return create_success_response(
         data={"success": True},

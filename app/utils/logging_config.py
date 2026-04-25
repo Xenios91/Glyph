@@ -419,9 +419,11 @@ def _set_log_file_permissions(log_path: Path) -> None:
     try:
         if log_path.exists():
             os.chmod(log_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP)
-    except OSError:
-        # Silently ignore permission errors (e.g., on Windows)
-        pass
+    except OSError as e:
+        # Log permission errors to stderr since logging may not be initialized yet
+        sys.stderr.write(
+            f"[LOGGING WARNING] Failed to set log file permissions for {log_path}: {e}\n"
+        )
 
 
 def _validate_rotation_policy(rotate: str) -> None:
@@ -553,7 +555,10 @@ class AsyncLogHandler(logging.Handler):
             q.put_nowait(record)
         except asyncio.QueueFull:
             # Queue is full, drop the record to prevent blocking
-            pass
+            # Log the overflow to stderr so it is never silently lost
+            sys.stderr.write(
+                f"[LOG OVERFLOW] Dropped log record (queue full): {record.name} - {record.msg[:80]}\n"
+            )
 
         with self._lock:
             if self._task is None or self._task.done():

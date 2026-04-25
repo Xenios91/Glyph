@@ -95,7 +95,16 @@ async def get_current_user(
         token = request.cookies.get("access_token_cookie")
     
     if not token:
-        logger.warning("Authentication failed: no token provided")
+        ip_address = request.client.host if request.client else None
+        logger.warning(
+            "Authentication failed: no token provided",
+            extra={"extra_data": {
+                "event": "auth_failure",
+                "reason": "no_token",
+                "ip_address": ip_address,
+                "endpoint": request.url.path,
+            }}
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
@@ -111,7 +120,7 @@ async def get_current_user(
             user_id = int(user_id)
             logger.debug("JWT token verified for user_id=%s", user_id)
     except Exception as jwt_error:
-        logger.debug("JWT verification failed, trying API key: %s", jwt_error)
+        logger.warning("JWT verification failed, trying API key: %s", jwt_error, exc_info=True)
         # If JWT verification fails, try API key
         api_key_repo = APIKeyRepository(db)
         api_key_record = await api_key_repo.verify_and_get(token)
@@ -138,7 +147,16 @@ async def get_current_user(
             set_request_context(user_id=user.id, username=user.username, clear_unset=False)
             return user
         else:
-            logger.warning("Authentication failed: invalid API key")
+            ip_address = request.client.host if request.client else None
+            logger.warning(
+                "Authentication failed: invalid API key",
+                extra={"extra_data": {
+                    "event": "auth_failure",
+                    "reason": "invalid_api_key",
+                    "ip_address": ip_address,
+                    "endpoint": request.url.path,
+                }}
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
@@ -147,7 +165,16 @@ async def get_current_user(
     
     # Get user from database
     if not user_id:
-        logger.warning("Authentication failed: invalid token payload")
+        ip_address = request.client.host if request.client else None
+        logger.warning(
+            "Authentication failed: invalid token payload",
+            extra={"extra_data": {
+                "event": "auth_failure",
+                "reason": "invalid_token_payload",
+                "ip_address": ip_address,
+                "endpoint": request.url.path,
+            }}
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
@@ -156,7 +183,17 @@ async def get_current_user(
     
     user = await db.get(User, user_id)
     if not user or not user.is_active:
-        logger.warning("Authentication failed: user_id=%s not found or inactive", user_id)
+        ip_address = request.client.host if request.client else None
+        logger.warning(
+            "Authentication failed: user_id=%s not found or inactive", user_id,
+            extra={"extra_data": {
+                "event": "auth_failure",
+                "reason": "user_not_found_or_inactive",
+                "user_id": user_id,
+                "ip_address": ip_address,
+                "endpoint": request.url.path,
+            }}
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
@@ -231,7 +268,7 @@ async def get_optional_user(
             user_id = int(user_id)
     except Exception as e:
         # If JWT verification fails, try API key
-        logger.debug("JWT verification failed, trying API key: %s", e, exc_info=True)
+        logger.warning("JWT verification failed in get_optional_user, trying API key: %s", e, exc_info=True)
         api_key_repo = APIKeyRepository(db)
         api_key_record = await api_key_repo.verify_and_get(token)
         

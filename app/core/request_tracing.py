@@ -7,7 +7,10 @@ the application for better logging and debugging.
 import uuid
 from typing import Callable
 
+from app.utils.logging_config import get_logger
 from app.utils.request_context import set_request_context, clear_request_context, get_request_id
+
+logger = get_logger(__name__)
 
 
 class RequestIDMiddleware:
@@ -36,7 +39,7 @@ class RequestIDMiddleware:
     
     async def __call__(self, scope: dict, receive: Callable, send: Callable) -> None:
         """Process the request.
-        
+
         Args:
             scope: The ASGI scope dictionary.
             receive: Awaitable callable for receiving events.
@@ -45,17 +48,23 @@ class RequestIDMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        
+
         # Extract or generate request ID
         request_id = self._get_or_create_request_id(scope)
-        
+
         # Set request context
         set_request_context(request_id=request_id)
-        
+
         try:
             # Wrap send to add request ID to response headers
             wrapped_send = self._create_wrapped_send(send, request_id)
             await self.app(scope, receive, wrapped_send)
+        except Exception:
+            logger.exception(
+                "Request tracing middleware error for request_id=%s", request_id,
+                extra={"extra_data": {"request_id": request_id}},
+            )
+            raise
         finally:
             # Clear request context after request is complete
             clear_request_context()

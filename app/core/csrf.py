@@ -43,7 +43,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
         # Generate or retrieve CSRF token
         csrf_token = self._get_or_create_token(request)
-        logger.debug("CSRF token for %s %s: %s...", request.method, request.url.path, csrf_token[:8])
+        logger.debug("CSRF token generated for %s %s", request.method, request.url.path)
 
         # Store token in request state for template access (secure: same-origin only)
         request.state.csrf_token = csrf_token
@@ -51,7 +51,6 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         # For unsafe methods, validate the CSRF token
         if request.method in self.UNSAFE_METHODS:
             logger.debug("Validating CSRF token for %s %s", request.method, request.url.path)
-            logger.debug("Expected token: %s...", csrf_token[:8])
             if not await self._validate_csrf_token(request, csrf_token):
                 ip_address = request.client.host if request.client else None
                 logger.warning("CSRF validation failed for %s %s", request.method, request.url.path)

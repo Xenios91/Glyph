@@ -84,7 +84,7 @@ class TrainingRequest(DataHandler):
 
             self.data = pd.DataFrame(unique_functions)
         except Exception as tr_exception:
-            logger.debug(
+            logger.warning(
                 "Error processing training data for UUID=%s: %s",
                 self.uuid, tr_exception, exc_info=True
             )
