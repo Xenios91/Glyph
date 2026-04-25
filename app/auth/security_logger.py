@@ -44,7 +44,7 @@ class LoginFailureTracker:
         self.max_keys = max_keys
         self._failures: dict[str, list[float]] = defaultdict(list)
         self._alerted: dict[str, bool] = defaultdict(bool)
-        self._last_cleanup = time.time()
+        self._last_cleanup = time.monotonic()
         self._cleanup_interval = 300.0  # 5 minutes
 
     def _cleanup_stale_keys(self, now: float) -> None:
@@ -81,7 +81,7 @@ class LoginFailureTracker:
         Returns:
             Current number of failures in the window.
         """
-        now = time.time()
+        now = time.monotonic()
         # Periodic cleanup of stale keys
         if now - self._last_cleanup > self._cleanup_interval:
             self._cleanup_stale_keys(now)
@@ -102,7 +102,7 @@ class LoginFailureTracker:
         Returns:
             Current number of failures in the window.
         """
-        now = time.time()
+        now = time.monotonic()
         cutoff = now - self.window
         return len([t for t in self._failures.get(key, []) if t > cutoff])
 

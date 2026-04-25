@@ -11,7 +11,7 @@ logging:
     path: logs/glyph.log
     max_size_mb: 50
     backup_count: 10
-    rotate: size  # time, size, or both
+    rotate: size  # time or size
     time_interval: midnight  # midnight, daily, weekly, monthly
   console:
     enabled: true

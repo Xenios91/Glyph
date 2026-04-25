@@ -15,6 +15,19 @@ import yaml
 # (logging_config imports get_settings from this module)
 logger = logging.getLogger(__name__)
 
+
+def _ensure_sensitive_filter(logger_instance: logging.Logger) -> None:
+    """Add SensitiveDataFilter to the settings logger to prevent secret exposure.
+
+    This is applied lazily in get_settings() to avoid circular imports.
+
+    Args:
+        logger_instance: The logger to add the filter to.
+    """
+    from app.utils.logging_config import SensitiveDataFilter
+    if not any(isinstance(f, SensitiveDataFilter) for f in logger_instance.filters):
+        logger_instance.addFilter(SensitiveDataFilter())
+
 MAX_CPU_CORES = os.cpu_count() or 1
 
 
@@ -24,7 +37,7 @@ class LoggingFileConfig(BaseModel):
     path: str = "logs/glyph.log"
     max_size_mb: int = Field(default=50, ge=1, le=1000)
     backup_count: int = Field(default=10, ge=0, le=100)
-    rotate: str = Field(default="size", pattern="^(size|time|both)$")
+    rotate: str = Field(default="size", pattern="^(size|time)$")
     time_interval: str = Field(default="midnight", pattern="^(midnight|daily|weekly|monthly)$")
 
 
@@ -139,6 +152,8 @@ def get_settings() -> GlyphSettings:
     if _settings is None:
         try:
             _settings = GlyphSettings()
+            # Apply sensitive data filter to settings logger
+            _ensure_sensitive_filter(logger)
         except Exception as e:
             raise RuntimeError(f"Failed to load configuration: {e}") from e
     return _settings

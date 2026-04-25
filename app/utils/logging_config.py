@@ -95,14 +95,24 @@ class SensitiveDataFilter(logging.Filter):
                     for k, v in record.args.items()
                 }
             elif isinstance(record.args, tuple):
-                # Only redact tuple args that match sensitive keyword patterns
-                sensitive_keywords = ['password', 'token', 'secret', 'api_key', 'passwd', 'pwd']
-                record.args = tuple(
-                    '[REDACTED]' if isinstance(v, str) and any(
-                        kw in record.msg.lower() for kw in sensitive_keywords
-                    ) else v
-                    for v in record.args
-                )
+                # Redact individual tuple args that look like sensitive values
+                # (value-based matching instead of message-keyword matching)
+                # to avoid over-redacting non-sensitive args when the message
+                # happens to contain a sensitive keyword.
+                sensitive_value_patterns = [
+                    r'(?i)^(password|token|secret|api_key|apikey|passwd|pwd)\s*[=:]\s*\S+',
+                    r'(?i)^bearer\s+[A-Za-z0-9\-\._~\+\/]+=*',
+                    r'(?i)^(sqlite|postgresql|mysql|mongodb|redis)(\+[\w]+)?://\S+',
+                ]
+                new_args = []
+                for v in record.args:
+                    if isinstance(v, str) and any(
+                        re.match(pattern, v) for pattern in sensitive_value_patterns
+                    ):
+                        new_args.append('[REDACTED]')
+                    else:
+                        new_args.append(v)
+                record.args = tuple(new_args)
 
         return True
 
@@ -391,6 +401,24 @@ def _set_log_file_permissions(log_path: Path) -> None:
         pass
 
 
+def _validate_rotation_policy(rotate: str) -> None:
+    """Validate the rotation policy value.
+
+    Args:
+        rotate: Rotation policy string.
+
+    Raises:
+        ValueError: If the rotation policy is not supported.
+    """
+    valid_policies = {"size", "time"}
+    if rotate.lower() not in valid_policies:
+        raise ValueError(
+            f"Invalid log rotation policy: '{rotate}'. "
+            f"Must be one of: {', '.join(sorted(valid_policies))}. "
+            f"Note: 'both' is no longer supported. Use 'size' or 'time'."
+        )
+
+
 def _get_time_interval(interval: str) -> str:
     """Convert time interval string to TimedRotatingFileHandler format.
 
@@ -450,12 +478,24 @@ class AsyncLogHandler(logging.Handler):
         self._sync_queue: deque[logging.LogRecord] = deque(maxlen=max_queue_size)
         self._task: asyncio.Task | None = None
         self._lock = threading.Lock()
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     def _get_async_queue(self) -> asyncio.Queue[logging.LogRecord]:
-        """Get or create the async queue for the current event loop."""
-        if self._queue is None:
-            self._queue = asyncio.Queue(maxsize=self._max_queue_size)
-        return self._queue
+        """Get or create the async queue for the current event loop.
+
+        Thread-safe: uses self._lock to prevent race conditions where
+        multiple threads could create separate Queue instances.
+        """
+        with self._lock:
+            if self._queue is None:
+                self._queue = asyncio.Queue(maxsize=self._max_queue_size)
+            return self._queue
+
+    def _get_event_loop(self) -> asyncio.AbstractEventLoop:
+        """Get or cache the event loop for scheduling coroutines."""
+        if self._loop is None:
+            self._loop = asyncio.get_event_loop()
+        return self._loop
 
     def emit(self, record: logging.LogRecord) -> None:
         """Queue a log record for async processing.
@@ -472,24 +512,37 @@ class AsyncLogHandler(logging.Handler):
             self._process_sync()
             return
 
-        # Queue the record for async processing
-        async def _enqueue():
-            q = self._get_async_queue()
-            try:
-                q.put_nowait(record)
-            except asyncio.QueueFull:
-                # Queue is full, drop the record to prevent blocking
-                pass
-
-            with self._lock:
-                if self._task is None or self._task.done():
-                    self._task = loop.create_task(self._process_queue())
-
+        # Schedule enqueue on the running event loop without blocking.
+        # run_coroutine_threadsafe is safe here because emit() is called
+        # from the logging framework which runs in the same thread as the
+        # event loop in FastAPI/uvicorn contexts. The future is fire-and-forget.
         try:
-            loop.run_until_complete(_enqueue())
-        except (RuntimeError, AssertionError):
-            # Event loop is running in another thread, schedule differently
-            asyncio.run_coroutine_threadsafe(_enqueue(), loop)
+            future = asyncio.run_coroutine_threadsafe(
+                self._enqueue_single(record), loop
+            )
+            # Fire-and-forget: don't wait for result to avoid blocking
+        except Exception:
+            # Fallback to synchronous processing if scheduling fails
+            self._sync_queue.append(record)
+            self._process_sync()
+
+    async def _enqueue_single(self, record: logging.LogRecord) -> None:
+        """Enqueue a single record and ensure processor task is running.
+
+        Args:
+            record: The log record to enqueue.
+        """
+        q = self._get_async_queue()
+        try:
+            q.put_nowait(record)
+        except asyncio.QueueFull:
+            # Queue is full, drop the record to prevent blocking
+            pass
+
+        with self._lock:
+            if self._task is None or self._task.done():
+                loop = asyncio.get_running_loop()
+                self._task = loop.create_task(self._process_queue())
 
     def _process_sync(self) -> None:
         """Process queued records synchronously (no event loop)."""
@@ -514,28 +567,36 @@ class AsyncLogHandler(logging.Handler):
                 self.handleError(record)
             await asyncio.sleep(0)  # Yield to event loop
 
+    async def _flush_async_queue(self) -> None:
+        """Flush the async queue by processing all pending records."""
+        async_queue = self._queue
+        if async_queue is None:
+            return
+        while not async_queue.empty():
+            try:
+                record = async_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            try:
+                self.target.emit(record)
+            except Exception:
+                self.handleError(record)
+            await asyncio.sleep(0)
+
     def flush(self) -> None:
         """Flush all queued records synchronously."""
         self._process_sync()
-        # Also flush async queue if available
-        async_queue = self._queue
-        if async_queue is not None:
+        # Schedule async queue flush without blocking
+        if self._queue is not None:
             try:
                 loop = asyncio.get_running_loop()
-                async def _flush_async():
-                    while not async_queue.empty():
-                        try:
-                            record = async_queue.get_nowait()
-                        except asyncio.QueueEmpty:
-                            break
-                        try:
-                            self.target.emit(record)
-                        except Exception:
-                            self.handleError(record)
-                        await asyncio.sleep(0)
-                loop.run_until_complete(_flush_async())
+                # Fire-and-forget: schedule flush on the event loop
+                asyncio.run_coroutine_threadsafe(
+                    self._flush_async_queue(), loop
+                )
             except (RuntimeError, AssertionError):
-                pass  # Can't flush async queue from sync context
+                # No running loop or can't schedule, skip async flush
+                pass
 
     def close(self) -> None:
         """Close the handler and flush remaining records."""
@@ -785,6 +846,9 @@ def setup_logging(
     # Build base handler
     base_handler: logging.Handler | None = None
 
+    # Validate rotation policy
+    _validate_rotation_policy(rotate)
+
     # Set up file handler if log_file is specified
     if log_file:
         log_path = Path(log_file)
@@ -792,23 +856,6 @@ def setup_logging(
 
         # Create appropriate handler based on rotation policy
         if rotate == "time":
-            base_handler = TimedRotatingFileHandler(
-                filename=log_path,
-                when=_get_time_interval(time_interval),
-                backupCount=backup_count,
-                encoding="utf-8"
-            )
-        elif rotate == "both":
-            # NOTE: Python's stdlib doesn't support true dual (size + time) rotation.
-            # This falls back to time-based rotation with backup count limiting old files.
-            # The max_size_mb setting is effectively ignored for "both" mode.
-            _temp_logger = logging.getLogger("glyph.logging")
-            _temp_logger.warning(
-                "Log rotation policy 'both' is not fully supported by Python's stdlib. "
-                "Falling back to time-based rotation with backup count. "
-                "The max_size_mb setting will be ignored. "
-                "Use 'size' or 'time' for explicit behavior."
-            )
             base_handler = TimedRotatingFileHandler(
                 filename=log_path,
                 when=_get_time_interval(time_interval),
