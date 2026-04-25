@@ -67,7 +67,7 @@ logging:
     path: logs/glyph.log
     max_size_mb: 50
     backup_count: 10
-    rotate: size  # time, size, or both
+    rotate: size  # time or size
     time_interval: midnight  # midnight, daily, weekly, monthly
   console:
     enabled: true
@@ -107,7 +107,7 @@ logging:
 | `file.path` | string | `"logs/glyph.log"` | Log file path |
 | `file.max_size_mb` | int | `50` | Max file size before rotation |
 | `file.backup_count` | int | `10` | Number of rotated files to keep |
-| `file.rotate` | string | `"size"` | Rotation policy (`size`, `time`, `both`) |
+| `file.rotate` | string | `"size"` | Rotation policy (`size` or `time`) |
 | `file.time_interval` | string | `"midnight"` | Time rotation interval |
 | `console.enabled` | bool | `true` | Enable console output |
 | `console.level` | string | `"INFO"` | Console log level |

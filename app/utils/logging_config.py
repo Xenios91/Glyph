@@ -47,12 +47,12 @@ class SensitiveDataFilter(logging.Filter):
         (r'(?i)bearer\s+[A-Za-z0-9\-\._~\+\/]+=*', 'Bearer [REDACTED]'),
         # Database connection strings
         (r'(?i)(sqlite|postgresql|mysql|mongodb|redis)(\+[\w]+)?://\S+', '[CONNECTION_STRING_REDACTED]'),
-        # Generic token assignments
-        (r'(?i)(token|secret|password|passwd|pwd)\s*[=:]\s*\S+', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0))),
-        # API keys (common prefixes)
-        (r'(?i)(api[_-]?key|apikey)\s*[=:]\s*\S+', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0))),
-        # Generic secrets in environment variable format
-        (r'(?i)(secret_key|jwt_secret|oauth_secret)\s*[=:]\s*\S+', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0))),
+        # Generic token assignments — require word boundary to avoid matching mid-word
+        (r'(?i)(?:^|[\s,;|])((?:token|secret|password|passwd|pwd)\s*[=:]\s*\S+)', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0))),
+        # API keys (common prefixes) — require word boundary
+        (r'(?i)(?:^|[\s,;|])((?:api[_-]?key|apikey)\s*[=:]\s*\S+)', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0))),
+        # Generic secrets in environment variable format — require word boundary
+        (r'(?i)(?:^|[\s,;|])((?:secret_key|jwt_secret|oauth_secret)\s*[=:]\s*\S+)', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0))),
         # Email addresses in sensitive contexts
         (r'(?i)(password|token|secret)[^@]*@[A-Za-z0-9\.-]+\.[A-Za-z]{2,}', '[REDACTED]'),
     ]
@@ -478,7 +478,6 @@ class AsyncLogHandler(logging.Handler):
         self._sync_queue: deque[logging.LogRecord] = deque(maxlen=max_queue_size)
         self._task: asyncio.Task | None = None
         self._lock = threading.Lock()
-        self._loop: asyncio.AbstractEventLoop | None = None
 
     def _get_async_queue(self) -> asyncio.Queue[logging.LogRecord]:
         """Get or create the async queue for the current event loop.
@@ -490,12 +489,6 @@ class AsyncLogHandler(logging.Handler):
             if self._queue is None:
                 self._queue = asyncio.Queue(maxsize=self._max_queue_size)
             return self._queue
-
-    def _get_event_loop(self) -> asyncio.AbstractEventLoop:
-        """Get or cache the event loop for scheduling coroutines."""
-        if self._loop is None:
-            self._loop = asyncio.get_event_loop()
-        return self._loop
 
     def emit(self, record: logging.LogRecord) -> None:
         """Queue a log record for async processing.
@@ -554,9 +547,13 @@ class AsyncLogHandler(logging.Handler):
                 self.handleError(record)
 
     async def _process_queue(self) -> None:
-        """Process queued records asynchronously."""
+        """Process queued records asynchronously.
+
+        Uses a brief grace period after the queue appears empty to catch
+        late-arriving records that were enqueued during processing.
+        """
         q = self._get_async_queue()
-        while not q.empty():
+        while True:
             try:
                 record = q.get_nowait()
             except asyncio.QueueEmpty:
@@ -566,6 +563,18 @@ class AsyncLogHandler(logging.Handler):
             except Exception:
                 self.handleError(record)
             await asyncio.sleep(0)  # Yield to event loop
+
+        # Brief grace period to catch late-arriving records
+        await asyncio.sleep(0.01)
+        while True:
+            try:
+                record = q.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            try:
+                self.target.emit(record)
+            except Exception:
+                self.handleError(record)
 
     async def _flush_async_queue(self) -> None:
         """Flush the async queue by processing all pending records."""
@@ -782,7 +791,7 @@ def setup_logging(
         log_file: Path to log file. Set to None to disable file logging.
         max_size_mb: Maximum log file size in MB before rotation.
         backup_count: Number of backup files to keep.
-        rotate: Rotation policy ("size", "time", or "both").
+        rotate: Rotation policy ("size" or "time").
         time_interval: Time interval for time-based rotation.
         console_enabled: Whether to enable console logging.
         console_level: Log level for console handler.

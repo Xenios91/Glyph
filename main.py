@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -69,6 +71,19 @@ app = create_app()
 async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLResponse | JSONResponse | RedirectResponse:
     """Handle HTTP exceptions with redirect to login for 401 on web requests.
     """
+    # Log 5xx at WARNING, 4xx at DEBUG for visibility
+    level = logging.WARNING if exc.status_code >= 500 else logging.DEBUG
+    logger.log(
+        level,
+        "HTTP error %d: %s", exc.status_code, exc.detail,
+        extra={"extra_data": {
+            "event": "http_exception",
+            "status_code": exc.status_code,
+            "path": request.url.path,
+            "method": request.method,
+        }},
+    )
+
     accept = request.headers.get("Accept", "")
     
     # Redirect to login for 401 on web requests

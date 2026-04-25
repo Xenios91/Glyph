@@ -150,7 +150,7 @@ def log_performance(
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            func_logger = logger_instance or logging.getLogger(func.__module__)
+            func_logger = logger_instance or get_logger(func.__module__)
 
             with PerformanceTimer(
                 name=func.__name__,
@@ -195,7 +195,7 @@ def log_step_performance(
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            func_logger = logger_instance or logging.getLogger(func.__module__)
+            func_logger = logger_instance or get_logger(func.__module__)
 
             with PerformanceTimer(
                 name=f"{step_name} ({func.__name__})",

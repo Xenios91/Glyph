@@ -1287,3 +1287,114 @@ class TestAsyncLogHandlerFlush:
 
         output = log_stream.getvalue()
         assert "Message before close" in output
+
+
+class TestSensitiveDataFilterNarrowPatterns:
+    """Tests for narrowed sensitive data patterns that avoid over-redacting."""
+
+    def test_does_not_redact_legitimate_token_usage(self):
+        """Test that 'token count=5' is NOT redacted."""
+        from app.utils.logging_config import SensitiveDataFilter
+
+        filter_instance = SensitiveDataFilter()
+        record = logging.LogRecord(
+            name="test", level=logging.INFO,
+            pathname="test.py", lineno=1,
+            msg="Processing token count=5 for user alice",
+            args=(), exc_info=None,
+        )
+        filter_instance.filter(record)
+        # "token count=5" should NOT be redacted (no assignment pattern)
+        assert "token count=5" in record.msg
+        assert "[REDACTED]" not in record.msg
+
+    def test_does_not_redact_secret_in_non_assignment_context(self):
+        """Test that 'secret shared with team' is NOT redacted."""
+        from app.utils.logging_config import SensitiveDataFilter
+
+        filter_instance = SensitiveDataFilter()
+        record = logging.LogRecord(
+            name="test", level=logging.INFO,
+            pathname="test.py", lineno=1,
+            msg="The secret shared with team was revealed",
+            args=(), exc_info=None,
+        )
+        filter_instance.filter(record)
+        assert "secret shared" in record.msg
+        assert "[REDACTED]" not in record.msg
+
+    def test_still_redacts_password_assignment(self):
+        """Test that actual password assignments are still redacted."""
+        from app.utils.logging_config import SensitiveDataFilter
+
+        filter_instance = SensitiveDataFilter()
+        record = logging.LogRecord(
+            name="test", level=logging.INFO,
+            pathname="test.py", lineno=1,
+            msg="Config: password=supersecret123",
+            args=(), exc_info=None,
+        )
+        filter_instance.filter(record)
+        assert "supersecret123" not in record.msg
+        assert "[REDACTED]" in record.msg
+
+    def test_still_redacts_token_assignment(self):
+        """Test that actual token assignments are still redacted."""
+        from app.utils.logging_config import SensitiveDataFilter
+
+        filter_instance = SensitiveDataFilter()
+        record = logging.LogRecord(
+            name="test", level=logging.INFO,
+            pathname="test.py", lineno=1,
+            msg="Auth: token=abc123def456",
+            args=(), exc_info=None,
+        )
+        filter_instance.filter(record)
+        assert "abc123def456" not in record.msg
+        assert "[REDACTED]" in record.msg
+
+
+class TestAsyncLogHandlerNoDeprecatedAPI:
+    """Tests for AsyncLogHandler after removing deprecated asyncio.get_event_loop()."""
+
+    def test_no_get_event_loop_method(self):
+        """Test that _get_event_loop method no longer exists."""
+        from app.utils.logging_config import AsyncLogHandler
+
+        log_stream = StringIO()
+        target = logging.StreamHandler(log_stream)
+        async_handler = AsyncLogHandler(target, max_queue_size=100)
+        # The deprecated _get_event_loop method should be removed
+        assert not hasattr(async_handler, '_get_event_loop')
+        async_handler.close()
+
+    def test_no_loop_attribute(self):
+        """Test that _loop attribute no longer exists."""
+        from app.utils.logging_config import AsyncLogHandler
+
+        log_stream = StringIO()
+        target = logging.StreamHandler(log_stream)
+        async_handler = AsyncLogHandler(target, max_queue_size=100)
+        # The cached _loop attribute should be removed
+        assert not hasattr(async_handler, '_loop')
+        async_handler.close()
+
+
+class TestPerformanceLoggerUsesGetLogger:
+    """Tests for performance_logger using get_logger() instead of logging.getLogger()."""
+
+    def test_log_performance_uses_get_logger(self):
+        """Test that the decorator uses get_logger from logging_config."""
+        from app.utils import performance_logger
+        # Verify the module imports get_logger
+        assert hasattr(performance_logger, 'get_logger')
+
+    def test_log_step_performance_uses_get_logger(self):
+        """Test that log_step_performance decorator works correctly."""
+        from app.utils.performance_logger import log_step_performance
+
+        @log_step_performance("test_step", log_level=logging.NOTSET)
+        def sample_func():
+            return 42
+
+        assert sample_func() == 42
