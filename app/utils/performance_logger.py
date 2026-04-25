@@ -24,7 +24,7 @@ class PerformanceTimer:
             # Code to time
             result = expensive_operation()
 
-        print(f"Elapsed: {perf_timer.elapsed:.3f}s")
+        logger.info(f"Elapsed: {perf_timer.elapsed:.3f}s")
     """
 
     def __init__(

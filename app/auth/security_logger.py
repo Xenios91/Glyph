@@ -30,17 +30,47 @@ class LoginFailureTracker:
         self,
         threshold: int = 5,
         window: float = 300.0,
+        max_keys: int = 1000,
     ):
         """Initialize the login failure tracker.
 
         Args:
             threshold: Number of failures before triggering alert.
             window: Time window in seconds for counting failures.
+            max_keys: Maximum number of unique keys to track (memory bound).
         """
         self.threshold = threshold
         self.window = window
+        self.max_keys = max_keys
         self._failures: dict[str, list[float]] = defaultdict(list)
         self._alerted: dict[str, bool] = defaultdict(bool)
+        self._last_cleanup = time.time()
+        self._cleanup_interval = 300.0  # 5 minutes
+
+    def _cleanup_stale_keys(self, now: float) -> None:
+        """Remove stale keys and evict oldest if over memory limit.
+
+        Args:
+            now: Current timestamp.
+        """
+        cutoff = now - self.window
+        # Clean old timestamps and remove empty buckets
+        for key in list(self._failures):
+            self._failures[key] = [t for t in self._failures[key] if t > cutoff]
+            if not self._failures[key]:
+                del self._failures[key]
+                self._alerted.pop(key, None)
+
+        # Evict oldest keys if over limit
+        if len(self._failures) > self.max_keys:
+            keys_by_activity = sorted(
+                self._failures.keys(),
+                key=lambda k: max(self._failures[k]) if self._failures[k] else 0,
+            )
+            keys_to_remove = keys_by_activity[:len(self._failures) - self.max_keys]
+            for key in keys_to_remove:
+                del self._failures[key]
+                self._alerted.pop(key, None)
 
     def record_failure(self, key: str) -> int:
         """Record a login failure and return current failure count.
@@ -52,7 +82,12 @@ class LoginFailureTracker:
             Current number of failures in the window.
         """
         now = time.time()
-        # Clean old entries
+        # Periodic cleanup of stale keys
+        if now - self._last_cleanup > self._cleanup_interval:
+            self._cleanup_stale_keys(now)
+            self._last_cleanup = now
+
+        # Clean old entries for this key
         cutoff = now - self.window
         self._failures[key] = [t for t in self._failures[key] if t > cutoff]
         self._failures[key].append(now)

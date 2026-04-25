@@ -218,11 +218,11 @@ class RateLimitingFilter(logging.Filter):
         # Suppress the message but track count
         self._suppressed[key] += 1
 
-        # Every 100 suppressed messages, log a summary using the logger itself
+        # Every 100 suppressed messages, log a summary using a dedicated logger
         if self._suppressed[key] % 100 == 0:
-            # Use the standard logging mechanism instead of creating inline handlers
-            logger = logging.getLogger(record.name)
-            logger.warning(
+            # Use a dedicated logger to avoid bypassing the filter chain
+            _rate_limit_logger = logging.getLogger("glyph.rate_limit")
+            _rate_limit_logger.warning(
                 "[Rate Limited] %d messages suppressed for: %s",
                 self._suppressed[key],
                 record.msg[:100],
@@ -357,12 +357,21 @@ class ColoredFormatter(logging.Formatter):
 
 
 def _ensure_log_directory(log_path: Path) -> None:
-    """Ensure the log directory exists.
+    """Ensure the log directory exists and is writable.
 
     Args:
         log_path: Path to the log file.
+
+    Raises:
+        PermissionError: If the directory is not writable.
     """
     log_path.parent.mkdir(parents=True, exist_ok=True)
+    # Verify the directory is writable
+    if not os.access(log_path.parent, os.W_OK):
+        raise PermissionError(
+            f"Log directory is not writable: {log_path.parent}. "
+            f"Check permissions and try again."
+        )
 
 
 def _set_log_file_permissions(log_path: Path) -> None:
@@ -419,7 +428,8 @@ class AsyncLogHandler(logging.Handler):
     """Non-blocking async log handler using a queue.
 
     Queues log records and processes them asynchronously to avoid
-    blocking the event loop during request handling.
+    blocking the event loop during request handling. Uses asyncio.Queue
+    for thread-safe operations across concurrent contexts.
     """
 
     def __init__(
@@ -435,9 +445,17 @@ class AsyncLogHandler(logging.Handler):
         """
         super().__init__()
         self.target = target_handler
-        self._queue: deque[logging.LogRecord] = deque(maxlen=max_queue_size)
+        self._max_queue_size = max_queue_size
+        self._queue: asyncio.Queue[logging.LogRecord] | None = None
+        self._sync_queue: deque[logging.LogRecord] = deque(maxlen=max_queue_size)
         self._task: asyncio.Task | None = None
         self._lock = threading.Lock()
+
+    def _get_async_queue(self) -> asyncio.Queue[logging.LogRecord]:
+        """Get or create the async queue for the current event loop."""
+        if self._queue is None:
+            self._queue = asyncio.Queue(maxsize=self._max_queue_size)
+        return self._queue
 
     def emit(self, record: logging.LogRecord) -> None:
         """Queue a log record for async processing.
@@ -445,24 +463,38 @@ class AsyncLogHandler(logging.Handler):
         Args:
             record: The log record to queue.
         """
-        self._queue.append(record)
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             # No running event loop (e.g., during startup/shutdown)
-            # Process synchronously
+            # Queue and process synchronously
+            self._sync_queue.append(record)
             self._process_sync()
             return
 
-        # Use lock to prevent race condition when creating tasks
-        with self._lock:
-            if self._task is None or self._task.done():
-                self._task = loop.create_task(self._process_queue())
+        # Queue the record for async processing
+        async def _enqueue():
+            q = self._get_async_queue()
+            try:
+                q.put_nowait(record)
+            except asyncio.QueueFull:
+                # Queue is full, drop the record to prevent blocking
+                pass
+
+            with self._lock:
+                if self._task is None or self._task.done():
+                    self._task = loop.create_task(self._process_queue())
+
+        try:
+            loop.run_until_complete(_enqueue())
+        except (RuntimeError, AssertionError):
+            # Event loop is running in another thread, schedule differently
+            asyncio.run_coroutine_threadsafe(_enqueue(), loop)
 
     def _process_sync(self) -> None:
         """Process queued records synchronously (no event loop)."""
-        while self._queue:
-            record = self._queue.popleft()
+        while self._sync_queue:
+            record = self._sync_queue.popleft()
             try:
                 self.target.emit(record)
             except Exception:
@@ -470,8 +502,12 @@ class AsyncLogHandler(logging.Handler):
 
     async def _process_queue(self) -> None:
         """Process queued records asynchronously."""
-        while self._queue:
-            record = self._queue.popleft()
+        q = self._get_async_queue()
+        while not q.empty():
+            try:
+                record = q.get_nowait()
+            except asyncio.QueueEmpty:
+                break
             try:
                 self.target.emit(record)
             except Exception:
@@ -481,6 +517,25 @@ class AsyncLogHandler(logging.Handler):
     def flush(self) -> None:
         """Flush all queued records synchronously."""
         self._process_sync()
+        # Also flush async queue if available
+        async_queue = self._queue
+        if async_queue is not None:
+            try:
+                loop = asyncio.get_running_loop()
+                async def _flush_async():
+                    while not async_queue.empty():
+                        try:
+                            record = async_queue.get_nowait()
+                        except asyncio.QueueEmpty:
+                            break
+                        try:
+                            self.target.emit(record)
+                        except Exception:
+                            self.handleError(record)
+                        await asyncio.sleep(0)
+                loop.run_until_complete(_flush_async())
+            except (RuntimeError, AssertionError):
+                pass  # Can't flush async queue from sync context
 
     def close(self) -> None:
         """Close the handler and flush remaining records."""
@@ -682,7 +737,16 @@ def setup_logging(
         sampling_rate: Fraction of messages to allow (0.0 to 1.0).
         best_practice_filter: Whether to enable logging best practice validation.
     """
-    # Get log level
+    # Validate and get log levels
+    valid_levels = {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'NOTSET'}
+    if level.upper() not in valid_levels:
+        raise ValueError(
+            f"Invalid log level: '{level}'. Must be one of: {', '.join(sorted(valid_levels))}"
+        )
+    if console_level.upper() not in valid_levels:
+        raise ValueError(
+            f"Invalid console log level: '{console_level}'. Must be one of: {', '.join(sorted(valid_levels))}"
+        )
     log_level = getattr(logging, level.upper(), logging.INFO)
     console_log_level = getattr(logging, console_level.upper(), logging.INFO)
 
@@ -735,8 +799,16 @@ def setup_logging(
                 encoding="utf-8"
             )
         elif rotate == "both":
-            # Use TimedRotatingFileHandler which supports both time-based rotation
-            # and backup count (size is handled by backupCount limiting old files)
+            # NOTE: Python's stdlib doesn't support true dual (size + time) rotation.
+            # This falls back to time-based rotation with backup count limiting old files.
+            # The max_size_mb setting is effectively ignored for "both" mode.
+            _temp_logger = logging.getLogger("glyph.logging")
+            _temp_logger.warning(
+                "Log rotation policy 'both' is not fully supported by Python's stdlib. "
+                "Falling back to time-based rotation with backup count. "
+                "The max_size_mb setting will be ignored. "
+                "Use 'size' or 'time' for explicit behavior."
+            )
             base_handler = TimedRotatingFileHandler(
                 filename=log_path,
                 when=_get_time_interval(time_interval),
@@ -872,5 +944,5 @@ def setup_logging_from_config() -> None:
         async_max_queue=async_max_queue,
         sampling_enabled=sampling_enabled,
         sampling_rate=sampling_rate,
-        best_practice_filter=False,  # Only enable in dev mode via env var
+        best_practice_filter=os.environ.get("GLYPH_LOG_BEST_PRACTICE", "false").lower() == "true",
     )

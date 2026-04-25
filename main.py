@@ -30,8 +30,14 @@ def create_app() -> FastAPI:
     )
 
     # Add Request ID tracing middleware (must be first to capture all requests)
-    app.add_middleware(RequestIDMiddleware)
-    logger.info("Middleware registered: RequestIDMiddleware")
+    # Respect the request_tracing.enabled config option
+    from app.config.settings import get_settings
+    settings = get_settings()
+    if settings.logging.request_tracing.enabled:
+        app.add_middleware(RequestIDMiddleware)
+        logger.info("Middleware registered: RequestIDMiddleware")
+    else:
+        logger.info("RequestIDMiddleware disabled via config")
 
     # Add CSRF protection middleware
     app.add_middleware(CSRFMiddleware)
@@ -90,7 +96,15 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
 async def general_exception_handler(request: Request, exc: Exception) -> HTMLResponse | JSONResponse:
     """Handle unexpected exceptions with a nice error page for web requests.
     """
-    logger.error("Unexpected error: %s", exc, exc_info=True)
+    logger.error(
+        "Unexpected error: %s", exc, exc_info=True,
+        extra={"extra_data": {
+            "event": "unhandled_exception",
+            "path": request.url.path,
+            "method": request.method,
+            "query": str(request.query_params),
+        }},
+    )
     accept = request.headers.get("Accept", "")
     if "text/html" in accept:
         return templates.TemplateResponse(
