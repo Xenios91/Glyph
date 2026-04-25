@@ -189,12 +189,14 @@ class SQLUtil:
                                 "Secure deserialization blocked prediction '%s': %s",
                                 prediction[0],
                                 deserial_error,
+                                exc_info=True,
                             )
                         except Exception as deserial_error:
                             logger.error(
                                 "Failed to deserialize prediction '%s': %s",
                                 prediction[0],
                                 deserial_error,
+                                exc_info=True,
                             )
                 except sqlite3.Error as error:
                     _log_db_error(logger, "get_predictions_list", error)
@@ -239,6 +241,7 @@ class SQLUtil:
                         "Secure deserialization blocked prediction for task '%s': %s",
                         task_name,
                         deserial_error,
+                        exc_info=True,
                     )
                     return None
                 except Exception as deserial_error:
@@ -246,6 +249,7 @@ class SQLUtil:
                         "Failed to deserialize prediction for task '%s': %s",
                         task_name,
                         deserial_error,
+                        exc_info=True,
                     )
                     return None
 
@@ -325,12 +329,14 @@ class SQLUtil:
                             return function
                 except SecureDeserializationError as deserial_error:
                     logger.error(
-                        "Secure deserialization blocked predictions: %s", deserial_error
+                        "Secure deserialization blocked predictions: %s", deserial_error,
+                        exc_info=True,
                     )
                     return {}
                 except Exception as deserial_error:
                     logger.error(
-                        "Failed to deserialize predictions: %s", deserial_error
+                        "Failed to deserialize predictions: %s", deserial_error,
+                        exc_info=True,
                     )
                     return {}
             except sqlite3.Error as error:

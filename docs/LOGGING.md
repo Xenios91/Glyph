@@ -263,21 +263,21 @@ log_csrf_failure(ip_address=ip, path="/api/data", method="POST")
 
 | Function | Event Type | Log Level | Description |
 |----------|-----------|-----------|-------------|
-| [`log_login_attempt()`](app/auth/security_logger.py:101) | `login_attempt` | INFO | Login initiated |
-| [`log_login_success()`](app/auth/security_logger.py:130) | `login_success` | INFO | Successful login |
-| [`log_login_failure()`](app/auth/security_logger.py:163) | `login_failure` | WARNING | Failed login (triggers brute-force detection) |
-| [`log_logout()`](app/auth/security_logger.py:232) | `logout` | INFO | User logout |
-| [`log_token_refresh()`](app/auth/security_logger.py:259) | `token_refresh` | INFO | Token refreshed |
-| [`log_permission_denied()`](app/auth/security_logger.py:288) | `permission_denied` | WARNING | Authorization failure |
-| [`log_suspicious_activity()`](app/auth/security_logger.py:320) | `suspicious_activity` | WARNING | Suspicious pattern detected |
-| [`log_user_registration()`](app/auth/security_logger.py:451) | `user_registration` | INFO | New user registered |
-| [`log_password_change()`](app/auth/security_logger.py:376) | `password_change` | INFO | Password changed |
-| [`log_api_key_usage()`](app/auth/security_logger.py:259) | `api_key_usage` | INFO | API key used for authentication |
-| [`log_api_key_created()`](app/auth/security_logger.py:477) | `api_key_created` | INFO | New API key created |
-| [`log_api_key_deleted()`](app/auth/security_logger.py:503) | `api_key_deleted` | INFO | API key deleted |
-| [`log_csrf_failure()`](app/auth/security_logger.py:529) | `csrf_failure` | WARNING | CSRF validation failed |
-| [`log_account_lockout()`](app/auth/security_logger.py:375) | `account_lockout` | WARNING | Account locked |
-| [`log_account_unlock()`](app/auth/security_logger.py:403) | `account_unlock` | INFO | Account unlocked |
+| [`log_login_attempt()`](app/auth/security_logger.py:155) | `login_attempt` | INFO | Login initiated |
+| [`log_login_success()`](app/auth/security_logger.py:184) | `login_success` | INFO | Successful login |
+| [`log_login_failure()`](app/auth/security_logger.py:217) | `login_failure` | WARNING | Failed login (triggers brute-force detection) |
+| [`log_logout()`](app/auth/security_logger.py:267) | `logout` | INFO | User logout |
+| [`log_token_refresh()`](app/auth/security_logger.py:295) | `token_refresh` | INFO | Token refreshed |
+| [`log_permission_denied()`](app/auth/security_logger.py:349) | `permission_denied` | WARNING | Authorization failure |
+| [`log_suspicious_activity()`](app/auth/security_logger.py:381) | `suspicious_activity` | WARNING | Suspicious pattern detected |
+| [`log_user_registration()`](app/auth/security_logger.py:489) | `user_registration` | INFO | New user registered |
+| [`log_password_change()`](app/auth/security_logger.py:411) | `password_change` | INFO | Password changed |
+| [`log_api_key_usage()`](app/auth/security_logger.py:320) | `api_key_usage` | INFO | API key used for authentication |
+| [`log_api_key_created()`](app/auth/security_logger.py:517) | `api_key_created` | INFO | New API key created |
+| [`log_api_key_deleted()`](app/auth/security_logger.py:549) | `api_key_deleted` | INFO | API key deleted |
+| [`log_csrf_failure()`](app/auth/security_logger.py:578) | `csrf_failure` | WARNING | CSRF validation failed |
+| [`log_account_lockout()`](app/auth/security_logger.py:436) | `account_lockout` | WARNING | Account locked |
+| [`log_account_unlock()`](app/auth/security_logger.py:464) | `account_unlock` | INFO | Account unlocked |
 
 ### Brute-Force Detection
 
@@ -445,7 +445,7 @@ except sqlite3.Error as error:
 
 ### Sensitive Data Redaction
 
-The [`SensitiveDataFilter`](app/utils/logging_config.py:35) automatically redacts sensitive patterns from log messages:
+The [`SensitiveDataFilter`](app/utils/logging_config.py:37) automatically redacts sensitive patterns from log messages:
 
 | Pattern | Example | Redacted To |
 |---------|---------|-------------|
@@ -474,7 +474,7 @@ custom_filter = SensitiveDataFilter(
 
 ### Rate Limiting with Memory Bounds
 
-The [`RateLimitingFilter`](app/utils/logging_config.py:107) prevents log spam by limiting messages per time window:
+The [`RateLimitingFilter`](app/utils/logging_config.py:141) prevents log spam by limiting messages per time window:
 
 - Configurable message count per period
 - Token bucket algorithm per unique message key
@@ -598,7 +598,7 @@ logging:
     max_queue_size: 1000
 ```
 
-The [`AsyncLogHandler`](app/utils/logging_config.py:424) queues log records and processes them asynchronously, yielding to the event loop between records. Key behaviors:
+The [`AsyncLogHandler`](app/utils/logging_config.py:478) queues log records and processes them asynchronously, yielding to the event loop between records. Key behaviors:
 
 - Falls back to synchronous processing when no event loop is running (startup/shutdown)
 - Automatically flushes queue on `close()`
@@ -615,7 +615,7 @@ logging:
     rate: 0.1  # Log 10% of messages
 ```
 
-The [`SamplingFilter`](app/utils/logging_config.py:496) uses a counter-based approach:
+The [`SamplingFilter`](app/utils/logging_config.py:640) uses random sampling for statistically representative results:
 - `rate=1.0` logs all messages
 - `rate=0.1` logs approximately 10% of messages
 - `rate=0.0` logs nothing
@@ -631,7 +631,7 @@ from app.utils.logging_config import setup_logging
 setup_logging(best_practice_filter=True)
 ```
 
-The [`LoggingBestPracticeFilter`](app/utils/logging_config.py:532) warns about:
+The [`LoggingBestPracticeFilter`](app/utils/logging_config.py:676) warns about:
 - Unformatted braces in log messages (potential f-string misuse)
 - Error-level logs without `exc_info=True`
 
@@ -656,7 +656,7 @@ On application startup, a structured log entry is emitted with logging configura
 }
 ```
 
-Call [`log_startup_summary()`](app/utils/logging_config.py:586) after `setup_logging()` to emit this entry.
+Call [`log_startup_summary()`](app/utils/logging_config.py:739) after `setup_logging()` to emit this entry.
 
 ## Monitoring & Operations
 
