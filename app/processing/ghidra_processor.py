@@ -63,7 +63,7 @@ def get_function_tokens(function: Any, decomp_interface: Any) -> list[str]:
 
         return [str(t) for t in token_list if str(t).strip()]
     except Exception as exc:
-        logger.error("Decompilation error for function %s: %s", function.getName(), exc)
+        logger.error("Decompilation error for function %s: %s", function.getName(), exc, exc_info=True)
         return []
 
 

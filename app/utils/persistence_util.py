@@ -148,7 +148,7 @@ class MLPersistanceUtil:
 
             SQLUtil.save_model(model_name, serialized_encoder, serialized_model)
         except Exception as error:
-            logger.error("Failed to serialize model '%s': %s", model_name, error)
+            logger.error("Failed to serialize model '%s': %s", model_name, error, exc_info=True)
             raise RuntimeError(
                 f"Could not serialize model data for '{model_name}'"
             ) from error
@@ -200,6 +200,7 @@ class MLPersistanceUtil:
                 model_name,
                 type(error).__name__,
                 error,
+                exc_info=True,
             )
             raise RuntimeError(
                 f"Model data for '{model_name}' failed security validation"
@@ -210,6 +211,7 @@ class MLPersistanceUtil:
                 model_name,
                 type(error).__name__,
                 error,
+                exc_info=True,
             )
             raise RuntimeError(
                 f"Could not deserialize model data for '{model_name}'"

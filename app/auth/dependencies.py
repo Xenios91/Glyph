@@ -134,8 +134,8 @@ async def get_current_user(
                     detail="User not found or inactive",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
-            # Set request context for downstream logging
-            set_request_context(user_id=user.id, username=user.username)
+            # Set request context for downstream logging (preserve request_id from middleware)
+            set_request_context(user_id=user.id, username=user.username, clear_unset=False)
             return user
         else:
             logger.warning("Authentication failed: invalid API key")
@@ -163,8 +163,8 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Set request context for downstream logging
-    set_request_context(user_id=user.id, username=user.username)
+    # Set request context for downstream logging (preserve request_id from middleware)
+    set_request_context(user_id=user.id, username=user.username, clear_unset=False)
     logger.debug("User authenticated successfully: user_id=%s, username=%s", user.id, user.username)
     return user
 

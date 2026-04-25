@@ -95,6 +95,7 @@ def get_session(database: str = "models") -> Generator[Session, None, None]:
         session.rollback()
         logger.error(
             "Database error in '%s': %s", database, exc,
+            exc_info=True,
             extra={"extra_data": {"database": database, "operation": "get_session"}},
         )
         raise

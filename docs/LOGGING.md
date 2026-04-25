@@ -35,17 +35,17 @@ Glyph uses a centralized logging configuration that provides:
 
 | Filter | Class | Purpose |
 |--------|-------|---------|
-| Sensitive Data | [`SensitiveDataFilter`](app/utils/logging_config.py:35) | Redacts tokens, passwords, connection strings, secrets |
-| Rate Limiting | [`RateLimitingFilter`](app/utils/logging_config.py:107) | Limits messages per period with memory bounds |
-| Sampling | [`SamplingFilter`](app/utils/logging_config.py:496) | Samples a percentage of messages |
-| Best Practices | [`LoggingBestPracticeFilter`](app/utils/logging_config.py:532) | Validates logging patterns (dev only) |
+| Sensitive Data | [`SensitiveDataFilter`](app/utils/logging_config.py:37) | Redacts tokens, passwords, connection strings, secrets |
+| Rate Limiting | [`RateLimitingFilter`](app/utils/logging_config.py:141) | Limits messages per period with memory bounds |
+| Sampling | [`SamplingFilter`](app/utils/logging_config.py:640) | Samples a percentage of messages |
+| Best Practices | [`LoggingBestPracticeFilter`](app/utils/logging_config.py:676) | Validates logging patterns (dev only) |
 
 ### Formatters
 
 | Formatter | Class | Purpose |
 |-----------|-------|---------|
-| JSON | [`JSONFormatter`](app/utils/logging_config.py:238) | Optimized structured JSON with short field names |
-| Colored | [`ColoredFormatter`](app/utils/logging_config.py:314) | ANSI-colored console output |
+| JSON | [`JSONFormatter`](app/utils/logging_config.py:267) | Optimized structured JSON with short field names |
+| Colored | [`ColoredFormatter`](app/utils/logging_config.py:343) | ANSI-colored console output |
 
 ### Handlers
 
@@ -53,7 +53,7 @@ Glyph uses a centralized logging configuration that provides:
 |---------|-------|---------|
 | File | `RotatingFileHandler` / `TimedRotatingFileHandler` | Rotating file output with compression |
 | Console | `StreamHandler` | stdout console output |
-| Async | [`AsyncLogHandler`](app/utils/logging_config.py:424) | Non-blocking queue-based wrapper |
+| Async | [`AsyncLogHandler`](app/utils/logging_config.py:478) | Non-blocking queue-based wrapper |
 
 ## Configuration
 

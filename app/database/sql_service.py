@@ -256,7 +256,7 @@ class SQLUtil:
             _log_db_error(logger, "get_predictions", error, {"task_name": task_name, "model_name": model_name})
             return None
         except Exception as error:
-            logger.error("Unexpected error: %s", error)
+            logger.error("Unexpected error: %s", error, exc_info=True)
             return None
 
     @staticmethod

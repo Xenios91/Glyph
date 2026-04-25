@@ -116,6 +116,27 @@ class SensitiveDataFilter(logging.Filter):
 
         return True
 
+    def filter_msg(self, message: str) -> str:
+        """Redact sensitive data from a string message.
+
+        Args:
+            message: The message string to redact.
+
+        Returns:
+            The redacted message string.
+        """
+        new_msg = message
+        for pattern, replacement in self._compiled_patterns:
+            if callable(replacement):
+                new_msg = pattern.sub(replacement, new_msg)
+            else:
+                new_msg = pattern.sub(replacement, new_msg)
+        return new_msg
+
+
+# Module-level sensitive data filter for components that need standalone redaction
+_RATE_LIMIT_SENSITIVE_FILTER = SensitiveDataFilter()
+
 
 class RateLimitingFilter(logging.Filter):
     """Filter that rate-limits log messages to prevent log spam.
@@ -232,10 +253,12 @@ class RateLimitingFilter(logging.Filter):
         if self._suppressed[key] % 100 == 0:
             # Use a dedicated logger to avoid bypassing the filter chain
             _rate_limit_logger = logging.getLogger("glyph.rate_limit")
+            # Apply sensitive data redaction to prevent bypass
+            redacted_msg = _RATE_LIMIT_SENSITIVE_FILTER.filter_msg(record.msg[:100])
             _rate_limit_logger.warning(
                 "[Rate Limited] %d messages suppressed for: %s",
                 self._suppressed[key],
-                record.msg[:100],
+                redacted_msg,
             )
 
         return False
@@ -657,14 +680,17 @@ class LoggingBestPracticeFilter(logging.Filter):
     or missing exception info when logging errors.
     """
 
-    def __init__(self, enabled: bool = False):
+    def __init__(self, enabled: bool = False, max_warnings: int = 100):
         """Initialize the best practice filter.
 
         Args:
             enabled: Whether to enable validation (default: False for production).
+            max_warnings: Maximum number of unique warnings to track (default: 100).
+                         Stops tracking after this limit to prevent memory leaks.
         """
         super().__init__()
         self.enabled = enabled
+        self.max_warnings = max_warnings
         self._warnings: set[str] = set()
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -677,6 +703,10 @@ class LoggingBestPracticeFilter(logging.Filter):
             True to always include the record (this filter only warns).
         """
         if not self.enabled:
+            return True
+
+        # Stop tracking warnings after reaching the memory limit
+        if len(self._warnings) >= self.max_warnings:
             return True
 
         # Check for string formatting anti-patterns in message
