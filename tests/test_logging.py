@@ -1060,3 +1060,230 @@ class TestSensitiveDataFilterExtended:
         filter.filter(record)
         assert "my_super_secret_key_12345" not in record.msg
         assert "REDACTED" in record.msg
+
+
+class TestSensitiveDataFilterTupleArgs:
+    """Tests for improved tuple arg redaction."""
+
+    def test_tuple_args_only_redacts_sensitive_values(self):
+        """Test that only sensitive tuple args are redacted, not all args."""
+        from app.utils.logging_config import SensitiveDataFilter
+
+        filter_instance = SensitiveDataFilter()
+        record = logging.LogRecord(
+            name="test", level=logging.INFO,
+            pathname="test.py", lineno=1,
+            msg="User %s logged in with password %s",
+            args=("john_doe", "password=supersecret123"),
+            exc_info=None,
+        )
+        filter_instance.filter(record)
+        # Username should NOT be redacted
+        args = tuple(record.args) if record.args else ()
+        assert "john_doe" in args
+        # Password value should be redacted
+        assert "supersecret123" not in args
+        assert "[REDACTED]" in args
+
+    def test_tuple_args_no_false_positives(self):
+        """Test that normal args are not redacted even with sensitive keywords in message."""
+        from app.utils.logging_config import SensitiveDataFilter
+
+        filter_instance = SensitiveDataFilter()
+        record = logging.LogRecord(
+            name="test", level=logging.INFO,
+            pathname="test.py", lineno=1,
+            msg="Processing token for user %s in group %s",
+            args=("alice", "developers"),
+            exc_info=None,
+        )
+        filter_instance.filter(record)
+        # Neither arg should be redacted (they don't match sensitive patterns)
+        assert record.args == ("alice", "developers")
+
+    def test_tuple_args_redacts_bearer_token(self):
+        """Test that bearer tokens in tuple args are redacted."""
+        from app.utils.logging_config import SensitiveDataFilter
+
+        filter_instance = SensitiveDataFilter()
+        record = logging.LogRecord(
+            name="test", level=logging.INFO,
+            pathname="test.py", lineno=1,
+            msg="Auth header: %s",
+            args=("Bearer eyJhbGciOiJIUzI1NiJ9.test.signature",),
+            exc_info=None,
+        )
+        filter_instance.filter(record)
+        args = tuple(record.args) if record.args else ()
+        assert "eyJhbGci" not in args
+        assert "[REDACTED]" in args
+
+
+class TestAsyncLogHandlerEventLoopSafety:
+    """Tests for AsyncLogHandler event loop safety fixes."""
+
+    def test_async_handler_emit_no_running_loop(self):
+        """Test that emit works when no event loop is running."""
+        from app.utils.logging_config import AsyncLogHandler
+
+        log_stream = StringIO()
+        target = logging.StreamHandler(log_stream)
+        target.setFormatter(logging.Formatter("%(message)s"))
+
+        async_handler = AsyncLogHandler(target, max_queue_size=100)
+        test_logger = get_logger("test.async_no_loop")
+        test_logger.setLevel(logging.INFO)
+        test_logger.addHandler(async_handler)
+
+        # Should not raise even without a running event loop
+        test_logger.info("Test message without loop")
+        async_handler.flush()
+
+        output = log_stream.getvalue()
+        assert "Test message without loop" in output
+
+        async_handler.close()
+        test_logger.removeHandler(async_handler)
+
+    def test_async_handler_queue_thread_safety(self):
+        """Test that queue creation is thread-safe."""
+        import threading
+        from app.utils.logging_config import AsyncLogHandler
+
+        log_stream = StringIO()
+        target = logging.StreamHandler(log_stream)
+        target.setFormatter(logging.Formatter("%(message)s"))
+
+        async_handler = AsyncHandler = AsyncLogHandler(target, max_queue_size=1000)
+
+        # Simulate concurrent access to _get_async_queue
+        errors = []
+        def create_queue():
+            try:
+                q = async_handler._get_async_queue()
+                assert q is not None
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=create_queue) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0
+        # Queue should be created exactly once
+        assert async_handler._queue is not None
+
+        async_handler.close()
+
+
+class TestLoginFailureTrackerMonotonicTime:
+    """Tests for LoginFailureTracker using monotonic time."""
+
+    def test_tracker_uses_monotonic_time(self):
+        """Test that the tracker uses monotonic time internally."""
+        from app.auth.security_logger import LoginFailureTracker
+
+        tracker = LoginFailureTracker(threshold=3, window=60.0)
+
+        # Record a failure
+        tracker.record_failure("test_user")
+
+        # The _last_cleanup should be a monotonic timestamp
+        # Monotonic time is typically much larger than wall-clock time
+        assert tracker._last_cleanup > 0
+
+        # Verify cleanup interval uses monotonic time
+        import time
+        now = time.monotonic()
+        # _last_cleanup should be close to current monotonic time
+        assert abs(now - tracker._last_cleanup) < 60  # Within 60 seconds
+
+
+class TestRotationPolicyValidation:
+    """Tests for rotation policy validation."""
+
+    def test_rotate_both_rejected(self):
+        """Test that 'both' rotation policy is rejected."""
+        from app.utils.logging_config import _validate_rotation_policy
+
+        try:
+            _validate_rotation_policy("both")
+            assert False, "Should have raised ValueError"
+        except ValueError as e:
+            assert "both" in str(e).lower()
+
+    def test_rotate_size_accepted(self):
+        """Test that 'size' rotation policy is accepted."""
+        from app.utils.logging_config import _validate_rotation_policy
+
+        # Should not raise
+        _validate_rotation_policy("size")
+
+    def test_rotate_time_accepted(self):
+        """Test that 'time' rotation policy is accepted."""
+        from app.utils.logging_config import _validate_rotation_policy
+
+        # Should not raise
+        _validate_rotation_policy("time")
+
+    def test_setup_logging_rejects_both(self):
+        """Test that setup_logging rejects 'both' rotation policy."""
+        try:
+            setup_logging(
+                level="INFO",
+                format="text",
+                log_file="logs/test_both.log",
+                rotate="both",
+            )
+            assert False, "Should have raised ValueError"
+        except ValueError as e:
+            assert "both" in str(e).lower()
+
+        # Clean up
+        root_logger = logging.getLogger()
+        root_logger.handlers.clear()
+
+
+class TestSettingsLoggerSensitiveFilter:
+    """Tests for settings module logger having sensitive data filter."""
+
+    def test_settings_logger_has_sensitive_filter(self):
+        """Test that the settings logger has a SensitiveDataFilter applied."""
+        from app.config.settings import get_settings
+        from app.utils.logging_config import SensitiveDataFilter
+
+        # Force settings reload to trigger filter application
+        get_settings()
+
+        # Check the settings logger has the filter
+        settings_logger = logging.getLogger("app.config.settings")
+        has_filter = any(
+            isinstance(f, SensitiveDataFilter)
+            for f in settings_logger.filters
+        )
+        assert has_filter, "Settings logger should have SensitiveDataFilter"
+
+
+class TestAsyncLogHandlerFlush:
+    """Tests for AsyncLogHandler flush safety."""
+
+    def test_async_handler_close_flushes(self):
+        """Test that closing async handler flushes remaining records."""
+        from app.utils.logging_config import AsyncLogHandler
+
+        log_stream = StringIO()
+        target = logging.StreamHandler(log_stream)
+        target.setFormatter(logging.Formatter("%(message)s"))
+
+        async_handler = AsyncLogHandler(target, max_queue_size=100)
+        test_logger = get_logger("test.async_close_safe")
+        test_logger.setLevel(logging.INFO)
+        test_logger.addHandler(async_handler)
+
+        test_logger.info("Message before close")
+        async_handler.close()
+
+        output = log_stream.getvalue()
+        assert "Message before close" in output
