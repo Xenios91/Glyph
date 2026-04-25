@@ -32,21 +32,21 @@ async def lifespan(app: FastAPI):
         SQLUtil.init_db()
         logger.info("Database initialized.")
     except Exception as e:
-        logger.exception("Failed to initialize database.")
+        logger.exception("Failed to initialize database: %s", e)
         raise RuntimeError("Database initialization failed.") from e
 
     try:
         await init_async_databases()
         logger.info("Async databases initialized.")
     except Exception as e:
-        logger.exception("Failed to initialize async databases.")
+        logger.exception("Failed to initialize async databases: %s", e)
         raise RuntimeError("Async database initialization failed.") from e
 
     try:
         threading.Thread(target=TaskService.start_service, daemon=True).start()
         logger.info("Task service started in background thread.")
     except Exception as e:
-        logger.exception("Failed to start TaskService.")
+        logger.exception("Failed to start TaskService: %s", e)
         raise RuntimeError("Task service startup failed.") from e
 
     event_watcher = EventWatcher()
@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
         event_watcher.start_watching()
         logger.info("EventWatcher started.")
     except Exception as e:
-        logger.exception("Failed to start EventWatcher.")
+        logger.exception("Failed to start EventWatcher: %s", e)
         raise RuntimeError("EventWatcher startup failed.") from e
 
     try:

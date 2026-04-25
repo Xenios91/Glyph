@@ -4,6 +4,7 @@ This module provides decorators and context managers for timing
 and logging the performance of functions and code blocks.
 """
 
+import inspect
 import logging
 from functools import wraps
 from timeit import default_timer as timer
@@ -48,7 +49,7 @@ class PerformanceTimer:
             log_structured: Whether to include structured extra_data in the log.
         """
         self.name = name
-        self.logger = logger_instance or get_logger(__name__)
+        self.logger = logger_instance or get_logger(_get_caller_module())
         self.log_level = log_level
         self.unit = unit
         self.threshold = threshold
@@ -234,7 +235,7 @@ class PerformanceMetrics:
             logger_instance: Logger to use for logging.
         """
         self.name = name
-        self.logger = logger_instance or get_logger(__name__)
+        self.logger = logger_instance or get_logger(_get_caller_module())
         self.timings: dict[str, float] = {}
         self._current_timer: Any = None
 
@@ -310,6 +311,34 @@ class PerformanceMetrics:
     def reset(self) -> None:
         """Reset all collected timings."""
         self.timings.clear()
+
+
+def _get_caller_module() -> str:
+    """Get the caller's module name for logger initialization.
+
+    Walks the call stack to find the module that instantiated the class,
+    rather than using __name__ which would always return this module.
+
+    Returns:
+        The caller's module name, or __name__ if detection fails.
+    """
+    try:
+        # frame 0 = this function, frame 1 = __init__, frame 2 = caller
+        frame = inspect.currentframe()
+        try:
+            if frame is not None:
+                caller_frame = frame.f_back  # __init__
+                if caller_frame is not None:
+                    caller_frame = caller_frame.f_back  # actual caller
+                if caller_frame is not None:
+                    module = inspect.getmodule(caller_frame)
+                    if module is not None and module.__name__:
+                        return module.__name__
+        finally:
+            del frame  # Explicitly release frame reference to prevent memory leak
+    except Exception:
+        pass
+    return __name__
 
 
 class _MetricsTimer:

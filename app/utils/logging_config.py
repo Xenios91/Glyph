@@ -386,6 +386,12 @@ class ColoredFormatter(logging.Formatter):
         # Build colored format manually
         formatted = f"{timestamp} | {color}{levelname:<8}{reset} | {record.name} | {record.getMessage()}"
 
+        # Append exception info if present
+        if record.exc_text:
+            formatted += f"\n{record.exc_text.rstrip()}"
+        if record.stack_info:
+            formatted += f"\n{record.stack_info.rstrip()}"
+
         return formatted
 
 
@@ -556,8 +562,12 @@ class AsyncLogHandler(logging.Handler):
         except asyncio.QueueFull:
             # Queue is full, drop the record to prevent blocking
             # Log the overflow to stderr so it is never silently lost
+            # Apply sensitive data redaction to prevent secret exposure
+            redacted_msg = _RATE_LIMIT_SENSITIVE_FILTER.filter_msg(
+                str(record.msg)[:80]
+            )
             sys.stderr.write(
-                f"[LOG OVERFLOW] Dropped log record (queue full): {record.name} - {record.msg[:80]}\n"
+                f"[LOG OVERFLOW] Dropped log record (queue full): {record.name} - {redacted_msg}\n"
             )
 
         with self._lock:

@@ -267,12 +267,12 @@ log_csrf_failure(ip_address=ip, path="/api/data", method="POST")
 | [`log_login_success()`](app/auth/security_logger.py:184) | `login_success` | INFO | Successful login |
 | [`log_login_failure()`](app/auth/security_logger.py:217) | `login_failure` | WARNING | Failed login (triggers brute-force detection) |
 | [`log_logout()`](app/auth/security_logger.py:267) | `logout` | INFO | User logout |
-| [`log_token_refresh()`](app/auth/security_logger.py:295) | `token_refresh` | INFO | Token refreshed |
+| [`log_token_refresh()`](app/auth/security_logger.py:295) | `token_refresh` | DEBUG | Token refreshed |
 | [`log_permission_denied()`](app/auth/security_logger.py:349) | `permission_denied` | WARNING | Authorization failure |
 | [`log_suspicious_activity()`](app/auth/security_logger.py:381) | `suspicious_activity` | WARNING | Suspicious pattern detected |
 | [`log_user_registration()`](app/auth/security_logger.py:489) | `user_registration` | INFO | New user registered |
 | [`log_password_change()`](app/auth/security_logger.py:411) | `password_change` | INFO | Password changed |
-| [`log_api_key_usage()`](app/auth/security_logger.py:320) | `api_key_usage` | INFO | API key used for authentication |
+| [`log_api_key_usage()`](app/auth/security_logger.py:320) | `api_key_usage` | DEBUG | API key used for authentication |
 | [`log_api_key_created()`](app/auth/security_logger.py:517) | `api_key_created` | INFO | New API key created |
 | [`log_api_key_deleted()`](app/auth/security_logger.py:549) | `api_key_deleted` | INFO | API key deleted |
 | [`log_csrf_failure()`](app/auth/security_logger.py:578) | `csrf_failure` | WARNING | CSRF validation failed |
