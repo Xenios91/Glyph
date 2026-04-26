@@ -313,23 +313,31 @@ class PerformanceMetrics:
         self.timings.clear()
 
 
-def _get_caller_module() -> str:
+def _get_caller_module(stack_offset: int = 2) -> str:
     """Get the caller's module name for logger initialization.
 
     Walks the call stack to find the module that instantiated the class,
     rather than using __name__ which would always return this module.
 
+    Args:
+        stack_offset: Number of frames to walk up from this function.
+                      Default is 2 (this function + __init__). Increase for
+                      wrapper functions or debugger/profiler overhead.
+
     Returns:
         The caller's module name, or __name__ if detection fails.
     """
     try:
-        # frame 0 = this function, frame 1 = __init__, frame 2 = caller
         frame = inspect.currentframe()
         try:
             if frame is not None:
-                caller_frame = frame.f_back  # __init__
-                if caller_frame is not None:
-                    caller_frame = caller_frame.f_back  # actual caller
+                caller_frame = frame
+                # Walk up the stack by the specified offset
+                for _ in range(stack_offset):
+                    if caller_frame and caller_frame.f_back is not None:
+                        caller_frame = caller_frame.f_back
+                    else:
+                        break
                 if caller_frame is not None:
                     module = inspect.getmodule(caller_frame)
                     if module is not None and module.__name__:

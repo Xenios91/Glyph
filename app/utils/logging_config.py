@@ -249,7 +249,11 @@ class RateLimitingFilter(logging.Filter):
         # Suppress the message but track count
         self._suppressed[key] += 1
 
-        # Every 100 suppressed messages, log a summary using a dedicated logger
+        # Every 100 suppressed messages, log a summary using a dedicated logger.
+        # Note: Only the message template is redacted, not record.args. This is
+        # intentional to avoid formatting the message (which could trigger lazy
+        # evaluation of expensive expressions). Callers should ensure sensitive
+        # data is not passed as format arguments.
         if self._suppressed[key] % 100 == 0:
             # Use a dedicated logger that does not propagate to avoid recursive
             # rate-limit logging and ensure the summary respects the filter chain.
@@ -375,7 +379,7 @@ class ColoredFormatter(logging.Formatter):
         Returns:
             str: Formatted log message with optional colors.
         """
-        if not self.colorize:
+        if not self.colorize or not sys.stdout.isatty():
             return super().format(record)
 
         levelname = record.levelname
@@ -465,7 +469,7 @@ def _get_time_interval(interval: str) -> str:
         "midnight": "midnight",
         "daily": "midnight",
         "weekly": "w0",
-        "monthly": "monthly",
+        "monthly": "D",  # Use daily rotation with interval=30 for approximate monthly
     }
     return interval_map.get(interval.lower(), "midnight")
 
@@ -639,12 +643,15 @@ class AsyncLogHandler(logging.Handler):
         if self._queue is not None:
             try:
                 loop = asyncio.get_running_loop()
-                # Fire-and-forget: schedule flush on the event loop
-                asyncio.run_coroutine_threadsafe(
-                    self._flush_async_queue(), loop
-                )
-            except (RuntimeError, AssertionError):
-                # No running loop or can't schedule, skip async flush
+                try:
+                    asyncio.run_coroutine_threadsafe(
+                        self._flush_async_queue(), loop
+                    )
+                except AssertionError:
+                    # Running on the event loop thread — schedule as a task
+                    loop.create_task(self._flush_async_queue())
+            except RuntimeError:
+                # No running loop, skip async flush
                 pass
 
     def close(self) -> None:
@@ -869,7 +876,7 @@ def setup_logging(
 
     # Set up root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(max(log_level, console_log_level) if console_enabled else log_level)
+    root_logger.setLevel(min(log_level, console_log_level) if console_enabled else log_level)
 
     # Remove existing handlers to avoid duplicates
     root_logger.handlers.clear()
@@ -912,9 +919,14 @@ def setup_logging(
 
         # Create appropriate handler based on rotation policy
         if rotate == "time":
+            interval_str = _get_time_interval(time_interval)
+            # Use interval=30 for monthly (approximate, since TimedRotatingFileHandler
+            # does not natively support monthly rotation per Python 3.11 docs)
+            interval_count = 30 if time_interval.lower() == "monthly" else 1
             base_handler = TimedRotatingFileHandler(
                 filename=log_path,
-                when=_get_time_interval(time_interval),
+                when=interval_str,
+                interval=interval_count,
                 backupCount=backup_count,
                 encoding="utf-8"
             )

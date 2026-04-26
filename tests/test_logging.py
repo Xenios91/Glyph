@@ -1251,8 +1251,12 @@ class TestSettingsLoggerSensitiveFilter:
 
     def test_settings_logger_has_sensitive_filter(self):
         """Test that the settings logger has a SensitiveDataFilter applied."""
-        from app.config.settings import get_settings
+        from app.config.settings import get_settings, _settings as _settings_module
         from app.utils.logging_config import SensitiveDataFilter
+
+        # Reset the settings singleton to ensure filter is applied during this test
+        import app.config.settings as settings_module
+        settings_module._settings = None
 
         # Force settings reload to trigger filter application
         get_settings()

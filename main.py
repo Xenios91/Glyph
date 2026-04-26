@@ -111,8 +111,8 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
 async def general_exception_handler(request: Request, exc: Exception) -> HTMLResponse | JSONResponse:
     """Handle unexpected exceptions with a nice error page for web requests.
     """
-    logger.error(
-        "Unexpected error: %s", exc, exc_info=True,
+    logger.exception(
+        "Unexpected error",
         extra={"extra_data": {
             "event": "unhandled_exception",
             "path": request.url.path,

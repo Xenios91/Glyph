@@ -251,7 +251,7 @@ def log_login_failure(
     suspicious_username = _login_failure_tracker.is_suspicious(username)
     suspicious_ip = ip_address and _login_failure_tracker.is_suspicious(ip_address)
 
-    if suspicious_username or suspicious_ip:
+    if suspicious_username:
         log_suspicious_activity(
             user_id=None,
             activity_type="brute_force_login_attempt",
@@ -259,6 +259,19 @@ def log_login_failure(
                 "username": username,
                 "reason": reason,
                 "attempt_number": attempt_number,
+                "target": "username",
+            },
+            ip_address=ip_address,
+        )
+    if suspicious_ip:
+        log_suspicious_activity(
+            user_id=None,
+            activity_type="brute_force_login_attempt",
+            details={
+                "username": username,
+                "reason": reason,
+                "attempt_number": attempt_number,
+                "target": "ip_address",
             },
             ip_address=ip_address,
         )
