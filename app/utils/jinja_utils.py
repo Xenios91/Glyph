@@ -6,9 +6,8 @@ including CSRF token exposure and other global template functions.
 
 from fastapi.templating import Jinja2Templates
 
-from app.utils.logging_config import get_logger
+from loguru import logger
 
-logger = get_logger(__name__)
 
 
 def configure_jinja2_templates(templates: Jinja2Templates) -> None:

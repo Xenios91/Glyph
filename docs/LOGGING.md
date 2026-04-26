@@ -1,170 +1,118 @@
 # Logging Best Practices for Glyph
 
-This document outlines the logging architecture and best practices for the Glyph application.
-
 ## Overview
 
-Glyph uses a centralized logging configuration that provides:
-- Structured JSON logging with optimized field names for reduced payload size
-- Request tracing with unique request IDs via ContextVars
-- Background task context propagation for correlating async logs
-- Log rotation with size and time-based policies
-- Performance monitoring utilities with threshold support
-- Security event logging with brute-force detection
-- Sensitive data redaction (tokens, passwords, connection strings, secrets)
-- Rate limiting with memory bounds to prevent log spam
-- Async logging for non-blocking I/O
-- Log sampling for high-volume scenarios
-- Per-module log level configuration
-- Startup/shutdown health summary logging
-- Logging best practice validation (development mode)
+Glyph uses [loguru](https://loguru.readthedocs.io/) for structured, modern Python logging. Loguru provides:
 
-## Architecture
+- Simple configuration with powerful defaults
+- Built-in JSON formatting support
+- Automatic exception handling
+- Contextual data binding via `logger.bind()`
+- File rotation, retention, and compression
+- Sensitive data redaction
+- Rate limiting and sampling filters
 
 ### Components
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| Central Config | [`app/utils/logging_config.py`](app/utils/logging_config.py) | Setup, formatters, filters, async handler |
-| Request Context | [`app/utils/request_context.py`](app/utils/request_context.py) | ContextVar-based request/task tracing |
-| Request Tracing | [`app/core/request_tracing.py`](app/core/request_tracing.py) | ASGI middleware for request IDs |
-| Performance Logger | [`app/utils/performance_logger.py`](app/utils/performance_logger.py) | Timing decorators and context managers |
-| Security Logger | [`app/auth/security_logger.py`](app/auth/security_logger.py) | Auth event logging, brute-force detection |
+- **JSON Format**: Default format for structured log parsing
+- **Text Format**: Human-readable format with optional colors
+- **Sensitive Data Redaction**: Automatic redaction of passwords, tokens, API keys
+- **Rate Limiting**: Prevents log spam from repeated messages
+- **Log Sampling**: Reduces volume in high-traffic scenarios
+- **Request Context**: Automatic request ID, user ID, and username propagation
 
 ### Filters
 
-| Filter | Class | Purpose |
-|--------|-------|---------|
-| Sensitive Data | [`SensitiveDataFilter`](app/utils/logging_config.py:37) | Redacts tokens, passwords, connection strings, secrets |
-| Rate Limiting | [`RateLimitingFilter`](app/utils/logging_config.py:141) | Limits messages per period with memory bounds |
-| Sampling | [`SamplingFilter`](app/utils/logging_config.py:640) | Samples a percentage of messages |
-| Best Practices | [`LoggingBestPracticeFilter`](app/utils/logging_config.py:676) | Validates logging patterns (dev only) |
+- **SensitiveDataFilter**: Redacts sensitive patterns from log messages (applied via `logger.patch()`)
+- **RateLimitingFilter**: Limits messages per time window per unique key
+- **SamplingFilter**: Samples log messages at a configurable rate
+- **LoggingBestPracticeFilter**: Development-only validation filter
 
 ### Formatters
 
-| Formatter | Class | Purpose |
-|-----------|-------|---------|
-| JSON | [`JSONFormatter`](app/utils/logging_config.py:267) | Optimized structured JSON with short field names |
-| Colored | [`ColoredFormatter`](app/utils/logging_config.py:343) | ANSI-colored console output |
+- **JSON Formatter**: Uses `patch()` to serialize data to `record["extra"]["_json"]` and returns template `"{extra[_json]}\n{exception}"`
+- **Console Formatter**: Colored or plain text format for stdout
 
 ### Handlers
 
-| Handler | Class | Purpose |
-|---------|-------|---------|
-| File | `RotatingFileHandler` / `TimedRotatingFileHandler` | Rotating file output with compression |
-| Console | `StreamHandler` | stdout console output |
-| Async | [`AsyncLogHandler`](app/utils/logging_config.py:478) | Non-blocking queue-based wrapper |
+- **File Handler**: With rotation, retention, compression, and secure file permissions (0o640)
+- **Console Handler**: stdout with optional colorization
 
 ## Configuration
 
-Logging is configured in `config.yml`:
+Logging is configured via `config.yml`:
 
 ```yaml
 logging:
-  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-  format: json  # json or text
-  file:
-    path: logs/glyph.log
-    max_size_mb: 50
-    backup_count: 10
-    rotate: size  # time or size
-    time_interval: midnight  # midnight, daily, weekly, monthly
-  console:
-    enabled: true
-    level: INFO
-    colorize: true
+  level: "INFO"
+  format: "json"  # or "text"
+  log_file: "logs/app.log"
+  rotation: "50 MB"
+  backup_count: 10
+  console_enabled: true
+  console_level: "DEBUG"
+  colorize: true
+  async_logging: false
+  sampling_rate: 1.0
   request_tracing:
     enabled: true
-    header_name: X-Request-ID
-  # Per-module log level overrides
-  module_levels:
-    app.database: WARNING
-    app.auth: INFO
-    app.processing: DEBUG
-    uvicorn: INFO
-  # Rate limiting to prevent log spam
   rate_limit:
-    enabled: false
     max_messages: 10
-    period: 60.0
-    max_keys: 1000
-  # Async logging for non-blocking I/O
-  async_logging:
-    enabled: false
-    max_queue_size: 1000
-  # Log sampling for high-volume scenarios
-  sampling:
-    enabled: false
-    rate: 0.1  # Log 10% of messages when enabled
+    period: 60
 ```
 
 ### Configuration Reference
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `level` | string | `"INFO"` | Root log level |
-| `format` | string | `"json"` | Output format (`json` or `text`) |
-| `file.path` | string | `"logs/glyph.log"` | Log file path |
-| `file.max_size_mb` | int | `50` | Max file size before rotation |
-| `file.backup_count` | int | `10` | Number of rotated files to keep |
-| `file.rotate` | string | `"size"` | Rotation policy (`size` or `time`) |
-| `file.time_interval` | string | `"midnight"` | Time rotation interval |
-| `console.enabled` | bool | `true` | Enable console output |
-| `console.level` | string | `"INFO"` | Console log level |
-| `console.colorize` | bool | `true` | Enable ANSI colors |
-| `module_levels` | dict | `{}` | Per-module level overrides |
-| `rate_limit.enabled` | bool | `false` | Enable rate limiting |
-| `rate_limit.max_messages` | int | `10` | Max messages per period |
-| `rate_limit.period` | float | `60.0` | Rate limit window in seconds |
-| `rate_limit.max_keys` | int | `1000` | Max unique message patterns tracked |
-| `async_logging.enabled` | bool | `false` | Enable async logging |
-| `async_logging.max_queue_size` | int | `1000` | Max queued records |
-| `sampling.enabled` | bool | `false` | Enable log sampling |
-| `sampling.rate` | float | `0.1` | Fraction of messages to log (0.0-1.0) |
-
-## Usage
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `level` | `"INFO"` | Log level for file handler |
+| `format` | `"json"` | Log format (`"json"` or `"text"`) |
+| `log_file` | `"logs/app.log"` | Path to log file |
+| `rotation` | `"50 MB"` | Rotation trigger (size or time) |
+| `backup_count` | `10` | Retention period in days |
+| `console_enabled` | `true` | Enable console output |
+| `console_level` | `"DEBUG"` | Log level for console |
+| `colorize` | `true` | Enable colored output |
+| `async_logging` | `false` | Use async logging via `enqueue=True` |
+| `sampling_rate` | `1.0` | Sample rate (0.0 to 1.0) |
 
 ### Basic Logging
 
 ```python
-from app.utils.logging_config import get_logger
+from loguru import logger
 
-logger = get_logger(__name__)
-
-logger.info("Processing binary: %s", filename)
-logger.exception("Failed to process: %s", error)  # Auto-includes exc_info
+logger.debug("Debug message: {}", value)
+logger.info("User logged in: {}", username)
+logger.warning("Configuration missing, using default")
+logger.error("Failed to connect: {}", error)
+logger.exception("An error occurred")  # Automatically includes traceback
 ```
 
-### Structured Context with `extra_data`
+### Structured Context with `logger.bind()`
 
 ```python
-logger.info(
-    "Processing binary",
-    extra={"extra_data": {
-        "file_size": size,
-        "filename": filename,
-        "operation": "upload",
-    }}
+from loguru import logger
+
+# Bind contextual data to log messages
+logger.bind(user_id=user_id, username=username).info(
+    "User performed action: {}", action,
 )
 ```
 
 ### Request Context
 
-Request context is automatically set by the `RequestIDMiddleware` and propagated to background tasks:
-
 ```python
-from app.utils.request_context import get_request_context, set_request_context
+from app.utils.request_context import set_request_context, get_request_context, clear_request_context
 
-# In request handlers (auto-set by middleware)
-ctx = get_request_context()
-# ctx.request_id, ctx.user_id, ctx.username available
+# In middleware
+set_request_context(request_id=request_id, user_id=user_id, username=username)
+
+# Context is automatically added to log output via patch
+logger.info("Processing request")
 
 # In background tasks (manually propagate)
-set_request_context(
-    request_id=original_ctx.request_id,
-    task_id=job_uuid,
-    user_id=original_ctx.user_id,
-)
+ctx = get_request_context()
+# Use ctx.request_id, ctx.user_id, ctx.username
 ```
 
 ### Performance Timing
@@ -172,29 +120,19 @@ set_request_context(
 ```python
 from app.utils.performance_logger import PerformanceTimer, log_performance, PerformanceMetrics
 
-# Context manager
-with PerformanceTimer("binary_analysis") as timer:
-    result = analyze_binary(file_path)
-# timer.elapsed available in seconds
-
 # Context manager with threshold (only logs if > 100ms)
-with PerformanceTimer("fast_operation", unit="milliseconds", threshold=100):
-    result = fast_operation()
+with PerformanceTimer("operation", threshold=100, unit="milliseconds"):
+    expensive_operation()
 
 # Decorator
-@log_performance
-async def process_binary(request: BinaryUploadRequest):
-    ...
-
-# Decorator with threshold
-@log_performance(unit="milliseconds", threshold=500)
-def expensive_operation():
-    ...
+@log_performance(log_level="DEBUG", unit="milliseconds", threshold=100)
+def fast_operation():
+    pass
 
 # Pipeline step decorator
 @log_step_performance("data_validation")
 def validate_data(data):
-    ...
+    pass
 
 # Aggregated metrics
 metrics = PerformanceMetrics("pipeline")
@@ -209,602 +147,306 @@ metrics.log_summary()
 
 ```python
 from app.auth.security_logger import (
-    log_login_attempt,
-    log_login_success,
-    log_login_failure,
-    log_logout,
-    log_token_refresh,
-    log_permission_denied,
-    log_suspicious_activity,
-    log_user_registration,
-    log_password_change,
-    log_api_key_usage,
-    log_api_key_created,
-    log_api_key_deleted,
-    log_csrf_failure,
+    log_login_success, log_login_failure, log_logout,
+    log_permission_denied, log_suspicious_activity,
 )
 
 # Authentication events
-log_login_attempt(username=username, ip_address=ip, user_agent=ua)
-log_login_success(user_id=user.id, username=user.username, ip_address=ip)
-log_login_failure(username=username, reason="Invalid password", ip_address=ip)
-log_logout(user_id=user.id, username=user.username, ip_address=ip)
-log_token_refresh(user_id=user.id, token_type="access", ip_address=ip)
+log_login_success(user_id=1, username="admin")
+log_login_failure(username="admin", reason="invalid_password")
 
 # Authorization events
-log_permission_denied(
-    user_id=user.id,
-    username=user.username,
-    resource="/api/admin",
-    required_permission="admin",
-    ip_address=ip
-)
+log_permission_denied(user_id=1, username="user", resource="/admin", required_permission="admin")
 
 # Account management
-log_user_registration(user_id=user.id, username=username, ip_address=ip)
-log_password_change(user_id=user.id, username=user.username, ip_address=ip)
+log_password_change(user_id=1, username="admin")
+log_account_lockout(user_id=1, username="admin", reason="too_many_failures")
 
 # API key lifecycle
-log_api_key_usage(user_id=user.id, api_key_prefix="glp_abc1", endpoint="/api/data", ip_address=ip)
-log_api_key_created(user_id=user.id, key_id=1, key_prefix="glp_abc1", name="My Key", ip_address=ip)
-log_api_key_deleted(user_id=user.id, key_id=1, name="My Key", ip_address=ip)
+log_api_key_created(user_id=1, key_id=1, key_prefix="sk-abc", name="My Key")
+log_api_key_deleted(user_id=1, key_id=1, name="My Key")
 
 # Security events
-log_suspicious_activity(
-    user_id=user.id,
-    activity_type="unusual_access_pattern",
-    details={"endpoint": "/api/admin", "count": 50},
-    ip_address=ip
-)
-log_csrf_failure(ip_address=ip, path="/api/data", method="POST")
+log_suspicious_activity(user_id=1, activity_type="brute_force", details={"attempts": 10})
 ```
 
 ### Security Event Reference
 
-| Function | Event Type | Log Level | Description |
-|----------|-----------|-----------|-------------|
-| [`log_login_attempt()`](app/auth/security_logger.py:155) | `login_attempt` | INFO | Login initiated |
-| [`log_login_success()`](app/auth/security_logger.py:184) | `login_success` | INFO | Successful login |
-| [`log_login_failure()`](app/auth/security_logger.py:217) | `login_failure` | WARNING | Failed login (triggers brute-force detection) |
-| [`log_logout()`](app/auth/security_logger.py:267) | `logout` | INFO | User logout |
-| [`log_token_refresh()`](app/auth/security_logger.py:295) | `token_refresh` | DEBUG | Token refreshed |
-| [`log_permission_denied()`](app/auth/security_logger.py:349) | `permission_denied` | WARNING | Authorization failure |
-| [`log_suspicious_activity()`](app/auth/security_logger.py:381) | `suspicious_activity` | WARNING | Suspicious pattern detected |
-| [`log_user_registration()`](app/auth/security_logger.py:489) | `user_registration` | INFO | New user registered |
-| [`log_password_change()`](app/auth/security_logger.py:411) | `password_change` | INFO | Password changed |
-| [`log_api_key_usage()`](app/auth/security_logger.py:320) | `api_key_usage` | DEBUG | API key used for authentication |
-| [`log_api_key_created()`](app/auth/security_logger.py:517) | `api_key_created` | INFO | New API key created |
-| [`log_api_key_deleted()`](app/auth/security_logger.py:549) | `api_key_deleted` | INFO | API key deleted |
-| [`log_csrf_failure()`](app/auth/security_logger.py:578) | `csrf_failure` | WARNING | CSRF validation failed |
-| [`log_account_lockout()`](app/auth/security_logger.py:436) | `account_lockout` | WARNING | Account locked |
-| [`log_account_unlock()`](app/auth/security_logger.py:464) | `account_unlock` | INFO | Account unlocked |
+| Event | Level | Description |
+|-------|-------|-------------|
+| `login_attempt` | INFO | Login attempt initiated |
+| `login_success` | INFO | Successful login |
+| `login_failure` | WARNING | Failed login attempt |
+| `logout` | INFO | User logout |
+| `token_refresh` | DEBUG | Token refreshed |
+| `api_key_usage` | DEBUG | API key used |
+| `permission_denied` | WARNING | Access denied |
+| `suspicious_activity` | WARNING | Suspicious activity detected |
+| `password_change` | INFO | Password changed |
+| `account_lockout` | WARNING | Account locked |
+| `account_unlock` | INFO | Account unlocked |
+| `user_registration` | INFO | New user registered |
+| `api_key_created` | INFO | API key created |
+| `api_key_deleted` | INFO | API key deleted |
+| `csrf_failure` | WARNING | CSRF validation failed |
 
 ### Brute-Force Detection
 
-The [`LoginFailureTracker`](app/auth/security_logger.py:19) monitors login failures per username and IP address:
-
-- **Recording and checking are separated** to avoid double-counting
-- Default threshold: 5 failures in 300 seconds triggers alert
-- Resets on successful login
-- Automatically logs `suspicious_activity` when threshold is exceeded
-
 ```python
-from app.auth.security_logger import get_failure_tracker
+from app.auth.security_logger import LoginFailureTracker, get_failure_tracker
 
 # Default: 5 failures in 300 seconds triggers alert
 tracker = get_failure_tracker()
+count = tracker.get_failure_count("username")
+is_suspicious = tracker.is_suspicious("username")
 
 # Custom threshold
-tracker = LoginFailureTracker(threshold=3, window=60.0)
+tracker = LoginFailureTracker(threshold=3, window=60)
 ```
-
-## Log Format
 
 ### JSON Format (Default)
 
-The JSON formatter uses optimized, shorter field names for reduced payload size. Context fields are only included when non-null (lazy evaluation):
-
 ```json
-{
-  "t": "2024-01-15T10:30:45.123456+00:00",
-  "l": "INFO",
-  "logger": "app.api.v1.endpoints.binaries",
-  "msg": "Binary upload started",
-  "rid": "abc123-def456",
-  "uid": 123,
-  "user": "john_doe",
-  "tid": "task-uuid-123",
-  "extra": {
-    "file_size": 1024000,
-    "filename": "sample.bin"
-  }
-}
+{"t": "2024-01-01T00:00:00", "l": "INFO", "logger": "app.module", "msg": "User logged in", "user_id": 1, "username": "admin"}
 ```
-
-**Field Reference:**
-
-| Field | Description | Included When |
-|-------|-------------|---------------|
-| `t` | ISO 8601 timestamp (UTC) | Always |
-| `l` | Log level | Always |
-| `logger` | Logger name (module path) | Always |
-| `msg` | Log message | Always |
-| `rid` | Request ID | Non-null (from `X-Request-ID` header) |
-| `uid` | User ID | Non-null (authenticated requests) |
-| `user` | Username | Non-null (authenticated requests) |
-| `tid` | Task ID | Non-null (background tasks) |
-| `exc` | Exception traceback | Non-null (when exception present) |
-| `stack` | Stack info | Non-null (when stack info present) |
-| `extra` | Structured context data | Non-null (when `extra_data` provided) |
-| `_filename` | Source filename | DEBUG level only |
-| `_funcName` | Source function name | DEBUG level only |
-| `_lineno` | Source line number | DEBUG level only |
-| `_pathname` | Source file path | DEBUG level only |
-| `_threadName` | Thread name | DEBUG level only |
 
 ### Text Format
 
 ```
-2024-01-15 10:30:45,123 | INFO     | app.api.v1.endpoints.binaries | Binary upload started
+2024-01-01 00:00:00.000 | INFO     | app.module | User logged in
 ```
 
 ## Log Levels
 
-| Level | When to Use | Examples |
-|-------|-------------|----------|
-| DEBUG | Detailed debugging info | Variable values, function entry/exit |
-| INFO | Normal operational events | Request received, task completed |
-| WARNING | Unexpected but handled events | Retries, fallbacks, deprecated features |
-| ERROR | Operations that failed | Database errors, API failures |
-| CRITICAL | System-threatening errors | Service unavailable, data corruption |
+| Level | Use Case |
+|-------|----------|
+| `DEBUG` | Detailed diagnostic information |
+| `INFO` | Normal operational events |
+| `WARNING` | Unexpected situations that don't cause failure |
+| `ERROR` | Operational failures |
+| `CRITICAL` | System-level failures |
 
-## Best Practices
+### Best Practices
 
-### 1. Use Parameterized Logging
+### 1. Use `{}` Formatting (Not `%s`)
 
 ```python
-# Good - lazy evaluation
-logger.info("User logged in: %s", username)
+# Good - loguru style
+logger.info("User {} logged in from {}", username, ip_address)
 
-# Bad - string concatenation (always evaluated)
-logger.info("User logged in: " + username)
-
-# Bad - f-string (always evaluated even if log level is disabled)
-logger.info(f"User logged in: {username}")
+# Bad - old style (won't work with loguru)
+logger.info("User %s logged in from %s", username, ip_address)
 ```
 
-### 2. Never Log Sensitive Data
+### 2. Never Log Secrets
 
 ```python
-# Good - only log first 4 chars of API key
-logger.info("API key used: %s...", api_key[:4])
-
 # Bad - never log full secrets
-logger.info("Token: %s", token)  # NEVER DO THIS
+logger.info("Password: {}", password)
+logger.info("Token: {}", api_token)
+
+# Good - structured context for aggregation
+logger.bind(user_id=user_id).info("User authenticated")
 ```
 
-### 3. Include Context with `extra_data`
+### 3. Use Structured Logging
 
 ```python
-# Good - structured context for aggregation
-logger.info(
-    "Processing binary",
-    extra={"extra_data": {"file_size": size, "filename": filename}}
+# Good - structured context
+logger.bind(user_id=user_id, action="update", resource="profile").info(
+    "Resource updated"
 )
 
 # Bad - no context for filtering
-logger.info("Processing binary")
+logger.info("Resource updated")
 ```
 
-### 4. Use `logger.exception()` for Unexpected Errors
+### 4. Use `logger.exception()` for Errors
 
 ```python
-# Good - automatic stack trace
 try:
     process_data()
-except Exception as e:
+except Exception:
+    # Good - automatic stack trace
     logger.exception("Failed to process data")
 
 # Also acceptable - explicit exc_info
-try:
-    process_data()
-except Exception as e:
-    logger.error("Failed to process data: %s", e, exc_info=True)
+logger.error("Failed to process data: {}", exc)
 
 # Bad - no stack trace for debugging
-logger.error("Failed to process data: %s", e)
+logger.error("Something went wrong")
 ```
 
 ### 5. Conditional Logging for Expensive Operations
 
 ```python
-import logging
-
 # Good - only evaluates when DEBUG is enabled
-if logger.isEnabledFor(logging.DEBUG):
-    debug_data = expensive_debug_operation()
-    logger.debug("Debug data: %s", debug_data)
+if logger.opt(depth=1).enabled("DEBUG"):
+    logger.debug("Expensive data: {}", expensive_function())
 
 # Bad - always executes expensive operation
-logger.debug("Debug data: %s", expensive_debug_operation())
+logger.debug("Expensive data: {}", expensive_function())
 ```
 
-### 6. Database Error Logging
-
-Use the `_log_db_error()` helper for consistent, structured database error logging:
+### Database Error Logging
 
 ```python
-from app.database.sql_service import _log_db_error
-
+logger.error("Database error during {}: {}", operation, error)
 # Produces structured logs with operation context
-except sqlite3.Error as error:
-    _log_db_error(logger, "save_model", error, {"model_name": model_name})
 ```
-
-## Security Features
 
 ### Sensitive Data Redaction
 
-The [`SensitiveDataFilter`](app/utils/logging_config.py:37) automatically redacts sensitive patterns from log messages:
+Sensitive data is automatically redacted from log messages:
 
-| Pattern | Example | Redacted To |
-|---------|---------|-------------|
-| Bearer tokens | `Bearer eyJhbG...` | `Bearer [REDACTED]` |
-| Database connection strings | `postgresql://user:pass@host/db` | `[CONNECTION_STRING_REDACTED]` |
-| Password assignments | `password=secret123` | `password=[REDACTED]` |
-| Token/secret assignments | `token=abc123` | `token=[REDACTED]` |
-| API keys | `api_key=key123` | `api_key=[REDACTED]` |
-| JWT/OAuth secrets | `jwt_secret=mysecret` | `jwt_secret=[REDACTED]` |
-| Emails in sensitive context | `password_user@domain.com` | `[REDACTED]` |
-
-This filter is applied to all log handlers by default.
+- Passwords
+- Tokens
+- API keys
+- Secrets
 
 #### Custom Patterns
 
 ```python
 from app.utils.logging_config import SensitiveDataFilter
 
-custom_filter = SensitiveDataFilter(
-    additional_patterns=[
-        (r'SECRET_KEY=\S+', 'SECRET_KEY=[REDACTED]'),
-        (r'STRIPE_KEY=\S+', 'STRIPE_KEY=[REDACTED]'),
-    ]
-)
+additional_patterns = [
+    (r"ssn=\d{3}-\d{2}-\d{4}", "ssn=REDACTED"),
+]
+filter_instance = SensitiveDataFilter(additional_patterns=additional_patterns)
 ```
 
 ### Rate Limiting with Memory Bounds
 
-The [`RateLimitingFilter`](app/utils/logging_config.py:141) prevents log spam by limiting messages per time window:
-
-- Configurable message count per period
-- Token bucket algorithm per unique message key
-- Memory-bounded with `max_keys` limit (default: 1000)
-- Periodic cleanup every 5 minutes
-- LRU eviction when key limit exceeded
-- Summary logging every 100 suppressed messages
-
 ```python
-from app.utils.logging_config import setup_logging
+from app.utils.logging_config import RateLimitingFilter
 
-setup_logging(
-    rate_limit=True,
-    rate_limit_max=10,
-    rate_limit_period=60.0,
-    rate_limit_max_keys=1000,
-)
+# Limit to 10 messages per 60 seconds per unique key
+rate_limiter = RateLimitingFilter(max_messages=10, period=60, max_keys=1000)
 ```
 
 ### Brute-Force Detection
 
-The security logger includes a [`LoginFailureTracker`](app/auth/security_logger.py:19) that:
-- Tracks login failures per username and IP
-- Triggers `suspicious_activity` alerts after threshold exceeded
-- Resets on successful login
+```python
+# Default: 5 failures in 300 seconds triggers alert
+from app.auth.security_logger import get_failure_tracker
+tracker = get_failure_tracker()
+```
+
+### Async Logging
+
+```yaml
+logging:
+  async_logging: true  # Uses loguru's enqueue=True
+```
+
+### Log Sampling
+
+```yaml
+logging:
+  sampling_rate: 0.5  # Sample 50% of messages
+```
+
+### Per-Module Log Levels
+
+Module-level log level overrides can be configured:
 
 ```python
-from app.auth.security_logger import get_failure_tracker
+from app.utils.logging_config import create_module_level_filter
 
-# Default: 5 failures in 300 seconds triggers alert
-tracker = get_failure_tracker()
+module_levels = {
+    "uvicorn": "WARNING",
+    "fastapi": "INFO",
+}
+filter_func = create_module_level_filter(module_levels)
 ```
 
 ## Request Tracing
 
-Every request gets a unique ID that is:
-- Extracted from the `X-Request-ID` header if present
-- Generated as a UUID4 if not present
-- Added to all log entries for that request (as `rid` field)
-- Returned in the `X-Request-ID` response header
-- Propagated to background tasks (as `tid` field for task-specific ID)
-
-This allows you to trace a single request across multiple components:
-
-```bash
+```python
+# X-Request-ID header is automatically added to requests
 # Filter logs by request ID
-grep "abc123-def456" logs/glyph.log
+logger.bind(request_id=request_id).info("Processing request")
 ```
 
-## Background Task Context Propagation
+## Loguru Configuration
 
-Background tasks (EventWatcher, TaskService) propagate request context, allowing you to correlate background task logs with the originating HTTP request:
+### Using `logger.configure()`
+
+Glyph uses Loguru's `logger.configure()` method for declarative logging setup. This replaces the traditional `logger.remove()` + `logger.add()` pattern with a single configuration call:
 
 ```python
-from app.utils.request_context import get_request_context
+from loguru import logger
 
-# In background task callbacks, context is automatically propagated
-ctx = get_request_context()
-# ctx.request_id - original request ID
-# ctx.task_id - background task UUID
-# ctx.user_id - originating user ID
-# ctx.username - originating username
+logger.configure(
+    handlers=[
+        {
+            "sink": "logs/app.log",
+            "level": "INFO",
+            "format": "{time} | {level} | {message}",
+            "rotation": "50 MB",
+            "retention": "10 days",
+        },
+        {
+            "sink": sys.stdout,
+            "level": "DEBUG",
+            "format": "<green>{time}</> | <level>{level}</> | {message}",
+            "colorize": True,
+        }
+    ],
+    patcher=my_patcher_function,  # Global patcher for all handlers
+)
 ```
 
-The JSON formatter includes the `tid` (task ID) field when a task context is active, enabling correlation of background work with the original request via `rid`.
+### Environment Variables
 
-## Log Rotation
+Loguru supports several environment variables that can override configuration:
 
-Logs are rotated based on configuration:
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `LOGURU_LEVEL` | Override default log level | `LOGURU_LEVEL=DEBUG` |
+| `LOGURU_FORMAT` | Override default format | `LOGURU_FORMAT="{time} {message}"` |
+| `LOGURU_DIAGNOSE` | Enable/disable variable diagnosis | `LOGURU_DIAGNOSE=YES` |
+| `LOGURU_COLORIZE` | Enable/disable colorization | `LOGURU_COLORIZE=NO` |
+| `GLYPH_LOG_BEST_PRACTICE` | Enable logging validation | `GLYPH_LOG_BEST_PRACTICE=true` |
 
-- **Size-based**: Rotates when file exceeds `max_size_mb`
-- **Time-based**: Rotates at specified intervals (`midnight`, `daily`, `weekly`, `monthly`)
-- **Backup count**: Keeps `backup_count` rotated files
-- **Compression**: Old files are compressed with gzip (Python 3.9+)
-- **File permissions**: Set to 0640 (owner read/write, group read)
+### Combined Patcher
+
+The logging configuration uses a combined patcher that handles:
+1. **Sensitive data redaction** - Automatically redacts passwords, tokens, API keys
+2. **JSON serialization** - Creates structured JSON for file handlers
+3. **Request context injection** - Adds request ID, user ID, username to logs
+
+### Handler Filters
+
+Filters are applied at the handler level:
+- **RateLimitingFilter** - Prevents log spam with token bucket algorithm
+- **SamplingFilter** - Samples messages for high-volume scenarios
+- **ModuleLevelFilter** - Per-module log level overrides
+- **LoggingBestPracticeFilter** - Development-only validation
 
 ## Security Considerations
 
-1. **Never log sensitive data**:
-   - Passwords
-   - API keys (except first 4 chars for identification)
-   - JWT tokens
-   - Database connection strings
-   - Personal identifiable information (PII)
-
-2. **Log file permissions**:
-   - Set to 0640 (owner read/write, group read)
-   - Restrict access to application user
-
-3. **Audit trail**:
-   - All authentication events are logged
-   - All authorization failures are logged
-   - All data modification operations should be logged
-
-## Advanced Features
-
-### Per-Module Log Levels
-
-Override log levels for specific modules without changing the global level:
-
-```yaml
-logging:
-  module_levels:
-    app.database: WARNING      # Reduce database noise
-    app.auth: INFO             # Keep auth detailed
-    app.processing: DEBUG      # Detailed processing logs
-    uvicorn: INFO              # Server logs
-    sqlalchemy: WARNING        # Reduce ORM noise
-```
-
-Module levels are applied during `setup_logging()` and take precedence over the root level for matching logger names.
-
-### Async Logging
-
-Enable non-blocking async logging to avoid I/O blocking in request paths:
-
-```yaml
-logging:
-  async_logging:
-    enabled: true
-    max_queue_size: 1000
-```
-
-The [`AsyncLogHandler`](app/utils/logging_config.py:478) queues log records and processes them asynchronously, yielding to the event loop between records. Key behaviors:
-
-- Falls back to synchronous processing when no event loop is running (startup/shutdown)
-- Automatically flushes queue on `close()`
-- Bounded queue prevents memory exhaustion (drops oldest records when full)
-
-### Log Sampling
-
-Reduce log volume in high-traffic scenarios by sampling a percentage of messages:
-
-```yaml
-logging:
-  sampling:
-    enabled: true
-    rate: 0.1  # Log 10% of messages
-```
-
-The [`SamplingFilter`](app/utils/logging_config.py:640) uses random sampling for statistically representative results:
-- `rate=1.0` logs all messages
-- `rate=0.1` logs approximately 10% of messages
-- `rate=0.0` logs nothing
-
-### Logging Best Practice Filter
-
-A development-only filter validates logging best practices at runtime:
-
-```python
-from app.utils.logging_config import setup_logging
-
-# Enable in development
-setup_logging(best_practice_filter=True)
-```
-
-The [`LoggingBestPracticeFilter`](app/utils/logging_config.py:676) warns about:
-- Unformatted braces in log messages (potential f-string misuse)
-- Error-level logs without `exc_info=True`
-
-Warnings are deduplicated and written to stderr. This filter is disabled by default in production.
-
-### Startup Health Summary
-
-On application startup, a structured log entry is emitted with logging configuration details:
-
-```json
-{
-  "t": "2024-01-15T10:30:00.000000+00:00",
-  "l": "INFO",
-  "logger": "glyph.startup",
-  "msg": "Logging initialized",
-  "extra": {
-    "event": "startup",
-    "log_level": "INFO",
-    "handlers": ["RotatingFileHandler", "StreamHandler"],
-    "handler_count": 2
-  }
-}
-```
-
-Call [`log_startup_summary()`](app/utils/logging_config.py:739) after `setup_logging()` to emit this entry.
-
-## Monitoring & Operations
-
-### Log Analysis Commands
-
-Use the optimized JSON field names for log analysis:
-
-```bash
-# Filter by level
-jq 'select(.l == "ERROR")' logs/glyph.log
-
-# Filter by request ID
-jq 'select(.rid == "abc123")' logs/glyph.log
-
-# Filter by task ID (background tasks)
-jq 'select(.tid == "task-uuid")' logs/glyph.log
-
-# Get unique users
-jq -r '.user // empty' logs/glyph.log | sort -u
-
-# Filter by event type
-jq 'select(.extra.event == "startup")' logs/glyph.log
-
-# Get all database operations
-jq 'select(.extra.operation != null)' logs/glyph.log
-
-# Get performance metrics
-jq 'select(.extra.performance != null)' logs/glyph.log
-
-# Count errors by logger
-jq -s '[.[] | select(.l == "ERROR")] | group_by(.logger) | map({logger: .[0].logger, count: length})' logs/glyph.log
-
-# Get login failures
-jq 'select(.extra.event == "login_failure")' logs/glyph.log
-
-# Get suspicious activity alerts
-jq 'select(.extra.event == "suspicious_activity")' logs/glyph.log
-```
-
-### Integration with Log Aggregation
-
-The JSON format is compatible with:
-
-| Platform | Notes |
-|----------|-------|
-| ELK Stack | Map `t` to `@timestamp`, `l` to `level` |
-| Loki/Grafana | Use `l` as level label, `rid` for request tracing |
-| CloudWatch | Structured JSON parsed automatically |
-| Datadog | Auto-detects JSON, maps fields to attributes |
-
-### Field Mapping for Log Aggregators
-
-When configuring log aggregators, use these field mappings:
-
-| Standard Field | Glyph Field |
-|----------------|-------------|
-| timestamp | `t` |
-| level | `l` |
-| logger | `logger` |
-| message | `msg` |
-| request_id | `rid` |
-| user_id | `uid` |
-| username | `user` |
-| task_id | `tid` |
-| exception | `exc` |
-| context | `extra` |
-
-## Troubleshooting
-
-### Logs Not Appearing
-
-1. Check `level` in `config.yml` matches expected verbosity
-2. Check `module_levels` overrides for the specific module
-3. Verify log directory exists and is writable
-4. Check for duplicate `setup_logging()` calls (handlers are cleared on each call)
-5. Verify `sampling.enabled` is not filtering out messages
-
-### Request ID Not in Logs
-
-1. Verify `RequestIDMiddleware` is added to the app (should be first middleware)
-2. Check that `include_context=True` in JSONFormatter (default)
-3. Verify the `X-Request-ID` header is being sent or generated
-
-### Background Task Logs Missing Context
-
-1. Verify `set_request_context()` is called before background work
-2. Check that `task_id` is set for background task identification
-3. Look for `tid` field in JSON output for task correlation
-
-### Performance Issues
-
-1. Use `text` format instead of `json` for console output in development
-2. Increase `level` to `WARNING` or `ERROR` in production to reduce volume
-3. Use `sampling` to reduce log volume for high-traffic endpoints
-4. Enable `async_logging` to avoid I/O blocking in request paths
-5. Use `threshold` in performance logging to reduce noise
-6. Enable `rate_limit` to prevent log spam from repeated errors
-
-### Sensitive Data Appearing in Logs
-
-1. Verify `SensitiveDataFilter` is applied (automatic by default)
-2. Add custom patterns via `SensitiveDataFilter(additional_patterns=[...])`
-3. Review log messages for accidental secret exposure
-4. Check that connection strings are not logged during database initialization
-
-### Rate Limiter Memory Growth
-
-1. Monitor `max_keys` setting (default: 1000)
-2. Check that periodic cleanup is running (every 5 minutes)
-3. Increase `period` to reduce key count if needed
-
-## API Reference
-
-### `setup_logging()`
-
-```python
-def setup_logging(
-    level: str = "INFO",
-    format: str = "json",
-    log_file: str | None = "logs/glyph.log",
-    max_size_mb: int = 50,
-    backup_count: int = 10,
-    rotate: str = "size",
-    time_interval: str = "midnight",
-    console_enabled: bool = True,
-    console_level: str = "INFO",
-    colorize: bool = True,
-    rate_limit: bool = False,
-    rate_limit_max: int = 10,
-    rate_limit_period: float = 60.0,
-    rate_limit_max_keys: int = 1000,
-    module_levels: dict[str, str] | None = None,
-    async_logging: bool = False,
-    async_max_queue: int = 1000,
-    sampling_enabled: bool = False,
-    sampling_rate: float = 1.0,
-    best_practice_filter: bool = False,
-) -> None:
-```
-
-### `get_logger(name: str) -> logging.Logger`
-
-Returns a named logger instance. Use `__name__` as the argument for module-level loggers.
-
-### `log_startup_summary() -> None`
-
-Emits a structured startup log entry with current logging configuration details.
-
-### `setup_logging_from_config() -> None`
-
-Loads logging configuration from `config.yml` and applies it via `setup_logging()`.
+1. **Never log secrets** - Passwords, tokens, API keys are automatically redacted
+2. **Use `diagnose=False`** - Disables variable diagnosis in production (security best practice)
+3. **File permissions** - Log files are created with `0o640` permissions (owner read/write, group read)
+4. **Backtrace enabled** - Full traceback for debugging
+5. **Exception info** - Loguru automatically captures exceptions
+
+## Summary of Key Changes from Standard Logging
+
+| Standard Logging | Loguru |
+|-----------------|--------|
+| `logging.getLogger(__name__)` | `from loguru import logger` |
+| `logger.info("msg: %s", val)` | `logger.info("msg: {}", val)` |
+| `extra={"extra_data": {...}}` | `logger.bind(**data).info(...)` |
+| `exc_info=True` | Automatic (or `logger.exception()`) |
+| `logging.INFO` | `"INFO"` (string) |
+| Custom `Filter` class | Callable class with `__call__(self, record)` |
+| `handler.setFormatter()` | `format=` parameter in `add()` or `configure()` |
+| `TimedRotatingFileHandler` | `rotation="50 MB"` parameter |
+| `logging.handlers.MemoryHandler` | `enqueue=True` parameter |
+| `logging.basicConfig()` | `logger.configure()` method |
+| `logging.config.dictConfig()` | `logger.configure(handlers=[...])` |
+| `logger.addFilter()` | `filter=` parameter in handler config |
+| `LoggerAdapter` | `logger.bind()` or `logger.patch()` |
+| `logger.isEnabledFor()` | `logger.opt(lazy=True)` |

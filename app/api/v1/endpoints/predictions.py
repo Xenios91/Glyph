@@ -17,13 +17,12 @@ from app.utils.persistence_util import FunctionPersistanceUtil, PredictionPersis
 from app.services.request_handler import PredictionRequest
 from app.processing.task_management import TaskManager
 from app.utils.common import format_code
-from app.utils.logging_config import get_logger
+from loguru import logger
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 from app.utils.jinja_utils import configure_jinja2_templates
 from app.auth.dependencies import get_current_active_user, get_optional_user
 from app.database.models import User
 
-logger = get_logger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -58,8 +57,7 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
             TokenizeStep,
             FilterStep,
             FeatureExtractStep,
-            PredictStep,
-        )
+            PredictStep)
         from app.processing.pipeline import ProcessingPipeline, PipelineContext
         
         context = PipelineContext(
@@ -69,8 +67,7 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
             metadata={
                 "model_name": prediction_request.model_name,
                 "task_name": prediction_request.task_name,
-            },
-        )
+            })
         
         pipeline = ProcessingPipeline(
             "ML Prediction Pipeline",
@@ -81,16 +78,15 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
                 FilterStep(),
                 FeatureExtractStep(),
                 PredictStep(),
-            ],
-        )
+            ])
         result = pipeline.execute(context)
         
         if result.error:
             raise Exception(result.error)
             
-        logger.info("Prediction task completed successfully: %s", prediction_request.uuid)
+        logger.info("Prediction task completed successfully: {}", prediction_request.uuid)
     except Exception as exc:
-        logger.error("Prediction task failed: %s - %s", prediction_request.uuid, exc, exc_info=True)
+        logger.error("Prediction task failed: {} - {}", prediction_request.uuid, exc)
         raise
 
 
@@ -98,8 +94,7 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
 async def predict_tokens(
     background_tasks: BackgroundTasks,
     request_values: PredictTokensRequest,
-    current_user: Annotated[User, Depends(get_current_active_user)],
-):
+    current_user: Annotated[User, Depends(get_current_active_user)]):
     """Creates a job to predict a function name based on the tokens supplied.
     
     Args:
@@ -124,9 +119,7 @@ async def predict_tokens(
                 status_code=409,
                 detail=create_error_response(
                     error_code="TASK_NAME_EXISTS",
-                    error_message=f"Task name '{task_name}' already exists. Task names must be unique.",
-                ).model_dump(),
-            )
+                    error_message=f"Task name '{task_name}' already exists. Task names must be unique.").model_dump())
 
         prediction_request = PredictionRequest(uuid, model_name, data)
         
@@ -135,20 +128,17 @@ async def predict_tokens(
 
         return create_success_response(
             data={"uuid": prediction_request.uuid},
-            message="Prediction task created successfully",
-        )
+            message="Prediction task created successfully")
 
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("Prediction error: %s", exc, exc_info=True)
+        logger.error("Prediction error: {}", exc)
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
                 error_code="PREDICTION_ERROR",
-                error_message=str(exc),
-            ).model_dump(),
-        )
+                error_message=str(exc)).model_dump())
 
 
 @router.get("/getPrediction")
@@ -156,8 +146,7 @@ async def get_prediction(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
-    task_name: TaskName = Query(...),
-):
+    task_name: TaskName = Query(...)):
     """Obtain all predictions from one task.
     
     Args:
@@ -178,16 +167,13 @@ async def get_prediction(
             status_code=404,
             detail=create_error_response(
                 error_code="PREDICTION_NOT_FOUND",
-                error_message="Prediction not found",
-            ).model_dump(),
-        )
+                error_message="Prediction not found").model_dump())
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE not in accept:
         return create_success_response(
             data={"prediction": prediction.__dict__},
-            message="Prediction retrieved successfully",
-        )
+            message="Prediction retrieved successfully")
 
     return templates.TemplateResponse(
         "get_prediction.html",
@@ -197,15 +183,13 @@ async def get_prediction(
             "model_name": prediction.model_name,
             "task_name": prediction.task_name,
             "prediction": prediction,
-        },
-    )
+        })
 
 
 @router.delete("/deletePrediction")
 async def delete_prediction(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    task_name: TaskName = Query(...),
-):
+    task_name: TaskName = Query(...)):
     """Deletes a prediction by task name.
     
     Args:
@@ -220,24 +204,19 @@ async def delete_prediction(
         
         return create_success_response(
             data={},
-            message="Prediction deleted successfully",
-        )
+            message="Prediction deleted successfully")
     except ValueError as ve:
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
                 error_code="VALIDATION_ERROR",
-                error_message=str(ve),
-            ).model_dump(),
-        )
+                error_message=str(ve)).model_dump())
     except Exception as exc:
         raise HTTPException(
             status_code=500,
             detail=create_error_response(
                 error_code="DELETE_ERROR",
-                error_message=f"Failed to delete prediction: {exc}",
-            ).model_dump(),
-        )
+                error_message=f"Failed to delete prediction: {exc}").model_dump())
 
 
 @router.get("/getPredictionDetails")
@@ -246,8 +225,7 @@ async def get_prediction_details(
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
-    task_name: TaskName = Query(...),
-):
+    task_name: TaskName = Query(...)):
     """Displays specific details of a prediction.
     
     Args:
@@ -273,16 +251,13 @@ async def get_prediction_details(
 
     except (TypeError, IndexError) as e:
         logger.error(
-            "Failed to retrieve prediction details for task=%s, model=%s, function=%s: %s",
-            task_name, model_name, function_name, e, exc_info=True
-        )
+            "Failed to retrieve prediction details for task={}, model={}, function={}: {}",
+            task_name, model_name, function_name, e)
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
                 error_code="RETRIEVAL_ERROR",
-                error_message="Could not retrieve details",
-            ).model_dump(),
-        )
+                error_message="Could not retrieve details").model_dump())
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
@@ -295,8 +270,7 @@ async def get_prediction_details(
                 "function_name": function_name,
                 "model_tokens": model_tokens,
                 "prediction_tokens": prediction_tokens,
-            },
-        )
+            })
 
     return create_success_response(
         data={
@@ -306,5 +280,4 @@ async def get_prediction_details(
             "model_tokens": model_tokens,
             "prediction_tokens": prediction_tokens,
         },
-        message="Prediction details retrieved successfully",
-    )
+        message="Prediction details retrieved successfully")

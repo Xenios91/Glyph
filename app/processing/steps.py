@@ -7,7 +7,6 @@ filtering, feature extraction, training, and prediction.
 Python 3.11+
 """
 
-import logging
 import os
 import re
 import sys
@@ -18,10 +17,9 @@ from sklearn.pipeline import Pipeline as SklearnPipeline
 
 from app.processing.pipeline import PipelineContext, PipelineStep
 from app.utils.persistence_util import MLPersistanceUtil, MLTask
-from app.utils.logging_config import get_logger
+from loguru import logger
 from app.config.settings import get_settings
 
-logger = get_logger(__name__)
 
 
 # ============================================================================
@@ -170,7 +168,7 @@ class ValidationStep(PipelineStep):
             context.error = f"Binary file is empty: {binary_path}"
             return context
 
-        logger.debug("Validation passed for %s (%d bytes)", binary_path, file_size)
+        logger.debug("Validation passed for {} ({} bytes)", binary_path, file_size)
         return context
 
 
@@ -210,17 +208,15 @@ class DecompileStep(PipelineStep):
             context.set("errored_functions", errored_functions)
 
             logger.info(
-                "Decompilation completed: %d functions, %d errors",
+                "Decompilation completed: {} functions, {} errors",
                 len(functions),
-                len(errored_functions),
-            )
+                len(errored_functions))
 
         except Exception as decompile_error:
             context.error = f"Decompilation failed: {decompile_error}"
             context.exc_info = sys.exc_info()
             logger.error(
-                "Decompilation error: %s", decompile_error, exc_info=True
-            )
+                "Decompilation error: {}", decompile_error)
 
         return context
 
@@ -266,7 +262,7 @@ class TokenizeStep(PipelineStep):
         context.set("tokenized_functions", tokenized_functions)
 
         logger.debug(
-            "Tokenization completed: %d functions tokenized", len(tokenized_functions)
+            "Tokenization completed: {} functions tokenized", len(tokenized_functions)
         )
 
         return context
@@ -313,7 +309,7 @@ class FilterStep(PipelineStep):
         context.set("filtered_functions", filtered_functions)
 
         logger.debug(
-            "Filtering completed: %d functions filtered", len(filtered_functions)
+            "Filtering completed: {} functions filtered", len(filtered_functions)
         )
 
         return context
@@ -361,9 +357,8 @@ class FeatureExtractStep(PipelineStep):
         context.set("tokens", tokens)
 
         logger.debug(
-            "Feature extraction completed: %d samples",
-            len(tokens),
-        )
+            "Feature extraction completed: {} samples",
+            len(tokens))
 
         return context
 
@@ -424,11 +419,11 @@ class TrainStep(PipelineStep):
 
         try:
             # Validate data before training
-            logger.debug("Training data: %d tokens, %d labels", len(tokens), len(y))
+            logger.debug("Training data: {} tokens, {} labels", len(tokens), len(y))
             # Guard expensive debug logging to avoid computation when disabled
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Token sample: %s", tokens[0][:100] if tokens else "empty")
-                logger.debug("Label distribution: %s", np.bincount(y))
+            # Using opt(lazy=True) defers evaluation until the log level is confirmed
+            logger.opt(lazy=True).debug("Token sample: {}", lambda: tokens[0][:100] if tokens else "empty")
+            logger.opt(lazy=True).debug("Label distribution: {}", np.bincount)
             
             # Train the model - ML pipeline handles vectorization internally
             ml_pipeline.fit(tokens, y)
@@ -440,15 +435,14 @@ class TrainStep(PipelineStep):
             context.set("model", ml_pipeline)
 
             logger.info(
-                "Training completed for model '%s': %d classes",
+                "Training completed for model '{}': {} classes",
                 model_name,
-                len(label_encoder.classes_),
-            )
+                len(label_encoder.classes_))
 
         except Exception as train_error:
             context.error = f"Training failed: {train_error}"
             context.exc_info = sys.exc_info()
-            logger.error("Training error: %s", train_error, exc_info=True)
+            logger.error("Training error: {}", train_error)
         return context
 
 
@@ -511,14 +505,13 @@ class PredictStep(PipelineStep):
             context.set("prediction_probabilities", prediction_probability.tolist())
 
             logger.info(
-                "Prediction completed: %d predictions for model '%s'",
+                "Prediction completed: {} predictions for model '{}'",
                 len(predicted_labels),
-                model_name,
-            )
+                model_name)
 
         except Exception as predict_error:
             context.error = f"Prediction failed: {predict_error}"
             context.exc_info = sys.exc_info()
-            logger.error("Prediction error: %s", predict_error, exc_info=True)
+            logger.error("Prediction error: {}", predict_error)
 
         return context

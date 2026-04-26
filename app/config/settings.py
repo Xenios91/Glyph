@@ -1,32 +1,20 @@
 """Configuration module for Glyph application settings."""
 
-import logging
 import os
 import secrets
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 from pydantic import Field, BaseModel
-from pydantic_settings import BaseSettings, YamlConfigSettingsSource
+from pydantic_settings import (
+    BaseSettings,
+    YamlConfigSettingsSource,
+    PydanticBaseSettingsSource,
+)
 
 import yaml
-
-# Use logging.getLogger directly to avoid circular import
-# (logging_config imports get_settings from this module)
-logger = logging.getLogger(__name__)
-
-
-def _ensure_sensitive_filter(logger_instance: logging.Logger) -> None:
-    """Add SensitiveDataFilter to the settings logger to prevent secret exposure.
-
-    This is applied lazily in get_settings() to avoid circular imports.
-
-    Args:
-        logger_instance: The logger to add the filter to.
-    """
-    from app.utils.logging_config import SensitiveDataFilter
-    if not any(isinstance(f, SensitiveDataFilter) for f in logger_instance.filters):
-        logger_instance.addFilter(SensitiveDataFilter())
 
 MAX_CPU_CORES = os.cpu_count() or 1
 
@@ -94,8 +82,7 @@ class GlyphSettings(BaseSettings):
         default=50.0,
         ge=0,
         le=100,
-        description="Minimum probability threshold for predictions (0-100)",
-    )
+        description="Minimum probability threshold for predictions (0-100)")
 
     max_file_size_mb: int = Field(
         default=512, ge=1, le=2048, description="Maximum file size for uploads in MB"
@@ -131,9 +118,22 @@ class GlyphSettings(BaseSettings):
     model_config = {"env_prefix": "GLYPH_", "extra": "ignore"}
 
     @classmethod
-    def settings_customise_sources(cls, *args, **kwargs):
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
         """Customize settings sources to prioritize YAML file."""
-        return (YamlConfigSettingsSource(cls, "config.yml"),)
+        return (
+            init_settings,
+            YamlConfigSettingsSource(settings_cls, "config.yml"),
+            env_settings,
+            dotenv_settings,
+            file_secret_settings,
+        )
 
 
 _settings: GlyphSettings | None = None
@@ -152,8 +152,6 @@ def get_settings() -> GlyphSettings:
     if _settings is None:
         try:
             _settings = GlyphSettings()
-            # Apply sensitive data filter to settings logger
-            _ensure_sensitive_filter(logger)
         except Exception as e:
             raise RuntimeError(f"Failed to load configuration: {e}") from e
     return _settings
@@ -197,15 +195,11 @@ class GlyphConfig:
             return True
         except FileNotFoundError:
             logger.error(
-                "config.yml not found.",
-                extra={"extra_data": {"file": "config.yml", "operation": "load_config"}},
-            )
+                "config.yml not found.")
             return False
         except yaml.YAMLError as yaml_error:
             logger.error(
-                "Failed to parse config.yml: %s", yaml_error,
-                extra={"extra_data": {"file": "config.yml", "operation": "load_config"}},
-            )
+                "Failed to parse config.yml: {}", yaml_error)
             return False
 
     @staticmethod
@@ -272,7 +266,7 @@ class GlyphConfig:
             return False
 
         if cores > MAX_CPU_CORES:
-            logger.error("Attempted to set more than %d CPU cores.", MAX_CPU_CORES)
+            logger.error("Attempted to set more than {} CPU cores.", MAX_CPU_CORES)
             return False
 
         GlyphConfig._config["cpu_cores"] = cores

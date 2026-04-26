@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database.models import Base
-from app.utils.logging_config import get_logger
+from loguru import logger
 
 DATABASE_URLS = {
     "models": "sqlite:///models.db",
@@ -35,7 +35,6 @@ ASYNC_DATABASE_URLS = {
 async_engines: dict[str, AsyncEngine] = {}
 async_session_factories: dict[str, async_sessionmaker[AsyncSession]] = {}
 
-logger = get_logger(__name__)
 
 
 def init_databases() -> None:
@@ -44,15 +43,10 @@ def init_databases() -> None:
         try:
             Base.metadata.create_all(bind=engine)
             logger.info(
-                "Database '%s' initialized successfully", name,
-                extra={"extra_data": {"database": name, "operation": "init_db"}},
-            )
+                "Database '{}' initialized successfully", name)
         except Exception as exc:
             logger.error(
-                "Failed to initialize database '%s': %s", name, exc,
-                exc_info=True,
-                extra={"extra_data": {"database": name, "operation": "init_db"}},
-            )
+                "Failed to initialize database '{}': {}", name, exc)
 
 
 async def init_async_databases() -> None:
@@ -67,9 +61,7 @@ async def init_async_databases() -> None:
         async with async_engines[name].begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info(
-            "Async database '%s' initialized successfully", name,
-            extra={"extra_data": {"database": name, "operation": "init_async_db"}},
-        )
+            "Async database '{}' initialized successfully", name)
 
 
 @contextmanager
@@ -95,10 +87,7 @@ def get_session(database: str = "models") -> Generator[Session, None, None]:
     except Exception as exc:
         session.rollback()
         logger.error(
-            "Database error in '%s': %s", database, exc,
-            exc_info=True,
-            extra={"extra_data": {"database": database, "operation": "get_session"}},
-        )
+            "Database error in '{}': {}", database, exc)
         raise
     finally:
         session.close()
@@ -147,10 +136,7 @@ def get_db(database: str = "models") -> Generator[Session, None, None]:
         session.commit()
     except Exception as exc:
         logger.warning(
-            "Database error in '%s', rolling back: %s", database, exc,
-            exc_info=True,
-            extra={"extra_data": {"database": database, "operation": "get_db"}},
-        )
+            "Database error in '{}', rolling back: {}", database, exc)
         session.rollback()
         raise
     finally:

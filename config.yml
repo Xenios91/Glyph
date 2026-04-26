@@ -4,6 +4,15 @@ max_file_size_mb: 512 # maximum file size in MB for uploaded binaries
 cpu_cores: 2 # number of CPU cores to use for processing (must be between 1 and 32)
 
 # Logging configuration
+# Uses Loguru (https://loguru.readthedocs.io/) for modern Python logging
+#
+# Environment Variables (override config.yml settings):
+#   LOGURU_LEVEL     - Override log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+#   LOGURU_FORMAT    - Override log format (json, text)
+#   LOGURU_DIAGNOSE  - Enable/disable variable diagnosis in exceptions (YES/NO)
+#   LOGURU_COLORIZE  - Enable/disable colorization (YES/NO)
+#   GLYPH_LOG_BEST_PRACTICE - Enable logging best practice validation (true/false)
+#
 logging:
   level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
   format: json  # json or text

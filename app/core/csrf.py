@@ -6,10 +6,9 @@ Uses session-based CSRF tokens with SameSite cookie policy.
 
 import secrets
 
-from app.auth.security_logger import log_csrf_failure
-from app.utils.logging_config import get_logger
+from loguru import logger
 
-logger = get_logger(__name__)
+from app.auth.security_logger import log_csrf_failure
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -38,35 +37,33 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         # Skip CSRF validation for static files and API documentation
         if self._is_excluded_path(request.url.path):
-            logger.debug("Skipping CSRF for excluded path: %s", request.url.path)
+            logger.debug("Skipping CSRF for excluded path: {}", request.url.path)
             return await call_next(request)
 
         # Generate or retrieve CSRF token
         csrf_token = self._get_or_create_token(request)
-        logger.debug("CSRF token generated for %s %s", request.method, request.url.path)
+        logger.debug("CSRF token generated for {} {}", request.method, request.url.path)
 
         # Store token in request state for template access (secure: same-origin only)
         request.state.csrf_token = csrf_token
 
         # For unsafe methods, validate the CSRF token
         if request.method in self.UNSAFE_METHODS:
-            logger.debug("Validating CSRF token for %s %s", request.method, request.url.path)
+            logger.debug("Validating CSRF token for {} {}", request.method, request.url.path)
             if not await self._validate_csrf_token(request, csrf_token):
                 ip_address = request.client.host if request.client else None
-                logger.warning("CSRF validation failed for %s %s", request.method, request.url.path)
+                logger.warning("CSRF validation failed for {} {}", request.method, request.url.path)
                 # Log CSRF failure for security audit
                 log_csrf_failure(
                     ip_address=ip_address,
                     path=request.url.path,
-                    method=request.method,
-                )
+                    method=request.method)
                 # Return 403 Forbidden for invalid CSRF tokens
                 return Response(
                     content='{"detail": "CSRF token missing or invalid"}',
                     status_code=HTTP_403_FORBIDDEN,
-                    media_type="application/json",
-                )
-            logger.debug("CSRF validation succeeded for %s %s", request.method, request.url.path)
+                    media_type="application/json")
+            logger.debug("CSRF validation succeeded for {} {}", request.method, request.url.path)
 
         # Process the request
         response = await call_next(request)
@@ -163,7 +160,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                     return True
             except Exception as e:
                 # If we can't parse form data, fall through to return False
-                logger.debug("Failed to parse form data for CSRF validation: %s", e, exc_info=True)
+                logger.debug("Failed to parse form data for CSRF validation: {}", e)
 
         return False
 

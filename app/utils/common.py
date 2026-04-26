@@ -103,8 +103,7 @@ def build_prediction_details_response(
     model_name: str,
     function_name: str,
     model_tokens: str,
-    prediction_tokens: str,
-) -> dict[str, Any]:
+    prediction_tokens: str) -> dict[str, Any]:
     """Build a standardized prediction details response.
 
     This function creates a consistent response structure for prediction details

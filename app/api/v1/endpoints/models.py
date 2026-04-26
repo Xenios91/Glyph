@@ -15,19 +15,16 @@ from app.database.models import User
 from app.utils.persistence_util import (
     FunctionPersistanceUtil,
     MLPersistanceUtil,
-    PredictionPersistanceUtil,
-)
+    PredictionPersistanceUtil)
 from app.utils.helpers import ACCEPT_TYPE
 from app.utils.common import format_code, build_prediction_details_response
-from app.utils.logging_config import get_logger
+from loguru import logger
 from app.utils.responses import (
     create_success_response,
     create_error_response,
-    SuccessResponse,
-)
+    SuccessResponse)
 from app.utils.jinja_utils import configure_jinja2_templates
 
-logger = get_logger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -37,8 +34,7 @@ configure_jinja2_templates(templates)
 @router.delete("/deleteModel", response_model=SuccessResponse[dict])
 async def delete_model(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    model_name: ModelName = Query(...),
-):
+    model_name: ModelName = Query(...)):
     """
     Handles a DELETE request to delete a supplied model by name.
 
@@ -53,17 +49,14 @@ async def delete_model(
         PredictionPersistanceUtil.delete_model_predictions(model_name)
         return create_success_response(
             data={},
-            message="Model deleted successfully",
-        )
+            message="Model deleted successfully")
     except Exception as exc:
-        logger.error("Failed to delete model '%s': %s", model_name, exc, exc_info=True)
+        logger.error("Failed to delete model '{}': {}", model_name, exc)
         raise HTTPException(
             status_code=500,
             detail=create_error_response(
                 error_code="DELETE_MODEL_ERROR",
-                error_message=f"Failed to delete model: {exc}",
-            ).model_dump(),
-        )
+                error_message=f"Failed to delete model: {exc}").model_dump())
 
 
 @router.get("/getFunction", response_model=SuccessResponse[dict])
@@ -71,8 +64,7 @@ async def get_function(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
-    function_name: FunctionName = Query(...),
-):
+    function_name: FunctionName = Query(...)):
     """
     Handles a GET request to return a specific function associated with a model.
 
@@ -96,9 +88,7 @@ async def get_function(
             status_code=404,
             detail=create_error_response(
                 error_code="FUNCTION_NOT_FOUND",
-                error_message="Function not found",
-            ).model_dump(),
-        )
+                error_message="Function not found").model_dump())
 
     f_name = function_information[1]
     f_entry = function_information[2]
@@ -108,8 +98,7 @@ async def get_function(
     if ACCEPT_TYPE not in accept:
         return create_success_response(
             data={"functions": function_information},
-            message="Function retrieved successfully",
-        )
+            message="Function retrieved successfully")
 
     return templates.TemplateResponse(
         "get_function.html",
@@ -121,16 +110,14 @@ async def get_function(
             "function_entry": f_entry,
             "tokens": f_tokens,
             "user": current_user,
-        },
-    )
+        })
 
 
 @router.get("/getFunctions", response_model=SuccessResponse[dict])
 async def get_functions(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    model_name: ModelName = Query(...),
-):
+    model_name: ModelName = Query(...)):
     """
     Handles a GET request to return all identified functions associated with a model.
 
@@ -147,8 +134,7 @@ async def get_functions(
     if ACCEPT_TYPE not in accept:
         return create_success_response(
             data={"functions": functions},
-            message="Functions retrieved successfully",
-        )
+            message="Functions retrieved successfully")
 
     return templates.TemplateResponse(
         "get_symbols.html",
@@ -159,8 +145,7 @@ async def get_functions(
             "model_name": model_name,
             "functions": functions,
             "user": current_user,
-        },
-    )
+        })
 
 
 @router.get("/getPredictionDetails", response_model=SuccessResponse[dict])
@@ -169,8 +154,7 @@ async def get_prediction_details(
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
-    task_name: TaskName = Query(...),
-):
+    task_name: TaskName = Query(...)):
     """Displays specific details of a prediction.
 
     Args:
@@ -196,30 +180,24 @@ async def get_prediction_details(
                 status_code=404,
                 detail=create_error_response(
                     error_code="FUNCTION_NOT_FOUND",
-                    error_message="Function not found in model",
-                ).model_dump(),
-            )
+                    error_message="Function not found in model").model_dump())
         if not prediction_data:
             raise HTTPException(
                 status_code=404,
                 detail=create_error_response(
                     error_code="PREDICTION_NOT_FOUND",
-                    error_message="Prediction not found",
-                ).model_dump(),
-            )
+                    error_message="Prediction not found").model_dump())
 
         model_tokens = format_code(model_info[3] if len(model_info) >= 3 else "")
         prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
     except (TypeError, IndexError, KeyError) as exc:
-        logger.error("Failed to retrieve prediction details: %s", exc, exc_info=True)
+        logger.error("Failed to retrieve prediction details: {}", exc)
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
                 error_code="RETRIEVAL_ERROR",
-                error_message="Could not retrieve details",
-            ).model_dump(),
-        )
+                error_message="Could not retrieve details").model_dump())
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
@@ -234,12 +212,10 @@ async def get_prediction_details(
                 "model_tokens": model_tokens,
                 "prediction_tokens": prediction_tokens,
                 "user": current_user,
-            },
-        )
+            })
 
     return create_success_response(
         data=build_prediction_details_response(
             task_name, model_name, function_name, model_tokens, prediction_tokens
         ),
-        message="Prediction details retrieved successfully",
-    )
+        message="Prediction details retrieved successfully")

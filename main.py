@@ -1,4 +1,4 @@
-import logging
+from loguru import logger
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -12,14 +12,13 @@ from app.api.router import api_router
 from app.web.endpoints.web import router as web_router
 from app.auth.endpoints import router as auth_router
 from app.utils.jinja_utils import configure_jinja2_templates
-from app.utils.logging_config import setup_logging_from_config, get_logger
+from app.utils.logging_config import setup_logging_from_config
 
 templates = Jinja2Templates(directory="templates")
 configure_jinja2_templates(templates)
 
 # Set up logging from config
 setup_logging_from_config()
-logger = get_logger(__name__)
 
 
 def create_app() -> FastAPI:
@@ -49,7 +48,7 @@ def create_app() -> FastAPI:
         app.mount("/static", StaticFiles(directory="static"), name="static")
         logger.info("Static files mounted at /static")
     except Exception as e:
-        logger.warning("Static files mount failed: %s", e)
+        logger.warning("Static files mount failed: {}", e)
 
     # Include auth router
     app.include_router(auth_router)
@@ -72,16 +71,10 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
     """Handle HTTP exceptions with redirect to login for 401 on web requests.
     """
     # Log 5xx at WARNING, 4xx at DEBUG for visibility
-    level = logging.WARNING if exc.status_code >= 500 else logging.DEBUG
-    logger.log(
+    level = "WARNING" if exc.status_code >= 500 else "DEBUG"
+    logger.opt(depth=0).log(
         level,
-        "HTTP error %d: %s", exc.status_code, exc.detail,
-        extra={"extra_data": {
-            "event": "http_exception",
-            "status_code": exc.status_code,
-            "path": request.url.path,
-            "method": request.method,
-        }},
+        "HTTP error {}: {}", exc.status_code, exc.detail,
     )
 
     accept = request.headers.get("Accept", "")
@@ -111,15 +104,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
 async def general_exception_handler(request: Request, exc: Exception) -> HTMLResponse | JSONResponse:
     """Handle unexpected exceptions with a nice error page for web requests.
     """
-    logger.exception(
-        "Unexpected error",
-        extra={"extra_data": {
-            "event": "unhandled_exception",
-            "path": request.url.path,
-            "method": request.method,
-            "query": str(request.query_params),
-        }},
-    )
+    logger.exception("Unexpected error")
     accept = request.headers.get("Accept", "")
     if "text/html" in accept:
         return templates.TemplateResponse(

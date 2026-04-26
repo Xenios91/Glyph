@@ -10,10 +10,9 @@ from sklearn.pipeline import Pipeline
 
 from app.services.request_handler import Prediction, PredictionRequest, TrainingRequest
 from app.database.sql_service import SQLUtil
-from app.utils.logging_config import get_logger
+from loguru import logger
 from app.utils.secure_deserializer import secure_load, SecureDeserializationError
 
-logger = get_logger(__name__)
 
 
 class MLTask:
@@ -30,8 +29,7 @@ class MLTask:
             [
                 (
                     "preprocessor",
-                    TfidfVectorizer(ngram_range=(2, 4), norm="l2", sublinear_tf=True),
-                ),
+                    TfidfVectorizer(ngram_range=(2, 4), norm="l2", sublinear_tf=True)),
                 ("clf", MultinomialNB(alpha=1e-8)),
             ]
         )
@@ -148,7 +146,7 @@ class MLPersistanceUtil:
 
             SQLUtil.save_model(model_name, serialized_encoder, serialized_model)
         except Exception as error:
-            logger.error("Failed to serialize model '%s': %s", model_name, error, exc_info=True)
+            logger.error("Failed to serialize model '{}': {}", model_name, error)
             raise RuntimeError(
                 f"Could not serialize model data for '{model_name}'"
             ) from error
@@ -173,15 +171,14 @@ class MLPersistanceUtil:
         model_row: tuple[Any, ...] | None = SQLUtil.get_model(model_name)
 
         if model_row is None:
-            logger.error("Model '%s' not found in database", model_name)
+            logger.error("Model '{}' not found in database", model_name)
             raise ValueError(f"Model '{model_name}' not found.")
 
         if len(model_row) < 3:
             logger.error(
-                "Model '%s' has invalid schema (expected 3 fields, got %d)",
+                "Model '{}' has invalid schema (expected 3 fields, got {})",
                 model_name,
-                len(model_row),
-            )
+                len(model_row))
             raise ValueError(
                 f"Model '{model_name}' data has incorrect structure (expected 3 fields, got {len(model_row)})"
             )
@@ -196,23 +193,19 @@ class MLPersistanceUtil:
             return loaded_model, label_encoder
         except SecureDeserializationError as error:
             logger.error(
-                "Secure deserialization blocked model '%s': %s: %s",
+                "Secure deserialization blocked model '{}': {}: {}",
                 model_name,
                 type(error).__name__,
-                error,
-                exc_info=True,
-            )
+                error)
             raise RuntimeError(
                 f"Model data for '{model_name}' failed security validation"
             ) from error
         except Exception as error:
             logger.error(
-                "Failed to deserialize model '%s': %s: %s",
+                "Failed to deserialize model '{}': {}: {}",
                 model_name,
                 type(error).__name__,
-                error,
-                exc_info=True,
-            )
+                error)
             raise RuntimeError(
                 f"Could not deserialize model data for '{model_name}'"
             ) from error
@@ -346,11 +339,10 @@ class FunctionPersistanceUtil:
             )
         elif functions:
             logger.warning(
-                "Mismatch between functions (%d) and predictions (%d) for task '%s'",
+                "Mismatch between functions ({}) and predictions ({}) for task '{}'",
                 len(functions),
                 len(predictions),
-                task_name,
-            )
+                task_name)
 
     @staticmethod
     def get_prediction_function(

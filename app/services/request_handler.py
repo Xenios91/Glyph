@@ -6,9 +6,8 @@ from typing import Any, cast
 from pathlib import Path
 import pandas as pd
 
-from app.utils.logging_config import get_logger
+from loguru import logger
 
-logger = get_logger(__name__)
 
 
 class DataHandler:
@@ -85,9 +84,8 @@ class TrainingRequest(DataHandler):
             self.data = pd.DataFrame(unique_functions)
         except Exception as tr_exception:
             logger.warning(
-                "Error processing training data for UUID=%s: %s",
-                self.uuid, tr_exception, exc_info=True
-            )
+                "Error processing training data for UUID={}: {}",
+                self.uuid, tr_exception)
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing training data for UUID: {self.uuid}")
             raise exc from tr_exception
@@ -123,7 +121,7 @@ class PredictionRequest(DataHandler):
 
             self.data = pd.DataFrame(unique_functions)
         except Exception as unknown_exception:
-            logger.error("Error processing prediction data: %s", unknown_exception, exc_info=True)
+            logger.error("Error processing prediction data: {}", unknown_exception)
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing prediction data for UUID: {self.uuid}")
             raise exc from unknown_exception
@@ -145,8 +143,7 @@ class GhidraRequest:
         is_training: bool,
         model_name: str,
         task_name: str,
-        ml_class_type: str,
-    ) -> None:
+        ml_class_type: str) -> None:
         self.file_name = Path(filename).as_posix()
         self.is_training = is_training
         self.model_name = model_name

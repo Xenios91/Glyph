@@ -4,15 +4,12 @@ This module provides middleware for injecting user information into request stat
 for use in templates.
 """
 
-import logging
+from loguru import logger
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.auth.dependencies import get_optional_user
-from app.utils.logging_config import get_logger
-
-logger = get_logger(__name__)
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -56,7 +53,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             
         except Exception as e:
             # If anything goes wrong, just continue without user
-            logger.debug("Failed to parse auth token: %s", e, exc_info=True)
+            logger.debug("Failed to parse auth token: {}", e)
         
         response = await call_next(request)
         return response

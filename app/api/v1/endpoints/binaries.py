@@ -19,8 +19,7 @@ from fastapi import (
     Form,
     HTTPException,
     Request,
-    UploadFile,
-)
+    UploadFile)
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, field_validator
 
@@ -31,14 +30,12 @@ from app.utils.persistence_util import FunctionPersistanceUtil
 from app.utils.responses import (
     create_success_response,
     create_error_response,
-    SuccessResponse,
-)
+    SuccessResponse)
 from app.utils.jinja_utils import configure_jinja2_templates
-from app.utils.logging_config import get_logger
+from loguru import logger
 from app.auth.dependencies import get_current_active_user
 from app.database.models import User
 
-logger = get_logger(__name__)
 
 
 class BinaryUploadForm(BaseModel):
@@ -53,22 +50,18 @@ class BinaryUploadForm(BaseModel):
 
     training_data: str = Field(
         default="false",
-        description="Whether this is training data",
-    )
+        description="Whether this is training data")
     model_name: str = Field(
         ...,
         min_length=1,
-        description="Name of the model to use",
-    )
+        description="Name of the model to use")
     ml_class_type: str = Field(
         ...,
         min_length=1,
-        description="Type of ML classification",
-    )
+        description="Type of ML classification")
     task_name: str = Field(
         default="",
-        description="Optional task name for prediction mode",
-    )
+        description="Optional task name for prediction mode")
 
     @field_validator("training_data", mode="before")
     @classmethod
@@ -135,14 +128,13 @@ def validate_binary_mime_type(file_content: bytes) -> None:
     try:
         mime_type = magic.from_buffer(file_content[:1024], mime=True)
     except Exception as exc:
-        logger.error("Failed to detect MIME type: %s", exc, exc_info=True)
+        logger.error("Failed to detect MIME type: {}", exc)
         raise HTTPException(status_code=400, detail="Failed to analyze file type")
 
     if mime_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{mime_type}' not allowed. Expected binary/ELF format",
-        )
+            detail=f"File type '{mime_type}' not allowed. Expected binary/ELF format")
 
 
 def sanitize_filename(filename: str) -> str:
@@ -196,11 +188,10 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
         # Handle results based on pipeline type
         if result.error:
             logger.error(
-                "Pipeline failed for %s: %s", ghidra_request.uuid, result.error,
-                exc_info=getattr(result, 'exc_info', False),
-            )
+                "Pipeline failed for {}: {}", ghidra_request.uuid, result.error,
+                exc_info=getattr(result, 'exc_info', False))
         else:
-            logger.info("Pipeline completed successfully for %s", ghidra_request.uuid)
+            logger.info("Pipeline completed successfully for {}", ghidra_request.uuid)
 
             # For training, save functions to database
             if ghidra_request.is_training:
@@ -219,24 +210,21 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                     training_request = TrainingRequest(
                         req_uuid=ghidra_request.uuid,
                         model_name=ghidra_request.model_name,
-                        data=training_data,
-                    )
+                        data=training_data)
                     FunctionPersistanceUtil.add_model_functions(training_request)
                     logger.debug(
-                        "Functions saved to database for model: %s",
-                        ghidra_request.model_name,
-                    )
+                        "Functions saved to database for model: {}",
+                        ghidra_request.model_name)
 
             # For prediction, save predictions to database
             else:
                 predictions = result.get("predictions")
                 filtered_functions = result.get("filtered_functions")
                 logger.debug(
-                    "[PREDICTION] Processing results - predictions: %d, filtered_functions: %d, task_name: '%s'",
+                    "[PREDICTION] Processing results - predictions: {}, filtered_functions: {}, task_name: '{}'",
                     len(predictions) if predictions else 0,
                     len(filtered_functions) if filtered_functions else 0,
-                    ghidra_request.task_name,
-                )
+                    ghidra_request.task_name)
                 if predictions and filtered_functions:
                     from app.services.request_handler import PredictionRequest
 
@@ -249,37 +237,31 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                         },
                     }
                     logger.debug(
-                        "[PREDICTION] Creating PredictionRequest with task_name: '%s', uuid: %s",
+                        "[PREDICTION] Creating PredictionRequest with task_name: '{}', uuid: {}",
                         ghidra_request.task_name,
-                        ghidra_request.uuid,
-                    )
+                        ghidra_request.uuid)
                     try:
                         prediction_request = PredictionRequest(
                             req_uuid=ghidra_request.uuid,
                             model_name=ghidra_request.model_name,
-                            data=prediction_data,
-                        )
+                            data=prediction_data)
                         logger.debug(
-                            "[PREDICTION] PredictionRequest created successfully, task_name from request: '%s'",
-                            prediction_request.task_name,
-                        )
+                            "[PREDICTION] PredictionRequest created successfully, task_name from request: '{}'",
+                            prediction_request.task_name)
                         FunctionPersistanceUtil.add_prediction_functions(
                             prediction_request, predictions
                         )
                         logger.debug(
-                            "Predictions saved to database for task: %s",
-                            ghidra_request.task_name,
-                        )
+                            "Predictions saved to database for task: {}",
+                            ghidra_request.task_name)
                     except Exception as pred_req_error:
                         logger.error(
-                            "[PREDICTION] Failed to create PredictionRequest: %s",
-                            pred_req_error,
-                            exc_info=True,
-                        )
+                            "[PREDICTION] Failed to create PredictionRequest: {}",
+                            pred_req_error)
                         raise
 
     except Exception as exc:
-        logger.error("Pipeline task failed: %s - %s", ghidra_request.uuid, exc, exc_info=True)
+        logger.error("Pipeline task failed: {} - {}", ghidra_request.uuid, exc)
         raise
 
 
@@ -292,8 +274,7 @@ async def post_upload_binary(
     training_data: str = Form("false"),
     model_name: str = Form(...),
     ml_class_type: str = Form(...),
-    task_name: str = Form(""),
-):
+    task_name: str = Form("")):
     """Handle POST request for binary file uploads.
 
     Args:
@@ -316,8 +297,7 @@ async def post_upload_binary(
         training_data=training_data,
         model_name=model_name,
         ml_class_type=ml_class_type,
-        task_name=task_name,
-    )
+        task_name=task_name)
 
     accept = request.headers.get("Accept", "")
 
@@ -326,9 +306,7 @@ async def post_upload_binary(
             status_code=400,
             detail=create_error_response(
                 error_code="NO_FILE_FOUND",
-                error_message="no file found",
-            ).model_dump(),
-        )
+                error_message="no file found").model_dump())
 
     settings = get_settings()
     max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
@@ -336,21 +314,12 @@ async def post_upload_binary(
     file_content = await binary_file.read()
     
     logger.info(
-        "Binary upload started: filename=%s, size=%d, training=%s, model=%s, task=%s",
+        "Binary upload started: filename={}, size={}, training={}, model={}, task={}",
         binary_file.filename,
         len(file_content),
         form_data.training_data,
         form_data.model_name,
-        form_data.task_name,
-        extra={"extra_data": {
-            "event": "binary_upload",
-            "filename": binary_file.filename,
-            "file_size": len(file_content),
-            "training_data": form_data.training_data,
-            "model_name": form_data.model_name,
-            "task_name": form_data.task_name,
-        }}
-    )
+        form_data.task_name)
     
     if len(file_content) > max_file_size_bytes:
         actual_size_mb = len(file_content) / (1024 * 1024)
@@ -358,9 +327,7 @@ async def post_upload_binary(
             status_code=413,
             detail=create_error_response(
                 error_code="FILE_TOO_LARGE",
-                error_message=f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)",
-            ).model_dump(),
-        )
+                error_message=f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)").model_dump())
 
     # Validate MIME type to ensure file is a legitimate binary
     validate_binary_mime_type(file_content)
@@ -390,34 +357,25 @@ async def post_upload_binary(
         is_training_data,
         form_data.model_name,
         form_data.task_name,
-        form_data.ml_class_type,
-    )
+        form_data.ml_class_type)
 
     background_tasks.add_task(_run_pipeline_analysis, ghidra_task, file_path)
 
     logger.info(
-        "Binary upload completed successfully: uuid=%s, file_path=%s",
-        unique_filename, file_path,
-        extra={"extra_data": {
-            "event": "binary_upload_complete",
-            "uuid": unique_filename,
-            "file_path": file_path,
-        }}
-    )
+        "Binary upload completed successfully: uuid={}, file_path={}",
+        unique_filename, file_path)
 
     if "*/*" in accept:
         return templates.TemplateResponse("upload.html", {"request": request})
 
     return create_success_response(
         data=BinaryUploadResponse(uuid=unique_filename),
-        message="Binary uploaded successfully",
-    )
+        message="Binary uploaded successfully")
 
 
 @router.get("/listBins", response_model=SuccessResponse[dict])
 async def list_bins(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-):
+    current_user: Annotated[User, Depends(get_current_active_user)]):
     """
     Handles a GET request to retrieve all available binaries
     """
@@ -429,5 +387,4 @@ async def list_bins(
             files.extend(files_found)
     return create_success_response(
         data={"files": files},
-        message="Binaries retrieved successfully",
-    )
+        message="Binaries retrieved successfully")

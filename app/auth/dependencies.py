@@ -10,15 +10,13 @@ from app.auth.jwt_handler import JWTHandler
 from app.auth.repository import UserRepository, APIKeyRepository
 from app.auth.security_logger import (
     log_api_key_usage,
-    log_permission_denied,
-)
+    log_permission_denied)
 from app.config.settings import get_settings
 from app.database.models import User
 from app.database.session_handler import get_async_session, close_async_session
-from app.utils.logging_config import get_logger
+from loguru import logger
 from app.utils.request_context import set_request_context, get_request_context
 
-logger = get_logger(__name__)
 
 
 # Initialize OAuth2 password bearer
@@ -53,7 +51,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         raise
     except Exception as e:
         await session.rollback()
-        logger.error("Database session rolled back: %s", e, exc_info=True)
+        logger.error("Database session rolled back: {}", e)
         raise
     finally:
         await close_async_session(session)
@@ -62,8 +60,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def get_current_user(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)],
-) -> User:
+    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]) -> User:
     """Get the current authenticated user from JWT token or API key.
     
     Checks for authentication in the following order:
@@ -97,19 +94,11 @@ async def get_current_user(
     if not token:
         ip_address = request.client.host if request.client else None
         logger.warning(
-            "Authentication failed: no token provided",
-            extra={"extra_data": {
-                "event": "auth_failure",
-                "reason": "no_token",
-                "ip_address": ip_address,
-                "endpoint": request.url.path,
-            }}
-        )
+            "Authentication failed: no token provided")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+            headers={"WWW-Authenticate": "Bearer"})
     
     # Try to verify as JWT token first
     user_id = None
@@ -118,97 +107,69 @@ async def get_current_user(
         user_id = payload.get("sub")
         if user_id:
             user_id = int(user_id)
-            logger.debug("JWT token verified for user_id=%s", user_id)
+            logger.debug("JWT token verified for user_id={}", user_id)
     except Exception as jwt_error:
-        logger.warning("JWT verification failed, trying API key: %s", jwt_error, exc_info=True)
+        logger.warning("JWT verification failed, trying API key: {}", jwt_error)
         # If JWT verification fails, try API key
         api_key_repo = APIKeyRepository(db)
         api_key_record = await api_key_repo.verify_and_get(token)
         
         if api_key_record:
-            logger.debug("API key verified for user_id=%s", api_key_record.user_id)
+            logger.debug("API key verified for user_id={}", api_key_record.user_id)
             # Log API key usage for security audit
             ip_address = request.client.host if request.client else None
             log_api_key_usage(
                 user_id=api_key_record.user_id,
                 api_key_prefix=api_key_record.key_prefix,
                 endpoint=request.url.path,
-                ip_address=ip_address,
-            )
+                ip_address=ip_address)
             user = await db.get(User, api_key_record.user_id)
             if not user or not user.is_active:
-                logger.warning("Authentication failed: user_id=%s not found or inactive (API key)", api_key_record.user_id)
+                logger.warning("Authentication failed: user_id={} not found or inactive (API key)", api_key_record.user_id)
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="User not found or inactive",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
+                    headers={"WWW-Authenticate": "Bearer"})
             # Set request context for downstream logging (preserve request_id from middleware)
             set_request_context(user_id=user.id, username=user.username, clear_unset=False)
             return user
         else:
             ip_address = request.client.host if request.client else None
             logger.warning(
-                "Authentication failed: invalid API key",
-                extra={"extra_data": {
-                    "event": "auth_failure",
-                    "reason": "invalid_api_key",
-                    "ip_address": ip_address,
-                    "endpoint": request.url.path,
-                }}
-            )
+                "Authentication failed: invalid API key")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+                headers={"WWW-Authenticate": "Bearer"})
     
     # Get user from database
     if not user_id:
         ip_address = request.client.host if request.client else None
         logger.warning(
-            "Authentication failed: invalid token payload",
-            extra={"extra_data": {
-                "event": "auth_failure",
-                "reason": "invalid_token_payload",
-                "ip_address": ip_address,
-                "endpoint": request.url.path,
-            }}
-        )
+            "Authentication failed: invalid token payload")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+            headers={"WWW-Authenticate": "Bearer"})
     
     user = await db.get(User, user_id)
     if not user or not user.is_active:
         ip_address = request.client.host if request.client else None
         logger.warning(
-            "Authentication failed: user_id=%s not found or inactive", user_id,
-            extra={"extra_data": {
-                "event": "auth_failure",
-                "reason": "user_not_found_or_inactive",
-                "user_id": user_id,
-                "ip_address": ip_address,
-                "endpoint": request.url.path,
-            }}
-        )
+            "Authentication failed: user_id={} not found or inactive", user_id)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+            headers={"WWW-Authenticate": "Bearer"})
     
     # Set request context for downstream logging (preserve request_id from middleware)
     set_request_context(user_id=user.id, username=user.username, clear_unset=False)
-    logger.debug("User authenticated successfully: user_id=%s, username=%s", user.id, user.username)
+    logger.debug("User authenticated successfully: user_id={}, username={}", user.id, user.username)
     return user
 
 
 async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> User:
+    current_user: Annotated[User, Depends(get_current_user)]) -> User:
     """Get the current active user.
     
     Args:
@@ -231,8 +192,7 @@ async def get_current_active_user(
 async def get_optional_user(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)],
-) -> User | None:
+    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]) -> User | None:
     """Get the current user if authenticated, otherwise return None.
     
     Args:
@@ -268,7 +228,7 @@ async def get_optional_user(
             user_id = int(user_id)
     except Exception as e:
         # If JWT verification fails, try API key
-        logger.warning("JWT verification failed in get_optional_user, trying API key: %s", e, exc_info=True)
+        logger.warning("JWT verification failed in get_optional_user, trying API key: {}", e)
         api_key_repo = APIKeyRepository(db)
         api_key_record = await api_key_repo.verify_and_get(token)
         
@@ -290,8 +250,7 @@ async def get_optional_user(
 
 
 async def require_write_permission(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> User:
+    current_user: Annotated[User, Depends(get_current_active_user)]) -> User:
     """Require write permission for the current user.
     
     Args:
@@ -312,8 +271,7 @@ async def require_write_permission(
             user_id=current_user.id,
             username=current_user.username,
             resource="write_permission",
-            required_permission="write",
-        )
+            required_permission="write")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Write permission required"
@@ -322,8 +280,7 @@ async def require_write_permission(
 
 
 async def require_admin_permission(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> User:
+    current_user: Annotated[User, Depends(get_current_active_user)]) -> User:
     """Require admin permission for the current user.
     
     Args:
@@ -344,8 +301,7 @@ async def require_admin_permission(
             user_id=current_user.id,
             username=current_user.username,
             resource="admin_permission",
-            required_permission="admin",
-        )
+            required_permission="admin")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin permission required"

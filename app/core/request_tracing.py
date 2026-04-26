@@ -7,10 +7,9 @@ the application for better logging and debugging.
 import uuid
 from typing import Callable
 
-from app.utils.logging_config import get_logger
-from app.utils.request_context import set_request_context, clear_request_context, get_request_id
+from loguru import logger
 
-logger = get_logger(__name__)
+from app.utils.request_context import set_request_context, clear_request_context, get_request_id
 
 
 class RequestIDMiddleware:
@@ -61,9 +60,7 @@ class RequestIDMiddleware:
             await self.app(scope, receive, wrapped_send)
         except Exception:
             logger.exception(
-                "Request tracing middleware error for request_id=%s", request_id,
-                extra={"extra_data": {"request_id": request_id}},
-            )
+                "Request tracing middleware error for request_id={}", request_id)
             raise
         finally:
             # Clear request context after request is complete

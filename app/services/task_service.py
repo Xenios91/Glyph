@@ -3,10 +3,9 @@
 import queue
 from typing import Any
 
-from app.utils.logging_config import get_logger
+from loguru import logger
 from app.utils.request_context import get_request_context, set_request_context, clear_request_context
 
-logger = get_logger(__name__)
 
 
 class TaskService:
@@ -38,10 +37,7 @@ class TaskService:
                 request_id=ctx.request_id,
                 task_id=job_uuid,
                 user_id=ctx.user_id,
-                username=ctx.username,
-            )
+                username=ctx.username)
             logger.debug(
-                "Job queued: job_uuid=%s", job_uuid,
-                extra={"extra_data": {"job_uuid": job_uuid, "task_id": job_uuid}},
-            )
+                "Job queued: job_uuid={}", job_uuid)
             clear_request_context()

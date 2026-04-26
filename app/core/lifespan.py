@@ -1,6 +1,8 @@
 import threading
 from contextlib import asynccontextmanager
 
+from loguru import logger
+
 from fastapi import FastAPI
 
 from app.config.settings import get_settings
@@ -8,9 +10,6 @@ from app.database.sql_service import SQLUtil
 from app.database.session_handler import init_async_databases
 from app.processing.task_management import EventWatcher
 from app.services.task_service import TaskService
-from app.utils.logging_config import get_logger, log_startup_summary, log_shutdown_summary
-
-logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -22,11 +21,10 @@ async def lifespan(app: FastAPI):
         get_settings()
         logger.info("Configuration loaded successfully.")
     except RuntimeError as e:
-        logger.critical("Configuration failed: %s", e, exc_info=True)
+        logger.critical("Configuration failed: {}", e)
         raise
 
-    # Log startup summary
-    log_startup_summary()
+    logger.bind(event="startup").info("Logging initialized")
 
     try:
         SQLUtil.init_db()
@@ -62,4 +60,4 @@ async def lifespan(app: FastAPI):
     finally:
         logger.info("Shutting down Glyph service...")
         event_watcher.stop_watching()
-        log_shutdown_summary()
+        logger.bind(event="shutdown").info("Logging shutdown summary")

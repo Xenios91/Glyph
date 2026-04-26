@@ -4,16 +4,13 @@ This module provides specialized logging functions for authentication
 and authorization events with built-in rate limiting for brute-force detection.
 """
 
-import logging
 import time
 from collections import defaultdict
 from typing import Any
 
-from app.utils.logging_config import get_logger
+from loguru import logger
+
 from app.utils.request_context import get_request_context
-
-
-logger = get_logger(__name__)
 
 
 class LoginFailureTracker:
@@ -30,8 +27,7 @@ class LoginFailureTracker:
         self,
         threshold: int = 5,
         window: float = 300.0,
-        max_keys: int = 1000,
-    ):
+        max_keys: int = 1000):
         """Initialize the login failure tracker.
 
         Args:
@@ -65,8 +61,7 @@ class LoginFailureTracker:
         if len(self._failures) > self.max_keys:
             keys_by_activity = sorted(
                 self._failures.keys(),
-                key=lambda k: max(self._failures[k]) if self._failures[k] else 0,
-            )
+                key=lambda k: max(self._failures[k]) if self._failures[k] else 0)
             keys_to_remove = keys_by_activity[:len(self._failures) - self.max_keys]
             for key in keys_to_remove:
                 del self._failures[key]
@@ -155,8 +150,7 @@ def get_failure_tracker() -> LoginFailureTracker:
 def log_login_attempt(
     username: str,
     ip_address: str | None = None,
-    user_agent: str | None = None,
-) -> None:
+    user_agent: str | None = None) -> None:
     """Log that a login attempt has been initiated.
 
     This is called at the start of the login flow to record the attempt
@@ -175,18 +169,15 @@ def log_login_attempt(
         "user_agent": user_agent,
     }
 
-    logger.info(
-        "Login attempt initiated: %s", username,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).info(
+        "Login attempt initiated: {}", username)
 
 
 def log_login_success(
     user_id: int,
     username: str,
     session_id: str | None = None,
-    ip_address: str | None = None,
-) -> None:
+    ip_address: str | None = None) -> None:
     """Log a successful login.
 
     Args:
@@ -203,10 +194,8 @@ def log_login_success(
         "ip_address": ip_address,
     }
 
-    logger.info(
-        "Login successful: %s (user_id=%d)", username, user_id,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).info(
+        "Login successful: {} (user_id={})", username, user_id)
 
     # Reset failure tracker on successful login
     _login_failure_tracker.reset(username)
@@ -218,8 +207,7 @@ def log_login_failure(
     username: str,
     reason: str,
     ip_address: str | None = None,
-    attempt_number: int | None = None,
-) -> None:
+    attempt_number: int | None = None) -> None:
     """Log a failed login attempt with brute-force detection.
 
     Args:
@@ -238,10 +226,8 @@ def log_login_failure(
     if attempt_number:
         log_data["attempt_number"] = attempt_number
 
-    logger.warning(
-        "Login failed: %s - %s", username, reason,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).warning(
+        "Login failed: {} - {}", username, reason)
 
     # Track for brute-force detection - record first, then check thresholds
     _login_failure_tracker.record_failure(username)
@@ -261,8 +247,7 @@ def log_login_failure(
                 "attempt_number": attempt_number,
                 "target": "username",
             },
-            ip_address=ip_address,
-        )
+            ip_address=ip_address)
     if suspicious_ip:
         log_suspicious_activity(
             user_id=None,
@@ -273,16 +258,14 @@ def log_login_failure(
                 "attempt_number": attempt_number,
                 "target": "ip_address",
             },
-            ip_address=ip_address,
-        )
+            ip_address=ip_address)
 
 
 def log_logout(
     user_id: int,
     username: str,
     session_id: str | None = None,
-    ip_address: str | None = None,
-) -> None:
+    ip_address: str | None = None) -> None:
     """Log a user logout.
 
     Args:
@@ -299,17 +282,14 @@ def log_logout(
         "ip_address": ip_address,
     }
 
-    logger.info(
-        "User logged out: %s (user_id=%d)", username, user_id,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).info(
+        "User logged out: {} (user_id={})", username, user_id)
 
 
 def log_token_refresh(
     user_id: int,
     token_type: str,
-    ip_address: str | None = None,
-) -> None:
+    ip_address: str | None = None) -> None:
     """Log a token refresh event.
 
     Args:
@@ -324,18 +304,15 @@ def log_token_refresh(
         "ip_address": ip_address,
     }
 
-    logger.debug(
-        "Token refreshed: user_id=%d, type=%s", user_id, token_type,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).debug(
+        "Token refreshed: user_id={}, type={}", user_id, token_type)
 
 
 def log_api_key_usage(
     user_id: int,
     api_key_prefix: str,
     endpoint: str,
-    ip_address: str | None = None,
-) -> None:
+    ip_address: str | None = None) -> None:
     """Log API key usage.
 
     Args:
@@ -352,11 +329,9 @@ def log_api_key_usage(
         "ip_address": ip_address,
     }
 
-    logger.debug(
-        "API key used: user_id=%d, key=%s..., endpoint=%s",
-        user_id, api_key_prefix, endpoint,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).debug(
+        "API key used: user_id={}, key={}..., endpoint={}",
+        user_id, api_key_prefix, endpoint)
 
 
 def log_permission_denied(
@@ -364,8 +339,7 @@ def log_permission_denied(
     username: str | None,
     resource: str,
     required_permission: str,
-    ip_address: str | None = None,
-) -> None:
+    ip_address: str | None = None) -> None:
     """Log a permission denied event.
 
     Args:
@@ -384,19 +358,16 @@ def log_permission_denied(
         "ip_address": ip_address,
     }
 
-    logger.warning(
-        "Permission denied: user_id=%d, resource=%s, permission=%s",
-        user_id, resource, required_permission,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).warning(
+        "Permission denied: user_id={}, resource={}, permission={}",
+        user_id, resource, required_permission)
 
 
 def log_suspicious_activity(
     user_id: int | None,
     activity_type: str,
     details: dict[str, Any] | None = None,
-    ip_address: str | None = None,
-) -> None:
+    ip_address: str | None = None) -> None:
     """Log suspicious activity.
 
     Args:
@@ -415,17 +386,14 @@ def log_suspicious_activity(
     if details:
         log_data.update(details)
 
-    logger.warning(
-        "Suspicious activity detected: %s", activity_type,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).warning(
+        "Suspicious activity detected: {}", activity_type)
 
 
 def log_password_change(
     user_id: int,
     username: str,
-    ip_address: str | None = None,
-) -> None:
+    ip_address: str | None = None) -> None:
     """Log a password change event.
 
     Args:
@@ -440,18 +408,15 @@ def log_password_change(
         "ip_address": ip_address,
     }
 
-    logger.info(
-        "Password changed: user_id=%d, username=%s", user_id, username,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).info(
+        "Password changed: user_id={}, username={}", user_id, username)
 
 
 def log_account_lockout(
     user_id: int | None,
     username: str,
     reason: str,
-    ip_address: str | None = None,
-) -> None:
+    ip_address: str | None = None) -> None:
     """Log an account lockout event.
 
     Args:
@@ -468,17 +433,14 @@ def log_account_lockout(
         "ip_address": ip_address,
     }
 
-    logger.warning(
-        "Account locked: %s - %s", username, reason,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).warning(
+        "Account locked: {} - {}", username, reason)
 
 
 def log_account_unlock(
     user_id: int,
     username: str,
-    unlocked_by: str | None = None,
-) -> None:
+    unlocked_by: str | None = None) -> None:
     """Log an account unlock event.
 
     Args:
@@ -493,17 +455,14 @@ def log_account_unlock(
         "unlocked_by": unlocked_by,
     }
 
-    logger.info(
-        "Account unlocked: user_id=%d, username=%s", user_id, username,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).info(
+        "Account unlocked: user_id={}, username={}", user_id, username)
 
 
 def log_user_registration(
     user_id: int,
     username: str,
-    ip_address: str | None = None,
-) -> None:
+    ip_address: str | None = None) -> None:
     """Log a user registration event.
 
     This is a normal operational event logged at INFO level,
@@ -521,10 +480,8 @@ def log_user_registration(
         "ip_address": ip_address,
     }
 
-    logger.info(
-        "User registered: user_id=%d, username=%s", user_id, username,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).info(
+        "User registered: user_id={}, username={}", user_id, username)
 
 
 def log_api_key_created(
@@ -532,8 +489,7 @@ def log_api_key_created(
     key_id: int,
     key_prefix: str,
     name: str,
-    ip_address: str | None = None,
-) -> None:
+    ip_address: str | None = None) -> None:
     """Log an API key creation event.
 
     Args:
@@ -552,19 +508,16 @@ def log_api_key_created(
         "ip_address": ip_address,
     }
 
-    logger.info(
-        "API key created: user_id=%d, key_id=%d, name=%s, prefix=%s",
-        user_id, key_id, name, key_prefix,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).info(
+        "API key created: user_id={}, key_id={}, name={}, prefix={}",
+        user_id, key_id, name, key_prefix)
 
 
 def log_api_key_deleted(
     user_id: int,
     key_id: int,
     name: str,
-    ip_address: str | None = None,
-) -> None:
+    ip_address: str | None = None) -> None:
     """Log an API key deletion event.
 
     Args:
@@ -581,18 +534,15 @@ def log_api_key_deleted(
         "ip_address": ip_address,
     }
 
-    logger.info(
-        "API key deleted: user_id=%d, key_id=%d, name=%s",
-        user_id, key_id, name,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).info(
+        "API key deleted: user_id={}, key_id={}, name={}",
+        user_id, key_id, name)
 
 
 def log_csrf_failure(
     ip_address: str | None = None,
     path: str | None = None,
-    method: str | None = None,
-) -> None:
+    method: str | None = None) -> None:
     """Log a CSRF validation failure.
 
     Args:
@@ -607,7 +557,5 @@ def log_csrf_failure(
         "method": method,
     }
 
-    logger.warning(
-        "CSRF validation failed: method=%s, path=%s", method, path,
-        extra={"extra_data": log_data},
-    )
+    logger.bind(**log_data).warning(
+        "CSRF validation failed: method={}, path={}", method, path)

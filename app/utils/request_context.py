@@ -136,8 +136,7 @@ def set_request_context(
     user_id: int | None = None,
     username: str | None = None,
     task_id: str | None = None,
-    clear_unset: bool = True,
-) -> None:
+    clear_unset: bool = True) -> None:
     """Set the current request context.
 
     Args:

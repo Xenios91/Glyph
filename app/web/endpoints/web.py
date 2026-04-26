@@ -10,11 +10,10 @@ from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUti
 from app.processing.task_management import TaskManager
 from app.utils.common import format_code, build_prediction_details_response
 from app.utils.jinja_utils import configure_jinja2_templates
-from app.utils.logging_config import get_logger
+from loguru import logger
 from app.auth.dependencies import get_current_active_user, get_optional_user
 from app.database.models import User
 
-logger = get_logger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -57,8 +56,7 @@ async def config(
             "current_cpu_cores": settings.cpu_cores,
             "current_max_file_size": settings.max_file_size_mb,
             "user": current_user,
-        },
-    )
+        })
 
 
 @router.get("/error")
@@ -97,8 +95,7 @@ async def get_upload_binary(
     allow_prediction = len(models) > 0
     return templates.TemplateResponse(
         "upload.html",
-        {"request": request, "title": "Glyph - Upload Binary", "allow_prediction": allow_prediction, "models": models, "user": current_user},
-    )
+        {"request": request, "title": "Glyph - Upload Binary", "allow_prediction": allow_prediction, "models": models, "user": current_user})
 
 
 @router.get("/getModels")
@@ -121,8 +118,7 @@ async def get_list_models(
 
     return templates.TemplateResponse(
         "get_models.html",
-        {"request": request, "title": "Models List", "models": models_status, "user": current_user},
-    )
+        {"request": request, "title": "Models List", "models": models_status, "user": current_user})
 
 
 @router.get("/getPredictions")
@@ -140,8 +136,7 @@ async def get_list_predictions(
 
     return templates.TemplateResponse(
         "get_predictions.html",
-        {"request": request, "title": "Predictions List", "predictions": predictions, "user": current_user},
-    )
+        {"request": request, "title": "Predictions List", "predictions": predictions, "user": current_user})
 
 
 @router.get("/getPredictionDetails")
@@ -150,8 +145,7 @@ async def get_prediction_details(
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: str = Query(...),
     function_name: str = Query(...),
-    task_name: str = Query(...),
-):
+    task_name: str = Query(...)):
     """Displays specific details of a prediction"""
     model_name = model_name.strip()
     func_name = function_name.strip()
@@ -175,7 +169,7 @@ async def get_prediction_details(
     except HTTPException:
         raise
     except (TypeError, IndexError, KeyError) as exc:
-        logger.error("Failed to retrieve prediction details: %s", exc, exc_info=True)
+        logger.error("Failed to retrieve prediction details: {}", exc)
         raise HTTPException(status_code=400, detail="Could not retrieve details") from exc
 
     accept = request.headers.get("Accept", "")
@@ -191,8 +185,7 @@ async def get_prediction_details(
                 "model_tokens": model_tokens,
                 "prediction_tokens": prediction_tokens,
                 "user": current_user,
-            },
-        )
+            })
 
     return build_prediction_details_response(
         task_name, model_name, func_name, model_tokens, prediction_tokens
@@ -204,8 +197,7 @@ async def get_prediction(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     task_name: str = Query(...),
-    model_name: str = Query(...),
-):
+    model_name: str = Query(...)):
     """Obtain predictions for a specific task and model"""
     prediction = PredictionPersistanceUtil.get_predictions(task_name, model_name)
     
@@ -227,8 +219,7 @@ async def get_prediction(
             "model_name": prediction.model_name,
             "prediction": {"predictions": prediction.predictions},
             "user": current_user,
-        },
-    )
+        })
 
 
 @router.get("/login")
@@ -246,8 +237,7 @@ async def login_page(
     
     return templates.TemplateResponse(
         "login.html",
-        {"request": request, "title": "Glyph - Login", "user": current_user},
-    )
+        {"request": request, "title": "Glyph - Login", "user": current_user})
 
 
 @router.get("/register")
@@ -265,8 +255,7 @@ async def register_page(
     
     return templates.TemplateResponse(
         "register.html",
-        {"request": request, "title": "Glyph - Register", "user": current_user},
-    )
+        {"request": request, "title": "Glyph - Register", "user": current_user})
 
 
 @router.get("/profile")
@@ -288,5 +277,4 @@ async def profile_page(
                 "full_name": current_user.full_name,
                 "created_at": current_user.created_at
             }
-        },
-    )
+        })

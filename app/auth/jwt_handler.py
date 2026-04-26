@@ -13,12 +13,10 @@ from joserfc.errors import (
     JoseError,
     InvalidTokenError as JoserfcInvalidTokenError,
     DecodeError as JoserfcDecodeError,
-    BadSignatureError as JoserfcBadSignatureError,
-)
+    BadSignatureError as JoserfcBadSignatureError)
 
-from app.utils.logging_config import get_logger
+from loguru import logger
 
-logger = get_logger(__name__)
 
 
 class InvalidTokenError(Exception):
@@ -81,7 +79,7 @@ class JWTHandler:
             payload.update(extra_claims)
         
         token = jwt.encode({"alg": self.algorithm}, payload, self._key)
-        logger.debug("Access token created for subject=%s", subject)
+        logger.debug("Access token created for subject={}", subject)
         return token
     
     def create_refresh_token(
@@ -110,7 +108,7 @@ class JWTHandler:
             payload.update(extra_claims)
         
         token = jwt.encode({"alg": self.algorithm}, payload, self._key)
-        logger.debug("Refresh token created for subject=%s", subject)
+        logger.debug("Refresh token created for subject={}", subject)
         return token
     
     def _check_expiration(self, claims: dict[str, Any]) -> None:
@@ -149,15 +147,15 @@ class JWTHandler:
             # Check expiration
             self._check_expiration(dict(decoded.claims))
             
-            logger.debug("Access token verified for subject=%s", decoded.claims.get("sub"))
+            logger.debug("Access token verified for subject={}", decoded.claims.get("sub"))
             return dict(decoded.claims)
         except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
-            logger.warning("Access token verification failed: %s", e)
+            logger.warning("Access token verification failed: {}", e)
             if isinstance(e, JoserfcBadSignatureError):
                 raise BadSignatureError(f"Invalid signature: {e}") from e
             raise InvalidTokenError(f"Invalid token: {e}") from e
         except Exception as e:
-            logger.warning("Access token verification error: %s", e)
+            logger.warning("Access token verification error: {}", e)
             raise InvalidTokenError(f"Failed to verify token: {e}") from e
     
     def verify_refresh_token(self, token: str) -> dict[str, Any]:
@@ -183,15 +181,15 @@ class JWTHandler:
             # Check expiration
             self._check_expiration(dict(decoded.claims))
             
-            logger.debug("Refresh token verified for subject=%s", decoded.claims.get("sub"))
+            logger.debug("Refresh token verified for subject={}", decoded.claims.get("sub"))
             return dict(decoded.claims)
         except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
-            logger.warning("Refresh token verification failed: %s", e)
+            logger.warning("Refresh token verification failed: {}", e)
             if isinstance(e, JoserfcBadSignatureError):
                 raise BadSignatureError(f"Invalid signature: {e}") from e
             raise InvalidTokenError(f"Invalid token: {e}") from e
         except Exception as e:
-            logger.warning("Refresh token verification error: %s", e)
+            logger.warning("Refresh token verification error: {}", e)
             raise InvalidTokenError(f"Failed to verify token: {e}") from e
     
     def verify_token(self, token: str) -> dict[str, Any]:
@@ -213,13 +211,13 @@ class JWTHandler:
             # Check expiration
             self._check_expiration(dict(decoded.claims))
             
-            logger.debug("Token verified for subject=%s, type=%s", decoded.claims.get("sub"), decoded.claims.get("type"))
+            logger.debug("Token verified for subject={}, type={}", decoded.claims.get("sub"), decoded.claims.get("type"))
             return dict(decoded.claims)
         except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
-            logger.warning("Token verification failed: %s", e)
+            logger.warning("Token verification failed: {}", e)
             if isinstance(e, JoserfcBadSignatureError):
                 raise BadSignatureError(f"Invalid signature: {e}") from e
             raise InvalidTokenError(f"Invalid token: {e}") from e
         except Exception as e:
-            logger.warning("Token verification error: %s", e)
+            logger.warning("Token verification error: {}", e)
             raise InvalidTokenError(f"Failed to verify token: {e}") from e

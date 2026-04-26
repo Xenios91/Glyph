@@ -1,12 +1,12 @@
 """Unit tests for Glyph configuration management."""
 import os
 import yaml
-import logging
 import tempfile
 from pathlib import Path
 from unittest.mock import patch, mock_open, MagicMock
 
 import pytest
+from loguru import logger
 
 from app.config.settings import GlyphConfig
 
@@ -21,20 +21,19 @@ def cleanup_singleton_and_logging(tmp_path):
     # Create a temporary log file for each test
     log_file = tmp_path / "glyph_log.log"
 
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[logging.FileHandler(str(log_file), mode="w", encoding="utf-8")],
+    # Remove default loguru handler and add a file-based one for test capture
+    logger.remove()
+    handler_id = logger.add(
+        str(log_file),
+        level="INFO",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name} | {message}",
+        encoding="utf-8",
     )
 
     yield log_file
 
-    # Clean up: close handlers and remove the log file
-    for handler in logging.root.handlers[:]:
-        handler.close()
-        logging.root.removeHandler(handler)
+    # Clean up: remove the loguru handler
+    logger.remove(handler_id)
 
 
 @pytest.fixture

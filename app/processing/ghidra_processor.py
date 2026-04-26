@@ -2,17 +2,15 @@
 
 from typing import Any
 
-from app.utils.logging_config import get_logger
+from loguru import logger
 
-logger = get_logger(__name__)
 
 
 def setup_decompiler(
     state: Any,
     program: Any,
     num_processors: int = 2,
-    decomp_interface: Any = None,
-) -> Any:
+    decomp_interface: Any = None) -> Any:
     """Initialize and configure the decompiler.
 
     Args:
@@ -63,7 +61,7 @@ def get_function_tokens(function: Any, decomp_interface: Any) -> list[str]:
 
         return [str(t) for t in token_list if str(t).strip()]
     except Exception as exc:
-        logger.error("Decompilation error for function %s: %s", function.getName(), exc, exc_info=True)
+        logger.error("Decompilation error for function {}: {}", function.getName(), exc)
         return []
 
 

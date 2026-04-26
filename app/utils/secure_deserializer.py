@@ -15,7 +15,7 @@ from typing import Any, Set, Type
 
 from joblib.numpy_pickle import NumpyUnpickler
 
-from app.utils.logging_config import get_logger
+from loguru import logger
 
 # Whitelist of allowed classes for deserialization
 # These are the only classes that are safe to deserialize in our application
@@ -114,7 +114,6 @@ BLOCKED_BUILTINS: Set[str] = {
     "builtins.__import__",
 }
 
-logger = get_logger(__name__)
 
 
 class SecureDeserializationError(Exception):
@@ -158,7 +157,7 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
         # First check if it's explicitly blocked
         if class_name in BLOCKED_BUILTINS:
             logger.warning(
-                "Blocked deserialization of explicitly dangerous class: %s",
+                "Blocked deserialization of explicitly dangerous class: {}",
                 class_name
             )
             raise SecureDeserializationError(
@@ -170,7 +169,7 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
             # For custom whitelists, be strict - only allow exact matches
             if self.allowed_classes is not ALLOWED_CLASSES:
                 logger.warning(
-                    "Blocked deserialization of class not in custom whitelist: %s",
+                    "Blocked deserialization of class not in custom whitelist: {}",
                     class_name
                 )
                 raise SecureDeserializationError(
@@ -199,7 +198,7 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
             
             if not is_allowed:
                 logger.warning(
-                    "Blocked deserialization of potentially dangerous class: %s",
+                    "Blocked deserialization of potentially dangerous class: {}",
                     class_name
                 )
                 raise SecureDeserializationError(
@@ -236,7 +235,7 @@ def secure_load(file_like: io.BytesIO, allowed_classes: Set[str] | None = None) 
     except SecureDeserializationError:
         raise
     except Exception as e:
-        logger.error("Unexpected error during deserialization: %s", e, exc_info=True)
+        logger.error("Unexpected error during deserialization: {}", e)
         raise SecureDeserializationError(f"Deserialization failed: {e}") from e
 
 

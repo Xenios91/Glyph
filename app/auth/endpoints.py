@@ -13,17 +13,15 @@ from app.auth.security_logger import (
     log_suspicious_activity,
     log_user_registration,
     log_api_key_created,
-    log_api_key_deleted,
-)
-from app.utils.logging_config import get_logger
+    log_api_key_deleted)
+from loguru import logger
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import (
     get_current_active_user,
     get_db,
-    get_jwt_handler,
-)
+    get_jwt_handler)
 from app.auth.jwt_handler import JWTHandler
 from app.auth.repository import APIKeyRepository, UserRepository
 from app.auth.schemas import (
@@ -36,12 +34,10 @@ from app.auth.schemas import (
     UserLogin,
     UserRegister,
     UserResponse,
-    UserUpdate,
-)
+    UserUpdate)
 from app.config.settings import get_settings
 from app.database.models import User
 
-logger = get_logger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -50,8 +46,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 async def register(
     request: Request,
     user_data: UserRegister,
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> UserResponse:
+    db: Annotated[AsyncSession, Depends(get_db)]) -> UserResponse:
     """Register a new user.
 
     Args:
@@ -97,8 +92,7 @@ async def register(
     log_user_registration(
         user_id=user.id,
         username=user_data.username,
-        ip_address=ip_address,
-    )
+        ip_address=ip_address)
 
     return UserResponse.model_validate(user)
 
@@ -108,8 +102,7 @@ async def login(
     request: Request,
     credentials: UserLogin,
     db: Annotated[AsyncSession, Depends(get_db)],
-    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)],
-) -> Response:
+    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]) -> Response:
     """Authenticate user and return tokens.
     
     Args:
@@ -132,8 +125,7 @@ async def login(
     log_login_attempt(
         username=credentials.username,
         ip_address=ip_address,
-        user_agent=user_agent,
-    )
+        user_agent=user_agent)
 
     user_repo = UserRepository(db)
     user = await user_repo.verify_credentials(credentials.username, credentials.password)
@@ -147,8 +139,7 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+            headers={"WWW-Authenticate": "Bearer"})
     
     if not user.is_active:
         log_login_failure(
@@ -189,16 +180,14 @@ async def login(
         httponly=True,
         secure=settings.oauth2_enabled,
         samesite="strict",
-        max_age=settings.access_token_expire_minutes * 60,
-    )
+        max_age=settings.access_token_expire_minutes * 60)
     response.set_cookie(
         key="refresh_token_cookie",
         value=refresh_token,
         httponly=True,
         secure=settings.oauth2_enabled,
         samesite="strict",
-        max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
-    )
+        max_age=settings.refresh_token_expire_days * 24 * 60 * 60)
     
     return response
 
@@ -208,8 +197,7 @@ async def refresh_token(
     request: Request,
     token_request: RefreshTokenRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)],
-) -> Response:
+    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]) -> Response:
     """Refresh access token using refresh token.
 
     Args:
@@ -239,8 +227,7 @@ async def refresh_token(
             user_id=None,
             activity_type="invalid_refresh_token",
             details={"error": "Token verification failed"},
-            ip_address=ip_address,
-        )
+            ip_address=ip_address)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token"
@@ -254,8 +241,7 @@ async def refresh_token(
             user_id=user_id,
             activity_type="refresh_token_inactive_user",
             details={"reason": "User not found or inactive"},
-            ip_address=ip_address,
-        )
+            ip_address=ip_address)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive"
@@ -269,8 +255,7 @@ async def refresh_token(
     log_token_refresh(
         user_id=user.id,
         token_type="access_and_refresh",
-        ip_address=ip_address,
-    )
+        ip_address=ip_address)
 
     return Response(
         content=TokenResponse(
@@ -286,8 +271,7 @@ async def refresh_token(
 @router.get("/logout")
 async def logout(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> Response:
+    current_user: Annotated[User, Depends(get_current_active_user)]) -> Response:
     """Logout user by clearing cookies.
 
     Args:
@@ -302,8 +286,7 @@ async def logout(
     log_logout(
         user_id=current_user.id,
         username=current_user.username,
-        ip_address=ip_address,
-    )
+        ip_address=ip_address)
     
     response = Response()
     response.delete_cookie("access_token_cookie")
@@ -328,8 +311,7 @@ async def logout(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> UserResponse:
+    current_user: Annotated[User, Depends(get_current_active_user)]) -> UserResponse:
     """Get current user information.
     
     Args:
@@ -346,8 +328,7 @@ async def change_password(
     request: Request,
     password_data: ChangePassword,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> dict:
+    current_user: Annotated[User, Depends(get_current_active_user)]) -> dict:
     """Change user password.
 
     Args:
@@ -374,8 +355,7 @@ async def change_password(
             user_id=current_user.id,
             activity_type="password_change_failed",
             details={"reason": "Current password incorrect"},
-            ip_address=ip_address,
-        )
+            ip_address=ip_address)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect"
@@ -388,8 +368,7 @@ async def change_password(
     log_password_change(
         user_id=current_user.id,
         username=current_user.username,
-        ip_address=ip_address,
-    )
+        ip_address=ip_address)
 
     return {"message": "Password changed successfully"}
 
@@ -398,8 +377,7 @@ async def change_password(
 async def update_profile(
     update_data: UserUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> UserResponse:
+    current_user: Annotated[User, Depends(get_current_active_user)]) -> UserResponse:
     """Update user profile.
     
     Args:
@@ -429,8 +407,7 @@ async def update_profile(
 @router.get("/api-keys", response_model=list[APIKeyResponse])
 async def list_api_keys(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> list[APIKeyResponse]:
+    db: Annotated[AsyncSession, Depends(get_db)]) -> list[APIKeyResponse]:
     """List all API keys for current user.
     
     Args:
@@ -451,8 +428,7 @@ async def create_api_key(
     request: Request,
     key_data: APIKeyCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> APIKeyWithSecret:
+    current_user: Annotated[User, Depends(get_current_active_user)]) -> APIKeyWithSecret:
     """Create a new API key.
 
     Args:
@@ -479,8 +455,7 @@ async def create_api_key(
         key_id=api_key_record.id,
         key_prefix=api_key_record.key_prefix,
         name=key_data.name,
-        ip_address=ip_address,
-    )
+        ip_address=ip_address)
 
     return APIKeyWithSecret(
         **APIKeyResponse.model_validate(api_key_record).model_dump(),
@@ -493,8 +468,7 @@ async def delete_api_key(
     request: Request,
     key_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> dict:
+    current_user: Annotated[User, Depends(get_current_active_user)]) -> dict:
     """Delete an API key.
 
     Args:
@@ -532,7 +506,6 @@ async def delete_api_key(
         user_id=current_user.id,
         key_id=key_id,
         name=api_key_record.name,
-        ip_address=ip_address,
-    )
+        ip_address=ip_address)
 
     return {"message": "API key deleted successfully"}

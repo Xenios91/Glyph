@@ -1,6 +1,5 @@
 """SQL utility module for database operations."""
 
-import logging
 import os
 import sqlite3
 from io import BytesIO
@@ -9,22 +8,17 @@ from typing import Any
 import joblib
 
 from app.services.request_handler import Prediction
-from app.utils.logging_config import get_logger
+from loguru import logger
 from app.utils.secure_deserializer import secure_load, SecureDeserializationError
-
-logger = get_logger(__name__)
 
 
 def _log_db_error(
-    logger: logging.Logger,
     operation: str,
     error: Exception,
-    context: dict[str, Any] | None = None,
-) -> None:
+    context: dict[str, Any] | None = None) -> None:
     """Log a database error with structured context.
 
     Args:
-        logger: The logger instance to use.
         operation: The database operation that failed.
         error: The exception that occurred.
         context: Optional additional context data.
@@ -32,11 +26,8 @@ def _log_db_error(
     extra: dict[str, Any] = {"operation": operation}
     if context:
         extra.update(context)
-    logger.error(
-        "Database error during %s: %s", operation, error,
-        exc_info=True,
-        extra={"extra_data": extra},
-    )
+    logger.bind(**extra).error(
+        "Database error during {}: {}", operation, error)
 
 
 class SQLUtil:
@@ -55,7 +46,7 @@ class SQLUtil:
                     )
                     con.commit()
                 except sqlite3.Error as error:
-                    _log_db_error(logger, "init_models_db", error)
+                    _log_db_error("init_models_db", error)
 
         if not os.path.exists("predictions.db"):
             with sqlite3.connect("predictions.db") as con:
@@ -67,7 +58,7 @@ class SQLUtil:
                     )
                     con.commit()
                 except sqlite3.Error as error:
-                    _log_db_error(logger, "init_predictions_db", error)
+                    _log_db_error("init_predictions_db", error)
 
     @staticmethod
     def save_model(model_name: str, label_encoder, model: bytes) -> None:
@@ -88,12 +79,11 @@ class SQLUtil:
                 sql = "INSERT INTO models (model_name, model, label_encoder) VALUES (?, ?, ?)"
                 cur.execute(
                     sql,
-                    (model_name, sqlite3.Binary(model), sqlite3.Binary(label_encoder)),
-                )
+                    (model_name, sqlite3.Binary(model), sqlite3.Binary(label_encoder)))
                 con.commit()
-                logger.info("Model '%s' saved successfully", model_name)
+                logger.info("Model '{}' saved successfully", model_name)
             except sqlite3.Error as error:
-                _log_db_error(logger, "save_model", error, {"model_name": model_name})
+                _log_db_error("save_model", error, {"model_name": model_name})
 
     @staticmethod
     def get_models_list() -> set[str]:
@@ -112,7 +102,7 @@ class SQLUtil:
                     for model in models:
                         models_set.add(model[0])
                 except sqlite3.Error as error:
-                    _log_db_error(logger, "get_models_list", error)
+                    _log_db_error("get_models_list", error)
         return models_set
 
     @staticmethod
@@ -134,10 +124,10 @@ class SQLUtil:
                 model = cur.execute(sql, (model_name,)).fetchone()
                 if model:
                     return model
-                logger.warning("Model '%s' not found.", model_name)
+                logger.warning("Model '{}' not found.", model_name)
                 return None
         except sqlite3.Error as error:
-            _log_db_error(logger, "get_model", error, {"model_name": model_name})
+            _log_db_error("get_model", error, {"model_name": model_name})
             return None
 
     @staticmethod
@@ -154,9 +144,9 @@ class SQLUtil:
                 sql = "DELETE FROM MODELS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
                 con.commit()
-                logger.info("Model '%s' deleted successfully", model_name)
+                logger.info("Model '{}' deleted successfully", model_name)
             except sqlite3.Error as error:
-                _log_db_error(logger, "delete_model", error, {"model_name": model_name})
+                _log_db_error("delete_model", error, {"model_name": model_name})
 
     @staticmethod
     def get_predictions_list() -> list[Prediction]:
@@ -177,29 +167,24 @@ class SQLUtil:
                             preds = secure_load(BytesIO(prediction[2]))
                             if not isinstance(preds, list):
                                 logger.warning(
-                                    "Prediction data for '%s' is not a list, skipping",
-                                    prediction[0],
-                                )
+                                    "Prediction data for '{}' is not a list, skipping",
+                                    prediction[0])
                                 continue
                             prediction_results.append(
                                 Prediction(prediction[0], prediction[1], preds)
                             )
                         except SecureDeserializationError as deserial_error:
                             logger.error(
-                                "Secure deserialization blocked prediction '%s': %s",
+                                "Secure deserialization blocked prediction '{}': {}",
                                 prediction[0],
-                                deserial_error,
-                                exc_info=True,
-                            )
+                                deserial_error)
                         except Exception as deserial_error:
                             logger.error(
-                                "Failed to deserialize prediction '%s': %s",
+                                "Failed to deserialize prediction '{}': {}",
                                 prediction[0],
-                                deserial_error,
-                                exc_info=True,
-                            )
+                                deserial_error)
                 except sqlite3.Error as error:
-                    _log_db_error(logger, "get_predictions_list", error)
+                    _log_db_error("get_predictions_list", error)
         return prediction_results
 
     @staticmethod
@@ -215,7 +200,7 @@ class SQLUtil:
         """
         db_path = "predictions.db"
         if not os.path.exists(db_path):
-            logger.warning("Database %s does not exist.", db_path)
+            logger.warning("Database {} does not exist.", db_path)
             return None
 
         try:
@@ -230,37 +215,32 @@ class SQLUtil:
                     prediction_data = secure_load(BytesIO(row[2]))
                     if not isinstance(prediction_data, list):
                         logger.warning(
-                            "Prediction data for task '%s' is not a list, expected list"
-                            " got %s",
+                            "Prediction data for task '{}' is not a list, expected list"
+                            " got {}",
                             task_name,
-                            type(prediction_data).__name__,
-                        )
+                            type(prediction_data).__name__)
                         return None
                 except SecureDeserializationError as deserial_error:
                     logger.error(
-                        "Secure deserialization blocked prediction for task '%s': %s",
+                        "Secure deserialization blocked prediction for task '{}': {}",
                         task_name,
-                        deserial_error,
-                        exc_info=True,
-                    )
+                        deserial_error)
                     return None
                 except Exception as deserial_error:
                     logger.error(
-                        "Failed to deserialize prediction for task '%s': %s",
+                        "Failed to deserialize prediction for task '{}': {}",
                         task_name,
-                        deserial_error,
-                        exc_info=True,
-                    )
+                        deserial_error)
                     return None
 
                 return Prediction(
                     task_name=task_name, model_name=model_name, pred=prediction_data
                 )
         except sqlite3.Error as error:
-            _log_db_error(logger, "get_predictions", error, {"task_name": task_name, "model_name": model_name})
+            _log_db_error("get_predictions", error, {"task_name": task_name, "model_name": model_name})
             return None
         except Exception as error:
-            logger.error("Unexpected error: %s", error, exc_info=True)
+            logger.error("Unexpected error: {}", error)
             return None
 
     @staticmethod
@@ -288,9 +268,9 @@ class SQLUtil:
                     sql, (name, model_name, sqlite3.Binary(functions_serialized))
                 )
                 con.commit()
-                logger.info("Prediction for task '%s' with model '%s' saved successfully", name, model_name)
+                logger.info("Prediction for task '{}' with model '{}' saved successfully", name, model_name)
             except sqlite3.Error as error:
-                _log_db_error(logger, "save_predictions", error, {"task_name": name, "model_name": model_name})
+                _log_db_error("save_predictions", error, {"task_name": name, "model_name": model_name})
 
     @staticmethod
     def get_prediction_function(
@@ -317,9 +297,8 @@ class SQLUtil:
                     predictions = secure_load(BytesIO(result[2]))
                     if not isinstance(predictions, list):
                         logger.warning(
-                            "Predictions data is not a list, expected list got %s",
-                            type(predictions).__name__,
-                        )
+                            "Predictions data is not a list, expected list got {}",
+                            type(predictions).__name__)
                         return {}
                     for function in predictions:
                         if (
@@ -329,18 +308,14 @@ class SQLUtil:
                             return function
                 except SecureDeserializationError as deserial_error:
                     logger.error(
-                        "Secure deserialization blocked predictions: %s", deserial_error,
-                        exc_info=True,
-                    )
+                        "Secure deserialization blocked predictions: {}", deserial_error)
                     return {}
                 except Exception as deserial_error:
                     logger.error(
-                        "Failed to deserialize predictions: %s", deserial_error,
-                        exc_info=True,
-                    )
+                        "Failed to deserialize predictions: {}", deserial_error)
                     return {}
             except sqlite3.Error as error:
-                _log_db_error(logger, "get_prediction_function", error, {"task_name": task_name, "model_name": model_name, "function_name": function_name})
+                _log_db_error("get_prediction_function", error, {"task_name": task_name, "model_name": model_name, "function_name": function_name})
         return {}
 
     @staticmethod
@@ -368,13 +343,11 @@ class SQLUtil:
                             model_name,
                             function["functionName"],
                             function["lowAddress"],
-                            tokens,
-                        ),
-                    )
+                            tokens))
                 con.commit()
-                logger.info("Saved %d functions to model '%s'", len(functions), model_name)
+                logger.info("Saved {} functions to model '{}'", len(functions), model_name)
             except sqlite3.Error as error:
-                _log_db_error(logger, "save_functions", error, {"model_name": model_name})
+                _log_db_error("save_functions", error, {"model_name": model_name})
 
     @staticmethod
     def get_functions(model_name: str) -> list:
@@ -393,7 +366,7 @@ class SQLUtil:
                 sql = "SELECT * FROM FUNCTIONS WHERE model_name=?"
                 functions = cur.execute(sql, (model_name,)).fetchall()
             except sqlite3.Error as error:
-                _log_db_error(logger, "get_functions", error, {"model_name": model_name})
+                _log_db_error("get_functions", error, {"model_name": model_name})
         return functions
 
     @staticmethod
@@ -416,7 +389,7 @@ class SQLUtil:
                     sql, (model_name, function_name)
                 ).fetchone()
             except sqlite3.Error as error:
-                _log_db_error(logger, "get_function", error, {"model_name": model_name, "function_name": function_name})
+                _log_db_error("get_function", error, {"model_name": model_name, "function_name": function_name})
             return function_information
 
     @staticmethod
@@ -432,9 +405,9 @@ class SQLUtil:
                 sql = "DELETE FROM FUNCTIONS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
                 con.commit()
-                logger.info("Functions for model '%s' deleted successfully", model_name)
+                logger.info("Functions for model '{}' deleted successfully", model_name)
             except sqlite3.Error as error:
-                _log_db_error(logger, "delete_functions", error, {"model_name": model_name})
+                _log_db_error("delete_functions", error, {"model_name": model_name})
 
     @staticmethod
     def delete_prediction(task_name: str) -> None:
@@ -449,9 +422,9 @@ class SQLUtil:
                 sql = "DELETE FROM PREDICTIONS WHERE name=?"
                 cur.execute(sql, (task_name,))
                 con.commit()
-                logger.info("Prediction for task '%s' deleted successfully", task_name)
+                logger.info("Prediction for task '{}' deleted successfully", task_name)
             except sqlite3.Error as error:
-                _log_db_error(logger, "delete_prediction", error, {"task_name": task_name})
+                _log_db_error("delete_prediction", error, {"task_name": task_name})
                 raise
 
     @staticmethod
@@ -467,9 +440,9 @@ class SQLUtil:
                 sql = "DELETE FROM PREDICTIONS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
                 con.commit()
-                logger.info("Predictions for model '%s' deleted successfully", model_name)
+                logger.info("Predictions for model '{}' deleted successfully", model_name)
             except sqlite3.Error as error:
-                _log_db_error(logger, "delete_model_predictions", error, {"model_name": model_name})
+                _log_db_error("delete_model_predictions", error, {"model_name": model_name})
 
     @staticmethod
     def task_name_exists(task_name: str) -> bool:
@@ -493,5 +466,5 @@ class SQLUtil:
                 count = result[0] if result else 0
                 return count > 0
         except sqlite3.Error as error:
-            _log_db_error(logger, "task_name_exists", error, {"task_name": task_name})
+            _log_db_error("task_name_exists", error, {"task_name": task_name})
             return False

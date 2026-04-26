@@ -11,11 +11,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.utils.logging_config import get_logger
+from loguru import logger
 
 import sys
 
-logger = get_logger(__name__)
 
 
 @dataclass
@@ -159,41 +158,25 @@ class ProcessingPipeline:
             The final pipeline context after all steps complete.
         """
         logger.info(
-            "Starting pipeline '%s' execution for UUID: %s, steps: %d",
+            "Starting pipeline '{}' execution for UUID: {}, steps: {}",
             self._name,
             context.uuid,
-            len(self._steps),
-            extra={"extra_data": {
-                "event": "pipeline_start",
-                "pipeline_name": self._name,
-                "uuid": context.uuid,
-                "step_count": len(self._steps),
-            }}
-        )
+            len(self._steps))
 
         for step in self._steps:
             try:
-                logger.debug("Executing step: %s", step.get_name())
+                logger.debug("Executing step: {}", step.get_name())
                 context = step.execute(context)
 
                 # Check if step set an error
                 if context.error is not None:
                     context.status = "error"
                     logger.error(
-                        "Step %s failed: %s", step.get_name(), context.error,
-                        exc_info=context.exc_info,
-                        extra={"extra_data": {
-                            "event": "pipeline_step_failed",
-                            "pipeline_name": self._name,
-                            "uuid": context.uuid,
-                            "step_name": step.get_name(),
-                            "error": context.error,
-                        }}
-                    )
+                        "Step {} failed: {}", step.get_name(), context.error)
                     break
 
                 logger.debug(
-                    "Step %s completed successfully", step.get_name()
+                    "Step {} completed successfully", step.get_name()
                 )
 
             except Exception as step_error:
@@ -201,29 +184,14 @@ class ProcessingPipeline:
                 context.error = str(step_error)
                 context.exc_info = sys.exc_info()
                 logger.error(
-                    "Step %s raised exception: %s",
+                    "Step {} raised exception: {}",
                     step.get_name(),
-                    step_error,
-                    exc_info=True,
-                    extra={"extra_data": {
-                        "event": "pipeline_step_exception",
-                        "pipeline_name": self._name,
-                        "uuid": context.uuid,
-                        "step_name": step.get_name(),
-                        "exception": str(step_error),
-                    }}
-                )
+                    step_error)
                 break
 
         if context.status != "error":
             context.status = "complete"
             logger.info(
-                "Pipeline '%s' execution completed successfully", self._name,
-                extra={"extra_data": {
-                    "event": "pipeline_complete",
-                    "pipeline_name": self._name,
-                    "uuid": context.uuid,
-                }}
-            )
+                "Pipeline '{}' execution completed successfully", self._name)
 
         return context

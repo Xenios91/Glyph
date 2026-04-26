@@ -4,17 +4,14 @@ This module provides decorators and context managers for timing
 and logging the performance of functions and code blocks.
 """
 
-import inspect
-import logging
 from functools import wraps
 from timeit import default_timer as timer
 from typing import Any, Callable
 
-from app.utils.logging_config import get_logger
+from loguru import logger
 from app.utils.request_context import get_request_context
 
 
-logger = get_logger(__name__)
 
 
 class PerformanceTimer:
@@ -25,23 +22,20 @@ class PerformanceTimer:
             # Code to time
             result = expensive_operation()
 
-        logger.info("Elapsed: %.3fs", perf_timer.elapsed)
+        logger.info("Elapsed: {:.3f}s", perf_timer.elapsed)
     """
 
     def __init__(
         self,
         name: str,
-        logger_instance: logging.Logger | None = None,
-        log_level: int = logging.INFO,
+        log_level: str = "INFO",
         unit: str = "seconds",
         threshold: float | None = None,
-        log_structured: bool = True,
-    ):
+        log_structured: bool = True):
         """Initialize the performance timer.
 
         Args:
             name: Name of the operation being timed.
-            logger_instance: Logger to use for logging. If None, uses module logger.
             log_level: Log level for the performance message.
             unit: Time unit for logging ("seconds", "milliseconds", "microseconds").
             threshold: Minimum elapsed time (in specified unit) to trigger logging.
@@ -49,7 +43,6 @@ class PerformanceTimer:
             log_structured: Whether to include structured extra_data in the log.
         """
         self.name = name
-        self.logger = logger_instance or get_logger(_get_caller_module())
         self.log_level = log_level
         self.unit = unit
         self.threshold = threshold
@@ -94,20 +87,11 @@ class PerformanceTimer:
 
         # Log with structured data if enabled
         if self.log_structured:
-            self.logger.log(
+            logger.log(
                 self.log_level,
-                log_message,
-                extra={"extra_data": {
-                    "performance": {
-                        "name": self.name,
-                        "elapsed_seconds": self.elapsed,
-                        "elapsed_display": f"{elapsed_display:.3f}{unit_str}",
-                        "unit": self.unit,
-                    }
-                }},
-            )
+                log_message)
         else:
-            self.logger.log(self.log_level, log_message)
+            logger.log(self.log_level, log_message)
 
     def get_elapsed(self) -> float:
         """Get the elapsed time in seconds.
@@ -121,12 +105,10 @@ class PerformanceTimer:
 
 
 def log_performance(
-    log_level: int = logging.INFO,
+    log_level: str = "INFO",
     unit: str = "seconds",
-    logger_instance: logging.Logger | None = None,
     threshold: float | None = None,
-    log_structured: bool = True,
-) -> Callable:
+    log_structured: bool = True) -> Callable:
     """Decorator to log function execution time.
 
     Usage:
@@ -134,14 +116,13 @@ def log_performance(
         def process_data(data):
             ...
 
-        @log_performance(log_level=logging.DEBUG, unit="milliseconds", threshold=100)
+        @log_performance(log_level="DEBUG", unit="milliseconds", threshold=100)
         def fast_operation():
             ...
 
     Args:
         log_level: Log level for the performance message.
         unit: Time unit for logging ("seconds", "milliseconds", "microseconds").
-        logger_instance: Logger to use. If None, creates a logger for the decorated function.
         threshold: Minimum elapsed time (in specified unit) to trigger logging.
         log_structured: Whether to include structured extra_data in the log.
 
@@ -151,16 +132,12 @@ def log_performance(
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            func_logger = logger_instance or get_logger(func.__module__)
-
             with PerformanceTimer(
                 name=func.__name__,
-                logger_instance=func_logger,
                 log_level=log_level,
                 unit=unit,
                 threshold=threshold,
-                log_structured=log_structured,
-            ):
+                log_structured=log_structured):
                 return func(*args, **kwargs)
 
         return wrapper
@@ -169,12 +146,10 @@ def log_performance(
 
 def log_step_performance(
     step_name: str,
-    log_level: int = logging.INFO,
+    log_level: str = "INFO",
     unit: str = "seconds",
-    logger_instance: logging.Logger | None = None,
     threshold: float | None = None,
-    log_structured: bool = True,
-) -> Callable:
+    log_structured: bool = True) -> Callable:
     """Decorator for logging pipeline step performance.
 
     Usage:
@@ -186,7 +161,6 @@ def log_step_performance(
         step_name: Name of the pipeline step.
         log_level: Log level for the performance message.
         unit: Time unit for logging ("seconds", "milliseconds", "microseconds").
-        logger_instance: Logger to use. If None, creates a logger for the decorated function.
         threshold: Minimum elapsed time (in specified unit) to trigger logging.
         log_structured: Whether to include structured extra_data in the log.
 
@@ -196,16 +170,12 @@ def log_step_performance(
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            func_logger = logger_instance or get_logger(func.__module__)
-
             with PerformanceTimer(
                 name=f"{step_name} ({func.__name__})",
-                logger_instance=func_logger,
                 log_level=log_level,
                 unit=unit,
                 threshold=threshold,
-                log_structured=log_structured,
-            ):
+                log_structured=log_structured):
                 return func(*args, **kwargs)
 
         return wrapper
@@ -227,15 +197,13 @@ class PerformanceMetrics:
         metrics.log_summary()
     """
 
-    def __init__(self, name: str = "metrics", logger_instance: logging.Logger | None = None):
+    def __init__(self, name: str = "metrics"):
         """Initialize performance metrics collector.
 
         Args:
             name: Name for the metrics collection.
-            logger_instance: Logger to use for logging.
         """
         self.name = name
-        self.logger = logger_instance or get_logger(_get_caller_module())
         self.timings: dict[str, float] = {}
         self._current_timer: Any = None
 
@@ -250,7 +218,7 @@ class PerformanceMetrics:
         """
         return _MetricsTimer(self, operation_name)
 
-    def log_summary(self, log_level: int = logging.INFO) -> None:
+    def log_summary(self, log_level: str = "INFO") -> None:
         """Log a summary of all collected timings.
 
         Args:
@@ -294,11 +262,9 @@ class PerformanceMetrics:
             summary_data["request_id"] = ctx.request_id
 
         # Log as structured data
-        self.logger.log(
+        logger.log(
             log_level,
-            f"Performance summary for {self.name}: Total {total_display}",
-            extra={"extra_data": summary_data},
-        )
+            f"Performance summary for {self.name}: Total {total_display}")
 
     def get_timings(self) -> dict[str, float]:
         """Get all collected timings.
@@ -311,43 +277,6 @@ class PerformanceMetrics:
     def reset(self) -> None:
         """Reset all collected timings."""
         self.timings.clear()
-
-
-def _get_caller_module(stack_offset: int = 2) -> str:
-    """Get the caller's module name for logger initialization.
-
-    Walks the call stack to find the module that instantiated the class,
-    rather than using __name__ which would always return this module.
-
-    Args:
-        stack_offset: Number of frames to walk up from this function.
-                      Default is 2 (this function + __init__). Increase for
-                      wrapper functions or debugger/profiler overhead.
-
-    Returns:
-        The caller's module name, or __name__ if detection fails.
-    """
-    try:
-        frame = inspect.currentframe()
-        try:
-            if frame is not None:
-                caller_frame = frame
-                # Walk up the stack by the specified offset
-                for _ in range(stack_offset):
-                    if caller_frame and caller_frame.f_back is not None:
-                        caller_frame = caller_frame.f_back
-                    else:
-                        break
-                if caller_frame is not None:
-                    module = inspect.getmodule(caller_frame)
-                    if module is not None and module.__name__:
-                        return module.__name__
-        finally:
-            del frame  # Explicitly release frame reference to prevent memory leak
-    except Exception:
-        pass
-    return __name__
-
 
 class _MetricsTimer:
     """Internal timer wrapper for PerformanceMetrics."""

@@ -18,10 +18,9 @@ from app.config.settings import MAX_CPU_CORES
 from app.services.request_handler import GhidraRequest
 from app.services.task_service import TaskService
 from app.processing.pipeline import PipelineContext
-from app.utils.logging_config import get_logger
+from loguru import logger
 from app.utils.request_context import get_request_context, set_request_context, clear_request_context
 
-logger = get_logger(__name__)
 
 
 def _run_with_context(job_uuid: str, target: Callable[..., Any], *args: Any) -> None:
@@ -41,8 +40,7 @@ def _run_with_context(job_uuid: str, target: Callable[..., Any], *args: Any) -> 
             request_id=ctx.request_id,
             task_id=job_uuid,
             user_id=ctx.user_id,
-            username=ctx.username,
-        )
+            username=ctx.username)
         target(*args)
     finally:
         clear_request_context()
@@ -79,8 +77,7 @@ class EventWatcher:
         job_uuid: str,
         callback: Callable[[Any, Any], None],
         request: Any,
-        future: Future,
-    ) -> None:
+        future: Future) -> None:
         """Register a callback for a specific job UUID and track the future.
 
         Args:
@@ -92,7 +89,7 @@ class EventWatcher:
         """
         self._callbacks[job_uuid] = callback
         self._watched_futures[job_uuid] = (request, future)
-        logger.debug("Registered callback for job: job_uuid=%s", job_uuid)
+        logger.debug("Registered callback for job: job_uuid={}", job_uuid)
 
     def start_watching(self) -> None:
         """Start watching for completed futures in a background thread."""
@@ -158,22 +155,16 @@ class EventWatcher:
                                         request_id=current_ctx.request_id,
                                         task_id=job_uuid,
                                         user_id=current_ctx.user_id,
-                                        username=current_ctx.username,
-                                    )
+                                        username=current_ctx.username)
                                     self._callbacks[job_uuid](request, future)
                                     logger.debug(
-                                        "Callback invoked for job: job_uuid=%s",
-                                        job_uuid,
-                                        extra={"extra_data": {"job_uuid": job_uuid, "task_id": job_uuid}},
-                                    )
+                                        "Callback invoked for job: job_uuid={}",
+                                        job_uuid)
                                 except Exception as callback_error:
                                     logger.error(
-                                        "Callback error for job_uuid=%s: %s",
+                                        "Callback error for job_uuid={}: {}",
                                         job_uuid,
-                                        callback_error,
-                                        exc_info=True,
-                                        extra={"extra_data": {"job_uuid": job_uuid}},
-                                    )
+                                        callback_error)
                                 finally:
                                     clear_request_context()
                             if (
@@ -181,17 +172,16 @@ class EventWatcher:
                                 and self._watched_futures[job_uuid][1] is future
                             ):
                                 del self._watched_futures[job_uuid]
-                                logger.debug("Cleaned up job: %s", job_uuid)
+                                logger.debug("Cleaned up job: {}", job_uuid)
                             else:
                                 logger.debug(
-                                    "Job %s was re-registered by callback, keeping alive.",
-                                    job_uuid,
-                                )
+                                    "Job {} was re-registered by callback, keeping alive.",
+                                    job_uuid)
 
                             break
 
             except Exception as loop_error:
-                logger.error("Error in EventWatcher loop: %s", loop_error, exc_info=True)
+                logger.error("Error in EventWatcher loop: {}", loop_error)
                 # Wait before retrying
                 time.sleep(1.0)
 
@@ -254,7 +244,7 @@ class TaskManager:
             signum: The signal number received.
             _frame: The current stack frame (unused).
         """
-        logger.info("Received signal %d, shutting down executor...", signum)
+        logger.info("Received signal {}, shutting down executor...", signum)
         cls._shutdown_executor()
 
     @classmethod
@@ -334,8 +324,7 @@ class Ghidra(TaskManager):
     def run_full_pipeline(
         cls,
         ghidra_request: GhidraRequest,
-        file_path: str,
-    ) -> PipelineContext:
+        file_path: str) -> PipelineContext:
         """Run the full analysis pipeline for a binary.
 
         This method provides an end-to-end pipeline interface that combines
@@ -355,8 +344,7 @@ class Ghidra(TaskManager):
             FilterStep,
             FeatureExtractStep,
             TrainStep,
-            PredictStep,
-        )
+            PredictStep)
         from app.processing.pipeline import ProcessingPipeline
 
         context = PipelineContext(
@@ -369,8 +357,7 @@ class Ghidra(TaskManager):
                 "model_name": ghidra_request.model_name,
                 "task_name": ghidra_request.task_name,
                 "ml_class_type": ghidra_request.ml_class_type,
-            },
-        )
+            })
 
         if ghidra_request.is_training:
             pipeline = ProcessingPipeline(
@@ -382,8 +369,7 @@ class Ghidra(TaskManager):
                     FilterStep(),
                     FeatureExtractStep(),
                     TrainStep(),
-                ],
-            )
+                ])
         else:
             pipeline = ProcessingPipeline(
                 "ML Prediction Pipeline",
@@ -394,6 +380,5 @@ class Ghidra(TaskManager):
                     FilterStep(),
                     FeatureExtractStep(),
                     PredictStep(),
-                ],
-            )
+                ])
         return pipeline.execute(context)

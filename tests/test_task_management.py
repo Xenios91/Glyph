@@ -1,13 +1,26 @@
 """Unit tests for task management and queue operations."""
-import logging
 from concurrent.futures import Future
+from contextlib import contextmanager
 from unittest.mock import Mock, patch
 
 import pytest
+from loguru import logger
 
 from app.processing.task_management import EventWatcher, TaskManager
 from app.services.request_handler import TrainingRequest
 from app.services.task_service import TaskService
+
+
+@contextmanager
+def capture_logs(level="INFO", format="{level}:{name}:{message}"):
+    """Capture loguru-based logs for testing.
+    
+    Based on the loguru migration guide pattern for replacing unittest.assertLogs().
+    """
+    output = []
+    handler_id = logger.add(output.append, level=level, format=format)
+    yield output
+    logger.remove(handler_id)
 
 
 @pytest.fixture
@@ -137,13 +150,13 @@ def test_start_watching(event_watcher):
     assert event_watcher._stop_event is not None
 
 
-def test_start_watching_already_running(event_watcher, caplog):
+def test_start_watching_already_running(event_watcher):
     """Test that starting an already running watcher logs a warning."""
     event_watcher.start_watching()
 
-    with caplog.at_level(logging.WARNING):
+    with capture_logs(level="WARNING") as output:
         event_watcher.start_watching()
-        assert "EventWatcher is already watching" in caplog.text
+        assert any("EventWatcher is already watching" in msg for msg in output)
 
 
 def test_stop_watching(event_watcher):
