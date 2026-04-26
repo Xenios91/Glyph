@@ -195,7 +195,10 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
 
         # Handle results based on pipeline type
         if result.error:
-            logger.error("Pipeline failed for %s: %s", ghidra_request.uuid, result.error)
+            logger.error(
+                "Pipeline failed for %s: %s", ghidra_request.uuid, result.error,
+                exc_info=getattr(result, 'exc_info', False),
+            )
         else:
             logger.info("Pipeline completed successfully for %s", ghidra_request.uuid)
 

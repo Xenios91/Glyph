@@ -251,8 +251,10 @@ class RateLimitingFilter(logging.Filter):
 
         # Every 100 suppressed messages, log a summary using a dedicated logger
         if self._suppressed[key] % 100 == 0:
-            # Use a dedicated logger to avoid bypassing the filter chain
+            # Use a dedicated logger that does not propagate to avoid recursive
+            # rate-limit logging and ensure the summary respects the filter chain.
             _rate_limit_logger = logging.getLogger("glyph.rate_limit")
+            _rate_limit_logger.propagate = False
             # Apply sensitive data redaction to prevent bypass
             redacted_msg = _RATE_LIMIT_SENSITIVE_FILTER.filter_msg(record.msg[:100])
             _rate_limit_logger.warning(

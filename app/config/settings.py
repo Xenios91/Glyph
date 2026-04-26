@@ -78,9 +78,9 @@ class LoggingConfig(BaseModel):
     """Logging configuration."""
     level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     format: str = Field(default="json", pattern="^(json|text)$")
-    file: LoggingFileConfig = LoggingFileConfig()
-    console: LoggingConsoleConfig = LoggingConsoleConfig()
-    request_tracing: LoggingRequestTracingConfig = LoggingRequestTracingConfig()
+    file: LoggingFileConfig = Field(default_factory=LoggingFileConfig)
+    console: LoggingConsoleConfig = Field(default_factory=LoggingConsoleConfig)
+    request_tracing: LoggingRequestTracingConfig = Field(default_factory=LoggingRequestTracingConfig)
     module_levels: dict[str, str] = Field(default_factory=dict)
     rate_limit: LoggingRateLimitConfig = Field(default_factory=LoggingRateLimitConfig)
     async_logging: LoggingAsyncConfig = Field(default_factory=LoggingAsyncConfig)

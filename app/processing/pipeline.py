@@ -13,6 +13,8 @@ from typing import Any
 
 from app.utils.logging_config import get_logger
 
+import sys
+
 logger = get_logger(__name__)
 
 
@@ -41,6 +43,7 @@ class PipelineContext:
     data: dict[str, Any] = field(default_factory=dict)
     status: str = "starting"
     error: str | None = None
+    exc_info: tuple[Any, Any, Any] | bool = False
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a value from the data payload.
@@ -178,6 +181,7 @@ class ProcessingPipeline:
                     context.status = "error"
                     logger.error(
                         "Step %s failed: %s", step.get_name(), context.error,
+                        exc_info=context.exc_info,
                         extra={"extra_data": {
                             "event": "pipeline_step_failed",
                             "pipeline_name": self._name,
@@ -195,6 +199,7 @@ class ProcessingPipeline:
             except Exception as step_error:
                 context.status = "error"
                 context.error = str(step_error)
+                context.exc_info = sys.exc_info()
                 logger.error(
                     "Step %s raised exception: %s",
                     step.get_name(),

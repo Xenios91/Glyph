@@ -10,6 +10,7 @@ Python 3.11+
 import logging
 import os
 import re
+import sys
 from typing import Any, cast
 
 from numpy.typing import NDArray
@@ -216,6 +217,7 @@ class DecompileStep(PipelineStep):
 
         except Exception as decompile_error:
             context.error = f"Decompilation failed: {decompile_error}"
+            context.exc_info = sys.exc_info()
             logger.error(
                 "Decompilation error: %s", decompile_error, exc_info=True
             )
@@ -445,6 +447,7 @@ class TrainStep(PipelineStep):
 
         except Exception as train_error:
             context.error = f"Training failed: {train_error}"
+            context.exc_info = sys.exc_info()
             logger.error("Training error: %s", train_error, exc_info=True)
         return context
 
@@ -515,6 +518,7 @@ class PredictStep(PipelineStep):
 
         except Exception as predict_error:
             context.error = f"Prediction failed: {predict_error}"
+            context.exc_info = sys.exc_info()
             logger.error("Prediction error: %s", predict_error, exc_info=True)
 
         return context

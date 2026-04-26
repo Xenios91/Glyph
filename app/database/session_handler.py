@@ -50,6 +50,7 @@ def init_databases() -> None:
         except Exception as exc:
             logger.error(
                 "Failed to initialize database '%s': %s", name, exc,
+                exc_info=True,
                 extra={"extra_data": {"database": name, "operation": "init_db"}},
             )
 
