@@ -1,6 +1,5 @@
 """Tests for logging configuration and utilities using loguru."""
 
-import time
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -20,16 +19,9 @@ from app.utils.request_context import (
     get_request_id,
     get_user_id,
     get_username,
-    get_task_id,
-)
-from app.utils.performance_logger import (
-    PerformanceTimer,
-    log_performance,
-    PerformanceMetrics,
 )
 from app.auth.security_logger import (
     LoginFailureTracker,
-    get_failure_tracker,
     log_login_success,
     log_login_failure,
 )
@@ -152,54 +144,6 @@ class TestSensitiveDataPatcher:
         assert "REDACTED" in record["message"]
 
 
-class TestPerformanceTimer:
-    """Tests for PerformanceTimer."""
-
-    def test_timer_context_manager(self):
-        """Test PerformanceTimer as a context manager."""
-        with PerformanceTimer("test_operation") as timer:
-            time.sleep(0.01)
-        
-        assert timer.elapsed > 0
-        assert timer.end_time > 0
-
-    def test_timer_get_elapsed(self):
-        """Test get_elapsed method."""
-        timer = PerformanceTimer("test_operation")
-        
-        # get_elapsed should return time since module start if not started
-        # (since start_time defaults to 0 which is epoch)
-        elapsed = timer.get_elapsed()
-        # Just verify it returns a positive number (time since epoch)
-        assert elapsed >= 0
-
-
-class TestPerformanceMetrics:
-    """Tests for PerformanceMetrics."""
-
-    def test_metrics_timer(self):
-        """Test PerformanceMetrics timer."""
-        metrics = PerformanceMetrics("test_metrics")
-        
-        with metrics.timer("operation1"):
-            time.sleep(0.01)
-        
-        timings = metrics.get_timings()
-        assert "operation1" in timings
-        assert timings["operation1"] > 0
-
-    def test_metrics_reset(self):
-        """Test PerformanceMetrics reset."""
-        metrics = PerformanceMetrics("test_metrics")
-        
-        with metrics.timer("operation1"):
-            time.sleep(0.01)
-        
-        metrics.reset()
-        timings = metrics.get_timings()
-        assert len(timings) == 0
-
-
 class TestLoginFailureTracker:
     """Tests for LoginFailureTracker."""
 
@@ -224,13 +168,6 @@ class TestLoginFailureTracker:
             tracker.record_failure("test_user")
         
         assert tracker.is_suspicious("test_user") is True
-
-    def test_get_failure_tracker_singleton(self):
-        """Test that get_failure_tracker returns singleton."""
-        tracker1 = get_failure_tracker()
-        tracker2 = get_failure_tracker()
-        assert tracker1 is tracker2
-
 
 class TestSecurityLogging:
     """Tests for security logging functions."""
@@ -276,12 +213,6 @@ class TestRequestContext:
         """Test get_username helper."""
         set_request_context(username="test_user")
         assert get_username() == "test_user"
-        clear_request_context()
-
-    def test_get_task_id(self):
-        """Test get_task_id helper."""
-        set_request_context(task_id="task-123")
-        assert get_task_id() == "task-123"
         clear_request_context()
 
     def test_empty_context(self):

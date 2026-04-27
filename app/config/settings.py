@@ -157,23 +157,20 @@ class GlyphConfig:
             bool: True if configuration loaded successfully, False otherwise.
         """
         if not GlyphConfig._initialized:
-            # Logging is now configured centrally in main.py
-            # No need to set up logging here
-            pass
+            try:
+                with open("config.yml", "r", encoding="utf-8") as config_file:
+                    GlyphConfig._config = yaml.safe_load(config_file) or {}
 
-        try:
-            with open("config.yml", "r", encoding="utf-8") as config_file:
-                GlyphConfig._config = yaml.safe_load(config_file) or {}
-
-            GlyphConfig._config["UPLOAD_FOLDER"] = "./binaries"
-            GlyphConfig._initialized = True
-            return True
-        except FileNotFoundError:
-            logger.exception("config.yml not found")
-            return False
-        except yaml.YAMLError as yaml_error:
-            logger.exception("Failed to parse config.yml")
-            return False
+                GlyphConfig._config["UPLOAD_FOLDER"] = "./binaries"
+                GlyphConfig._initialized = True
+                return True
+            except FileNotFoundError:
+                logger.exception("config.yml not found")
+                return False
+            except yaml.YAMLError as yaml_error:
+                logger.exception("Failed to parse config.yml")
+                return False
+        return GlyphConfig._initialized
 
     @staticmethod
     def get_config_value(value: str) -> Any | None:
@@ -210,7 +207,7 @@ class GlyphConfig:
             return False
 
         if size > 2048:
-            logger.warning("Attempted to set a maximum file size greater than 2048 MB.")
+            logger.warning("Attempted to set a maximum file size greater than {} MB.", 2048)
             return False
 
         GlyphConfig._config["max_file_size_mb"] = size

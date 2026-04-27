@@ -21,7 +21,7 @@ Glyph uses [loguru](https://loguru.readthedocs.io/) for structured, modern Pytho
 
 ### Patcher
 
-- **SensitiveDataPatcher**: Redacts sensitive patterns from log messages (applied via `logger.configure(patcher=...)`). Also available as `SensitiveDataFilter` for backward compatibility.
+- **SensitiveDataPatcher**: Redacts sensitive patterns from log messages (applied via `logger.configure(patcher=...)`).
 
 ### Handlers
 
@@ -104,34 +104,6 @@ ctx = get_request_context()
 # Use ctx.request_id, ctx.user_id, ctx.username
 ```
 
-### Performance Timing
-
-```python
-from app.utils.performance_logger import PerformanceTimer, log_performance, PerformanceMetrics
-
-# Context manager with threshold (only logs if > 100ms)
-with PerformanceTimer("operation", threshold=100, unit="milliseconds"):
-    expensive_operation()
-
-# Decorator
-@log_performance(log_level="DEBUG", unit="milliseconds", threshold=100)
-def fast_operation():
-    pass
-
-# Pipeline step decorator
-@log_step_performance("data_validation")
-def validate_data(data):
-    pass
-
-# Aggregated metrics
-metrics = PerformanceMetrics("pipeline")
-with metrics.timer("step1"):
-    step1()
-with metrics.timer("step2"):
-    step2()
-metrics.log_summary()
-```
-
 ### Security Logging
 
 ```python
@@ -149,7 +121,6 @@ log_permission_denied(user_id=1, username="user", resource="/admin", required_pe
 
 # Account management
 log_password_change(user_id=1, username="admin")
-log_account_lockout(user_id=1, username="admin", reason="too_many_failures")
 
 # API key lifecycle
 log_api_key_created(user_id=1, key_id=1, key_prefix="sk-abc", name="My Key")
@@ -172,26 +143,10 @@ log_suspicious_activity(user_id=1, activity_type="brute_force", details={"attemp
 | `permission_denied` | WARNING | Access denied |
 | `suspicious_activity` | WARNING | Suspicious activity detected |
 | `password_change` | INFO | Password changed |
-| `account_lockout` | WARNING | Account locked |
-| `account_unlock` | INFO | Account unlocked |
 | `user_registration` | INFO | New user registered |
 | `api_key_created` | INFO | API key created |
 | `api_key_deleted` | INFO | API key deleted |
 | `csrf_failure` | WARNING | CSRF validation failed |
-
-### Brute-Force Detection
-
-```python
-from app.auth.security_logger import LoginFailureTracker, get_failure_tracker
-
-# Default: 5 failures in 300 seconds triggers alert
-tracker = get_failure_tracker()
-count = tracker.get_failure_count("username")
-is_suspicious = tracker.is_suspicious("username")
-
-# Custom threshold
-tracker = LoginFailureTracker(threshold=3, window=60)
-```
 
 ### JSON Format (Default)
 
@@ -347,25 +302,6 @@ Sensitive data is automatically redacted from log messages:
 - Tokens
 - API keys
 - Secrets
-
-#### Custom Patterns
-
-```python
-from app.utils.logging_config import SensitiveDataFilter
-
-additional_patterns = [
-    (r"ssn=\d{3}-\d{2}-\d{4}", "ssn=REDACTED"),
-]
-filter_instance = SensitiveDataFilter(additional_patterns=additional_patterns)
-```
-
-### Brute-Force Detection
-
-```python
-# Default: 5 failures in 300 seconds triggers alert
-from app.auth.security_logger import get_failure_tracker
-tracker = get_failure_tracker()
-```
 
 ### Per-Module Log Levels
 

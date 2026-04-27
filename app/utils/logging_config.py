@@ -20,37 +20,12 @@ Key design decisions:
 import os
 import re
 import sys
-from functools import partialmethod
 from pathlib import Path
 
 from loguru import logger
 
 from app.config.settings import get_settings
 from app.utils.request_context import get_request_context
-
-
-# =============================================================================
-# Custom Log Levels
-# =============================================================================
-
-def _register_custom_levels() -> None:
-    """Register custom log levels with loguru.
-
-    Creates a "SECURITY" level (no=25) between DEBUG and INFO for security
-    events like authentication, authorization, and audit logging. This allows
-    filtering security events independently from standard log levels.
-
-    Usage:
-        logger.security("User {} logged in from {}", username, ip_address)
-    """
-    # SECURITY level: Between DEBUG (10) and INFO (20), used for security events
-    logger.level("SECURITY", no=25, color="<yellow>", icon="🔒")
-    # Add convenience method logger.security()
-    logger.__class__.security = partialmethod(logger.__class__.log, "SECURITY")  # type: ignore[attr-defined]
-
-
-# Register custom levels at module load time
-_register_custom_levels()
 
 
 # =============================================================================
@@ -199,9 +174,9 @@ def setup_logging(
     sensitive_patcher = SensitiveDataPatcher()
     patcher = _loguru_patcher(sensitive_patcher)
 
-    # File opener for secure permissions (owner rw, group r)
+    # File opener for secure permissions (owner rw only - logs may contain sensitive data)
     def file_opener(file: str, flags: int) -> int:
-        return os.open(file, flags, 0o640)
+        return os.open(file, flags, 0o600)
 
     handlers = []
 
@@ -234,10 +209,10 @@ def setup_logging(
 
         handlers.append(file_handler_config)
 
-    # Console handler (uses loguru default format)
+    # Console handler (uses sys.stderr per loguru convention for log aggregation)
     if console_enabled:
         handlers.append({
-            "sink": sys.stdout,
+            "sink": sys.stderr,
             "level": console_level.upper(),
             "filter": combined_filter,
             "colorize": colorize,

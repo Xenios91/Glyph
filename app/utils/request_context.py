@@ -5,7 +5,6 @@ that can be accessed throughout the request lifecycle using ContextVars.
 """
 
 from contextvars import ContextVar
-from typing import Any
 
 
 # Async-compatible context variables
@@ -97,27 +96,6 @@ class RequestContext:
             value: The task ID to set.
         """
         _task_id_var.set(value)
-
-    def get_all(self) -> dict[str, Any]:
-        """Get all context data.
-
-        Returns:
-            Dictionary containing all context data.
-        """
-        return {
-            "request_id": self.request_id,
-            "user_id": self.user_id,
-            "username": self.username,
-            "task_id": self.task_id,
-        }
-
-    def clear(self) -> None:
-        """Clear all context data."""
-        _request_id_var.set(None)
-        _user_id_var.set(None)
-        _username_var.set(None)
-        _task_id_var.set(None)
-
 
 def get_request_context() -> RequestContext:
     """Get the current request context.

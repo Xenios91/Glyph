@@ -24,8 +24,8 @@ setup_logging_from_config()
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Glyph API",
-        description="Binary analysis and powered by machine learning",
-        version="0.0.2",
+        description="Binary analysis powered by machine learning",
+        version="0.1.0",
         lifespan=lifespan,
         strict_content_type=True,
     )

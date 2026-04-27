@@ -130,23 +130,8 @@ class LoginFailureTracker:
         self._failures.pop(key, None)
         self._alerted.pop(key, None)
 
-    def reset_all(self) -> None:
-        """Reset all failure counts."""
-        self._failures.clear()
-        self._alerted.clear()
-
-
 # Global failure tracker instance
 _login_failure_tracker = LoginFailureTracker()
-
-
-def get_failure_tracker() -> LoginFailureTracker:
-    """Get the global login failure tracker.
-
-    Returns:
-        LoginFailureTracker: The global tracker instance.
-    """
-    return _login_failure_tracker
 
 
 def log_login_attempt(
@@ -358,38 +343,6 @@ def log_password_change(
     """
     logger.bind(event="password_change", user_id=user_id, username=username,
                 ip_address=ip_address).info("Password changed")
-
-
-def log_account_lockout(
-    user_id: int | None,
-    username: str,
-    reason: str,
-    ip_address: str | None = None) -> None:
-    """Log an account lockout event.
-
-    Args:
-        user_id: The user's ID (if known).
-        username: The username that was locked out.
-        reason: The reason for lockout.
-        ip_address: The IP address of the request.
-    """
-    logger.bind(event="account_lockout", user_id=user_id, username=username,
-                reason=reason, ip_address=ip_address).warning("Account locked")
-
-
-def log_account_unlock(
-    user_id: int,
-    username: str,
-    unlocked_by: str | None = None) -> None:
-    """Log an account unlock event.
-
-    Args:
-        user_id: The user's ID.
-        username: The username that was unlocked.
-        unlocked_by: Who unlocked the account (admin, auto, etc.).
-    """
-    logger.bind(event="account_unlock", user_id=user_id, username=username,
-                unlocked_by=unlocked_by).info("Account unlocked")
 
 
 def log_user_registration(

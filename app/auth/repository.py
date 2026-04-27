@@ -161,7 +161,6 @@ class UserRepository:
         if user and self.password_hasher.verify_password(password, user.hashed_password):
             logger.debug("Credentials verified for user: user_id={}, username={}", user.id, username)
             return user
-        logger.warning("Credential verification failed for username: {}", username)
         return None
     
     async def update_user(
@@ -209,7 +208,6 @@ class UserRepository:
         """
         user = await self.get_by_id(user_id)
         if not user:
-            logger.warning("Password change failed: user_id={} not found", user_id)
             return False
         
         user.hashed_password = self.password_hasher.hash_password(new_password)
@@ -227,7 +225,6 @@ class UserRepository:
         """
         user = await self.get_by_id(user_id)
         if not user:
-            logger.warning("User deletion failed: user_id={} not found", user_id)
             return False
         
         username = user.username
@@ -414,7 +411,6 @@ class APIKeyRepository:
         """
         api_key_record = await self.get_by_id(key_id)
         if not api_key_record:
-            logger.warning("API key deactivation failed: key_id={} not found", key_id)
             return False
         
         api_key_record.is_active = False
@@ -432,7 +428,6 @@ class APIKeyRepository:
         """
         api_key_record = await self.get_by_id(key_id)
         if not api_key_record:
-            logger.warning("API key deletion failed: key_id={} not found", key_id)
             return False
         
         await self.db.delete(api_key_record)
