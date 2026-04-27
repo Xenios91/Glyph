@@ -169,7 +169,7 @@ async def get_prediction_details(
     except HTTPException:
         raise
     except (TypeError, IndexError, KeyError) as exc:
-        logger.error("Failed to retrieve prediction details: {}", exc)
+        logger.exception("Failed to retrieve prediction details")
         raise HTTPException(status_code=400, detail="Could not retrieve details") from exc
 
     accept = request.headers.get("Accept", "")

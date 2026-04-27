@@ -10,32 +10,22 @@ Glyph uses [loguru](https://loguru.readthedocs.io/) for structured, modern Pytho
 - Contextual data binding via `logger.bind()`
 - File rotation, retention, and compression
 - Sensitive data redaction
-- Rate limiting and sampling filters
+- Thread-safe enqueued logging
 
 ### Components
 
 - **JSON Format**: Default format for structured log parsing
 - **Text Format**: Human-readable format with optional colors
 - **Sensitive Data Redaction**: Automatic redaction of passwords, tokens, API keys
-- **Rate Limiting**: Prevents log spam from repeated messages
-- **Log Sampling**: Reduces volume in high-traffic scenarios
-- **Request Context**: Automatic request ID, user ID, and username propagation
+- **Request Context**: Automatic request ID, user ID, and username propagation via ContextVars
 
-### Filters
+### Patcher
 
-- **SensitiveDataFilter**: Redacts sensitive patterns from log messages (applied via `logger.patch()`)
-- **RateLimitingFilter**: Limits messages per time window per unique key
-- **SamplingFilter**: Samples log messages at a configurable rate
-- **LoggingBestPracticeFilter**: Development-only validation filter
-
-### Formatters
-
-- **JSON Formatter**: Uses `patch()` to serialize data to `record["extra"]["_json"]` and returns template `"{extra[_json]}\n{exception}"`
-- **Console Formatter**: Colored or plain text format for stdout
+- **SensitiveDataPatcher**: Redacts sensitive patterns from log messages (applied via `logger.configure(patcher=...)`). Also available as `SensitiveDataFilter` for backward compatibility.
 
 ### Handlers
 
-- **File Handler**: With rotation, retention, compression, and secure file permissions (0o640)
+- **File Handler**: With rotation, retention, compression, secure file permissions (0o640), and `enqueue=True` for thread safety
 - **Console Handler**: stdout with optional colorization
 
 ## Configuration
@@ -46,19 +36,20 @@ Logging is configured via `config.yml`:
 logging:
   level: "INFO"
   format: "json"  # or "text"
-  log_file: "logs/app.log"
-  rotation: "50 MB"
-  backup_count: 10
-  console_enabled: true
-  console_level: "DEBUG"
-  colorize: true
-  async_logging: false
-  sampling_rate: 1.0
+  file:
+    path: "logs/glyph.log"
+    rotation: "50 MB"
+    retention: "10 days"
+  console:
+    enabled: true
+    level: "INFO"
+    colorize: true
   request_tracing:
     enabled: true
-  rate_limit:
-    max_messages: 10
-    period: 60
+    header_name: X-Request-ID
+  module_levels:
+    app.database: WARNING
+    app.auth: INFO
 ```
 
 ### Configuration Reference
@@ -67,14 +58,12 @@ logging:
 |---------|---------|-------------|
 | `level` | `"INFO"` | Log level for file handler |
 | `format` | `"json"` | Log format (`"json"` or `"text"`) |
-| `log_file` | `"logs/app.log"` | Path to log file |
-| `rotation` | `"50 MB"` | Rotation trigger (size or time) |
-| `backup_count` | `10` | Retention period in days |
-| `console_enabled` | `true` | Enable console output |
-| `console_level` | `"DEBUG"` | Log level for console |
-| `colorize` | `true` | Enable colored output |
-| `async_logging` | `false` | Use async logging via `enqueue=True` |
-| `sampling_rate` | `1.0` | Sample rate (0.0 to 1.0) |
+| `file.path` | `"logs/glyph.log"` | Path to log file |
+| `file.rotation` | `"50 MB"` | Loguru rotation string (e.g., `"50 MB"`, `"00:00"`, `"1 week"`) |
+| `file.retention` | `"10 days"` | Loguru retention string (e.g., `"10 days"`, `"1 month"`) |
+| `console.enabled` | `true` | Enable console output |
+| `console.level` | `"INFO"` | Log level for console |
+| `console.colorize` | `true` | Enable colored output |
 
 ### Basic Logging
 
@@ -249,10 +238,10 @@ logger.info("Token: {}", api_token)
 logger.bind(user_id=user_id).info("User authenticated")
 ```
 
-### 3. Use Structured Logging
+### 3. Use Structured Logging with `logger.bind()`
 
 ```python
-# Good - structured context
+# Good - structured context, concise message
 logger.bind(user_id=user_id, action="update", resource="profile").info(
     "Resource updated"
 )
@@ -261,7 +250,22 @@ logger.bind(user_id=user_id, action="update", resource="profile").info(
 logger.info("Resource updated")
 ```
 
-### 4. Use `logger.exception()` for Errors
+### 4. Avoid Repeating Bound Data in Messages
+
+When using `logger.bind()`, the bound fields are already available in structured
+log output. Keep messages concise rather than repeating data:
+
+```python
+# Good - data in bind, message is event description
+logger.bind(user_id=user_id, username=username).info("Login successful")
+
+# Bad - repeats data already in structured context
+logger.bind(user_id=user_id, username=username).info(
+    "Login successful: {} (user_id={})", username, user_id
+)
+```
+
+### 5. Use `logger.exception()` for Errors
 
 ```python
 try:
@@ -277,22 +281,62 @@ logger.error("Failed to process data: {}", exc)
 logger.error("Something went wrong")
 ```
 
-### 5. Conditional Logging for Expensive Operations
+### 6. Use `logger.catch()` for Automatic Exception Handling
+
+Loguru provides `logger.catch()` as a decorator or context manager to automatically
+catch, log, and optionally re-raise exceptions. This eliminates boilerplate try/except blocks:
 
 ```python
-# Good - only evaluates when DEBUG is enabled
-if logger.opt(depth=1).enabled("DEBUG"):
-    logger.debug("Expensive data: {}", expensive_function())
+from loguru import logger
 
-# Bad - always executes expensive operation
-logger.debug("Expensive data: {}", expensive_function())
+# As a decorator - logs and re-raises by default
+@logger.catch
+def process_data(data):
+    # No try/except needed
+    result = risky_operation(data)
+    return result
+
+# As a context manager
+with logger.catch:
+    risky_operation()
+
+# Custom message and level
+@logger.catch(message="Processing failed", reraise=False)
+def process_data(data):
+    risky_operation(data)
+    # Exception is logged but NOT re-raised
 ```
 
-### Database Error Logging
+For HTTP endpoints, use the project's `@catch_http_exception` decorator from
+`app.utils.logging_utils` which logs and converts exceptions to HTTP responses.
+
+### 7. Use `logger.opt(lazy=True)` for Expensive Debug Operations
+
+When logging expensive computations, use `lazy=True` to defer evaluation until
+the log level is confirmed. This avoids unnecessary computation when the level
+is disabled:
 
 ```python
-logger.error("Database error during {}: {}", operation, error)
-# Produces structured logs with operation context
+# Good - lambda is only called if DEBUG is enabled
+logger.opt(lazy=True).debug("Token sample: {}", lambda: tokens[0][:100] if tokens else "empty")
+logger.opt(lazy=True).debug("Label distribution: {}", lambda: np.bincount(y).tolist())
+
+# Bad - always executes expensive operation regardless of log level
+logger.debug("Token sample: {}", tokens[0][:100])
+```
+
+### 8. Direct `logger.exception()` for Database Errors
+
+Use `logger.exception()` directly with bound context instead of helper functions:
+
+```python
+# Good - direct, clear, and structured
+except sqlite3.Error:
+    logger.exception("Failed to save model '{}'", model_name)
+
+# Bad - unnecessary wrapper function
+except sqlite3.Error as error:
+    _log_db_error("save_model", error, {"model_name": model_name})
 ```
 
 ### Sensitive Data Redaction
@@ -315,35 +359,12 @@ additional_patterns = [
 filter_instance = SensitiveDataFilter(additional_patterns=additional_patterns)
 ```
 
-### Rate Limiting with Memory Bounds
-
-```python
-from app.utils.logging_config import RateLimitingFilter
-
-# Limit to 10 messages per 60 seconds per unique key
-rate_limiter = RateLimitingFilter(max_messages=10, period=60, max_keys=1000)
-```
-
 ### Brute-Force Detection
 
 ```python
 # Default: 5 failures in 300 seconds triggers alert
 from app.auth.security_logger import get_failure_tracker
 tracker = get_failure_tracker()
-```
-
-### Async Logging
-
-```yaml
-logging:
-  async_logging: true  # Uses loguru's enqueue=True
-```
-
-### Log Sampling
-
-```yaml
-logging:
-  sampling_rate: 0.5  # Sample 50% of messages
 ```
 
 ### Per-Module Log Levels
@@ -405,24 +426,22 @@ Loguru supports several environment variables that can override configuration:
 |----------|-------------|---------|
 | `LOGURU_LEVEL` | Override default log level | `LOGURU_LEVEL=DEBUG` |
 | `LOGURU_FORMAT` | Override default format | `LOGURU_FORMAT="{time} {message}"` |
-| `LOGURU_DIAGNOSE` | Enable/disable variable diagnosis | `LOGURU_DIAGNOSE=YES` |
+| `LOGURU_DIAGNOSE` | Enable/disable variable diagnosis in exceptions | `LOGURU_DIAGNOSE=YES` |
 | `LOGURU_COLORIZE` | Enable/disable colorization | `LOGURU_COLORIZE=NO` |
-| `GLYPH_LOG_BEST_PRACTICE` | Enable logging validation | `GLYPH_LOG_BEST_PRACTICE=true` |
+| `LOGURU_ENQUEUE` | Enable/disable enqueued file logging (thread-safe) | `LOGURU_ENQUEUE=NO` |
 
 ### Combined Patcher
 
 The logging configuration uses a combined patcher that handles:
 1. **Sensitive data redaction** - Automatically redacts passwords, tokens, API keys
-2. **JSON serialization** - Creates structured JSON for file handlers
-3. **Request context injection** - Adds request ID, user ID, username to logs
+2. **Request context injection** - Adds request ID, user ID, username to logs from ContextVars
+
+Note: JSON serialization is handled by `serialize=True` on the file handler, not the patcher.
 
 ### Handler Filters
 
 Filters are applied at the handler level:
-- **RateLimitingFilter** - Prevents log spam with token bucket algorithm
-- **SamplingFilter** - Samples messages for high-volume scenarios
 - **ModuleLevelFilter** - Per-module log level overrides
-- **LoggingBestPracticeFilter** - Development-only validation
 
 ## Security Considerations
 

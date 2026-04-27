@@ -119,6 +119,7 @@ class EventWatcher:
             self._watch_thread = None
         logger.info("EventWatcher stopped")
 
+    @logger.catch(reraise=False, message="Error in EventWatcher loop")
     def _watch_loop(self) -> None:
         """Background loop that watches for completed futures."""
 
@@ -126,64 +127,58 @@ class EventWatcher:
         # Type guard: _stop_event is set in start_watching before this loop runs
         assert self._stop_event is not None
         while self._watching and not self._stop_event.is_set():
-            try:
-                # Get all futures we're watching
-                if not self._watched_futures:
-                    # No futures to watch, wait before checking again
-                    time.sleep(2.5)
-                    continue
+            # Get all futures we're watching
+            if not self._watched_futures:
+                # No futures to watch, wait before checking again
+                time.sleep(2.5)
+                continue
 
-                # Extract futures for waiting
-                futures_only: list[Future] = [
-                    task[1] for task in self._watched_futures.values()
-                ]
+            # Extract futures for waiting
+            futures_only: list[Future] = [
+                task[1] for task in self._watched_futures.values()
+            ]
 
-                # Wait for any future to complete
-                done, _ = wait(futures_only, timeout=2.5, return_when=FIRST_COMPLETED)
+            # Wait for any future to complete
+            done, _ = wait(futures_only, timeout=2.5, return_when=FIRST_COMPLETED)
 
-                for future in done:
-                    # Find the corresponding job_uuid and request
-                    for job_uuid, task in self._watched_futures.items():
-                        if task[1] is future:
-                            request = task[0]
-                            # Invoke registered callback
-                            if job_uuid in self._callbacks:
-                                try:
-                                    # Propagate request context to callback thread
-                                    current_ctx = get_request_context()
-                                    set_request_context(
-                                        request_id=current_ctx.request_id,
-                                        task_id=job_uuid,
-                                        user_id=current_ctx.user_id,
-                                        username=current_ctx.username)
-                                    self._callbacks[job_uuid](request, future)
-                                    logger.debug(
-                                        "Callback invoked for job: job_uuid={}",
-                                        job_uuid)
-                                except Exception as callback_error:
-                                    logger.error(
-                                        "Callback error for job_uuid={}: {}",
-                                        job_uuid,
-                                        callback_error)
-                                finally:
-                                    clear_request_context()
-                            if (
-                                self._watched_futures.get(job_uuid)
-                                and self._watched_futures[job_uuid][1] is future
-                            ):
-                                del self._watched_futures[job_uuid]
-                                logger.debug("Cleaned up job: {}", job_uuid)
-                            else:
+            for future in done:
+                # Find the corresponding job_uuid and request
+                for job_uuid, task in self._watched_futures.items():
+                    if task[1] is future:
+                        request = task[0]
+                        # Invoke registered callback
+                        if job_uuid in self._callbacks:
+                            try:
+                                # Propagate request context to callback thread
+                                current_ctx = get_request_context()
+                                set_request_context(
+                                    request_id=current_ctx.request_id,
+                                    task_id=job_uuid,
+                                    user_id=current_ctx.user_id,
+                                    username=current_ctx.username)
+                                self._callbacks[job_uuid](request, future)
                                 logger.debug(
-                                    "Job {} was re-registered by callback, keeping alive.",
+                                    "Callback invoked for job: job_uuid={}",
                                     job_uuid)
+                            except Exception:
+                                # Logged by @logger.catch on _watch_loop
+                                pass
+                            finally:
+                                clear_request_context()
+                        if (
+                            self._watched_futures.get(job_uuid)
+                            and self._watched_futures[job_uuid][1] is future
+                        ):
+                            del self._watched_futures[job_uuid]
+                            logger.debug("Cleaned up job: {}", job_uuid)
+                        else:
+                            logger.debug(
+                                "Job {} was re-registered by callback, keeping alive.",
+                                job_uuid)
 
-                            break
-
-            except Exception as loop_error:
-                logger.error("Error in EventWatcher loop: {}", loop_error)
-                # Wait before retrying
-                time.sleep(1.0)
+                        break
+            # Wait before next iteration to avoid busy-looping
+            time.sleep(0.5)
 
         logger.info("EventWatcher loop stopped")
 

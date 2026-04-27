@@ -146,7 +146,7 @@ class MLPersistanceUtil:
 
             SQLUtil.save_model(model_name, serialized_encoder, serialized_model)
         except Exception as error:
-            logger.error("Failed to serialize model '{}': {}", model_name, error)
+            logger.exception("Failed to serialize model '{}'", model_name)
             raise RuntimeError(
                 f"Could not serialize model data for '{model_name}'"
             ) from error
@@ -192,20 +192,14 @@ class MLPersistanceUtil:
 
             return loaded_model, label_encoder
         except SecureDeserializationError as error:
-            logger.error(
-                "Secure deserialization blocked model '{}': {}: {}",
-                model_name,
-                type(error).__name__,
-                error)
+            logger.exception(
+                "Secure deserialization blocked model '{}'", model_name)
             raise RuntimeError(
                 f"Model data for '{model_name}' failed security validation"
             ) from error
         except Exception as error:
-            logger.error(
-                "Failed to deserialize model '{}': {}: {}",
-                model_name,
-                type(error).__name__,
-                error)
+            logger.exception(
+                "Failed to deserialize model '{}'", model_name)
             raise RuntimeError(
                 f"Could not deserialize model data for '{model_name}'"
             ) from error

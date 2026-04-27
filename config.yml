@@ -18,10 +18,8 @@ logging:
   format: json  # json or text
   file:
     path: logs/glyph.log
-    max_size_mb: 50
-    backup_count: 10
-    rotate: size  # time or size
-    time_interval: midnight  # midnight, daily, weekly, monthly
+    rotation: "50 MB"  # Loguru rotation string (e.g., "50 MB", "00:00", "1 week")
+    retention: "10 days"  # Loguru retention string (e.g., "10 days", "1 month")
   console:
     enabled: true
     level: INFO
@@ -35,17 +33,3 @@ logging:
     app.auth: INFO
     app.processing: DEBUG
     uvicorn: INFO
-  # Rate limiting to prevent log spam
-  rate_limit:
-    enabled: false
-    max_messages: 10
-    period: 60.0
-    max_keys: 1000
-  # Async logging for non-blocking I/O
-  async_logging:
-    enabled: false
-    max_queue_size: 1000
-  # Log sampling for high-volume scenarios
-  sampling:
-    enabled: false
-    rate: 0.1  # Log 10% of messages when enabled

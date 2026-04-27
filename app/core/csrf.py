@@ -52,7 +52,6 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             logger.debug("Validating CSRF token for {} {}", request.method, request.url.path)
             if not await self._validate_csrf_token(request, csrf_token):
                 ip_address = request.client.host if request.client else None
-                logger.warning("CSRF validation failed for {} {}", request.method, request.url.path)
                 # Log CSRF failure for security audit
                 log_csrf_failure(
                     ip_address=ip_address,

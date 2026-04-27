@@ -215,8 +215,7 @@ class DecompileStep(PipelineStep):
         except Exception as decompile_error:
             context.error = f"Decompilation failed: {decompile_error}"
             context.exc_info = sys.exc_info()
-            logger.error(
-                "Decompilation error: {}", decompile_error)
+            logger.exception("Decompilation error")
 
         return context
 
@@ -423,7 +422,7 @@ class TrainStep(PipelineStep):
             # Guard expensive debug logging to avoid computation when disabled
             # Using opt(lazy=True) defers evaluation until the log level is confirmed
             logger.opt(lazy=True).debug("Token sample: {}", lambda: tokens[0][:100] if tokens else "empty")
-            logger.opt(lazy=True).debug("Label distribution: {}", np.bincount)
+            logger.opt(lazy=True).debug("Label distribution: {}", lambda: np.bincount(y).tolist())
             
             # Train the model - ML pipeline handles vectorization internally
             ml_pipeline.fit(tokens, y)
@@ -442,7 +441,7 @@ class TrainStep(PipelineStep):
         except Exception as train_error:
             context.error = f"Training failed: {train_error}"
             context.exc_info = sys.exc_info()
-            logger.error("Training error: {}", train_error)
+            logger.exception("Training error")
         return context
 
 
@@ -512,6 +511,6 @@ class PredictStep(PipelineStep):
         except Exception as predict_error:
             context.error = f"Prediction failed: {predict_error}"
             context.exc_info = sys.exc_info()
-            logger.error("Prediction error: {}", predict_error)
+            logger.exception("Prediction error")
 
         return context

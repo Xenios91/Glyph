@@ -2,6 +2,10 @@
 
 This module provides specialized logging functions for authentication
 and authorization events with built-in rate limiting for brute-force detection.
+
+All security events use structured logging via logger.bind() with an "event"
+field for filtering. Request context (request_id, user_id, username) is
+automatically injected by the logging patcher.
 """
 
 import time
@@ -9,8 +13,6 @@ from collections import defaultdict
 from typing import Any
 
 from loguru import logger
-
-from app.utils.request_context import get_request_context
 
 
 class LoginFailureTracker:
@@ -162,15 +164,9 @@ def log_login_attempt(
         ip_address: The IP address of the request.
         user_agent: The user agent string.
     """
-    log_data: dict[str, Any] = {
-        "event": "login_attempt",
-        "username": username,
-        "ip_address": ip_address,
-        "user_agent": user_agent,
-    }
-
-    logger.bind(**log_data).info(
-        "Login attempt initiated: {}", username)
+    logger.bind(event="login_attempt", username=username,
+                ip_address=ip_address, user_agent=user_agent).info(
+        "Login attempt initiated")
 
 
 def log_login_success(
@@ -186,16 +182,9 @@ def log_login_success(
         session_id: The session ID.
         ip_address: The IP address of the request.
     """
-    log_data: dict[str, Any] = {
-        "event": "login_success",
-        "user_id": user_id,
-        "username": username,
-        "session_id": session_id,
-        "ip_address": ip_address,
-    }
-
-    logger.bind(**log_data).info(
-        "Login successful: {} (user_id={})", username, user_id)
+    logger.bind(event="login_success", user_id=user_id, username=username,
+                session_id=session_id, ip_address=ip_address).info(
+        "Login successful")
 
     # Reset failure tracker on successful login
     _login_failure_tracker.reset(username)
@@ -216,18 +205,16 @@ def log_login_failure(
         ip_address: The IP address of the request.
         attempt_number: The attempt number (for tracking multiple failures).
     """
-    log_data: dict[str, Any] = {
+    bind_kwargs: dict[str, Any] = {
         "event": "login_failure",
         "username": username,
         "reason": reason,
         "ip_address": ip_address,
     }
+    if attempt_number is not None:
+        bind_kwargs["attempt_number"] = attempt_number
 
-    if attempt_number:
-        log_data["attempt_number"] = attempt_number
-
-    logger.bind(**log_data).warning(
-        "Login failed: {} - {}", username, reason)
+    logger.bind(**bind_kwargs).warning("Login failed")
 
     # Track for brute-force detection - record first, then check thresholds
     _login_failure_tracker.record_failure(username)
@@ -274,16 +261,9 @@ def log_logout(
         session_id: The session ID.
         ip_address: The IP address of the request.
     """
-    log_data: dict[str, Any] = {
-        "event": "logout",
-        "user_id": user_id,
-        "username": username,
-        "session_id": session_id,
-        "ip_address": ip_address,
-    }
-
-    logger.bind(**log_data).info(
-        "User logged out: {} (user_id={})", username, user_id)
+    logger.bind(event="logout", user_id=user_id, username=username,
+                session_id=session_id, ip_address=ip_address).info(
+        "User logged out")
 
 
 def log_token_refresh(
@@ -297,15 +277,9 @@ def log_token_refresh(
         token_type: The type of token being refreshed (access, refresh).
         ip_address: The IP address of the request.
     """
-    log_data: dict[str, Any] = {
-        "event": "token_refresh",
-        "user_id": user_id,
-        "token_type": token_type,
-        "ip_address": ip_address,
-    }
-
-    logger.bind(**log_data).debug(
-        "Token refreshed: user_id={}, type={}", user_id, token_type)
+    logger.bind(event="token_refresh", user_id=user_id,
+                token_type=token_type, ip_address=ip_address).debug(
+        "Token refreshed")
 
 
 def log_api_key_usage(
@@ -321,17 +295,9 @@ def log_api_key_usage(
         endpoint: The API endpoint accessed.
         ip_address: The IP address of the request.
     """
-    log_data: dict[str, Any] = {
-        "event": "api_key_usage",
-        "user_id": user_id,
-        "api_key_prefix": api_key_prefix,
-        "endpoint": endpoint,
-        "ip_address": ip_address,
-    }
-
-    logger.bind(**log_data).debug(
-        "API key used: user_id={}, key={}..., endpoint={}",
-        user_id, api_key_prefix, endpoint)
+    logger.bind(event="api_key_usage", user_id=user_id,
+                api_key_prefix=api_key_prefix, endpoint=endpoint,
+                ip_address=ip_address).debug("API key used")
 
 
 def log_permission_denied(
@@ -349,18 +315,9 @@ def log_permission_denied(
         required_permission: The permission that was required.
         ip_address: The IP address of the request.
     """
-    log_data: dict[str, Any] = {
-        "event": "permission_denied",
-        "user_id": user_id,
-        "username": username,
-        "resource": resource,
-        "required_permission": required_permission,
-        "ip_address": ip_address,
-    }
-
-    logger.bind(**log_data).warning(
-        "Permission denied: user_id={}, resource={}, permission={}",
-        user_id, resource, required_permission)
+    logger.bind(event="permission_denied", user_id=user_id, username=username,
+                resource=resource, required_permission=required_permission,
+                ip_address=ip_address).warning("Permission denied")
 
 
 def log_suspicious_activity(
@@ -376,18 +333,16 @@ def log_suspicious_activity(
         details: Additional details about the activity.
         ip_address: The IP address of the request.
     """
-    log_data: dict[str, Any] = {
+    bind_kwargs: dict[str, Any] = {
         "event": "suspicious_activity",
         "user_id": user_id,
         "activity_type": activity_type,
         "ip_address": ip_address,
     }
-
     if details:
-        log_data.update(details)
+        bind_kwargs.update(details)
 
-    logger.bind(**log_data).warning(
-        "Suspicious activity detected: {}", activity_type)
+    logger.bind(**bind_kwargs).warning("Suspicious activity detected")
 
 
 def log_password_change(
@@ -401,15 +356,8 @@ def log_password_change(
         username: The user's username.
         ip_address: The IP address of the request.
     """
-    log_data: dict[str, Any] = {
-        "event": "password_change",
-        "user_id": user_id,
-        "username": username,
-        "ip_address": ip_address,
-    }
-
-    logger.bind(**log_data).info(
-        "Password changed: user_id={}, username={}", user_id, username)
+    logger.bind(event="password_change", user_id=user_id, username=username,
+                ip_address=ip_address).info("Password changed")
 
 
 def log_account_lockout(
@@ -425,16 +373,8 @@ def log_account_lockout(
         reason: The reason for lockout.
         ip_address: The IP address of the request.
     """
-    log_data: dict[str, Any] = {
-        "event": "account_lockout",
-        "user_id": user_id,
-        "username": username,
-        "reason": reason,
-        "ip_address": ip_address,
-    }
-
-    logger.bind(**log_data).warning(
-        "Account locked: {} - {}", username, reason)
+    logger.bind(event="account_lockout", user_id=user_id, username=username,
+                reason=reason, ip_address=ip_address).warning("Account locked")
 
 
 def log_account_unlock(
@@ -448,15 +388,8 @@ def log_account_unlock(
         username: The username that was unlocked.
         unlocked_by: Who unlocked the account (admin, auto, etc.).
     """
-    log_data: dict[str, Any] = {
-        "event": "account_unlock",
-        "user_id": user_id,
-        "username": username,
-        "unlocked_by": unlocked_by,
-    }
-
-    logger.bind(**log_data).info(
-        "Account unlocked: user_id={}, username={}", user_id, username)
+    logger.bind(event="account_unlock", user_id=user_id, username=username,
+                unlocked_by=unlocked_by).info("Account unlocked")
 
 
 def log_user_registration(
@@ -473,15 +406,8 @@ def log_user_registration(
         username: The user's username.
         ip_address: The IP address of the request.
     """
-    log_data: dict[str, Any] = {
-        "event": "user_registration",
-        "user_id": user_id,
-        "username": username,
-        "ip_address": ip_address,
-    }
-
-    logger.bind(**log_data).info(
-        "User registered: user_id={}, username={}", user_id, username)
+    logger.bind(event="user_registration", user_id=user_id, username=username,
+                ip_address=ip_address).info("User registered")
 
 
 def log_api_key_created(
@@ -499,18 +425,9 @@ def log_api_key_created(
         name: Human-readable name for the key.
         ip_address: The IP address of the request.
     """
-    log_data: dict[str, Any] = {
-        "event": "api_key_created",
-        "user_id": user_id,
-        "key_id": key_id,
-        "key_prefix": key_prefix,
-        "name": name,
-        "ip_address": ip_address,
-    }
-
-    logger.bind(**log_data).info(
-        "API key created: user_id={}, key_id={}, name={}, prefix={}",
-        user_id, key_id, name, key_prefix)
+    logger.bind(event="api_key_created", user_id=user_id, key_id=key_id,
+                key_prefix=key_prefix, name=name, ip_address=ip_address).info(
+        "API key created")
 
 
 def log_api_key_deleted(
@@ -526,17 +443,8 @@ def log_api_key_deleted(
         name: Human-readable name for the key.
         ip_address: The IP address of the request.
     """
-    log_data: dict[str, Any] = {
-        "event": "api_key_deleted",
-        "user_id": user_id,
-        "key_id": key_id,
-        "name": name,
-        "ip_address": ip_address,
-    }
-
-    logger.bind(**log_data).info(
-        "API key deleted: user_id={}, key_id={}, name={}",
-        user_id, key_id, name)
+    logger.bind(event="api_key_deleted", user_id=user_id, key_id=key_id,
+                name=name, ip_address=ip_address).info("API key deleted")
 
 
 def log_csrf_failure(
@@ -550,12 +458,5 @@ def log_csrf_failure(
         path: The request path.
         method: The HTTP method.
     """
-    log_data: dict[str, Any] = {
-        "event": "csrf_failure",
-        "ip_address": ip_address,
-        "path": path,
-        "method": method,
-    }
-
-    logger.bind(**log_data).warning(
-        "CSRF validation failed: method={}, path={}", method, path)
+    logger.bind(event="csrf_failure", ip_address=ip_address,
+                path=path, method=method).warning("CSRF validation failed")

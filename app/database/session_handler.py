@@ -45,8 +45,8 @@ def init_databases() -> None:
             logger.info(
                 "Database '{}' initialized successfully", name)
         except Exception as exc:
-            logger.error(
-                "Failed to initialize database '{}': {}", name, exc)
+            logger.exception(
+                "Failed to initialize database '{}'", name)
 
 
 async def init_async_databases() -> None:
@@ -86,8 +86,8 @@ def get_session(database: str = "models") -> Generator[Session, None, None]:
         session.commit()
     except Exception as exc:
         session.rollback()
-        logger.error(
-            "Database error in '{}': {}", database, exc)
+        logger.exception(
+            "Database error in '{}'", database)
         raise
     finally:
         session.close()

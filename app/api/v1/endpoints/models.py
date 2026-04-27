@@ -24,6 +24,7 @@ from app.utils.responses import (
     create_error_response,
     SuccessResponse)
 from app.utils.jinja_utils import configure_jinja2_templates
+from app.utils.logging_utils import catch_http_exception
 
 
 router = APIRouter()
@@ -32,6 +33,7 @@ configure_jinja2_templates(templates)
 
 
 @router.delete("/deleteModel", response_model=SuccessResponse[dict])
+@catch_http_exception(status_code=500, error_code="DELETE_MODEL_ERROR", message="Failed to delete model")
 async def delete_model(
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...)):
@@ -44,19 +46,11 @@ async def delete_model(
     Returns:
         Success response when model is deleted.
     """
-    try:
-        MLPersistanceUtil.delete_model(model_name)
-        PredictionPersistanceUtil.delete_model_predictions(model_name)
-        return create_success_response(
-            data={},
-            message="Model deleted successfully")
-    except Exception as exc:
-        logger.error("Failed to delete model '{}': {}", model_name, exc)
-        raise HTTPException(
-            status_code=500,
-            detail=create_error_response(
-                error_code="DELETE_MODEL_ERROR",
-                error_message=f"Failed to delete model: {exc}").model_dump())
+    MLPersistanceUtil.delete_model(model_name)
+    PredictionPersistanceUtil.delete_model_predictions(model_name)
+    return create_success_response(
+        data={},
+        message="Model deleted successfully")
 
 
 @router.get("/getFunction", response_model=SuccessResponse[dict])
@@ -192,7 +186,7 @@ async def get_prediction_details(
         prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
     except (TypeError, IndexError, KeyError) as exc:
-        logger.error("Failed to retrieve prediction details: {}", exc)
+        logger.exception("Failed to retrieve prediction details")
         raise HTTPException(
             status_code=400,
             detail=create_error_response(

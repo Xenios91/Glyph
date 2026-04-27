@@ -20,6 +20,7 @@ from app.utils.common import format_code
 from loguru import logger
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 from app.utils.jinja_utils import configure_jinja2_templates
+from app.utils.logging_utils import catch_http_exception
 from app.auth.dependencies import get_current_active_user, get_optional_user
 from app.database.models import User
 
@@ -86,11 +87,12 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
             
         logger.info("Prediction task completed successfully: {}", prediction_request.uuid)
     except Exception as exc:
-        logger.error("Prediction task failed: {} - {}", prediction_request.uuid, exc)
+        logger.exception("Prediction task failed: {}", prediction_request.uuid)
         raise
 
 
 @router.post("/predict", status_code=201, response_model=SuccessResponse[dict])
+@catch_http_exception(status_code=400, error_code="PREDICTION_ERROR")
 async def predict_tokens(
     background_tasks: BackgroundTasks,
     request_values: PredictTokensRequest,
@@ -107,38 +109,27 @@ async def predict_tokens(
     Raises:
         HTTPException: If task name already exists or prediction fails.
     """
-    try:
-        model_name = request_values.modelName
-        uuid = request_values.uuid or TaskManager().get_uuid()
-        data = request_values.model_dump()
-        task_name = data.get("taskName", "")
+    model_name = request_values.modelName
+    uuid = request_values.uuid or TaskManager().get_uuid()
+    data = request_values.model_dump()
+    task_name = data.get("taskName", "")
 
-        # Validate that task name is unique
-        if not PredictionPersistanceUtil.is_task_name_unique(task_name):
-            raise HTTPException(
-                status_code=409,
-                detail=create_error_response(
-                    error_code="TASK_NAME_EXISTS",
-                    error_message=f"Task name '{task_name}' already exists. Task names must be unique.").model_dump())
-
-        prediction_request = PredictionRequest(uuid, model_name, data)
-        
-        # Add prediction as a background task
-        background_tasks.add_task(_run_prediction_task, prediction_request)
-
-        return create_success_response(
-            data={"uuid": prediction_request.uuid},
-            message="Prediction task created successfully")
-
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("Prediction error: {}", exc)
+    # Validate that task name is unique
+    if not PredictionPersistanceUtil.is_task_name_unique(task_name):
         raise HTTPException(
-            status_code=400,
+            status_code=409,
             detail=create_error_response(
-                error_code="PREDICTION_ERROR",
-                error_message=str(exc)).model_dump())
+                error_code="TASK_NAME_EXISTS",
+                error_message=f"Task name '{task_name}' already exists. Task names must be unique.").model_dump())
+
+    prediction_request = PredictionRequest(uuid, model_name, data)
+    
+    # Add prediction as a background task
+    background_tasks.add_task(_run_prediction_task, prediction_request)
+
+    return create_success_response(
+        data={"uuid": prediction_request.uuid},
+        message="Prediction task created successfully")
 
 
 @router.get("/getPrediction")
@@ -187,6 +178,7 @@ async def get_prediction(
 
 
 @router.delete("/deletePrediction")
+@catch_http_exception(status_code=500, error_code="DELETE_ERROR", message="Failed to delete prediction")
 async def delete_prediction(
     current_user: Annotated[User, Depends(get_current_active_user)],
     task_name: TaskName = Query(...)):
@@ -198,25 +190,12 @@ async def delete_prediction(
     Returns:
         Success response when prediction is deleted.
     """
-    try:
-        # Validation is handled by Pydantic - task_name is already stripped and validated
-        PredictionPersistanceUtil.delete_prediction(task_name)
-        
-        return create_success_response(
-            data={},
-            message="Prediction deleted successfully")
-    except ValueError as ve:
-        raise HTTPException(
-            status_code=400,
-            detail=create_error_response(
-                error_code="VALIDATION_ERROR",
-                error_message=str(ve)).model_dump())
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=create_error_response(
-                error_code="DELETE_ERROR",
-                error_message=f"Failed to delete prediction: {exc}").model_dump())
+    # Validation is handled by Pydantic - task_name is already stripped and validated
+    PredictionPersistanceUtil.delete_prediction(task_name)
+    
+    return create_success_response(
+        data={},
+        message="Prediction deleted successfully")
 
 
 @router.get("/getPredictionDetails")
@@ -250,9 +229,9 @@ async def get_prediction_details(
         prediction_tokens = format_code(prediction_data["tokens"])
 
     except (TypeError, IndexError) as e:
-        logger.error(
-            "Failed to retrieve prediction details for task={}, model={}, function={}: {}",
-            task_name, model_name, function_name, e)
+        logger.exception(
+            "Failed to retrieve prediction details for task={}, model={}, function={}",
+            task_name, model_name, function_name)
         raise HTTPException(
             status_code=400,
             detail=create_error_response(

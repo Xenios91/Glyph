@@ -2,6 +2,10 @@
 
 This module provides decorators and context managers for timing
 and logging the performance of functions and code blocks.
+
+Request context (request_id, user_id, username) is automatically
+injected by the logging patcher, so no manual context propagation
+is needed.
 """
 
 from functools import wraps
@@ -9,9 +13,6 @@ from timeit import default_timer as timer
 from typing import Any, Callable
 
 from loguru import logger
-from app.utils.request_context import get_request_context
-
-
 
 
 class PerformanceTimer:
@@ -30,8 +31,7 @@ class PerformanceTimer:
         name: str,
         log_level: str = "INFO",
         unit: str = "seconds",
-        threshold: float | None = None,
-        log_structured: bool = True):
+        threshold: float | None = None):
         """Initialize the performance timer.
 
         Args:
@@ -40,13 +40,11 @@ class PerformanceTimer:
             unit: Time unit for logging ("seconds", "milliseconds", "microseconds").
             threshold: Minimum elapsed time (in specified unit) to trigger logging.
                        If None, always logs.
-            log_structured: Whether to include structured extra_data in the log.
         """
         self.name = name
         self.log_level = log_level
         self.unit = unit
         self.threshold = threshold
-        self.log_structured = log_structured
         self.start_time: float = 0
         self.end_time: float = 0
         self.elapsed: float = 0
@@ -76,22 +74,10 @@ class PerformanceTimer:
         if self.threshold is not None and elapsed_display < self.threshold:
             return
 
-        # Get request context
-        ctx = get_request_context()
-
-        # Build log message
-        log_message = f"Performance: {self.name} completed in {elapsed_display:.3f}{unit_str}"
-
-        if ctx.request_id:
-            log_message += f" (request_id={ctx.request_id})"
-
-        # Log with structured data if enabled
-        if self.log_structured:
-            logger.log(
-                self.log_level,
-                log_message)
-        else:
-            logger.log(self.log_level, log_message)
+        # Log with structured data (request context injected via patcher)
+        logger.bind(operation=self.name).log(
+            self.log_level,
+            "Performance: {} completed in {:.3f}{}", self.name, elapsed_display, unit_str)
 
     def get_elapsed(self) -> float:
         """Get the elapsed time in seconds.
@@ -107,8 +93,7 @@ class PerformanceTimer:
 def log_performance(
     log_level: str = "INFO",
     unit: str = "seconds",
-    threshold: float | None = None,
-    log_structured: bool = True) -> Callable:
+    threshold: float | None = None) -> Callable:
     """Decorator to log function execution time.
 
     Usage:
@@ -124,7 +109,6 @@ def log_performance(
         log_level: Log level for the performance message.
         unit: Time unit for logging ("seconds", "milliseconds", "microseconds").
         threshold: Minimum elapsed time (in specified unit) to trigger logging.
-        log_structured: Whether to include structured extra_data in the log.
 
     Returns:
         Decorated function.
@@ -136,8 +120,7 @@ def log_performance(
                 name=func.__name__,
                 log_level=log_level,
                 unit=unit,
-                threshold=threshold,
-                log_structured=log_structured):
+                threshold=threshold):
                 return func(*args, **kwargs)
 
         return wrapper
@@ -148,8 +131,7 @@ def log_step_performance(
     step_name: str,
     log_level: str = "INFO",
     unit: str = "seconds",
-    threshold: float | None = None,
-    log_structured: bool = True) -> Callable:
+    threshold: float | None = None) -> Callable:
     """Decorator for logging pipeline step performance.
 
     Usage:
@@ -162,7 +144,6 @@ def log_step_performance(
         log_level: Log level for the performance message.
         unit: Time unit for logging ("seconds", "milliseconds", "microseconds").
         threshold: Minimum elapsed time (in specified unit) to trigger logging.
-        log_structured: Whether to include structured extra_data in the log.
 
     Returns:
         Decorated function.
@@ -174,8 +155,7 @@ def log_step_performance(
                 name=f"{step_name} ({func.__name__})",
                 log_level=log_level,
                 unit=unit,
-                threshold=threshold,
-                log_structured=log_structured):
+                threshold=threshold):
                 return func(*args, **kwargs)
 
         return wrapper
@@ -227,8 +207,6 @@ class PerformanceMetrics:
         if not self.timings:
             return
 
-        ctx = get_request_context()
-
         # Build structured summary
         summary_data: dict[str, Any] = {
             "metrics_name": self.name,
@@ -258,13 +236,10 @@ class PerformanceMetrics:
         summary_data["total"] = total_display
         summary_data["total_seconds"] = total
 
-        if ctx.request_id:
-            summary_data["request_id"] = ctx.request_id
-
-        # Log as structured data
-        logger.log(
+        # Log as structured data (request context injected via patcher)
+        logger.bind(**summary_data).log(
             log_level,
-            f"Performance summary for {self.name}: Total {total_display}")
+            "Performance summary for {}: Total {}", self.name, total_display)
 
     def get_timings(self) -> dict[str, float]:
         """Get all collected timings.
@@ -277,6 +252,7 @@ class PerformanceMetrics:
     def reset(self) -> None:
         """Reset all collected timings."""
         self.timings.clear()
+
 
 class _MetricsTimer:
     """Internal timer wrapper for PerformanceMetrics."""

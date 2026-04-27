@@ -51,7 +51,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         raise
     except Exception as e:
         await session.rollback()
-        logger.error("Database session rolled back: {}", e)
+        logger.exception("Database session rolled back")
         raise
     finally:
         await close_async_session(session)
@@ -92,9 +92,7 @@ async def get_current_user(
         token = request.cookies.get("access_token_cookie")
     
     if not token:
-        ip_address = request.client.host if request.client else None
-        logger.warning(
-            "Authentication failed: no token provided")
+        logger.warning("Authentication failed: no token provided")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
@@ -109,7 +107,7 @@ async def get_current_user(
             user_id = int(user_id)
             logger.debug("JWT token verified for user_id={}", user_id)
     except Exception as jwt_error:
-        logger.warning("JWT verification failed, trying API key: {}", jwt_error)
+        logger.debug("JWT verification failed, trying API key: {}", jwt_error)
         # If JWT verification fails, try API key
         api_key_repo = APIKeyRepository(db)
         api_key_record = await api_key_repo.verify_and_get(token)
@@ -134,9 +132,7 @@ async def get_current_user(
             set_request_context(user_id=user.id, username=user.username, clear_unset=False)
             return user
         else:
-            ip_address = request.client.host if request.client else None
-            logger.warning(
-                "Authentication failed: invalid API key")
+            logger.warning("Authentication failed: invalid API key")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
@@ -144,9 +140,7 @@ async def get_current_user(
     
     # Get user from database
     if not user_id:
-        ip_address = request.client.host if request.client else None
-        logger.warning(
-            "Authentication failed: invalid token payload")
+        logger.warning("Authentication failed: invalid token payload")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
@@ -154,9 +148,7 @@ async def get_current_user(
     
     user = await db.get(User, user_id)
     if not user or not user.is_active:
-        ip_address = request.client.host if request.client else None
-        logger.warning(
-            "Authentication failed: user_id={} not found or inactive", user_id)
+        logger.warning("Authentication failed: user_id={} not found or inactive", user_id)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
@@ -228,7 +220,7 @@ async def get_optional_user(
             user_id = int(user_id)
     except Exception as e:
         # If JWT verification fails, try API key
-        logger.warning("JWT verification failed in get_optional_user, trying API key: {}", e)
+        logger.debug("JWT verification failed in get_optional_user, trying API key: {}", e)
         api_key_repo = APIKeyRepository(db)
         api_key_record = await api_key_repo.verify_and_get(token)
         

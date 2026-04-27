@@ -183,10 +183,8 @@ class ProcessingPipeline:
                 context.status = "error"
                 context.error = str(step_error)
                 context.exc_info = sys.exc_info()
-                logger.error(
-                    "Step {} raised exception: {}",
-                    step.get_name(),
-                    step_error)
+                logger.exception(
+                    "Step {} raised exception", step.get_name())
                 break
 
         if context.status != "error":

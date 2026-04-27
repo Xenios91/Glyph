@@ -121,7 +121,7 @@ class PredictionRequest(DataHandler):
 
             self.data = pd.DataFrame(unique_functions)
         except Exception as unknown_exception:
-            logger.error("Error processing prediction data: {}", unknown_exception)
+            logger.exception("Error processing prediction data")
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing prediction data for UUID: {self.uuid}")
             raise exc from unknown_exception

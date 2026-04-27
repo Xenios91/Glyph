@@ -9,7 +9,7 @@ from loguru import logger
 
 from app.utils.logging_config import (
     setup_logging,
-    SensitiveDataFilter,
+    SensitiveDataPatcher,
     setup_logging_from_config,
 )
 from app.utils.request_context import (
@@ -113,42 +113,43 @@ class TestLoggingSetup:
                 test_log_dir.rmdir()
 
 
-class TestSensitiveDataFilter:
-    """Tests for SensitiveDataFilter."""
+class TestSensitiveDataPatcher:
+    """Tests for SensitiveDataPatcher."""
 
     def test_redacts_password(self):
         """Test that password values are redacted."""
-        filter_instance = SensitiveDataFilter()
-        result = filter_instance.filter_msg("password=mysecret123")
+        patcher = SensitiveDataPatcher()
+        result = patcher.redact("password=mysecret123")
         assert "mysecret123" not in result
         assert "REDACTED" in result
 
     def test_redacts_token(self):
         """Test that token values are redacted."""
-        filter_instance = SensitiveDataFilter()
-        result = filter_instance.filter_msg("token=abc123xyz")
+        patcher = SensitiveDataPatcher()
+        result = patcher.redact("token=abc123xyz")
         assert "abc123xyz" not in result
         assert "REDACTED" in result
 
     def test_redacts_api_key(self):
         """Test that API key values are redacted."""
-        filter_instance = SensitiveDataFilter()
-        result = filter_instance.filter_msg("api_key=sk-1234567890")
+        patcher = SensitiveDataPatcher()
+        result = patcher.redact("api_key=sk-1234567890")
         assert "sk-1234567890" not in result
         assert "REDACTED" in result
 
     def test_does_not_redact_normal_text(self):
         """Test that normal text is not modified."""
-        filter_instance = SensitiveDataFilter()
-        result = filter_instance.filter_msg("User logged in successfully")
+        patcher = SensitiveDataPatcher()
+        result = patcher.redact("User logged in successfully")
         assert result == "User logged in successfully"
 
-    def test_filter_returns_true(self):
-        """Test that the filter returns True (allows the record)."""
-        filter_instance = SensitiveDataFilter()
-        record = {"message": "test message"}
-        result = filter_instance(record)
-        assert result is True
+    def test_caller_mutates_record_message(self):
+        """Test that calling the patcher mutates the record's message."""
+        patcher = SensitiveDataPatcher()
+        record = {"message": "password=mysecret123"}
+        patcher(record)
+        assert "mysecret123" not in record["message"]
+        assert "REDACTED" in record["message"]
 
 
 class TestPerformanceTimer:

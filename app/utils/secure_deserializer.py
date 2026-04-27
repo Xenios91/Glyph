@@ -235,7 +235,7 @@ def secure_load(file_like: io.BytesIO, allowed_classes: Set[str] | None = None) 
     except SecureDeserializationError:
         raise
     except Exception as e:
-        logger.error("Unexpected error during deserialization: {}", e)
+        logger.exception("Unexpected error during deserialization")
         raise SecureDeserializationError(f"Deserialization failed: {e}") from e
 
 

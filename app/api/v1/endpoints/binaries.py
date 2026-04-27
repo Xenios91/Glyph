@@ -128,7 +128,7 @@ def validate_binary_mime_type(file_content: bytes) -> None:
     try:
         mime_type = magic.from_buffer(file_content[:1024], mime=True)
     except Exception as exc:
-        logger.error("Failed to detect MIME type: {}", exc)
+        logger.exception("Failed to detect MIME type")
         raise HTTPException(status_code=400, detail="Failed to analyze file type")
 
     if mime_type not in ALLOWED_MIME_TYPES:
@@ -255,13 +255,11 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                             "Predictions saved to database for task: {}",
                             ghidra_request.task_name)
                     except Exception as pred_req_error:
-                        logger.error(
-                            "[PREDICTION] Failed to create PredictionRequest: {}",
-                            pred_req_error)
+                        logger.exception("[PREDICTION] Failed to create PredictionRequest")
                         raise
 
     except Exception as exc:
-        logger.error("Pipeline task failed: {} - {}", ghidra_request.uuid, exc)
+        logger.exception("Pipeline task failed: {}", ghidra_request.uuid)
         raise
 
 

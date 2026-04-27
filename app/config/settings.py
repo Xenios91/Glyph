@@ -23,10 +23,8 @@ MAX_CPU_CORES = os.cpu_count() or 1
 class LoggingFileConfig(BaseModel):
     """File logging configuration."""
     path: str = "logs/glyph.log"
-    max_size_mb: int = Field(default=50, ge=1, le=1000)
-    backup_count: int = Field(default=10, ge=0, le=100)
-    rotate: str = Field(default="size", pattern="^(size|time)$")
-    time_interval: str = Field(default="midnight", pattern="^(midnight|daily|weekly|monthly)$")
+    rotation: str = Field(default="50 MB", description="Loguru rotation string (e.g., '50 MB', '00:00', '1 week')")
+    retention: str = Field(default="10 days", description="Loguru retention string (e.g., '10 days', '1 month')")
 
 
 class LoggingConsoleConfig(BaseModel):
@@ -42,26 +40,6 @@ class LoggingRequestTracingConfig(BaseModel):
     header_name: str = "X-Request-ID"
 
 
-class LoggingRateLimitConfig(BaseModel):
-    """Rate limiting configuration."""
-    enabled: bool = False
-    max_messages: int = Field(default=10, ge=1)
-    period: float = Field(default=60.0, gt=0)
-    max_keys: int = Field(default=1000, ge=1)
-
-
-class LoggingAsyncConfig(BaseModel):
-    """Async logging configuration."""
-    enabled: bool = False
-    max_queue_size: int = Field(default=1000, ge=1)
-
-
-class LoggingSamplingConfig(BaseModel):
-    """Log sampling configuration."""
-    enabled: bool = False
-    rate: float = Field(default=1.0, ge=0.0, le=1.0)
-
-
 class LoggingConfig(BaseModel):
     """Logging configuration."""
     level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
@@ -70,9 +48,6 @@ class LoggingConfig(BaseModel):
     console: LoggingConsoleConfig = Field(default_factory=LoggingConsoleConfig)
     request_tracing: LoggingRequestTracingConfig = Field(default_factory=LoggingRequestTracingConfig)
     module_levels: dict[str, str] = Field(default_factory=dict)
-    rate_limit: LoggingRateLimitConfig = Field(default_factory=LoggingRateLimitConfig)
-    async_logging: LoggingAsyncConfig = Field(default_factory=LoggingAsyncConfig)
-    sampling: LoggingSamplingConfig = Field(default_factory=LoggingSamplingConfig)
 
 
 class GlyphSettings(BaseSettings):
@@ -194,12 +169,10 @@ class GlyphConfig:
             GlyphConfig._initialized = True
             return True
         except FileNotFoundError:
-            logger.error(
-                "config.yml not found.")
+            logger.exception("config.yml not found")
             return False
         except yaml.YAMLError as yaml_error:
-            logger.error(
-                "Failed to parse config.yml: {}", yaml_error)
+            logger.exception("Failed to parse config.yml")
             return False
 
     @staticmethod
@@ -229,15 +202,15 @@ class GlyphConfig:
             TypeError: If the maximum file size is not an integer.
         """
         if not isinstance(size, int):
-            logger.error("Maximum file size must be an integer.")
+            logger.warning("Maximum file size must be an integer.")
             return False
 
         if size < 1:
-            logger.error("Attempted to set a file size of 0 MB or smaller.")
+            logger.warning("Attempted to set a file size of 0 MB or smaller.")
             return False
 
         if size > 2048:
-            logger.error("Attempted to set a maximum file size greater than 2048 MB.")
+            logger.warning("Attempted to set a maximum file size greater than 2048 MB.")
             return False
 
         GlyphConfig._config["max_file_size_mb"] = size
@@ -258,15 +231,15 @@ class GlyphConfig:
             TypeError: If the number of cores is not an integer.
         """
         if not isinstance(cores, int):
-            logger.error("Number of CPU cores must be an integer.")
+            logger.warning("Number of CPU cores must be an integer.")
             return False
 
         if cores <= 0:
-            logger.error("Attempted to set a non-positive or 0 number of CPU cores.")
+            logger.warning("Attempted to set a non-positive or 0 number of CPU cores.")
             return False
 
         if cores > MAX_CPU_CORES:
-            logger.error("Attempted to set more than {} CPU cores.", MAX_CPU_CORES)
+            logger.warning("Attempted to set more than {} CPU cores.", MAX_CPU_CORES)
             return False
 
         GlyphConfig._config["cpu_cores"] = cores

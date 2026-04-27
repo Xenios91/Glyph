@@ -24,8 +24,6 @@ async def lifespan(app: FastAPI):
         logger.critical("Configuration failed: {}", e)
         raise
 
-    logger.bind(event="startup").info("Logging initialized")
-
     try:
         SQLUtil.init_db()
         logger.info("Database initialized.")
@@ -50,7 +48,6 @@ async def lifespan(app: FastAPI):
     event_watcher = EventWatcher()
     try:
         event_watcher.start_watching()
-        logger.info("EventWatcher started.")
     except Exception as e:
         logger.exception("Failed to start EventWatcher")
         raise RuntimeError("EventWatcher startup failed.") from e
@@ -60,4 +57,5 @@ async def lifespan(app: FastAPI):
     finally:
         logger.info("Shutting down Glyph service...")
         event_watcher.stop_watching()
-        logger.bind(event="shutdown").info("Logging shutdown summary")
+        # Drain the log queue before process exit (required when enqueue=True)
+        logger.complete()

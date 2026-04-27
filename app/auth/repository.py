@@ -10,9 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import User, APIKey
 from loguru import logger
-
-
-
 class PasswordHasherService:
     """Service for password hashing using Argon2id."""
     
@@ -112,7 +109,6 @@ class UserRepository:
         self.db.add(user)
         await self.db.flush()
         await self.db.refresh(user)
-        logger.info("User created: user_id={}, username={}", user.id, username)
         return user
     
     async def get_by_id(self, user_id: int) -> User | None:
@@ -218,7 +214,6 @@ class UserRepository:
         
         user.hashed_password = self.password_hasher.hash_password(new_password)
         await self.db.flush()
-        logger.info("Password changed: user_id={}", user_id)
         return True
     
     async def delete_user(self, user_id: int) -> bool:
@@ -238,7 +233,6 @@ class UserRepository:
         username = user.username
         await self.db.delete(user)
         await self.db.flush()
-        logger.info("User deleted: user_id={}, username={}", user_id, username)
         return True
 
 
@@ -327,8 +321,6 @@ class APIKeyRepository:
         self.db.add(api_key_record)
         await self.db.flush()
         await self.db.refresh(api_key_record)
-        logger.info("API key created: key_id={}, user_id={}, name={}, prefix={}",
-                     api_key_record.id, user_id, name, key_prefix)
         return api_key_record, api_key
     
     async def get_by_id(self, key_id: int) -> APIKey | None:
@@ -378,17 +370,17 @@ class APIKeyRepository:
         
         # Verify the key
         if not self.verify_api_key(api_key, api_key_record.hashed_key):
-            logger.warning("API key verification failed: invalid key for prefix={}", prefix)
+            logger.debug("API key verification failed: invalid key for prefix={}", prefix)
             return None
         
         # Check if active
         if not api_key_record.is_active:
-            logger.warning("API key verification failed: key inactive for key_id={}", api_key_record.id)
+            logger.debug("API key verification failed: key inactive for key_id={}", api_key_record.id)
             return None
         
         # Check expiration
         if api_key_record.expires_at and datetime.now(timezone.utc) > api_key_record.expires_at:
-            logger.warning("API key verification failed: key expired for key_id={}", api_key_record.id)
+            logger.debug("API key verification failed: key expired for key_id={}", api_key_record.id)
             return None
         
         # Update last used timestamp
@@ -427,8 +419,6 @@ class APIKeyRepository:
         
         api_key_record.is_active = False
         await self.db.flush()
-        logger.info("API key deactivated: key_id={}, user_id={}, name={}",
-                     key_id, api_key_record.user_id, api_key_record.name)
         return True
     
     async def delete_api_key(self, key_id: int) -> bool:
@@ -447,6 +437,4 @@ class APIKeyRepository:
         
         await self.db.delete(api_key_record)
         await self.db.flush()
-        logger.info("API key deleted: key_id={}, user_id={}, name={}",
-                     key_id, api_key_record.user_id, api_key_record.name)
         return True
