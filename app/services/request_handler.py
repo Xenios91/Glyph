@@ -82,7 +82,7 @@ class TrainingRequest(DataHandler):
 
             self.data = pd.DataFrame(unique_functions)
         except Exception as tr_exception:
-            logger.exception("Error processing training data for UUID={}", self.uuid)
+            logger.exception("Failed to process training data")
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing training data for UUID: {self.uuid}")
             raise exc from tr_exception
@@ -118,7 +118,7 @@ class PredictionRequest(DataHandler):
 
             self.data = pd.DataFrame(unique_functions)
         except Exception as unknown_exception:
-            logger.exception("Error processing prediction data")
+            logger.exception("Failed to process prediction data")
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing prediction data for UUID: {self.uuid}")
             raise exc from unknown_exception

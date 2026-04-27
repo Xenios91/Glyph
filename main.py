@@ -72,7 +72,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
     """
     # Log 5xx at WARNING, 4xx at DEBUG for visibility
     level = "WARNING" if exc.status_code >= 500 else "DEBUG"
-    logger.opt(depth=0).log(
+    logger.log(
         level,
         "HTTP error {}: {}", exc.status_code, exc.detail,
     )

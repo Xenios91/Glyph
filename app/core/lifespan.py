@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
         get_settings()
         logger.info("Configuration loaded successfully")
     except RuntimeError as e:
-        logger.critical("Configuration failed: {}", e)
+        logger.critical("Configuration load failed: {}", e)
         raise
 
     try:

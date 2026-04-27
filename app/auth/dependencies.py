@@ -49,9 +49,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     except HTTPException:
         await session.rollback()
         raise
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        logger.exception("Database session rolled back")
+        logger.exception("Database session error, rolling back")
         raise
     finally:
         await close_async_session(session)
@@ -92,7 +92,7 @@ async def get_current_user(
         token = request.cookies.get("access_token_cookie")
     
     if not token:
-        logger.warning("Authentication failed: no token provided")
+        logger.warning("Authentication failed: missing token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
@@ -105,7 +105,7 @@ async def get_current_user(
         user_id = payload.get("sub")
         if user_id:
             user_id = int(user_id)
-            logger.debug("JWT token verified for user {}", user_id)
+            logger.bind(user_id=user_id).debug("JWT token verified")
     except Exception as jwt_error:
         logger.debug("JWT verification failed, trying API key lookup")
         # If JWT verification fails, try API key
@@ -113,7 +113,7 @@ async def get_current_user(
         api_key_record = await api_key_repo.verify_and_get(token)
         
         if api_key_record:
-            logger.debug("API key verified for user {}", api_key_record.user_id)
+            logger.bind(user_id=api_key_record.user_id).debug("API key verified")
             # Log API key usage for security audit
             ip_address = request.client.host if request.client else None
             log_api_key_usage(
@@ -123,7 +123,7 @@ async def get_current_user(
                 ip_address=ip_address)
             user = await db.get(User, api_key_record.user_id)
             if not user or not user.is_active:
-                logger.warning("Authentication failed: user {} not found or inactive", api_key_record.user_id)
+                logger.bind(user_id=api_key_record.user_id).warning("Authentication failed: user not found or inactive")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="User not found or inactive",
@@ -140,7 +140,7 @@ async def get_current_user(
     
     # Get user from database
     if not user_id:
-        logger.warning("Authentication failed: invalid token payload")
+        logger.warning("Authentication failed: empty token subject")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
@@ -148,7 +148,7 @@ async def get_current_user(
     
     user = await db.get(User, user_id)
     if not user or not user.is_active:
-        logger.warning("Authentication failed: user {} not found or inactive", user_id)
+        logger.bind(user_id=user_id).warning("Authentication failed: user not found or inactive")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
@@ -156,7 +156,7 @@ async def get_current_user(
     
     # Set request context for downstream logging (preserve request_id from middleware)
     set_request_context(user_id=user.id, username=user.username, clear_unset=False)
-    logger.debug("User authenticated: user={} username={}", user.id, user.username)
+    logger.bind(user_id=user.id).debug("User authenticated")
     return user
 
 

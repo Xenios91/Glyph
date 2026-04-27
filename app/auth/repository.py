@@ -159,7 +159,7 @@ class UserRepository:
         """
         user = await self.get_by_username(username)
         if user and self.password_hasher.verify_password(password, user.hashed_password):
-            logger.debug("Credentials verified for user {} username={}", user.id, username)
+            logger.bind(user_id=user.id).debug("Credentials verified")
             return user
         return None
     
@@ -357,33 +357,33 @@ class APIKeyRepository:
         if not api_key.startswith(self.token_prefix):
             logger.debug("API key verification failed: invalid prefix")
             return None
-        
+
         prefix = api_key[:8]
         api_key_record = await self.get_by_prefix(prefix)
-        
+
         if not api_key_record:
-            logger.debug("API key verification failed: key not found for prefix {}", prefix)
+            logger.debug("API key verification failed: key not found")
             return None
-        
+
         # Verify the key
         if not self.verify_api_key(api_key, api_key_record.hashed_key):
-            logger.debug("API key verification failed: invalid key for prefix {}", prefix)
+            logger.debug("API key verification failed: invalid key")
             return None
-        
+
         # Check if active
         if not api_key_record.is_active:
-            logger.debug("API key verification failed: key inactive for key_id {}", api_key_record.id)
+            logger.bind(key_id=api_key_record.id).debug("API key verification failed: key inactive")
             return None
-        
+
         # Check expiration
         if api_key_record.expires_at and datetime.now(timezone.utc) > api_key_record.expires_at:
-            logger.debug("API key verification failed: key expired for key_id {}", api_key_record.id)
+            logger.bind(key_id=api_key_record.id).debug("API key verification failed: key expired")
             return None
-        
+
         # Update last used timestamp
         api_key_record.last_used_at = datetime.now(timezone.utc)
         await self.db.flush()
-        logger.debug("API key verified: key_id={} user_id={}", api_key_record.id, api_key_record.user_id)
+        logger.bind(key_id=api_key_record.id, user_id=api_key_record.user_id).debug("API key verified")
         return api_key_record
     
     async def get_user_api_keys(self, user_id: int) -> list[APIKey]:

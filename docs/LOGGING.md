@@ -25,8 +25,8 @@ Glyph uses [loguru](https://loguru.readthedocs.io/) for structured, modern Pytho
 
 ### Handlers
 
-- **File Handler**: With rotation, retention, compression, secure file permissions (0o640), and `enqueue=True` for thread safety
-- **Console Handler**: stdout with optional colorization
+- **File Handler**: With rotation, retention, compression, secure file permissions (0o600), and `enqueue=True` for thread safety
+- **Console Handler**: stderr with optional colorization (follows loguru convention for log aggregation)
 
 ## Configuration
 
@@ -344,7 +344,7 @@ logger.configure(
             "retention": "10 days",
         },
         {
-            "sink": sys.stdout,
+            "sink": sys.stderr,
             "level": "DEBUG",
             "format": "<green>{time}</> | <level>{level}</> | {message}",
             "colorize": True,
@@ -383,7 +383,7 @@ Filters are applied at the handler level:
 
 1. **Never log secrets** - Passwords, tokens, API keys are automatically redacted
 2. **Use `diagnose=False`** - Disables variable diagnosis in production (security best practice)
-3. **File permissions** - Log files are created with `0o640` permissions (owner read/write, group read)
+3. **File permissions** - Log files are created with `0o600` permissions (owner read/write only)
 4. **Backtrace enabled** - Full traceback for debugging
 5. **Exception info** - Loguru automatically captures exceptions
 

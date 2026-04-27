@@ -187,10 +187,10 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
 
         # Handle results based on pipeline type
         if result.error:
-            logger.opt(exception=getattr(result, 'exc_info', False)).error(
-                "Pipeline failed for {}: {}", ghidra_request.uuid, result.error)
+            logger.opt(exception=result.exc_info).error(
+                "Pipeline execution failed: {}", result.error)
         else:
-            logger.info("Pipeline completed for {}", ghidra_request.uuid)
+            logger.info("Pipeline execution completed")
 
             # For training, save functions to database
             if ghidra_request.is_training:
@@ -257,8 +257,8 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                         logger.exception("Failed to create PredictionRequest")
                         raise
 
-    except Exception as exc:
-        logger.exception("Pipeline task failed {}", ghidra_request.uuid)
+    except Exception:
+        logger.exception("Pipeline task failed")
         raise
 
 
@@ -311,12 +311,9 @@ async def post_upload_binary(
     file_content = await binary_file.read()
     
     logger.info(
-        "Binary upload started filename={} size={} training={} model={} task={}",
+        "Binary upload started: {} ({} bytes)",
         binary_file.filename,
-        len(file_content),
-        form_data.training_data,
-        form_data.model_name,
-        form_data.task_name)
+        len(file_content))
     
     if len(file_content) > max_file_size_bytes:
         actual_size_mb = len(file_content) / (1024 * 1024)
@@ -358,9 +355,7 @@ async def post_upload_binary(
 
     background_tasks.add_task(_run_pipeline_analysis, ghidra_task, file_path)
 
-    logger.info(
-        "Binary uploaded uuid={} file_path={}",
-        unique_filename, file_path)
+    logger.info("Binary uploaded to: {}", file_path)
 
     if "*/*" in accept:
         return templates.TemplateResponse("upload.html", {"request": request})

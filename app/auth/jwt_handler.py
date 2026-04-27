@@ -150,12 +150,12 @@ class JWTHandler:
             logger.debug("Access token verified for subject {}", decoded.claims.get("sub"))
             return dict(decoded.claims)
         except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
-            logger.debug("Access token verification failed")
+            logger.warning("Access token verification failed: {}", type(e).__name__)
             if isinstance(e, JoserfcBadSignatureError):
                 raise BadSignatureError(f"Invalid signature: {e}") from e
             raise InvalidTokenError(f"Invalid token: {e}") from e
         except Exception as e:
-            logger.debug("Access token verification error")
+            logger.warning("Access token verification error: {}", type(e).__name__)
             raise InvalidTokenError(f"Failed to verify token: {e}") from e
     
     def verify_refresh_token(self, token: str) -> dict[str, Any]:
@@ -184,12 +184,12 @@ class JWTHandler:
             logger.debug("Refresh token verified for subject {}", decoded.claims.get("sub"))
             return dict(decoded.claims)
         except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
-            logger.debug("Refresh token verification failed")
+            logger.warning("Refresh token verification failed: {}", type(e).__name__)
             if isinstance(e, JoserfcBadSignatureError):
                 raise BadSignatureError(f"Invalid signature: {e}") from e
             raise InvalidTokenError(f"Invalid token: {e}") from e
         except Exception as e:
-            logger.debug("Refresh token verification error")
+            logger.warning("Refresh token verification error: {}", type(e).__name__)
             raise InvalidTokenError(f"Failed to verify token: {e}") from e
     
     def verify_token(self, token: str) -> dict[str, Any]:
@@ -214,10 +214,10 @@ class JWTHandler:
             logger.debug("Token verified for subject {} type {}", decoded.claims.get("sub"), decoded.claims.get("type"))
             return dict(decoded.claims)
         except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
-            logger.debug("Token verification failed")
+            logger.warning("Token verification failed: {}", type(e).__name__)
             if isinstance(e, JoserfcBadSignatureError):
                 raise BadSignatureError(f"Invalid signature: {e}") from e
             raise InvalidTokenError(f"Invalid token: {e}") from e
         except Exception as e:
-            logger.debug("Token verification error")
+            logger.warning("Token verification error: {}", type(e).__name__)
             raise InvalidTokenError(f"Failed to verify token: {e}") from e

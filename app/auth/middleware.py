@@ -4,8 +4,6 @@ This module provides middleware for injecting user information into request stat
 for use in templates.
 """
 
-from loguru import logger
-
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -34,27 +32,21 @@ class AuthMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             return response
         
-        # Try to get the current user (non-blocking)
-        try:
-            # We need to manually check for auth tokens here since we can't use Depends
-            auth_header = request.headers.get("Authorization")
-            token = None
-            
-            if auth_header:
-                parts = auth_header.split()
-                if len(parts) == 2 and parts[0].lower() == "bearer":
-                    token = parts[1]
-            
-            if not token:
-                token = request.cookies.get("access_token_cookie")
-            
-            # Store token in state for later use if needed
-            request.state.auth_token = token
-            
-        except Exception as e:
-            # If anything goes wrong, just continue without user
-            logger.debug("Failed to parse auth token: {}", e)
+        # Extract auth token for downstream use
+        auth_header = request.headers.get("Authorization")
+        token = None
         
+        if auth_header:
+            parts = auth_header.split()
+            if len(parts) == 2 and parts[0].lower() == "bearer":
+                token = parts[1]
+        
+        if not token:
+            token = request.cookies.get("access_token_cookie")
+        
+        # Store token in state for later use if needed
+        request.state.auth_token = token
+
         response = await call_next(request)
         return response
 

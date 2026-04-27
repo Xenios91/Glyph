@@ -161,8 +161,8 @@ class EventWatcher:
                                     "Callback invoked for job {}",
                                     job_uuid)
                             except Exception:
-                                # Logged by @logger.catch on _watch_loop
-                                pass
+                                logger.exception(
+                                    "Callback failed for job {}", job_uuid)
                             finally:
                                 clear_request_context()
                         if (
