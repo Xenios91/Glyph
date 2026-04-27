@@ -30,8 +30,7 @@ class DataHandler:
     def _clean_dict(self) -> None:
         """Remove duplicate functions from the request data while preserving order."""
         functions_temp = list(self.get_functions())
-        # Use dict.fromkeys() to preserve order while deduplicating
-        # Python 3.7+ guarantees dict insertion order is preserved
+
         seen = set()
         unique_functions = []
         for func in functions_temp:
@@ -83,9 +82,7 @@ class TrainingRequest(DataHandler):
 
             self.data = pd.DataFrame(unique_functions)
         except Exception as tr_exception:
-            logger.warning(
-                "Error processing training data for UUID={}: {}",
-                self.uuid, tr_exception)
+            logger.exception("Error processing training data for UUID={}", self.uuid)
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing training data for UUID: {self.uuid}")
             raise exc from tr_exception

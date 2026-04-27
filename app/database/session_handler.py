@@ -135,8 +135,8 @@ def get_db(database: str = "models") -> Generator[Session, None, None]:
         yield session
         session.commit()
     except Exception as exc:
-        logger.warning(
-            "Database error in '{}', rolling back: {}", database, exc)
+        logger.exception(
+            "Database error in '{}', rolling back", database)
         session.rollback()
         raise
     finally:

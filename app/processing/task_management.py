@@ -89,12 +89,12 @@ class EventWatcher:
         """
         self._callbacks[job_uuid] = callback
         self._watched_futures[job_uuid] = (request, future)
-        logger.debug("Registered callback for job: job_uuid={}", job_uuid)
+        logger.debug("Registered callback for job {}", job_uuid)
 
     def start_watching(self) -> None:
         """Start watching for completed futures in a background thread."""
         if self._watching:
-            logger.warning("EventWatcher is already watching")
+            logger.warning("EventWatcher is already running")
             return
 
         self._watching = True
@@ -110,7 +110,7 @@ class EventWatcher:
         if not self._watching:
             return
 
-        logger.info("Stopping EventWatcher...")
+        logger.info("Stopping EventWatcher")
         self._watching = False
         if self._stop_event is not None:
             self._stop_event.set()
@@ -123,7 +123,7 @@ class EventWatcher:
     def _watch_loop(self) -> None:
         """Background loop that watches for completed futures."""
 
-        logger.debug("EventWatcher loop started")
+        logger.debug("EventWatcher watch loop started")
         # Type guard: _stop_event is set in start_watching before this loop runs
         assert self._stop_event is not None
         while self._watching and not self._stop_event.is_set():
@@ -158,7 +158,7 @@ class EventWatcher:
                                     username=current_ctx.username)
                                 self._callbacks[job_uuid](request, future)
                                 logger.debug(
-                                    "Callback invoked for job: job_uuid={}",
+                                    "Callback invoked for job {}",
                                     job_uuid)
                             except Exception:
                                 # Logged by @logger.catch on _watch_loop
@@ -170,17 +170,17 @@ class EventWatcher:
                             and self._watched_futures[job_uuid][1] is future
                         ):
                             del self._watched_futures[job_uuid]
-                            logger.debug("Cleaned up job: {}", job_uuid)
+                            logger.debug("Cleaned up job {}", job_uuid)
                         else:
                             logger.debug(
-                                "Job {} was re-registered by callback, keeping alive.",
+                                "Job {} re-registered by callback, keeping alive",
                                 job_uuid)
 
                         break
             # Wait before next iteration to avoid busy-looping
             time.sleep(0.5)
 
-        logger.info("EventWatcher loop stopped")
+        logger.info("EventWatcher watch loop stopped")
 
 
 class TaskManager:
@@ -229,7 +229,7 @@ class TaskManager:
             cls.exec_pool.shutdown(wait=False, cancel_futures=True)
             cls.exec_pool = None
             cls._executor_shutdown = True
-            logger.info("ProcessPoolExecutor shut down successfully")
+            logger.info("ProcessPoolExecutor shut down")
 
     @classmethod
     def _signal_handler(cls, signum: int, _frame: Any) -> None:
@@ -239,7 +239,7 @@ class TaskManager:
             signum: The signal number received.
             _frame: The current stack frame (unused).
         """
-        logger.info("Received signal {}, shutting down executor...", signum)
+        logger.info("Received signal {}, shutting down executor", signum)
         cls._shutdown_executor()
 
     @classmethod

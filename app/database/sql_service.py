@@ -63,7 +63,7 @@ class SQLUtil:
                     sql,
                     (model_name, sqlite3.Binary(model), sqlite3.Binary(label_encoder)))
                 con.commit()
-                logger.info("Model '{}' saved successfully", model_name)
+                logger.info("Model '{}' saved", model_name)
             except sqlite3.Error:
                 logger.exception("Failed to save model '{}'", model_name)
 
@@ -126,7 +126,7 @@ class SQLUtil:
                 sql = "DELETE FROM MODELS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
                 con.commit()
-                logger.info("Model '{}' deleted successfully", model_name)
+                logger.info("Model '{}' deleted", model_name)
             except sqlite3.Error:
                 logger.exception("Failed to delete model '{}'", model_name)
 
@@ -241,7 +241,7 @@ class SQLUtil:
                     sql, (name, model_name, sqlite3.Binary(functions_serialized))
                 )
                 con.commit()
-                logger.info("Prediction for task '{}' with model '{}' saved successfully", name, model_name)
+                logger.info("Prediction for task '{}' with model '{}' saved", name, model_name)
             except sqlite3.Error:
                 logger.exception("Failed to save predictions for task '{}'", name)
 
@@ -378,7 +378,7 @@ class SQLUtil:
                 sql = "DELETE FROM FUNCTIONS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
                 con.commit()
-                logger.info("Functions for model '{}' deleted successfully", model_name)
+                logger.info("Functions for model '{}' deleted", model_name)
             except sqlite3.Error:
                 logger.exception("Failed to delete functions for model '{}'", model_name)
 
@@ -395,7 +395,7 @@ class SQLUtil:
                 sql = "DELETE FROM PREDICTIONS WHERE name=?"
                 cur.execute(sql, (task_name,))
                 con.commit()
-                logger.info("Prediction for task '{}' deleted successfully", task_name)
+                logger.info("Prediction for task '{}' deleted", task_name)
             except sqlite3.Error:
                 logger.exception("Failed to delete prediction for task '{}'", task_name)
                 raise
@@ -413,7 +413,7 @@ class SQLUtil:
                 sql = "DELETE FROM PREDICTIONS WHERE model_name=?"
                 cur.execute(sql, (model_name,))
                 con.commit()
-                logger.info("Predictions for model '{}' deleted successfully", model_name)
+                logger.info("Predictions for model '{}' deleted", model_name)
             except sqlite3.Error:
                 logger.exception("Failed to delete predictions for model '{}'", model_name)
 

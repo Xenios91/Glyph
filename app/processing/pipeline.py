@@ -158,14 +158,14 @@ class ProcessingPipeline:
             The final pipeline context after all steps complete.
         """
         logger.info(
-            "Starting pipeline '{}' execution for UUID: {}, steps: {}",
+            "Starting pipeline '{}' execution for UUID {} with {} steps",
             self._name,
             context.uuid,
             len(self._steps))
 
         for step in self._steps:
             try:
-                logger.debug("Executing step: {}", step.get_name())
+                logger.debug("Executing step {}", step.get_name())
                 context = step.execute(context)
 
                 # Check if step set an error
@@ -176,7 +176,7 @@ class ProcessingPipeline:
                     break
 
                 logger.debug(
-                    "Step {} completed successfully", step.get_name()
+                    "Step {} completed", step.get_name()
                 )
 
             except Exception as step_error:
@@ -190,6 +190,6 @@ class ProcessingPipeline:
         if context.status != "error":
             context.status = "complete"
             logger.info(
-                "Pipeline '{}' execution completed successfully", self._name)
+                "Pipeline '{}' execution completed", self._name)
 
         return context

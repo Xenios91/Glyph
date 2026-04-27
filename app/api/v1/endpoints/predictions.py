@@ -85,7 +85,7 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
         if result.error:
             raise Exception(result.error)
             
-        logger.info("Prediction task completed successfully: {}", prediction_request.uuid)
+        logger.info("Prediction task completed: {}", prediction_request.uuid)
     except Exception as exc:
         logger.exception("Prediction task failed: {}", prediction_request.uuid)
         raise

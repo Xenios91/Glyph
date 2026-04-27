@@ -39,5 +39,5 @@ class TaskService:
                 user_id=ctx.user_id,
                 username=ctx.username)
             logger.debug(
-                "Job queued: job_uuid={}", job_uuid)
+                "Job queued: {}", job_uuid)
             clear_request_context()

@@ -187,11 +187,10 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
 
         # Handle results based on pipeline type
         if result.error:
-            logger.error(
-                "Pipeline failed for {}: {}", ghidra_request.uuid, result.error,
-                exc_info=getattr(result, 'exc_info', False))
+            logger.opt(exception=getattr(result, 'exc_info', False)).error(
+                "Pipeline failed for {}: {}", ghidra_request.uuid, result.error)
         else:
-            logger.info("Pipeline completed successfully for {}", ghidra_request.uuid)
+            logger.info("Pipeline completed for {}", ghidra_request.uuid)
 
             # For training, save functions to database
             if ghidra_request.is_training:
@@ -213,7 +212,7 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                         data=training_data)
                     FunctionPersistanceUtil.add_model_functions(training_request)
                     logger.debug(
-                        "Functions saved to database for model: {}",
+                        "Functions saved for model {}",
                         ghidra_request.model_name)
 
             # For prediction, save predictions to database
@@ -221,7 +220,7 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                 predictions = result.get("predictions")
                 filtered_functions = result.get("filtered_functions")
                 logger.debug(
-                    "[PREDICTION] Processing results - predictions: {}, filtered_functions: {}, task_name: '{}'",
+                    "Prediction results: {} predictions, {} functions, task '{}'",
                     len(predictions) if predictions else 0,
                     len(filtered_functions) if filtered_functions else 0,
                     ghidra_request.task_name)
@@ -237,7 +236,7 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                         },
                     }
                     logger.debug(
-                        "[PREDICTION] Creating PredictionRequest with task_name: '{}', uuid: {}",
+                        "Creating PredictionRequest for task '{}' uuid {}",
                         ghidra_request.task_name,
                         ghidra_request.uuid)
                     try:
@@ -246,20 +245,20 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                             model_name=ghidra_request.model_name,
                             data=prediction_data)
                         logger.debug(
-                            "[PREDICTION] PredictionRequest created successfully, task_name from request: '{}'",
+                            "PredictionRequest created for task '{}'",
                             prediction_request.task_name)
                         FunctionPersistanceUtil.add_prediction_functions(
                             prediction_request, predictions
                         )
                         logger.debug(
-                            "Predictions saved to database for task: {}",
+                            "Predictions saved for task {}",
                             ghidra_request.task_name)
                     except Exception as pred_req_error:
-                        logger.exception("[PREDICTION] Failed to create PredictionRequest")
+                        logger.exception("Failed to create PredictionRequest")
                         raise
 
     except Exception as exc:
-        logger.exception("Pipeline task failed: {}", ghidra_request.uuid)
+        logger.exception("Pipeline task failed {}", ghidra_request.uuid)
         raise
 
 
@@ -312,7 +311,7 @@ async def post_upload_binary(
     file_content = await binary_file.read()
     
     logger.info(
-        "Binary upload started: filename={}, size={}, training={}, model={}, task={}",
+        "Binary upload started filename={} size={} training={} model={} task={}",
         binary_file.filename,
         len(file_content),
         form_data.training_data,
@@ -360,7 +359,7 @@ async def post_upload_binary(
     background_tasks.add_task(_run_pipeline_analysis, ghidra_task, file_path)
 
     logger.info(
-        "Binary upload completed successfully: uuid={}, file_path={}",
+        "Binary uploaded uuid={} file_path={}",
         unique_filename, file_path)
 
     if "*/*" in accept:

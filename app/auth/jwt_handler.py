@@ -79,7 +79,7 @@ class JWTHandler:
             payload.update(extra_claims)
         
         token = jwt.encode({"alg": self.algorithm}, payload, self._key)
-        logger.debug("Access token created for subject={}", subject)
+        logger.debug("Access token created for subject {}", subject)
         return token
     
     def create_refresh_token(
@@ -108,7 +108,7 @@ class JWTHandler:
             payload.update(extra_claims)
         
         token = jwt.encode({"alg": self.algorithm}, payload, self._key)
-        logger.debug("Refresh token created for subject={}", subject)
+        logger.debug("Refresh token created for subject {}", subject)
         return token
     
     def _check_expiration(self, claims: dict[str, Any]) -> None:
@@ -147,15 +147,15 @@ class JWTHandler:
             # Check expiration
             self._check_expiration(dict(decoded.claims))
             
-            logger.debug("Access token verified for subject={}", decoded.claims.get("sub"))
+            logger.debug("Access token verified for subject {}", decoded.claims.get("sub"))
             return dict(decoded.claims)
         except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
-            logger.debug("Access token verification failed: {}", e)
+            logger.debug("Access token verification failed")
             if isinstance(e, JoserfcBadSignatureError):
                 raise BadSignatureError(f"Invalid signature: {e}") from e
             raise InvalidTokenError(f"Invalid token: {e}") from e
         except Exception as e:
-            logger.debug("Access token verification error: {}", e)
+            logger.debug("Access token verification error")
             raise InvalidTokenError(f"Failed to verify token: {e}") from e
     
     def verify_refresh_token(self, token: str) -> dict[str, Any]:
@@ -181,15 +181,15 @@ class JWTHandler:
             # Check expiration
             self._check_expiration(dict(decoded.claims))
             
-            logger.debug("Refresh token verified for subject={}", decoded.claims.get("sub"))
+            logger.debug("Refresh token verified for subject {}", decoded.claims.get("sub"))
             return dict(decoded.claims)
         except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
-            logger.debug("Refresh token verification failed: {}", e)
+            logger.debug("Refresh token verification failed")
             if isinstance(e, JoserfcBadSignatureError):
                 raise BadSignatureError(f"Invalid signature: {e}") from e
             raise InvalidTokenError(f"Invalid token: {e}") from e
         except Exception as e:
-            logger.debug("Refresh token verification error: {}", e)
+            logger.debug("Refresh token verification error")
             raise InvalidTokenError(f"Failed to verify token: {e}") from e
     
     def verify_token(self, token: str) -> dict[str, Any]:
@@ -211,13 +211,13 @@ class JWTHandler:
             # Check expiration
             self._check_expiration(dict(decoded.claims))
             
-            logger.debug("Token verified for subject={}, type={}", decoded.claims.get("sub"), decoded.claims.get("type"))
+            logger.debug("Token verified for subject {} type {}", decoded.claims.get("sub"), decoded.claims.get("type"))
             return dict(decoded.claims)
         except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
-            logger.debug("Token verification failed: {}", e)
+            logger.debug("Token verification failed")
             if isinstance(e, JoserfcBadSignatureError):
                 raise BadSignatureError(f"Invalid signature: {e}") from e
             raise InvalidTokenError(f"Invalid token: {e}") from e
         except Exception as e:
-            logger.debug("Token verification error: {}", e)
+            logger.debug("Token verification error")
             raise InvalidTokenError(f"Failed to verify token: {e}") from e

@@ -165,9 +165,9 @@ class GlyphConfig:
                 GlyphConfig._initialized = True
                 return True
             except FileNotFoundError:
-                logger.exception("config.yml not found")
+                logger.error("config.yml not found")
                 return False
-            except yaml.YAMLError as yaml_error:
+            except yaml.YAMLError:
                 logger.exception("Failed to parse config.yml")
                 return False
         return GlyphConfig._initialized
@@ -199,15 +199,15 @@ class GlyphConfig:
             TypeError: If the maximum file size is not an integer.
         """
         if not isinstance(size, int):
-            logger.warning("Maximum file size must be an integer.")
+            logger.warning("Maximum file size must be an integer")
             return False
 
         if size < 1:
-            logger.warning("Attempted to set a file size of 0 MB or smaller.")
+            logger.warning("Invalid file size: {} MB (must be at least 1 MB)", size)
             return False
 
         if size > 2048:
-            logger.warning("Attempted to set a maximum file size greater than {} MB.", 2048)
+            logger.warning("Invalid file size: {} MB (maximum is {} MB)", size, 2048)
             return False
 
         GlyphConfig._config["max_file_size_mb"] = size
@@ -228,15 +228,15 @@ class GlyphConfig:
             TypeError: If the number of cores is not an integer.
         """
         if not isinstance(cores, int):
-            logger.warning("Number of CPU cores must be an integer.")
+            logger.warning("Number of CPU cores must be an integer")
             return False
 
         if cores <= 0:
-            logger.warning("Attempted to set a non-positive or 0 number of CPU cores.")
+            logger.warning("Invalid CPU cores: {} (must be positive)", cores)
             return False
 
         if cores > MAX_CPU_CORES:
-            logger.warning("Attempted to set more than {} CPU cores.", MAX_CPU_CORES)
+            logger.warning("Invalid CPU cores: {} (maximum is {})", cores, MAX_CPU_CORES)
             return False
 
         GlyphConfig._config["cpu_cores"] = cores

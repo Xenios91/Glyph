@@ -50,8 +50,7 @@ async def get_status(
 
     if status == "UUID Not Found":
         logger.warning(
-            "Status check failed: UUID not found: {} by user_id={}",
-            uuid, current_user.id)
+            "Status check failed: UUID {} not found", uuid)
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
@@ -59,8 +58,7 @@ async def get_status(
                 error_message="UUID Not Found").model_dump())
 
     logger.debug(
-        "Status retrieved for UUID: {} by user_id={}, status={}",
-        uuid, current_user.id, status)
+        "Status retrieved for UUID {} status={}", uuid, status)
 
     return create_success_response(
         data={"status": status},
@@ -89,8 +87,7 @@ async def update_status(
 
     if not updated:
         logger.warning(
-            "Status update failed: UUID not found: {} by user_id={}",
-            payload.uuid, current_user.id)
+            "Status update failed: UUID {} not found", payload.uuid)
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
@@ -98,8 +95,7 @@ async def update_status(
                 error_message="UUID not found").model_dump())
 
     logger.info(
-        "Status updated for UUID: {} to '{}' by user_id={}",
-        payload.uuid, payload.status, current_user.id)
+        "Status updated for UUID {} to '{}'", payload.uuid, payload.status)
 
     return create_success_response(
         data={"success": True},

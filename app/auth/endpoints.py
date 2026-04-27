@@ -14,7 +14,6 @@ from app.auth.security_logger import (
     log_user_registration,
     log_api_key_created,
     log_api_key_deleted)
-from loguru import logger
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 

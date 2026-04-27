@@ -49,29 +49,27 @@ async def save_config(
 
     if payload.max_file_size_mb is not None:
         logger.info(
-            "Configuration update: max_file_size_mb changed to {} by user_id={}",
-            payload.max_file_size_mb, current_user.id)
+            "Configuration updated: max_file_size_mb={}",
+            payload.max_file_size_mb)
         settings.max_file_size_mb = payload.max_file_size_mb
 
     if payload.cpu_cores is not None:
         if 1 <= payload.cpu_cores <= MAX_CPU_CORES:
             logger.info(
-                "Configuration update: cpu_cores changed to {} by user_id={}",
-                payload.cpu_cores, current_user.id)
+                "Configuration updated: cpu_cores={}",
+                payload.cpu_cores)
             settings.cpu_cores = payload.cpu_cores
         else:
             logger.warning(
-                "Configuration update rejected: invalid cpu_cores={} by user_id={}",
-                payload.cpu_cores, current_user.id)
+                "Configuration update rejected: invalid cpu_cores={}",
+                payload.cpu_cores)
             raise HTTPException(
                 status_code=400,
                 detail=create_error_response(
                     error_code="INVALID_CPU_CORES",
                     error_message=f"CPU cores must be between 1 and {MAX_CPU_CORES}").model_dump())
 
-    logger.info(
-        "Configuration saved successfully by user_id={}",
-        current_user.id)
+    logger.info("Configuration saved")
 
     return create_success_response(
         data={},

@@ -68,7 +68,7 @@ def test_set_cpu_cores_exceeds_max(cleanup_singleton_and_logging):
     log_path = cleanup_singleton_and_logging
     with open(log_path, "r", encoding="utf-8") as f:
         log_content = f.read()
-    assert f"Attempted to set more than {MAX_CPU_CORES} CPU cores" in log_content
+    assert f"Invalid CPU cores: {too_many} (maximum is {MAX_CPU_CORES})" in log_content
 
 
 def test_set_cpu_cores_success():
