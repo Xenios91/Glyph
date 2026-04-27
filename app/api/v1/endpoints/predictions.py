@@ -4,6 +4,7 @@ This module provides endpoints for making predictions and retrieving
 prediction results.
 """
 
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
@@ -80,7 +81,7 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
                 FeatureExtractStep(),
                 PredictStep(),
             ])
-        result = pipeline.execute(context)
+        result = asyncio.run(pipeline.execute(context))
         
         if result.error:
             raise Exception(result.error)
@@ -115,7 +116,7 @@ async def predict_tokens(
     task_name = data.get("taskName", "")
 
     # Validate that task name is unique
-    if not PredictionPersistanceUtil.is_task_name_unique(task_name):
+    if not await PredictionPersistanceUtil.is_task_name_unique(task_name):
         raise HTTPException(
             status_code=409,
             detail=create_error_response(
@@ -151,7 +152,7 @@ async def get_prediction(
     Raises:
         HTTPException: If prediction is not found.
     """
-    prediction = PredictionPersistanceUtil.get_predictions(task_name, model_name)
+    prediction = await PredictionPersistanceUtil.get_predictions(task_name, model_name)
 
     if not prediction:
         raise HTTPException(
@@ -191,7 +192,7 @@ async def delete_prediction(
         Success response when prediction is deleted.
     """
     # Validation is handled by Pydantic - task_name is already stripped and validated
-    PredictionPersistanceUtil.delete_prediction(task_name)
+    await PredictionPersistanceUtil.delete_prediction(task_name)
     
     return create_success_response(
         data={},
@@ -220,13 +221,20 @@ async def get_prediction_details(
         HTTPException: If retrieval fails.
     """
     try:
-        model_info = FunctionPersistanceUtil.get_function(model_name, function_name)
-        prediction_data = FunctionPersistanceUtil.get_prediction_function(
+        model_info = await FunctionPersistanceUtil.get_function(model_name, function_name)
+        prediction_data = await FunctionPersistanceUtil.get_prediction_function(
             task_name, model_name, function_name
         )
 
-        model_tokens = format_code(model_info[3])
-        prediction_tokens = format_code(prediction_data["tokens"])
+        if model_info is None:
+            raise HTTPException(
+                status_code=404,
+                detail=create_error_response(
+                    error_code="FUNCTION_NOT_FOUND",
+                    error_message="Function not found").model_dump())
+
+        model_tokens = format_code(model_info.tokens)
+        prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
     except (TypeError, IndexError) as e:
         logger.exception(

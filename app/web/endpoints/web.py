@@ -91,7 +91,7 @@ async def get_upload_binary(
             content={"error": "API calls can only be POST"}, status_code=200
         )
 
-    models: set[str] = MLPersistanceUtil.get_models_list()
+    models: set[str] = await MLPersistanceUtil.get_models_list()
     allow_prediction = len(models) > 0
     return templates.TemplateResponse(
         "upload.html",
@@ -106,7 +106,7 @@ async def get_list_models(
     """
     Handles a GET request to obtain all models available
     """
-    models: set[str] = MLPersistanceUtil.get_models_list()
+    models: set[str] = await MLPersistanceUtil.get_models_list()
     accept = request.headers.get("Accept", "")
 
     if ACCEPT_TYPE not in accept:
@@ -127,7 +127,7 @@ async def get_list_predictions(
     current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     """Obtain all predictions available"""
-    predictions = PredictionPersistanceUtil.get_predictions_list()
+    predictions = await PredictionPersistanceUtil.get_predictions_list()
     
     accept = request.headers.get("Accept", "")
 
@@ -152,8 +152,8 @@ async def get_prediction_details(
     task_name = task_name.strip()
 
     try:
-        model_info = FunctionPersistanceUtil.get_function(model_name, func_name)
-        prediction_data = FunctionPersistanceUtil.get_prediction_function(
+        model_info = await FunctionPersistanceUtil.get_function(model_name, func_name)
+        prediction_data = await FunctionPersistanceUtil.get_prediction_function(
             task_name, model_name, func_name
         )
 
@@ -199,7 +199,7 @@ async def get_prediction(
     task_name: str = Query(...),
     model_name: str = Query(...)):
     """Obtain predictions for a specific task and model"""
-    prediction = PredictionPersistanceUtil.get_predictions(task_name, model_name)
+    prediction = await PredictionPersistanceUtil.get_predictions(task_name, model_name)
     
     accept = request.headers.get("Accept", "")
 

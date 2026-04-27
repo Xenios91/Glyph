@@ -46,8 +46,8 @@ class TestSQLUtilInitDB:
         SQLUtil.init_db()
 
         assert mock_connect.call_count == 2
-        mock_connect.assert_any_call("models.db")
-        mock_connect.assert_any_call("predictions.db")
+        mock_connect.assert_any_call("data/models.db")
+        mock_connect.assert_any_call("data/predictions.db")
 
         executed_queries = [call.args[0] for call in mock_cur.execute.call_args_list]
         assert any("CREATE TABLE IF NOT EXISTS models" in q for q in executed_queries)

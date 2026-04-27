@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt_handler import JWTHandler
-from app.auth.repository import UserRepository, APIKeyRepository
+from app.database.repository import UserRepository, APIKeyRepository
 from app.auth.security_logger import log_api_key_usage
 from app.config.settings import get_settings
 from app.database.models import User
@@ -45,6 +45,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
         await session.commit()
     except HTTPException:
+        # Rollback on HTTPException to avoid leaving the transaction in an
+        # inactive state. In SQLAlchemy 2.1, autoflush is unconditional,
+        # so any pending changes must be explicitly rolled back.
         await session.rollback()
         raise
     except Exception:

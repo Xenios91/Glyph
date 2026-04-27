@@ -8,11 +8,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
 
-from app.services.request_handler import Prediction, PredictionRequest, TrainingRequest
+from app.database.models import Function as FunctionModel
 from app.database.sql_service import SQLUtil
+from app.services.request_handler import Prediction, PredictionRequest, TrainingRequest
 from loguru import logger
 from app.utils.secure_deserializer import secure_load, SecureDeserializationError
-
 
 
 class MLTask:
@@ -34,20 +34,21 @@ class MLTask:
             ]
         )
 
+
 class PredictionPersistanceUtil:
     """Persistence utilities for predictions."""
 
     @staticmethod
-    def get_predictions_list() -> list[Prediction]:
+    async def get_predictions_list() -> list[Prediction]:
         """Get a list of all predictions.
 
         Returns:
             List of Prediction objects from the database.
         """
-        return SQLUtil.get_predictions_list()
+        return await SQLUtil.get_predictions_list()
 
     @staticmethod
-    def get_predictions(task_name: str, model_name: str) -> Prediction:
+    async def get_predictions(task_name: str, model_name: str) -> Prediction:
         """Get a prediction by task and model name.
 
         Args:
@@ -62,7 +63,7 @@ class PredictionPersistanceUtil:
         """
         if not task_name or not model_name:
             raise ValueError("task_name and model_name must be non-empty strings")
-        prediction: Prediction | None = SQLUtil.get_predictions(task_name, model_name)
+        prediction: Prediction | None = await SQLUtil.get_predictions(task_name, model_name)
         if prediction is None:
             raise ValueError(
                 f"Prediction for task '{task_name}' with model '{model_name}' not found."
@@ -70,7 +71,7 @@ class PredictionPersistanceUtil:
         return prediction
 
     @staticmethod
-    def delete_prediction(task_name: str) -> None:
+    async def delete_prediction(task_name: str) -> None:
         """Delete a prediction by task name.
 
         Args:
@@ -81,10 +82,10 @@ class PredictionPersistanceUtil:
         """
         if not task_name:
             raise ValueError("task_name must be a non-empty string")
-        SQLUtil.delete_prediction(task_name)
+        await SQLUtil.delete_prediction(task_name)
 
     @staticmethod
-    def delete_model_predictions(model_name: str) -> None:
+    async def delete_model_predictions(model_name: str) -> None:
         """Delete all predictions for a model.
 
         Args:
@@ -95,10 +96,10 @@ class PredictionPersistanceUtil:
         """
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
-        SQLUtil.delete_model_predictions(model_name)
+        await SQLUtil.delete_model_predictions(model_name)
 
     @staticmethod
-    def is_task_name_unique(task_name: str) -> bool:
+    async def is_task_name_unique(task_name: str) -> bool:
         """Check if a task name is unique (does not exist in the database).
 
         Args:
@@ -109,14 +110,14 @@ class PredictionPersistanceUtil:
         """
         if not task_name:
             raise ValueError("task_name must be a non-empty string")
-        return not SQLUtil.task_name_exists(task_name)
+        return not await SQLUtil.task_name_exists(task_name)
 
 
 class MLPersistanceUtil:
     """Persistence utilities for ML models."""
 
     @staticmethod
-    def save_model(model_name: str, label_encoder: Any, pipeline: Pipeline) -> None:
+    async def save_model(model_name: str, label_encoder: Any, pipeline: Pipeline) -> None:
         """Save a model and label encoder to the database.
 
         Args:
@@ -144,7 +145,7 @@ class MLPersistanceUtil:
             joblib.dump(label_encoder, encoder_buffer)
             serialized_encoder = encoder_buffer.getvalue()
 
-            SQLUtil.save_model(model_name, serialized_encoder, serialized_model)
+            await SQLUtil.save_model(model_name, serialized_encoder, serialized_model)
         except Exception as error:
             logger.exception("Failed to serialize model '{}'", model_name)
             raise RuntimeError(
@@ -152,7 +153,7 @@ class MLPersistanceUtil:
             ) from error
 
     @staticmethod
-    def load_model(model_name: str) -> tuple[Any, Any]:
+    async def load_model(model_name: str) -> tuple[Any, Any]:
         """Load a model and label encoder from the database.
 
         Args:
@@ -168,26 +169,17 @@ class MLPersistanceUtil:
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
 
-        model_row: tuple[Any, ...] | None = SQLUtil.get_model(model_name)
+        model_row = await SQLUtil.get_model(model_name)
 
         if model_row is None:
             logger.error("Model '{}' not found in database", model_name)
             raise ValueError(f"Model '{model_name}' not found.")
 
-        if len(model_row) < 3:
-            logger.error(
-                "Model '{}' has invalid schema (expected 3 fields, got {})",
-                model_name,
-                len(model_row))
-            raise ValueError(
-                f"Model '{model_name}' data has incorrect structure (expected 3 fields, got {len(model_row)})"
-            )
-
         try:
-            model_buffer = BytesIO(model_row[1])
+            model_buffer = BytesIO(model_row.model_data)
             loaded_model = secure_load(model_buffer)
 
-            encoder_buffer = BytesIO(model_row[2])
+            encoder_buffer = BytesIO(model_row.label_encoder_data)
             label_encoder = secure_load(encoder_buffer)
 
             return loaded_model, label_encoder
@@ -205,16 +197,16 @@ class MLPersistanceUtil:
             ) from error
 
     @staticmethod
-    def get_models_list() -> set[str]:
+    async def get_models_list() -> set[str]:
         """Get a list of all model names.
 
         Returns:
             A set of model names.
         """
-        return SQLUtil.get_models_list()
+        return await SQLUtil.get_models_list()
 
     @staticmethod
-    def check_name(model_name: str) -> bool:
+    async def check_name(model_name: str) -> bool:
         """Check if a model name exists.
 
         Args:
@@ -225,11 +217,11 @@ class MLPersistanceUtil:
         """
         if not model_name:
             return False
-        models_list: set[str] = SQLUtil.get_models_list()
+        models_list: set[str] = await SQLUtil.get_models_list()
         return model_name in models_list
 
     @staticmethod
-    def delete_model(model_name: str) -> None:
+    async def delete_model(model_name: str) -> None:
         """Delete a model from the database.
 
         Args:
@@ -240,32 +232,32 @@ class MLPersistanceUtil:
         """
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
-        SQLUtil.delete_model(model_name)
+        await SQLUtil.delete_model(model_name)
 
 
 class FunctionPersistanceUtil:
     """Persistence utilities for functions."""
 
     @staticmethod
-    def get_functions(model_name: str) -> list:
+    async def get_functions(model_name: str) -> list[FunctionModel]:
         """Get functions for a model.
 
         Args:
             model_name: The model name.
 
         Returns:
-            A list of functions.
+            A list of Function ORM objects.
 
         Raises:
             ValueError: If model_name is empty.
         """
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
-        functions: list = SQLUtil.get_functions(model_name)
+        functions: list[FunctionModel] = await SQLUtil.get_functions(model_name)
         return functions if functions else []
 
     @staticmethod
-    def get_function(model_name: str, function_name: str) -> list[str]:
+    async def get_function(model_name: str, function_name: str) -> FunctionModel | None:
         """Get a specific function by name.
 
         Args:
@@ -273,18 +265,17 @@ class FunctionPersistanceUtil:
             function_name: The function name.
 
         Returns:
-            The function dictionary.
+            The Function ORM object or None.
 
         Raises:
             ValueError: If model_name or function_name is empty.
         """
         if not model_name or not function_name:
             raise ValueError("model_name and function_name must be non-empty strings")
-        function: list = SQLUtil.get_function(model_name, function_name)
-        return function if function else []
+        return await SQLUtil.get_function(model_name, function_name)
 
     @staticmethod
-    def add_model_functions(training_request: TrainingRequest) -> None:
+    async def add_model_functions(training_request: TrainingRequest) -> None:
         """Add functions from a training request to the database.
 
         Args:
@@ -297,10 +288,10 @@ class FunctionPersistanceUtil:
             raise ValueError("training_request must not be None")
         functions: list = training_request.get_functions() or []
         if functions:
-            SQLUtil.save_functions(training_request.model_name, functions)
+            await SQLUtil.save_functions(training_request.model_name, functions)
 
     @staticmethod
-    def add_prediction_functions(
+    async def add_prediction_functions(
         prediction_request: PredictionRequest, predictions: list[str]
     ) -> None:
         """Add prediction functions to the database.
@@ -328,7 +319,7 @@ class FunctionPersistanceUtil:
                 updated_function = function.copy()
                 updated_function["functionName"] = predictions[ctr]
                 functions[ctr] = updated_function
-            SQLUtil.save_predictions(
+            await SQLUtil.save_predictions(
                 task_name, prediction_request.model_name, functions
             )
         elif functions:
@@ -336,10 +327,11 @@ class FunctionPersistanceUtil:
                 "Mismatch between functions ({}) and predictions ({}) for task '{}'",
                 len(functions),
                 len(predictions),
-                task_name)
+                task_name,
+            )
 
     @staticmethod
-    def get_prediction_function(
+    async def get_prediction_function(
         task_name: str, model_name: str, function_name: str
     ) -> dict:
         """Get a prediction function by task, model, and function name.
@@ -357,10 +349,10 @@ class FunctionPersistanceUtil:
         """
         if not task_name or not model_name or not function_name:
             raise ValueError("All arguments must be non-empty strings")
-        result: dict = SQLUtil.get_prediction_function(
+        result: dict = await SQLUtil.get_prediction_function(
             task_name, model_name, function_name
         )
-        if result is None:
+        if not result:
             raise ValueError(
                 f"Prediction function for task '{task_name}', model '{model_name}', function '{function_name}' not found."
             )

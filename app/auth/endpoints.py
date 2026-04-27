@@ -22,7 +22,7 @@ from app.auth.dependencies import (
     get_db,
     get_jwt_handler)
 from app.auth.jwt_handler import JWTHandler
-from app.auth.repository import APIKeyRepository, UserRepository
+from app.database.repository import APIKeyRepository, UserRepository
 from app.auth.schemas import (
     APIKeyCreate,
     APIKeyResponse,

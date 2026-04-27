@@ -22,7 +22,7 @@ from app.auth.dependencies import (
 from app.auth.endpoints import router as auth_router
 from app.auth.jwt_handler import JWTHandler
 from app.auth.middleware import AuthMiddleware
-from app.auth.repository import APIKeyRepository, PasswordHasherService, UserRepository
+from app.database.repository import APIKeyRepository, PasswordHasherService, UserRepository
 from app.auth.schemas import (
     APIKeyCreate,
     APIKeyResponse,

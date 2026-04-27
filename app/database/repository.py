@@ -113,15 +113,18 @@ class UserRepository:
     
     async def get_by_id(self, user_id: int) -> User | None:
         """Get a user by ID.
-        
+
+        Uses AsyncSession.get() for efficient primary key lookups that check
+        the identity map first before issuing a database query. This is the
+        recommended SQLAlchemy 2.0+ pattern for primary key access.
+
         Args:
             user_id: User ID
-            
+
         Returns:
             User instance or None
         """
-        result = await self.db.execute(select(User).where(User.id == user_id))
-        return result.scalar_one_or_none()
+        return await self.db.get(User, user_id)
     
     async def get_by_username(self, username: str) -> User | None:
         """Get a user by username.
@@ -322,15 +325,18 @@ class APIKeyRepository:
     
     async def get_by_id(self, key_id: int) -> APIKey | None:
         """Get an API key by ID.
-        
+
+        Uses AsyncSession.get() for efficient primary key lookups that check
+        the identity map first before issuing a database query. This is the
+        recommended SQLAlchemy 2.0+ pattern for primary key access.
+
         Args:
             key_id: API key ID
-            
+
         Returns:
             APIKey instance or None
         """
-        result = await self.db.execute(select(APIKey).where(APIKey.id == key_id))
-        return result.scalar_one_or_none()
+        return await self.db.get(APIKey, key_id)
     
     async def get_by_prefix(self, prefix: str) -> APIKey | None:
         """Get an API key by its prefix.

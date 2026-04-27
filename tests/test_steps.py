@@ -107,7 +107,8 @@ class TestValidationStep:
         step = ValidationStep()
         assert step.get_name() == "ValidationStep"
 
-    def test_execute_valid_file(self):
+    @pytest.mark.asyncio
+    async def test_execute_valid_file(self):
         """Test validation with a valid file."""
         with tempfile.NamedTemporaryFile(delete=False) as f:
             f.write(b"test content")
@@ -119,23 +120,25 @@ class TestValidationStep:
                 uuid="test-uuid",
                 binary_path=temp_path,
             )
-            result = step.execute(context)
+            result = await step.execute(context)
             assert result.error is None
         finally:
             os.unlink(temp_path)
 
-    def test_execute_nonexistent_file(self):
+    @pytest.mark.asyncio
+    async def test_execute_nonexistent_file(self):
         """Test validation with a nonexistent file."""
         step = ValidationStep()
         context = PipelineContext(
             uuid="test-uuid",
             binary_path="/nonexistent/file",
         )
-        result = step.execute(context)
+        result = await step.execute(context)
         assert result.error is not None
         assert "not found" in result.error
 
-    def test_execute_empty_file(self):
+    @pytest.mark.asyncio
+    async def test_execute_empty_file(self):
         """Test validation with an empty file."""
         with tempfile.NamedTemporaryFile(delete=False) as f:
             temp_path = f.name
@@ -146,13 +149,14 @@ class TestValidationStep:
                 uuid="test-uuid",
                 binary_path=temp_path,
             )
-            result = step.execute(context)
+            result = await step.execute(context)
             assert result.error is not None
             assert "empty" in result.error
         finally:
             os.unlink(temp_path)
 
-    def test_execute_max_size(self):
+    @pytest.mark.asyncio
+    async def test_execute_max_size(self):
         """Test validation with max size limit."""
         with tempfile.NamedTemporaryFile(delete=False) as f:
             f.write(b"x" * 1024 * 1024)  # 1 MB file
@@ -164,7 +168,7 @@ class TestValidationStep:
                 uuid="test-uuid",
                 binary_path=temp_path,
             )
-            result = step.execute(context)
+            result = await step.execute(context)
             assert result.error is not None
             assert "exceeds" in result.error
         finally:
@@ -180,7 +184,8 @@ class TestDecompileStep:
         assert step.get_name() == "DecompileStep"
 
     @patch("app.processing.ghidra_processor.analyze_binary_and_decompile")
-    def test_execute_success(self, mock_analyze):
+    @pytest.mark.asyncio
+    async def test_execute_success(self, mock_analyze):
         """Test successful decompilation."""
         mock_analyze.return_value = {
             "functions": [{"name": "test"}],
@@ -192,13 +197,14 @@ class TestDecompileStep:
             uuid="test-uuid",
             binary_path="/test/binary",
         )
-        result = step.execute(context)
+        result = await step.execute(context)
 
         assert result.error is None
         assert result.get("functions") == [{"name": "test"}]
 
     @patch("app.processing.ghidra_processor.analyze_binary_and_decompile")
-    def test_execute_failure(self, mock_analyze):
+    @pytest.mark.asyncio
+    async def test_execute_failure(self, mock_analyze):
         """Test failed decompilation."""
         mock_analyze.side_effect = Exception("Ghidra error")
 
@@ -207,7 +213,7 @@ class TestDecompileStep:
             uuid="test-uuid",
             binary_path="/test/binary",
         )
-        result = step.execute(context)
+        result = await step.execute(context)
 
         assert result.error is not None
         assert "Decompilation failed" in result.error
@@ -221,7 +227,8 @@ class TestTokenizeStep:
         step = TokenizeStep()
         assert step.get_name() == "TokenizeStep"
 
-    def test_execute_success(self):
+    @pytest.mark.asyncio
+    async def test_execute_success(self):
         """Test successful tokenization."""
         step = TokenizeStep()
         context = PipelineContext(
@@ -234,7 +241,7 @@ class TestTokenizeStep:
                 ]
             },
         )
-        result = step.execute(context)
+        result = await step.execute(context)
 
         assert result.error is None
         tokenized = result.get("tokenized_functions")
@@ -242,14 +249,15 @@ class TestTokenizeStep:
         assert tokenized[0]["tokens"] == "int x ;"
         assert tokenized[1]["tokens"] == "return 0 ;"
 
-    def test_execute_no_functions(self):
+    @pytest.mark.asyncio
+    async def test_execute_no_functions(self):
         """Test tokenization with no functions."""
         step = TokenizeStep()
         context = PipelineContext(
             uuid="test-uuid",
             binary_path="/test/binary",
         )
-        result = step.execute(context)
+        result = await step.execute(context)
 
         assert result.error is not None
         assert "decompilation" in result.error
@@ -263,7 +271,8 @@ class TestFilterStep:
         step = FilterStep()
         assert step.get_name() == "FilterStep"
 
-    def test_execute_success(self):
+    @pytest.mark.asyncio
+    async def test_execute_success(self):
         """Test successful filtering."""
         step = FilterStep()
         context = PipelineContext(
@@ -278,21 +287,22 @@ class TestFilterStep:
                 ]
             },
         )
-        result = step.execute(context)
+        result = await step.execute(context)
 
         assert result.error is None
         filtered = result.get("filtered_functions")
         assert len(filtered) == 1
         assert filtered[0]["tokenList"] == ["HEX", "FUNCTION", "VARIABLE", "int"]
 
-    def test_execute_no_tokenized_functions(self):
+    @pytest.mark.asyncio
+    async def test_execute_no_tokenized_functions(self):
         """Test filtering with no tokenized functions."""
         step = FilterStep()
         context = PipelineContext(
             uuid="test-uuid",
             binary_path="/test/binary",
         )
-        result = step.execute(context)
+        result = await step.execute(context)
 
         assert result.error is not None
 
@@ -305,7 +315,8 @@ class TestFeatureExtractStep:
         step = FeatureExtractStep()
         assert step.get_name() == "FeatureExtractStep"
 
-    def test_execute_success(self):
+    @pytest.mark.asyncio
+    async def test_execute_success(self):
         """Test successful feature extraction."""
         step = FeatureExtractStep()
         context = PipelineContext(
@@ -318,21 +329,22 @@ class TestFeatureExtractStep:
                 ]
             },
         )
-        result = step.execute(context)
+        result = await step.execute(context)
 
         assert result.error is None
         tokens = result.get("tokens")
         assert tokens is not None
         assert len(tokens) == 2
 
-    def test_execute_no_filtered_functions(self):
+    @pytest.mark.asyncio
+    async def test_execute_no_filtered_functions(self):
         """Test feature extraction with no filtered functions."""
         step = FeatureExtractStep()
         context = PipelineContext(
             uuid="test-uuid",
             binary_path="/test/binary",
         )
-        result = step.execute(context)
+        result = await step.execute(context)
 
         assert result.error is not None
 
@@ -345,23 +357,28 @@ class TestTrainStep:
         step = TrainStep()
         assert step.get_name() == "TrainStep"
 
-    def test_execute_no_model_name(self):
+    @pytest.mark.asyncio
+    async def test_execute_no_model_name(self):
         """Test training without model name."""
         step = TrainStep()
         context = PipelineContext(
             uuid="test-uuid",
             binary_path="/test/binary",
         )
-        result = step.execute(context)
+        result = await step.execute(context)
 
         assert result.error is not None
 
     @patch("app.processing.steps.MLPersistanceUtil")
     @patch("app.processing.steps.MLTask")
-    def test_execute_success(self, mock_ml_task, mock_persistence):
+    @pytest.mark.asyncio
+    async def test_execute_success(self, mock_ml_task, mock_persistence):
         """Test successful training."""
+        from unittest.mock import AsyncMock
+
         mock_pipeline = MagicMock()
         mock_ml_task.get_multi_class_pipeline.return_value = mock_pipeline
+        mock_persistence.save_model = AsyncMock()
 
         step = TrainStep()
         context = PipelineContext(
@@ -376,7 +393,7 @@ class TestTrainStep:
                 "tokens": ["int x", "void y"],
             },
         )
-        result = step.execute(context)
+        result = await step.execute(context)
 
         assert result.error is None
         mock_persistence.save_model.assert_called_once()
@@ -390,21 +407,24 @@ class TestPredictStep:
         step = PredictStep()
         assert step.get_name() == "PredictStep"
 
-    def test_execute_no_model_name(self):
+    @pytest.mark.asyncio
+    async def test_execute_no_model_name(self):
         """Test prediction without model name."""
         step = PredictStep()
         context = PipelineContext(
             uuid="test-uuid",
             binary_path="/test/binary",
         )
-        result = step.execute(context)
+        result = await step.execute(context)
 
         assert result.error is not None
 
     @patch("app.processing.steps.MLPersistanceUtil")
-    def test_execute_success(self, mock_persistence):
+    @pytest.mark.asyncio
+    async def test_execute_success(self, mock_persistence):
         """Test successful prediction."""
         import numpy as np
+        from unittest.mock import AsyncMock
 
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0, 1])
@@ -413,7 +433,7 @@ class TestPredictStep:
         mock_encoder = MagicMock()
         mock_encoder.inverse_transform.return_value = np.array(["category1", "category2"])
 
-        mock_persistence.load_model.return_value = (mock_model, mock_encoder)
+        mock_persistence.load_model = AsyncMock(return_value=(mock_model, mock_encoder))
 
         step = PredictStep()
         context = PipelineContext(
@@ -428,7 +448,7 @@ class TestPredictStep:
                 "tokens": ["int x", "void y"],
             },
         )
-        result = step.execute(context)
+        result = await step.execute(context)
 
         assert result.error is None
         predictions = result.get("predictions")

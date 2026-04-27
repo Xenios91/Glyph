@@ -316,7 +316,7 @@ class Ghidra(TaskManager):
     """
 
     @classmethod
-    def run_full_pipeline(
+    async def run_full_pipeline(
         cls,
         ghidra_request: GhidraRequest,
         file_path: str) -> PipelineContext:
@@ -376,4 +376,4 @@ class Ghidra(TaskManager):
                     FeatureExtractStep(),
                     PredictStep(),
                 ])
-        return pipeline.execute(context)
+        return await pipeline.execute(context)

@@ -133,7 +133,7 @@ class ValidationStep(PipelineStep):
         """Return the name of this step."""
         return "ValidationStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Validate the binary file.
 
         Args:
@@ -185,7 +185,7 @@ class DecompileStep(PipelineStep):
         """Return the name of this step."""
         return "DecompileStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Decompile the binary using Ghidra.
 
         Args:
@@ -233,7 +233,7 @@ class TokenizeStep(PipelineStep):
         """Return the name of this step."""
         return "TokenizeStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Extract tokens from decompiled functions.
 
         Args:
@@ -280,7 +280,7 @@ class FilterStep(PipelineStep):
         """Return the name of this step."""
         return "FilterStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Filter and normalize tokens.
 
         Args:
@@ -329,7 +329,7 @@ class FeatureExtractStep(PipelineStep):
         """Return the name of this step."""
         return "FeatureExtractStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Extract tokens from filtered functions.
 
         Args:
@@ -375,7 +375,7 @@ class TrainStep(PipelineStep):
         """Return the name of this step."""
         return "TrainStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Train the ML model.
 
         Args:
@@ -428,7 +428,7 @@ class TrainStep(PipelineStep):
             ml_pipeline.fit(tokens, y)
 
             # Save the model
-            MLPersistanceUtil.save_model(model_name, label_encoder, ml_pipeline)
+            await MLPersistanceUtil.save_model(model_name, label_encoder, ml_pipeline)
 
             context.set("label_encoder", label_encoder)
             context.set("model", ml_pipeline)
@@ -458,7 +458,7 @@ class PredictStep(PipelineStep):
         """Return the name of this step."""
         return "PredictStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Run predictions on the features.
 
         Args:
@@ -486,7 +486,7 @@ class PredictStep(PipelineStep):
 
         try:
             # Load the model
-            model, label_encoder = MLPersistanceUtil.load_model(model_name)
+            model, label_encoder = await MLPersistanceUtil.load_model(model_name)
 
             # Run predictions - ML pipeline handles vectorization internally
             predictions = model.predict(tokens)

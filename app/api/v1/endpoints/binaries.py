@@ -4,6 +4,7 @@ This module provides endpoints for uploading binary files and managing
 binary-related operations.
 """
 
+import asyncio
 import os
 import stat
 from pathlib import Path
@@ -183,7 +184,9 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
     """
     try:
         # Run the full pipeline
-        result = Ghidra.run_full_pipeline(ghidra_request, file_path)
+        result = asyncio.run(
+            Ghidra.run_full_pipeline(ghidra_request, file_path)
+        )
 
         # Handle results based on pipeline type
         if result.error:
@@ -210,7 +213,9 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                         req_uuid=ghidra_request.uuid,
                         model_name=ghidra_request.model_name,
                         data=training_data)
-                    FunctionPersistanceUtil.add_model_functions(training_request)
+                    asyncio.run(
+                        FunctionPersistanceUtil.add_model_functions(training_request)
+                    )
                     logger.debug(
                         "Functions saved for model {}",
                         ghidra_request.model_name)
@@ -247,8 +252,10 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                         logger.debug(
                             "PredictionRequest created for task '{}'",
                             prediction_request.task_name)
-                        FunctionPersistanceUtil.add_prediction_functions(
-                            prediction_request, predictions
+                        asyncio.run(
+                            FunctionPersistanceUtil.add_prediction_functions(
+                                prediction_request, predictions
+                            )
                         )
                         logger.debug(
                             "Predictions saved for task {}",

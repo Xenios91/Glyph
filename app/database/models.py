@@ -135,7 +135,7 @@ class APIKey(Base):
     __tablename__ = "api_keys"
     
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     hashed_key: Mapped[str] = mapped_column(String(256), nullable=False)
     key_prefix: Mapped[str] = mapped_column(String(8), nullable=False, index=True)
@@ -144,6 +144,7 @@ class APIKey(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
+    modified_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
     
     # Relationship to user
     user: Mapped["User"] = relationship(back_populates="api_keys")

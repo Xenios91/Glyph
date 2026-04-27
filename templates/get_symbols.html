@@ -22,13 +22,13 @@
                     </thead>
                     <tbody>
                         {% for functionInfo in functions %}
-                        <tr id="{{ functionInfo[1] }}-id"
+                        <tr id="{{ functionInfo.function_name }}-id"
                             class="hover-row"
                             tabindex="0"
                             role="row"
-                            aria-label="Function: {{ functionInfo[1] | e }}">
-                            <td>{{ functionInfo[1] }}</td>
-                            <td>0x{{ functionInfo[2] }}</td>
+                            aria-label="Function: {{ functionInfo.function_name | e }}">
+                            <td>{{ functionInfo.function_name }}</td>
+                            <td>0x{{ functionInfo.entrypoint }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

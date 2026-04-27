@@ -79,7 +79,7 @@ class PipelineStep(ABC):
     """
 
     @abstractmethod
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Execute this step and return updated context.
 
         Args:
@@ -148,7 +148,7 @@ class ProcessingPipeline:
         """
         return self._steps
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Execute all steps in the pipeline.
 
         Args:
@@ -166,7 +166,7 @@ class ProcessingPipeline:
         for step in self._steps:
             try:
                 logger.debug("Executing step {}", step.get_name())
-                context = step.execute(context)
+                context = await step.execute(context)
 
                 # Check if step set an error
                 if context.error is not None:

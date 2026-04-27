@@ -46,8 +46,8 @@ async def delete_model(
     Returns:
         Success response when model is deleted.
     """
-    MLPersistanceUtil.delete_model(model_name)
-    PredictionPersistanceUtil.delete_model_predictions(model_name)
+    await MLPersistanceUtil.delete_model(model_name)
+    await PredictionPersistanceUtil.delete_model_predictions(model_name)
     return create_success_response(
         data={},
         message="Model deleted successfully")
@@ -71,27 +71,46 @@ async def get_function(
         Function information or HTML template response.
 
     Raises:
-        HTTPException: If function is not found.
+        HTTPException: If function is not found or inputs are invalid.
     """
-    function_information: list = FunctionPersistanceUtil.get_function(
-        model_name, function_name
+    # Validate inputs before persistence layer call
+    if not model_name or not model_name.strip():
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="INVALID_MODEL_NAME",
+                error_message="model_name must be a non-empty string").model_dump())
+    if not function_name or not function_name.strip():
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="INVALID_FUNCTION_NAME",
+                error_message="function_name must be a non-empty string").model_dump())
+
+    function_information = await FunctionPersistanceUtil.get_function(
+        model_name.strip(), function_name.strip()
     )
 
-    if not function_information:
+    if function_information is None:
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
                 error_code="FUNCTION_NOT_FOUND",
                 error_message="Function not found").model_dump())
 
-    f_name = function_information[1]
-    f_entry = function_information[2]
-    f_tokens = format_code(function_information[3])
+    f_name = function_information.function_name
+    f_entry = function_information.entrypoint
+    f_tokens = format_code(function_information.tokens)
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE not in accept:
         return create_success_response(
-            data={"functions": function_information},
+            data={
+                "id": function_information.id,
+                "function_name": f_name,
+                "entrypoint": f_entry,
+                "tokens": function_information.tokens,
+            },
             message="Function retrieved successfully")
 
     return templates.TemplateResponse(
@@ -122,12 +141,22 @@ async def get_functions(
     Returns:
         List of functions or HTML template response.
     """
-    functions: list = FunctionPersistanceUtil.get_functions(model_name)
+    functions = await FunctionPersistanceUtil.get_functions(model_name)
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE not in accept:
         return create_success_response(
-            data={"functions": functions},
+            data={
+                "functions": [
+                    {
+                        "id": f.id,
+                        "function_name": f.function_name,
+                        "entrypoint": f.entrypoint,
+                        "tokens": f.tokens,
+                    }
+                    for f in functions
+                ]
+            },
             message="Functions retrieved successfully")
 
     return templates.TemplateResponse(
@@ -164,12 +193,12 @@ async def get_prediction_details(
         HTTPException: If function or prediction is not found.
     """
     try:
-        model_info = FunctionPersistanceUtil.get_function(model_name, function_name)
-        prediction_data = FunctionPersistanceUtil.get_prediction_function(
+        model_info = await FunctionPersistanceUtil.get_function(model_name, function_name)
+        prediction_data = await FunctionPersistanceUtil.get_prediction_function(
             task_name, model_name, function_name
         )
 
-        if not model_info:
+        if model_info is None:
             raise HTTPException(
                 status_code=404,
                 detail=create_error_response(
@@ -182,7 +211,7 @@ async def get_prediction_details(
                     error_code="PREDICTION_NOT_FOUND",
                     error_message="Prediction not found").model_dump())
 
-        model_tokens = format_code(model_info[3] if len(model_info) >= 3 else "")
+        model_tokens = format_code(model_info.tokens)
         prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
     except (TypeError, IndexError, KeyError) as exc:

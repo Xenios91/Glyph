@@ -7,7 +7,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from app.database.session_handler import get_async_session
-from app.auth.repository import UserRepository
+from app.database.repository import UserRepository
 
 
 @pytest.fixture

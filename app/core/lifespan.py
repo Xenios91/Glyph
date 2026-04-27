@@ -6,8 +6,7 @@ from loguru import logger
 from fastapi import FastAPI
 
 from app.config.settings import get_settings
-from app.database.sql_service import SQLUtil
-from app.database.session_handler import init_async_databases
+from app.database.session_handler import init_async_databases, dispose_async_engines
 from app.processing.task_management import EventWatcher
 from app.services.task_service import TaskService
 
@@ -23,13 +22,6 @@ async def lifespan(app: FastAPI):
     except RuntimeError as e:
         logger.critical("Configuration load failed: {}", e)
         raise
-
-    try:
-        SQLUtil.init_db()
-        logger.info("Database initialized")
-    except Exception as e:
-        logger.exception("Failed to initialize database")
-        raise RuntimeError("Database initialization failed.") from e
 
     try:
         await init_async_databases()
@@ -57,5 +49,11 @@ async def lifespan(app: FastAPI):
     finally:
         logger.info("Shutting down Glyph service")
         event_watcher.stop_watching()
+        # Dispose async database engines to release connections
+        try:
+            await dispose_async_engines()
+            logger.info("Async database engines disposed")
+        except Exception:
+            logger.exception("Failed to dispose async database engines")
         # Drain the log queue before process exit (required when enqueue=True)
         logger.complete()

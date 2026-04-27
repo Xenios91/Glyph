@@ -90,6 +90,44 @@ class TestModelsRouter:
         finally:
             client.app.dependency_overrides.clear()
 
+    def test_get_function_empty_function_name(self, client):
+        """Test getting a function with empty function_name returns 400."""
+        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+
+        try:
+            response = client.get(
+                "/models/getFunction",
+                params={"model_name": "test_model", "function_name": ""},
+                headers={"Accept": "application/json"},
+            )
+
+            assert response.status_code == 400
+            data = response.json()
+            detail = data.get("detail", data)
+            assert detail["success"] is False
+            assert "INVALID_FUNCTION_NAME" in detail.get("error", {}).get("code", "")
+        finally:
+            client.app.dependency_overrides.clear()
+
+    def test_get_function_empty_model_name(self, client):
+        """Test getting a function with empty model_name returns 400."""
+        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+
+        try:
+            response = client.get(
+                "/models/getFunction",
+                params={"model_name": "", "function_name": "test_func"},
+                headers={"Accept": "application/json"},
+            )
+
+            assert response.status_code == 400
+            data = response.json()
+            detail = data.get("detail", data)
+            assert detail["success"] is False
+            assert "INVALID_MODEL_NAME" in detail.get("error", {}).get("code", "")
+        finally:
+            client.app.dependency_overrides.clear()
+
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_function_not_found(self, mock_func_persistance, client):
         """Test getting a function that doesn't exist returns 404."""

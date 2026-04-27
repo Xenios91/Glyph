@@ -3,7 +3,7 @@
 import pytest
 import pytest_asyncio
 
-from app.auth.repository import UserRepository, APIKeyRepository, PasswordHasherService
+from app.database.repository import UserRepository, APIKeyRepository, PasswordHasherService
 from app.database.session_handler import get_async_session, init_async_databases
 
 

@@ -19,21 +19,24 @@ class TestLifespan:
         app = Mock()
         return app
 
+    @patch("app.core.lifespan.dispose_async_engines")
+    @patch("app.core.lifespan.init_async_databases")
     @patch("app.core.lifespan.get_settings")
-    @patch("app.core.lifespan.SQLUtil")
     @patch("app.core.lifespan.TaskService")
     @patch("app.core.lifespan.threading")
     async def test_lifespan_startup_success(
         self,
         mock_threading,
         mock_task_service,
-        mock_sql_util,
         mock_get_settings,
+        mock_init_async_databases,
+        mock_dispose_async_engines,
         mock_app,
     ):
         """Test successful lifespan startup."""
         mock_get_settings.return_value = Mock()
-        mock_sql_util.init_db = Mock()
+        mock_init_async_databases.return_value = None
+        mock_dispose_async_engines.return_value = None
 
         mock_thread = Mock()
         mock_threading.Thread.return_value = mock_thread
@@ -42,7 +45,7 @@ class TestLifespan:
         async with lifespan(mock_app):
             # Verify startup was called
             mock_get_settings.assert_called_once()
-            mock_sql_util.init_db.assert_called_once()
+            mock_init_async_databases.assert_called_once()
             mock_threading.Thread.assert_called_once()
             mock_thread.start.assert_called_once()
 
@@ -56,36 +59,39 @@ class TestLifespan:
                 pass
 
     @patch("app.core.lifespan.get_settings")
-    @patch("app.core.lifespan.SQLUtil")
+    @patch("app.core.lifespan.init_async_databases")
     async def test_lifespan_startup_db_failure(
         self,
-        mock_sql_util,
+        mock_init_async_databases,
         mock_get_settings,
         mock_app,
     ):
         """Test lifespan startup fails on DB error."""
         mock_get_settings.return_value = Mock()
-        mock_sql_util.init_db.side_effect = Exception("DB error")
+        mock_init_async_databases.side_effect = Exception("DB error")
 
-        with pytest.raises(RuntimeError, match="Database initialization failed"):
+        with pytest.raises(RuntimeError, match="Async database initialization failed"):
             async with lifespan(mock_app):
                 pass
 
+    @patch("app.core.lifespan.dispose_async_engines")
+    @patch("app.core.lifespan.init_async_databases")
     @patch("app.core.lifespan.get_settings")
-    @patch("app.core.lifespan.SQLUtil")
     @patch("app.core.lifespan.TaskService")
     @patch("app.core.lifespan.threading")
     async def test_lifespan_startup_task_service_failure(
         self,
         mock_threading,
         mock_task_service,
-        mock_sql_util,
         mock_get_settings,
+        mock_init_async_databases,
+        mock_dispose_async_engines,
         mock_app,
     ):
         """Test lifespan startup fails on task service error."""
         mock_get_settings.return_value = Mock()
-        mock_sql_util.init_db = Mock()
+        mock_init_async_databases.return_value = None
+        mock_dispose_async_engines.return_value = None
 
         mock_thread = Mock()
         mock_threading.Thread.return_value = mock_thread
@@ -95,21 +101,24 @@ class TestLifespan:
             async with lifespan(mock_app):
                 pass
 
+    @patch("app.core.lifespan.dispose_async_engines")
+    @patch("app.core.lifespan.init_async_databases")
     @patch("app.core.lifespan.get_settings")
-    @patch("app.core.lifespan.SQLUtil")
     @patch("app.core.lifespan.TaskService")
     @patch("app.core.lifespan.threading")
     async def test_lifespan_shutdown(
         self,
         mock_threading,
         mock_task_service,
-        mock_sql_util,
         mock_get_settings,
+        mock_init_async_databases,
+        mock_dispose_async_engines,
         mock_app,
     ):
-        """Test lifespan shutdown is called."""
+        """Test lifespan shutdown properly disposes async engines."""
         mock_get_settings.return_value = Mock()
-        mock_sql_util.init_db = Mock()
+        mock_init_async_databases.return_value = None
+        mock_dispose_async_engines.return_value = None
 
         mock_thread = Mock()
         mock_threading.Thread.return_value = mock_thread
@@ -122,22 +131,27 @@ class TestLifespan:
             entered = True
 
         assert entered is True
+        # Verify dispose was called during shutdown
+        mock_dispose_async_engines.assert_called_once()
 
+    @patch("app.core.lifespan.dispose_async_engines")
+    @patch("app.core.lifespan.init_async_databases")
     @patch("app.core.lifespan.get_settings")
-    @patch("app.core.lifespan.SQLUtil")
     @patch("app.core.lifespan.TaskService")
     @patch("app.core.lifespan.threading")
     async def test_lifespan_exception_during_yield(
         self,
         mock_threading,
         mock_task_service,
-        mock_sql_util,
         mock_get_settings,
+        mock_init_async_databases,
+        mock_dispose_async_engines,
         mock_app,
     ):
         """Test lifespan handles exception during yield."""
         mock_get_settings.return_value = Mock()
-        mock_sql_util.init_db = Mock()
+        mock_init_async_databases.return_value = None
+        mock_dispose_async_engines.return_value = None
 
         mock_thread = Mock()
         mock_threading.Thread.return_value = mock_thread
@@ -149,3 +163,5 @@ class TestLifespan:
 
         # If we get here, the exception was properly propagated
         # and the finally block was executed
+        # Verify dispose was still called during shutdown
+        mock_dispose_async_engines.assert_called_once()
