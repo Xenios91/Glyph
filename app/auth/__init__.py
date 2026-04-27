@@ -13,16 +13,12 @@ Components:
 """
 
 from app.auth.dependencies import (
-    get_api_key_repository,
     get_current_active_user,
     get_current_user,
     get_db,
     get_jwt_handler,
     get_optional_user,
-    get_user_repository,
-    oauth2_scheme,
-    require_admin_permission,
-    require_write_permission)
+    oauth2_scheme)
 from app.auth.endpoints import router as auth_router
 from app.auth.jwt_handler import JWTHandler
 from app.auth.middleware import AuthMiddleware
@@ -40,16 +36,12 @@ from app.auth.schemas import (
     UserUpdate)
 __all__ = [
     # Dependencies
-    "get_api_key_repository",
     "get_current_active_user",
     "get_current_user",
     "get_db",
     "get_jwt_handler",
     "get_optional_user",
-    "get_user_repository",
     "oauth2_scheme",
-    "require_admin_permission",
-    "require_write_permission",
     # Router
     "auth_router",
     # Middleware

@@ -8,14 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt_handler import JWTHandler
 from app.auth.repository import UserRepository, APIKeyRepository
-from app.auth.security_logger import (
-    log_api_key_usage,
-    log_permission_denied)
+from app.auth.security_logger import log_api_key_usage
 from app.config.settings import get_settings
 from app.database.models import User
 from app.database.session_handler import get_async_session, close_async_session
 from loguru import logger
-from app.utils.request_context import set_request_context, get_request_context
+from app.utils.request_context import set_request_context
 
 
 
@@ -241,85 +239,3 @@ async def get_optional_user(
     return None
 
 
-async def require_write_permission(
-    current_user: Annotated[User, Depends(get_current_active_user)]) -> User:
-    """Require write permission for the current user.
-    
-    Args:
-        current_user: Current authenticated user
-        
-    Returns:
-        User instance if they have write permission
-        
-    Raises:
-        HTTPException: If user lacks write permission
-    """
-    import json
-    
-    permissions = json.loads(current_user.permissions or "[]")
-    if "write" not in permissions:
-        # Log permission denied for security audit
-        log_permission_denied(
-            user_id=current_user.id,
-            username=current_user.username,
-            resource="write_permission",
-            required_permission="write")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Write permission required"
-        )
-    return current_user
-
-
-async def require_admin_permission(
-    current_user: Annotated[User, Depends(get_current_active_user)]) -> User:
-    """Require admin permission for the current user.
-    
-    Args:
-        current_user: Current authenticated user
-        
-    Returns:
-        User instance if they have admin permission
-        
-    Raises:
-        HTTPException: If user lacks admin permission
-    """
-    import json
-    
-    permissions = json.loads(current_user.permissions or "[]")
-    if "admin" not in permissions:
-        # Log permission denied for security audit
-        log_permission_denied(
-            user_id=current_user.id,
-            username=current_user.username,
-            resource="admin_permission",
-            required_permission="admin")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin permission required"
-        )
-    return current_user
-
-
-async def get_user_repository(db: Annotated[AsyncSession, Depends(get_db)]) -> UserRepository:
-    """Get the user repository instance.
-    
-    Args:
-        db: Database session
-        
-    Returns:
-        UserRepository instance
-    """
-    return UserRepository(db)
-
-
-async def get_api_key_repository(db: Annotated[AsyncSession, Depends(get_db)]) -> APIKeyRepository:
-    """Get the API key repository instance.
-    
-    Args:
-        db: Database session
-        
-    Returns:
-        APIKeyRepository instance
-    """
-    return APIKeyRepository(db)
