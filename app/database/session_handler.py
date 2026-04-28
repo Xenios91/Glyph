@@ -5,7 +5,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.database.models import Base
+from app.database.models import Base, Model, Prediction, Function, User, APIKey
 from loguru import logger
 
 # Async engines and sessions (for auth module)
@@ -14,6 +14,16 @@ ASYNC_DATABASE_URLS = {
     "predictions": "sqlite+aiosqlite:///data/predictions.db",
     "functions": "sqlite+aiosqlite:///data/functions.db",
     "auth": "sqlite+aiosqlite:///data/auth.db",  # New database for auth
+}
+
+# Map each database to the tables it should contain.
+# This prevents Base.metadata.create_all from creating every table
+# in every database file, which would waste space and cause confusion.
+DB_TABLE_MAP: dict[str, list] = {
+    "models": [Model.__table__],
+    "predictions": [Prediction.__table__],
+    "functions": [Function.__table__],
+    "auth": [User.__table__, APIKey.__table__],
 }
 
 async_engines: dict[str, AsyncEngine] = {}
@@ -78,7 +88,13 @@ def _create_engine(url: str) -> AsyncEngine:
 
 
 async def init_async_databases() -> None:
-    """Initialize all async database tables."""
+    """Initialize all async database tables.
+
+    Creates only the tables relevant to each database file, preventing
+    unnecessary tables from being created in databases that don't need them.
+    For example, the 'models' database only contains the Model table,
+    while the 'auth' database contains User and APIKey tables.
+    """
     for name, url in ASYNC_DATABASE_URLS.items():
         if name not in async_engines:
             async_engines[name] = _create_engine(url)
@@ -93,11 +109,14 @@ async def init_async_databases() -> None:
                 expire_on_commit=False,
             )
 
-        # Create tables (PRAGMAs are applied via pool_connect event)
-        async with async_engines[name].begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info(
-            "Async database '{}' initialized successfully", name)
+        # Create only the tables relevant to this database.
+        # Using tables=parameter prevents Base.metadata.create_all from
+        # creating every table in every database file.
+        target_tables = DB_TABLE_MAP.get(name)
+        if target_tables:
+            async with async_engines[name].begin() as conn:
+                await conn.run_sync(Base.metadata.create_all, tables=target_tables)
+            logger.info("Async database '{}' initialized successfully", name)
 
 
 async def get_async_session(database: str = "auth") -> AsyncSession:

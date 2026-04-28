@@ -4,7 +4,7 @@ from io import BytesIO
 from typing import Any
 
 import joblib
-from sqlalchemy import delete, exists, insert, select, update
+from sqlalchemy import delete, exists, func, insert, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,10 +60,11 @@ class SQLUtil:
                 label_encoder_data=label_encoder,
             )
             stmt = ins.on_conflict_do_update(
-                index_elements=["model_name"],
+                index_elements=[Model.model_name],
                 set_={
-                    "model_data": ins.excluded.model_data,
-                    "label_encoder_data": ins.excluded.label_encoder_data,
+                    Model.model_data: ins.excluded.model_data,
+                    Model.label_encoder_data: ins.excluded.label_encoder_data,
+                    Model.modified_at: func.now(),
                 }
             )
             await session.execute(stmt)
@@ -271,8 +272,11 @@ class SQLUtil:
                 functions_data=functions_serialized,
             )
             stmt = ins.on_conflict_do_update(
-                index_elements=["task_name", "model_name"],
-                set_={"functions_data": ins.excluded.functions_data}
+                index_elements=[Prediction.task_name, Prediction.model_name],
+                set_={
+                    Prediction.functions_data: ins.excluded.functions_data,
+                    Prediction.modified_at: func.now(),
+                }
             )
             await session.execute(stmt)
             await session.commit()
@@ -514,7 +518,7 @@ class SQLUtil:
             result = await session.execute(
                 select(exists().where(Model.model_name == model_name))
             )
-            return result.scalar() is True
+            return result.scalar() == True
         except Exception:
             logger.exception("Failed to check if model '{}' exists", model_name)
             return False
@@ -538,7 +542,7 @@ class SQLUtil:
             result = await session.execute(
                 select(exists().where(Prediction.task_name == task_name))
             )
-            return result.scalar() is True
+            return result.scalar() == True
         except Exception:
             logger.exception("Failed to check if task '{}' exists", task_name)
             return False

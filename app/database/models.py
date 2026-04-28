@@ -181,8 +181,16 @@ class User(Base):
         nullable=False,
     )
     
-    # Relationship to API keys
-    api_keys: Mapped[list["APIKey"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    # Relationship to API keys.
+    # Using cascade="save-update, merge, delete, delete-orphan" instead of "all"
+    # to exclude "refresh-expire" and "expunge" which can trigger implicit lazy
+    # loads in asyncio contexts. Per SQLAlchemy docs, cascade="all" with asyncio
+    # "will expire related objects more aggressively than is typically appropriate
+    # in an explicit IO context."
+    api_keys: Mapped[list["APIKey"]] = relationship(
+        back_populates="user",
+        cascade="save-update, merge, delete, delete-orphan",
+    )
 
 
 class APIKey(Base):
