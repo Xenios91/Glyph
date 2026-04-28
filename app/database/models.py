@@ -44,7 +44,7 @@ class Model(Base):
     __tablename__ = "models"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    model_name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    model_name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     model_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     label_encoder_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -94,11 +94,11 @@ class Prediction(Base):
         nullable=False,
     )
 
-    # Unique constraint ensures one prediction per task+model combination
-    # Composite index for common query patterns (task_name + model_name lookups)
+    # Unique constraint prevents duplicate predictions for the same task/model combination.
+    # This is required by the upsert logic in SQLUtil.save_predictions() which uses
+    # on_conflict_do_update with index_elements=[task_name, model_name].
     __table_args__ = (
         UniqueConstraint("task_name", "model_name", name="uq_predictions_task_model"),
-        Index("ix_predictions_task_model", "task_name", "model_name"),
     )
 
 
@@ -136,10 +136,11 @@ class Function(Base):
         nullable=False,
     )
 
-    # Composite index for common query patterns (model_name + function_name lookups)
+    # Unique constraint prevents duplicate functions for the same model.
+    # The unique constraint already creates a unique index on (model_name, function_name)
+    # which covers all query patterns, so no separate Index is needed.
     __table_args__ = (
-        Index("ix_functions_model_name", "model_name"),
-        Index("ix_functions_model_function", "model_name", "function_name"),
+        UniqueConstraint("model_name", "function_name", name="uq_functions_model_function"),
     )
 
 
@@ -161,8 +162,8 @@ class User(Base):
     __tablename__ = "users"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
-    email: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(256), nullable=False)
     full_name: Mapped[str] = mapped_column(String(128), nullable=True)
     permissions: Mapped[str] = mapped_column(String(512), default="[]", nullable=False)

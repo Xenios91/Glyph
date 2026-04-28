@@ -4,11 +4,11 @@ from io import BytesIO
 from typing import Any
 
 import joblib
-from sqlalchemy import delete, exists, func, insert, select, update
+from sqlalchemy import delete, exists, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Model, Prediction, Function
+from app.database.models import Model, Prediction, Function, get_utc_now
 from app.database.session_handler import get_async_session, close_async_session
 from app.services.request_handler import Prediction as PredictionResult
 from loguru import logger
@@ -54,17 +54,20 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("models")
         try:
+            now = get_utc_now()
             ins = sqlite_insert(Model).values(
                 model_name=model_name,
                 model_data=model,
                 label_encoder_data=label_encoder,
+                created_at=now,
+                modified_at=now,
             )
             stmt = ins.on_conflict_do_update(
                 index_elements=[Model.model_name],
                 set_={
                     Model.model_data: ins.excluded.model_data,
                     Model.label_encoder_data: ins.excluded.label_encoder_data,
-                    Model.modified_at: func.now(),
+                    Model.modified_at: ins.excluded.modified_at,
                 }
             )
             await session.execute(stmt)
@@ -102,6 +105,10 @@ class SQLUtil:
     async def get_model(model_name: str) -> Model | None:
         """Retrieve a model from the database.
 
+        Uses session.expunge() to explicitly detach the ORM object before
+        closing the session, preserving loaded attribute values for the
+        caller to access without triggering DetachedInstanceError.
+
         Args:
             model_name: Name of the model to retrieve.
 
@@ -116,10 +123,16 @@ class SQLUtil:
             model = result.scalar_one_or_none()
             if model is None:
                 logger.warning("Model '{}' not found", model_name)
+            else:
+                # Expunge the object to detach it from the session while
+                # preserving its loaded attribute values. This allows the
+                # caller to access scalar attributes without the session
+                # being open, avoiding DetachedInstanceError with AsyncAttrs.
+                session.expunge(model)
             return model
         except Exception:
             logger.exception("Failed to retrieve model '{}'", model_name)
-            return None
+            raise
         finally:
             await close_async_session(session)
 
@@ -266,16 +279,19 @@ class SQLUtil:
             joblib.dump(functions, functions_buffer)
             functions_serialized = functions_buffer.getvalue()
 
+            now = get_utc_now()
             ins = sqlite_insert(Prediction).values(
                 task_name=name,
                 model_name=model_name,
                 functions_data=functions_serialized,
+                created_at=now,
+                modified_at=now,
             )
             stmt = ins.on_conflict_do_update(
                 index_elements=[Prediction.task_name, Prediction.model_name],
                 set_={
                     Prediction.functions_data: ins.excluded.functions_data,
-                    Prediction.modified_at: func.now(),
+                    Prediction.modified_at: ins.excluded.modified_at,
                 }
             )
             await session.execute(stmt)
@@ -346,11 +362,11 @@ class SQLUtil:
 
     @staticmethod
     async def save_functions(model_name: str, functions: list) -> None:
-        """Save functions to the functions database.
+        """Save or update functions in the functions database.
 
-        Uses bulk_insert_mappings for efficient batch insertion which
-        generates a single INSERT statement with multiple rows instead
-        of individual INSERT statements per row.
+        Uses SQLAlchemy 2.0's on_conflict_do_update() for efficient upserts
+        on the composite key (model_name, function_name), avoiding duplicate
+        rows when the same model is trained multiple times.
 
         Args:
             model_name: Name of the model.
@@ -358,16 +374,28 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("functions")
         try:
+            now = get_utc_now()
             func_mappings = [
                 {
                     "model_name": model_name,
                     "function_name": function["functionName"],
                     "entrypoint": function["lowAddress"],
                     "tokens": " ".join(function["tokenList"]),
+                    "created_at": now,
+                    "modified_at": now,
                 }
                 for function in functions
             ]
-            await session.execute(insert(Function), func_mappings)
+            ins = sqlite_insert(Function).values(func_mappings)
+            stmt = ins.on_conflict_do_update(
+                index_elements=[Function.model_name, Function.function_name],
+                set_={
+                    Function.entrypoint: ins.excluded.entrypoint,
+                    Function.tokens: ins.excluded.tokens,
+                    Function.modified_at: ins.excluded.modified_at,
+                }
+            )
+            await session.execute(stmt)
             await session.commit()
             logger.info("Saved {} functions to model '{}'", len(functions), model_name)
         except Exception:
@@ -381,6 +409,10 @@ class SQLUtil:
     async def get_functions(model_name: str) -> list[Function]:
         """Get all functions for a model from the database.
 
+        Uses session.expunge_all() to explicitly detach all loaded ORM
+        objects before closing the session, preserving their loaded
+        attribute values for the caller to access.
+
         Args:
             model_name: Name of the model.
 
@@ -392,7 +424,11 @@ class SQLUtil:
             result = await session.execute(
                 select(Function).where(Function.model_name == model_name)
             )
-            return list(result.scalars().all())
+            functions = list(result.scalars().all())
+            # Expunge all loaded objects to detach them from the session
+            # while preserving their loaded attribute values.
+            session.expunge_all()
+            return functions
         except Exception:
             logger.exception("Failed to retrieve functions for model '{}'", model_name)
             return []
@@ -402,6 +438,9 @@ class SQLUtil:
     @staticmethod
     async def get_function(model_name: str, function_name: str) -> Function | None:
         """Get a specific function from the database.
+
+        Uses session.expunge() to explicitly detach the ORM object before
+        closing the session, preserving loaded attribute values.
 
         Args:
             model_name: Name of the model.
@@ -418,7 +457,11 @@ class SQLUtil:
                     Function.function_name == function_name,
                 )
             )
-            return result.scalar_one_or_none()
+            function = result.scalar_one_or_none()
+            if function is not None:
+                # Expunge to detach from session while preserving attributes.
+                session.expunge(function)
+            return function
         except Exception:
             logger.exception(
                 "Failed to retrieve function '{}' from model '{}'",
@@ -441,7 +484,7 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("functions")
         try:
-            result = await session.execute(
+            await session.execute(
                 delete(Function).where(Function.model_name == model_name)
             )
             await session.commit()
@@ -466,7 +509,7 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
-            result = await session.execute(
+            await session.execute(
                 delete(Prediction).where(Prediction.task_name == task_name)
             )
             await session.commit()
@@ -518,7 +561,7 @@ class SQLUtil:
             result = await session.execute(
                 select(exists().where(Model.model_name == model_name))
             )
-            return result.scalar() == True
+            return result.scalar_one() is True
         except Exception:
             logger.exception("Failed to check if model '{}' exists", model_name)
             return False
@@ -542,7 +585,7 @@ class SQLUtil:
             result = await session.execute(
                 select(exists().where(Prediction.task_name == task_name))
             )
-            return result.scalar() == True
+            return result.scalar_one() is True
         except Exception:
             logger.exception("Failed to check if task '{}' exists", task_name)
             return False

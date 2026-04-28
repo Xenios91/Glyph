@@ -229,8 +229,7 @@ class UserRepository:
         user = await self.get_by_id(user_id)
         if not user:
             return False
-        
-        username = user.username
+
         await self.db.delete(user)
         await self.db.flush()
         return True
