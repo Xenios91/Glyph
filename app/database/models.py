@@ -14,9 +14,10 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column, relationship
 
-Base = declarative_base()
+Base = declarative_base(cls=AsyncAttrs)
 
 
 def get_utc_now() -> datetime:
