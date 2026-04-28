@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -10,7 +11,7 @@ from sqlalchemy import (
     LargeBinary,
     String,
     Text,
-    Boolean,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column, relationship
@@ -92,8 +93,10 @@ class Prediction(Base):
         nullable=False,
     )
 
+    # Unique constraint ensures one prediction per task+model combination
     # Composite index for common query patterns (task_name + model_name lookups)
     __table_args__ = (
+        UniqueConstraint("task_name", "model_name", name="uq_predictions_task_model"),
         Index("ix_predictions_task_model", "task_name", "model_name"),
     )
 

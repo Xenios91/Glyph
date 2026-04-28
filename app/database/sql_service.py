@@ -4,7 +4,8 @@ from io import BytesIO
 from typing import Any
 
 import joblib
-from sqlalchemy import delete, exists, insert, select
+from sqlalchemy import delete, exists, insert, select, update
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Model, Prediction, Function
@@ -41,7 +42,10 @@ class SQLUtil:
 
     @staticmethod
     async def save_model(model_name: str, label_encoder: bytes, model: bytes) -> None:
-        """Save a model to the models database.
+        """Save or update a model in the models database.
+
+        Uses SQLAlchemy 2.0's on_conflict_do_update() for efficient upserts
+        in a single query, avoiding the need for a separate existence check.
 
         Args:
             model_name: Name of the model to save.
@@ -50,14 +54,20 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("models")
         try:
-            db_model = Model(
+            ins = sqlite_insert(Model).values(
                 model_name=model_name,
                 model_data=model,
                 label_encoder_data=label_encoder,
             )
-            session.add(db_model)
+            stmt = ins.on_conflict_do_update(
+                index_elements=["model_name"],
+                set_={
+                    "model_data": ins.excluded.model_data,
+                    "label_encoder_data": ins.excluded.label_encoder_data,
+                }
+            )
+            await session.execute(stmt)
             await session.commit()
-            await session.refresh(db_model)
             logger.info("Model '{}' saved", model_name)
         except Exception:
             await session.rollback()
@@ -114,20 +124,24 @@ class SQLUtil:
 
     @staticmethod
     async def delete_model(model_name: str) -> None:
-        """Delete a model and its associated functions from the database.
+        """Delete a model and all associated data from the database.
 
-        Uses bulk DELETE statements for better performance and to avoid
+        Deletes associated predictions, functions, and the model itself
+        using bulk DELETE statements for better performance and to avoid
         loading rows into the identity map unnecessarily.
 
         Args:
             model_name: Name of the model to delete.
         """
-        # Delete associated functions first using bulk delete
+        # Delete associated predictions first using bulk delete
+        await SQLUtil.delete_model_predictions(model_name)
+
+        # Delete associated functions using bulk delete
         await SQLUtil.delete_functions(model_name)
 
         session: AsyncSession = await get_async_session("models")
         try:
-            result = await session.execute(
+            await session.execute(
                 delete(Model).where(Model.model_name == model_name)
             )
             await session.commit()
@@ -235,7 +249,10 @@ class SQLUtil:
 
     @staticmethod
     async def save_predictions(name: str, model_name: str, functions: list) -> None:
-        """Save predictions to the database.
+        """Save or update predictions in the database.
+
+        Uses SQLAlchemy 2.0's on_conflict_do_update() for efficient upserts
+        in a single query on the composite key (task_name, model_name).
 
         Args:
             name: Name of the task.
@@ -248,12 +265,16 @@ class SQLUtil:
             joblib.dump(functions, functions_buffer)
             functions_serialized = functions_buffer.getvalue()
 
-            pred = Prediction(
+            ins = sqlite_insert(Prediction).values(
                 task_name=name,
                 model_name=model_name,
                 functions_data=functions_serialized,
             )
-            session.add(pred)
+            stmt = ins.on_conflict_do_update(
+                index_elements=["task_name", "model_name"],
+                set_={"functions_data": ins.excluded.functions_data}
+            )
+            await session.execute(stmt)
             await session.commit()
             logger.info("Prediction for task '{}' with model '{}' saved", name, model_name)
         except Exception:
@@ -473,6 +494,30 @@ class SQLUtil:
             await session.rollback()
             logger.exception("Failed to delete predictions for model '{}'", model_name)
             raise
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
+    async def model_name_exists(model_name: str) -> bool:
+        """Check if a model name already exists in the models database.
+
+        Uses exists() subquery for better performance than fetching all model names.
+
+        Args:
+            model_name: Name of the model to check.
+
+        Returns:
+            True if the model name exists, False otherwise.
+        """
+        session: AsyncSession = await get_async_session("models")
+        try:
+            result = await session.execute(
+                select(exists().where(Model.model_name == model_name))
+            )
+            return result.scalar() is True
+        except Exception:
+            logger.exception("Failed to check if model '{}' exists", model_name)
+            return False
         finally:
             await close_async_session(session)
 

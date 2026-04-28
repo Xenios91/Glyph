@@ -209,6 +209,9 @@ class MLPersistanceUtil:
     async def check_name(model_name: str) -> bool:
         """Check if a model name exists.
 
+        Uses an EXISTS subquery for O(1) performance instead of fetching
+        all model names into memory.
+
         Args:
             model_name: The model name to check.
 
@@ -217,8 +220,7 @@ class MLPersistanceUtil:
         """
         if not model_name:
             return False
-        models_list: set[str] = await SQLUtil.get_models_list()
-        return model_name in models_list
+        return await SQLUtil.model_name_exists(model_name)
 
     @staticmethod
     async def delete_model(model_name: str) -> None:
