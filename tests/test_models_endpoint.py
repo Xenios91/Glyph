@@ -3,7 +3,6 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
-from fastapi import Depends
 
 from app.api.v1.endpoints.models import router as models_router
 
@@ -26,16 +25,22 @@ class TestModelsRouter:
         return TestClient(app)
 
     @staticmethod
-    async def mock_optional_user():
-        """Mock function that returns None for optional user."""
-        return None
+    def mock_current_user():
+        """Mock function that returns a mock user for authentication."""
+        mock_user = Mock()
+        mock_user.id = 1
+        mock_user.username = "test_user"
+        mock_user.is_active = True
+        return mock_user
 
     @patch("app.api.v1.endpoints.models.MLPersistanceUtil")
     @patch("app.api.v1.endpoints.models.PredictionPersistanceUtil")
     def test_delete_model_success(self, mock_pred_persistance, mock_ml_persistance, client):
         """Test deleting a model successfully."""
-        # Override the dependency to return None
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        from app.auth.dependencies import get_current_active_user
+        mock_ml_persistance.delete_model = AsyncMock()
+        mock_pred_persistance.delete_model_predictions = AsyncMock()
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.delete("/models/deleteModel", params={"model_name": "test_model"})
@@ -44,8 +49,8 @@ class TestModelsRouter:
             data = response.json()
             assert data["success"] is True
             assert "Model deleted successfully" in data["message"]
-            mock_ml_persistance.delete_model.assert_called_once_with("test_model")
-            mock_pred_persistance.delete_model_predictions.assert_called_once_with("test_model")
+            mock_ml_persistance.delete_model.assert_awaited_once_with("test_model")
+            mock_pred_persistance.delete_model_predictions.assert_awaited_once_with("test_model")
         finally:
             client.app.dependency_overrides.clear()
 
@@ -53,8 +58,9 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.PredictionPersistanceUtil")
     def test_delete_model_error(self, mock_pred_persistance, mock_ml_persistance, client):
         """Test deleting a model that raises an error."""
-        mock_ml_persistance.delete_model.side_effect = Exception("Database error")
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        from app.auth.dependencies import get_current_active_user
+        mock_ml_persistance.delete_model = AsyncMock(side_effect=Exception("Database error"))
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.delete("/models/deleteModel", params={"model_name": "test_model"})
@@ -70,14 +76,15 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_function_success_json(self, mock_func_persistance, client):
         """Test getting a function successfully with JSON response."""
-        # The endpoint accesses function_information[1], [2], [3] so it expects a list/tuple
-        mock_func_persistance.get_function.return_value = [
-            "test_model",  # [0] model_name
-            "test_func",   # [1] function_name
-            "0x1000",      # [2] entrypoint
-            "test tokens", # [3] tokens
-        ]
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        from app.auth.dependencies import get_current_active_user
+        # The endpoint expects an object with attributes: id, function_name, entrypoint, tokens
+        mock_func = Mock()
+        mock_func.id = 1
+        mock_func.function_name = "test_func"
+        mock_func.entrypoint = "0x1000"
+        mock_func.tokens = "test tokens"
+        mock_func_persistance.get_function = AsyncMock(return_value=mock_func)
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -86,13 +93,15 @@ class TestModelsRouter:
                 headers={"Accept": "application/json"},
             )
 
-            mock_func_persistance.get_function.assert_called_once_with("test_model", "test_func")
+            assert response.status_code == 200
+            mock_func_persistance.get_function.assert_awaited_once_with("test_model", "test_func")
         finally:
             client.app.dependency_overrides.clear()
 
     def test_get_function_empty_function_name(self, client):
         """Test getting a function with empty function_name returns 400."""
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        from app.auth.dependencies import get_current_active_user
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -111,7 +120,8 @@ class TestModelsRouter:
 
     def test_get_function_empty_model_name(self, client):
         """Test getting a function with empty model_name returns 400."""
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        from app.auth.dependencies import get_current_active_user
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -131,8 +141,9 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_function_not_found(self, mock_func_persistance, client):
         """Test getting a function that doesn't exist returns 404."""
-        mock_func_persistance.get_function.return_value = {}
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        from app.auth.dependencies import get_current_active_user
+        mock_func_persistance.get_function = AsyncMock(return_value=None)
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -152,11 +163,20 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_functions_success_json(self, mock_func_persistance, client):
         """Test getting all functions successfully with JSON response."""
-        mock_func_persistance.get_functions.return_value = [
-            {"name": "func1", "entrypoint": "0x1000"},
-            {"name": "func2", "entrypoint": "0x2000"},
-        ]
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        from app.auth.dependencies import get_current_active_user
+        # The endpoint expects objects with attributes: id, function_name, entrypoint, tokens
+        mock_func1 = Mock()
+        mock_func1.id = 1
+        mock_func1.function_name = "func1"
+        mock_func1.entrypoint = "0x1000"
+        mock_func1.tokens = "tokens1"
+        mock_func2 = Mock()
+        mock_func2.id = 2
+        mock_func2.function_name = "func2"
+        mock_func2.entrypoint = "0x2000"
+        mock_func2.tokens = "tokens2"
+        mock_func_persistance.get_functions = AsyncMock(return_value=[mock_func1, mock_func2])
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -169,15 +189,16 @@ class TestModelsRouter:
             data = response.json()
             assert data["success"] is True
             assert len(data["data"]["functions"]) == 2
-            mock_func_persistance.get_functions.assert_called_once_with("test_model")
+            mock_func_persistance.get_functions.assert_awaited_once_with("test_model")
         finally:
             client.app.dependency_overrides.clear()
 
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_functions_empty(self, mock_func_persistance, client):
         """Test getting functions when none exist."""
-        mock_func_persistance.get_functions.return_value = []
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        from app.auth.dependencies import get_current_active_user
+        mock_func_persistance.get_functions = AsyncMock(return_value=[])
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -196,16 +217,16 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_prediction_details_success_json(self, mock_func_persistance, client):
         """Test getting prediction details successfully with JSON response."""
-        mock_func_persistance.get_function.return_value = {
-            "model_name": "test_model",
-            "function_name": "test_func",
-            "entrypoint": "0x1000",
-            "tokens": "model tokens",
-        }
-        mock_func_persistance.get_prediction_function.return_value = {
+        from app.auth.dependencies import get_current_active_user
+        # model_info needs .tokens attribute
+        mock_model_info = Mock()
+        mock_model_info.tokens = "model tokens"
+        mock_func_persistance.get_function = AsyncMock(return_value=mock_model_info)
+        # prediction_data uses .get("tokens")
+        mock_func_persistance.get_prediction_function = AsyncMock(return_value={
             "tokens": "prediction tokens",
-        }
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        })
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -230,8 +251,12 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_prediction_details_function_not_found(self, mock_func_persistance, client):
         """Test getting prediction details when function not found returns 404."""
-        mock_func_persistance.get_function.return_value = None
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        from app.auth.dependencies import get_current_active_user
+        mock_func_persistance.get_function = AsyncMock(return_value=None)
+        mock_func_persistance.get_prediction_function = AsyncMock(return_value={
+            "tokens": "prediction tokens",
+        })
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -255,14 +280,15 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_prediction_details_prediction_not_found(self, mock_func_persistance, client):
         """Test getting prediction details when prediction not found returns 404."""
-        mock_func_persistance.get_function.return_value = {
+        from app.auth.dependencies import get_current_active_user
+        mock_func_persistance.get_function = AsyncMock(return_value={
             "model_name": "test_model",
             "function_name": "test_func",
             "entrypoint": "0x1000",
             "tokens": "model tokens",
-        }
-        mock_func_persistance.get_prediction_function.return_value = None
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        })
+        mock_func_persistance.get_prediction_function = AsyncMock(return_value=None)
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -286,8 +312,9 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_prediction_details_retrieval_error(self, mock_func_persistance, client):
         """Test getting prediction details when retrieval fails returns 400."""
-        mock_func_persistance.get_function.side_effect = TypeError("Invalid data type")
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        from app.auth.dependencies import get_current_active_user
+        mock_func_persistance.get_function = AsyncMock(side_effect=TypeError("Invalid data type"))
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -311,14 +338,14 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_function_html_response(self, mock_func_persistance, client):
         """Test getting a function returns HTML for browsers."""
-        # The endpoint accesses function_information[1], [2], [3] so it expects a list/tuple
-        mock_func_persistance.get_function.return_value = [
-            "test_model",  # [0] model_name
-            "test_func",   # [1] function_name
-            "0x1000",      # [2] entrypoint
-            "test tokens", # [3] tokens
-        ]
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        from app.auth.dependencies import get_current_active_user
+        mock_func = Mock()
+        mock_func.id = 1
+        mock_func.function_name = "test_func"
+        mock_func.entrypoint = "0x1000"
+        mock_func.tokens = "test tokens"
+        mock_func_persistance.get_function = AsyncMock(return_value=mock_func)
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -335,10 +362,14 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_functions_html_response(self, mock_func_persistance, client):
         """Test getting functions returns HTML for browsers."""
-        mock_func_persistance.get_functions.return_value = [
-            {"name": "func1", "entrypoint": "0x1000"},
-        ]
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        from app.auth.dependencies import get_current_active_user
+        mock_func1 = Mock()
+        mock_func1.id = 1
+        mock_func1.function_name = "func1"
+        mock_func1.entrypoint = "0x1000"
+        mock_func1.tokens = "tokens1"
+        mock_func_persistance.get_functions = AsyncMock(return_value=[mock_func1])
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -355,16 +386,14 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
     def test_get_prediction_details_html_response(self, mock_func_persistance, client):
         """Test getting prediction details returns HTML for browsers."""
-        mock_func_persistance.get_function.return_value = {
-            "model_name": "test_model",
-            "function_name": "test_func",
-            "entrypoint": "0x1000",
-            "tokens": "model tokens",
-        }
-        mock_func_persistance.get_prediction_function.return_value = {
+        from app.auth.dependencies import get_current_active_user
+        mock_model_info = Mock()
+        mock_model_info.tokens = "model tokens"
+        mock_func_persistance.get_function = AsyncMock(return_value=mock_model_info)
+        mock_func_persistance.get_prediction_function = AsyncMock(return_value={
             "tokens": "prediction tokens",
-        }
-        client.app.dependency_overrides[Depends(get_optional_user).dependency] = self.mock_optional_user
+        })
+        client.app.dependency_overrides[get_current_active_user] = self.mock_current_user
 
         try:
             response = client.get(
@@ -381,7 +410,3 @@ class TestModelsRouter:
             assert "text/html" in response.headers.get("content-type", "")
         finally:
             client.app.dependency_overrides.clear()
-
-
-# Import the dependency function for override
-from app.auth.dependencies import get_optional_user

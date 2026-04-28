@@ -194,7 +194,7 @@ class TestMLPersistanceUtil:
     @patch("app.utils.persistence_util.SQLUtil")
     async def test_check_name_exists(self, mock_sql_util):
         """Test checking if model name exists."""
-        mock_sql_util.get_models_list = AsyncMock(return_value={"model1", "model2"})
+        mock_sql_util.model_name_exists = AsyncMock(return_value=True)
 
         result = await MLPersistanceUtil.check_name("model1")
 
@@ -203,7 +203,7 @@ class TestMLPersistanceUtil:
     @patch("app.utils.persistence_util.SQLUtil")
     async def test_check_name_not_exists(self, mock_sql_util):
         """Test checking if model name does not exist."""
-        mock_sql_util.get_models_list = AsyncMock(return_value={"model1", "model2"})
+        mock_sql_util.model_name_exists = AsyncMock(return_value=False)
 
         result = await MLPersistanceUtil.check_name("model3")
 

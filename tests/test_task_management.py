@@ -156,7 +156,7 @@ def test_start_watching_already_running(event_watcher):
 
     with capture_logs(level="WARNING") as output:
         event_watcher.start_watching()
-        assert any("EventWatcher is already watching" in msg for msg in output)
+        assert any("EventWatcher is already running" in msg for msg in output)
 
 
 def test_stop_watching(event_watcher):

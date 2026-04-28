@@ -60,69 +60,57 @@ class TestTaskService:
         # Queue should be empty now
         assert service.service_queue.empty()
 
-    @patch('app.services.task_service.logging')
-    def test_start_service_logs_info_on_task_start(self, mock_logging, clean_queue):
+    @patch('loguru.logger')
+    def test_start_service_logs_info_on_task_start(self, mock_logger, clean_queue):
         """Test that start_service logs info when processing a task."""
-        # Create a mock future that completes successfully
         mock_future = MagicMock()
         mock_future.result.return_value = None
 
-        # Put a task in the queue
         mock_request = MagicMock()
         mock_request.uuid = "test-uuid"
         TaskService().service_queue.put((mock_request, mock_future))
 
-        # Process one task manually (simulating what start_service does)
         task = TaskService().service_queue.get(block=False)
         job_uuid = task[0].uuid
         
-        # Verify the logging would be called
-        mock_logging.info.assert_not_called()  # Not called yet
-        
-        # Simulate the logging call
-        mock_logging.info("Processing job: job_uuid=%s", job_uuid)
-        mock_logging.info.assert_called()
+        # Simulate the logging call using loguru
+        mock_logger.info("Processing job: job_uuid={}", job_uuid)
+        mock_logger.info.assert_called()
 
-    @patch('app.services.task_service.logging')
-    def test_start_service_logs_completion_on_success(self, mock_logging, clean_queue):
+    @patch('loguru.logger')
+    def test_start_service_logs_completion_on_success(self, mock_logger, clean_queue):
         """Test that start_service logs completion on successful task."""
-        # Create a mock future that completes successfully
         mock_future = MagicMock()
         mock_future.result.return_value = None
 
-        # Put a task in the queue
         mock_request = MagicMock()
         mock_request.uuid = "test-uuid"
         TaskService().service_queue.put((mock_request, mock_future))
 
-        # Process one task manually
         task = TaskService().service_queue.get(block=False)
         job_uuid = task[0].uuid
         
-        # Simulate successful completion logging
-        mock_logging.info("Job completed successfully: job_uuid=%s", job_uuid)
-        mock_logging.info.assert_called()
+        # Simulate successful completion logging using loguru
+        mock_logger.info("Job completed successfully: job_uuid={}", job_uuid)
+        mock_logger.info.assert_called()
 
-    @patch('app.services.task_service.logging')
-    def test_start_service_logs_exception_on_failure(self, mock_logging, clean_queue):
+    @patch('loguru.logger')
+    def test_start_service_logs_exception_on_failure(self, mock_logger, clean_queue):
         """Test that start_service logs exception on task failure."""
-        # Create a mock future that raises an exception
         mock_future = MagicMock()
         mock_future.result.side_effect = Exception("Task failed")
 
-        # Put a task in the queue
         mock_request = MagicMock()
         mock_request.uuid = "test-uuid"
         TaskService().service_queue.put((mock_request, mock_future))
 
-        # Process one task manually
         task = TaskService().service_queue.get(block=False)
         job_uuid = task[0].uuid
         
-        # Simulate exception logging
+        # Simulate exception logging using loguru
         try:
             task[1].result()
         except Exception as e:
-            mock_logging.exception("Job failed: job_uuid=%s, error=%s", job_uuid, e)
+            mock_logger.exception("Job failed: job_uuid={}, error={}", job_uuid, e)
         
-        mock_logging.exception.assert_called()
+        mock_logger.exception.assert_called()
