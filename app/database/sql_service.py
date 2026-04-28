@@ -4,7 +4,7 @@ from io import BytesIO
 from typing import Any
 
 import joblib
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, exists, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Model, Prediction, Function
@@ -70,6 +70,9 @@ class SQLUtil:
     async def get_models_list() -> set[str]:
         """Get the list of model names from the database.
 
+        Uses scalars() for efficient single-column result extraction
+        instead of row indexing.
+
         Returns:
             A set of model names.
         """
@@ -77,7 +80,7 @@ class SQLUtil:
         session: AsyncSession = await get_async_session("models")
         try:
             result = await session.execute(select(Model.model_name))
-            models_set = {row[0] for row in result.all()}
+            models_set = set(result.scalars().all())
         except Exception:
             logger.exception("Failed to retrieve models list")
         finally:
@@ -113,22 +116,22 @@ class SQLUtil:
     async def delete_model(model_name: str) -> None:
         """Delete a model and its associated functions from the database.
 
+        Uses bulk DELETE statements for better performance and to avoid
+        loading rows into the identity map unnecessarily.
+
         Args:
             model_name: Name of the model to delete.
         """
-        # Delete associated functions first
+        # Delete associated functions first using bulk delete
         await SQLUtil.delete_functions(model_name)
 
         session: AsyncSession = await get_async_session("models")
         try:
             result = await session.execute(
-                select(Model).where(Model.model_name == model_name)
+                delete(Model).where(Model.model_name == model_name)
             )
-            model = result.scalar_one_or_none()
-            if model:
-                await session.delete(model)
-                await session.commit()
-                logger.info("Model '{}' deleted", model_name)
+            await session.commit()
+            logger.info("Model '{}' deleted", model_name)
         except Exception:
             await session.rollback()
             logger.exception("Failed to delete model '{}'", model_name)
@@ -320,21 +323,26 @@ class SQLUtil:
     async def save_functions(model_name: str, functions: list) -> None:
         """Save functions to the functions database.
 
+        Uses bulk_insert_mappings for efficient batch insertion which
+        generates a single INSERT statement with multiple rows instead
+        of individual INSERT statements per row.
+
         Args:
             model_name: Name of the model.
             functions: List of functions to save.
         """
         session: AsyncSession = await get_async_session("functions")
         try:
-            for function in functions:
-                tokens = " ".join(function["tokenList"])
-                db_func = Function(
-                    model_name=model_name,
-                    function_name=function["functionName"],
-                    entrypoint=function["lowAddress"],
-                    tokens=tokens,
-                )
-                session.add(db_func)
+            func_mappings = [
+                {
+                    "model_name": model_name,
+                    "function_name": function["functionName"],
+                    "entrypoint": function["lowAddress"],
+                    "tokens": " ".join(function["tokenList"]),
+                }
+                for function in functions
+            ]
+            await session.execute(insert(Function), func_mappings)
             await session.commit()
             logger.info("Saved {} functions to model '{}'", len(functions), model_name)
         except Exception:
@@ -385,7 +393,7 @@ class SQLUtil:
                     Function.function_name == function_name,
                 )
             )
-            return result.scalars().first()
+            return result.scalar_one_or_none()
         except Exception:
             logger.exception(
                 "Failed to retrieve function '{}' from model '{}'",

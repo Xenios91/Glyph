@@ -2,7 +2,17 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, BLOB, DateTime, ForeignKey, Integer, String, Text, Boolean
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    Boolean,
+    func,
+)
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column, relationship
 
 Base = declarative_base()
@@ -31,12 +41,23 @@ class Model(Base):
     
     __tablename__ = "models"
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     model_name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
-    model_data: Mapped[bytes] = mapped_column(BLOB, nullable=False)
-    label_encoder_data: Mapped[bytes] = mapped_column(BLOB, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
-    modified_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
+    model_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    label_encoder_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
 
 
 class Prediction(Base):
@@ -53,12 +74,28 @@ class Prediction(Base):
     
     __tablename__ = "predictions"
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    task_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    model_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    functions_data: Mapped[bytes] = mapped_column(BLOB, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
-    modified_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    task_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    functions_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
+
+    # Composite index for common query patterns (task_name + model_name lookups)
+    __table_args__ = (
+        Index("ix_predictions_task_model", "task_name", "model_name"),
+    )
 
 
 class Function(Base):
@@ -76,13 +113,30 @@ class Function(Base):
     
     __tablename__ = "functions"
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    model_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    function_name: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    function_name: Mapped[str] = mapped_column(String(256), nullable=False)
     entrypoint: Mapped[str] = mapped_column(String(16), nullable=False)
     tokens: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
-    modified_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
+
+    # Composite index for common query patterns (model_name + function_name lookups)
+    __table_args__ = (
+        Index("ix_functions_model_name", "model_name"),
+        Index("ix_functions_model_function", "model_name", "function_name"),
+    )
 
 
 class User(Base):
@@ -109,8 +163,19 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(128), nullable=True)
     permissions: Mapped[str] = mapped_column(String(512), default="[]", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
-    modified_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
     
     # Relationship to API keys
     api_keys: Mapped[list["APIKey"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -134,7 +199,7 @@ class APIKey(Base):
     
     __tablename__ = "api_keys"
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     hashed_key: Mapped[str] = mapped_column(String(256), nullable=False)
@@ -143,8 +208,19 @@ class APIKey(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
-    modified_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
     
     # Relationship to user
     user: Mapped["User"] = relationship(back_populates="api_keys")
