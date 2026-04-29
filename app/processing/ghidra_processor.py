@@ -10,7 +10,8 @@ def setup_decompiler(
     state: Any,
     program: Any,
     num_processors: int = 2,
-    decomp_interface: Any = None) -> Any:
+    decomp_interface: Any = None,
+) -> Any:
     """Initialize and configure the decompiler.
 
     Args:

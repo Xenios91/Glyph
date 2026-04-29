@@ -77,7 +77,8 @@ class EventWatcher:
         job_uuid: str,
         callback: Callable[[Any, Any], None],
         request: Any,
-        future: Future[None]) -> None:
+        future: Future[None],
+    ) -> None:
         """Register a callback for a specific job UUID and track the future.
 
         Args:
@@ -319,7 +320,8 @@ class Ghidra(TaskManager):
     async def run_full_pipeline(
         cls,
         ghidra_request: GhidraRequest,
-        file_path: str) -> PipelineContext:
+        file_path: str,
+    ) -> PipelineContext:
         """Run the full analysis pipeline for a binary.
 
         This method provides an end-to-end pipeline interface that combines

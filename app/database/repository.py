@@ -67,9 +67,9 @@ class PasswordHasherService:
 class UserRepository:
     """Repository for user operations."""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession) -> None:
         """Initialize the user repository.
-        
+
         Args:
             db: Async database session
         """
@@ -238,9 +238,9 @@ class UserRepository:
 class APIKeyRepository:
     """Repository for API key operations."""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession) -> None:
         """Initialize the API key repository.
-        
+
         Args:
             db: Async database session
         """

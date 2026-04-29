@@ -137,7 +137,8 @@ _login_failure_tracker = LoginFailureTracker()
 def log_login_attempt(
     username: str,
     ip_address: str | None = None,
-    user_agent: str | None = None) -> None:
+    user_agent: str | None = None,
+) -> None:
     """Log that a login attempt has been initiated.
 
     This is called at the start of the login flow to record the attempt
