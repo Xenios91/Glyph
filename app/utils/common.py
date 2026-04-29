@@ -29,7 +29,7 @@ def format_code(code: str) -> str:
     function_body = function_body.replace(" ;", ";")
 
     # 4. Tokenization (Handles strings and control characters)
-    tokens = []
+    tokens: list[str] = []
     current_token = ""
     i = 0
     while i < len(function_body):
@@ -56,7 +56,6 @@ def format_code(code: str) -> str:
         tokens.append(current_token.strip())
 
     # 5. Rebuild with Indentation Logic
-    result = []
     indent_level = 1
     
     # Start with signature and opening brace

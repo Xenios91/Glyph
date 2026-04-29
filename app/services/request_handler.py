@@ -20,7 +20,7 @@ class DataHandler:
     data: pd.DataFrame | None = None
     status: str = "starting"
 
-    def __init__(self, req_uuid: str, data: dict[str, Any], model_name: str):
+    def __init__(self, req_uuid: str, data: dict[str, Any], model_name: str) -> None:
         self.uuid = req_uuid
         self.model_name = model_name
         self.json_dict = data
@@ -31,8 +31,8 @@ class DataHandler:
         """Remove duplicate functions from the request data while preserving order."""
         functions_temp = list(self.get_functions())
 
-        seen = set()
-        unique_functions = []
+        seen: set[str] = set()
+        unique_functions: list[dict[str, Any]] = []
         for func in functions_temp:
             func_key = json.dumps(func, sort_keys=True)
             if func_key not in seen:

@@ -33,7 +33,8 @@ class ConfigPayload(BaseModel):
 @router.post("/save", response_model=SuccessResponse[dict[str, Any]])
 async def save_config(
     payload: ConfigPayload,
-    current_user: Annotated[User, Depends(get_current_active_user)]):
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> SuccessResponse[dict[str, Any]]:
     """
     Saves the configuration settings
     

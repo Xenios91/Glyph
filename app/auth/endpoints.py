@@ -45,7 +45,8 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 async def register(
     request: Request,
     user_data: UserRegister,
-    db: Annotated[AsyncSession, Depends(get_db)]) -> UserResponse:
+    db: Annotated[AsyncSession, Depends(get_db)]
+) -> UserResponse:
     """Register a new user.
 
     Args:
@@ -101,7 +102,8 @@ async def login(
     request: Request,
     credentials: UserLogin,
     db: Annotated[AsyncSession, Depends(get_db)],
-    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]) -> Response:
+    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]
+) -> Response:
     """Authenticate user and return tokens.
     
     Args:
@@ -196,7 +198,8 @@ async def refresh_token(
     request: Request,
     token_request: RefreshTokenRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]) -> Response:
+    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]
+) -> Response:
     """Refresh access token using refresh token.
 
     Args:
@@ -270,7 +273,8 @@ async def refresh_token(
 @router.get("/logout")
 async def logout(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_active_user)]) -> Response:
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> Response:
     """Logout user by clearing cookies.
 
     Args:
@@ -327,7 +331,8 @@ async def change_password(
     request: Request,
     password_data: ChangePassword,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)]) -> dict[str, str]:
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> dict[str, str]:
     """Change user password.
 
     Args:
@@ -427,7 +432,8 @@ async def create_api_key(
     request: Request,
     key_data: APIKeyCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)]) -> APIKeyWithSecret:
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> APIKeyWithSecret:
     """Create a new API key.
 
     Args:
@@ -467,7 +473,8 @@ async def delete_api_key(
     request: Request,
     key_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)]) -> dict[str, str]:
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> dict[str, str]:
     """Delete an API key.
 
     Args:

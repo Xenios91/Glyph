@@ -5,10 +5,11 @@ prediction results.
 """
 
 import asyncio
-from typing import Annotated, Any
+from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.templating import Jinja2Templates
+from starlette.responses import HTMLResponse
 from markupsafe import escape
 from pydantic import BaseModel
 
@@ -87,7 +88,7 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
             raise Exception(result.error)
             
         logger.info("Prediction task completed: {}", prediction_request.uuid)
-    except Exception as exc:
+    except Exception:
         logger.exception("Prediction task failed: {}", prediction_request.uuid)
         raise
 
@@ -97,7 +98,8 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
 async def predict_tokens(
     background_tasks: BackgroundTasks,
     request_values: PredictTokensRequest,
-    current_user: Annotated[User, Depends(get_current_active_user)]):
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> SuccessResponse[dict[str, Any]]:
     """Creates a job to predict a function name based on the tokens supplied.
     
     Args:
@@ -133,12 +135,13 @@ async def predict_tokens(
         message="Prediction task created successfully")
 
 
-@router.get("/getPrediction")
+@router.get("/getPrediction", response_model=None)
 async def get_prediction(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
-    task_name: TaskName = Query(...)):
+    task_name: TaskName = Query(...)
+) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
     """Obtain all predictions from one task.
     
     Args:
@@ -182,7 +185,8 @@ async def get_prediction(
 @catch_http_exception(status_code=500, error_code="DELETE_ERROR", message="Failed to delete prediction")
 async def delete_prediction(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    task_name: TaskName = Query(...)):
+    task_name: TaskName = Query(...)
+) -> SuccessResponse[dict[str, Any]]:
     """Deletes a prediction by task name.
     
     Args:
@@ -199,13 +203,14 @@ async def delete_prediction(
         message="Prediction deleted successfully")
 
 
-@router.get("/getPredictionDetails")
+@router.get("/getPredictionDetails", response_model=None)
 async def get_prediction_details(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
-    task_name: TaskName = Query(...)):
+    task_name: TaskName = Query(...)
+) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
     """Displays specific details of a prediction.
     
     Args:
@@ -236,7 +241,7 @@ async def get_prediction_details(
         model_tokens = format_code(model_info.tokens)
         prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
-    except (TypeError, IndexError) as e:
+    except (TypeError, IndexError):
         logger.exception(
             "Failed to retrieve prediction details for task={}, model={}, function={}",
             task_name, model_name, function_name)

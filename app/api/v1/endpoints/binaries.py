@@ -10,7 +10,7 @@ import stat
 from pathlib import Path
 import uuid
 import magic
-from typing import Annotated, Any
+from typing import Annotated, Any, Union
 
 from fastapi import (
     APIRouter,
@@ -22,6 +22,7 @@ from fastapi import (
     Request,
     UploadFile)
 from fastapi.templating import Jinja2Templates
+from starlette.responses import HTMLResponse
 from pydantic import BaseModel, Field, field_validator
 
 from app.config.settings import get_settings
@@ -269,7 +270,7 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
         raise
 
 
-@router.post("/uploadBinary", response_model=SuccessResponse[BinaryUploadResponse])
+@router.post("/uploadBinary", response_model=None)
 async def post_upload_binary(
     background_tasks: BackgroundTasks,
     request: Request,
@@ -278,7 +279,8 @@ async def post_upload_binary(
     training_data: str = Form("false"),
     model_name: str = Form(...),
     ml_class_type: str = Form(...),
-    task_name: str = Form("")):
+    task_name: str = Form("")
+) -> Union[SuccessResponse[BinaryUploadResponse], HTMLResponse]:
     """Handle POST request for binary file uploads.
 
     Args:
@@ -374,7 +376,8 @@ async def post_upload_binary(
 
 @router.get("/listBins", response_model=SuccessResponse[dict[str, Any]])
 async def list_bins(
-    current_user: Annotated[User, Depends(get_current_active_user)]):
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> SuccessResponse[dict[str, Any]]:
     """
     Handles a GET request to retrieve all available binaries
     """

@@ -67,7 +67,7 @@ class EventWatcher:
             return
         self._initialized = True
         self._callbacks: dict[str, Callable[[Any, Any], None]] = {}
-        self._watched_futures: dict[str, tuple[Any, Future]] = {}
+        self._watched_futures: dict[str, tuple[Any, Future[None]]] = {}
         self._watching: bool = False
         self._watch_thread: threading.Thread | None = None
         self._stop_event: threading.Event | None = None
@@ -77,7 +77,7 @@ class EventWatcher:
         job_uuid: str,
         callback: Callable[[Any, Any], None],
         request: Any,
-        future: Future) -> None:
+        future: Future[None]) -> None:
         """Register a callback for a specific job UUID and track the future.
 
         Args:
@@ -134,7 +134,7 @@ class EventWatcher:
                 continue
 
             # Extract futures for waiting
-            futures_only: list[Future] = [
+            futures_only: list[Future[None]] = [
                 task[1] for task in self._watched_futures.values()
             ]
 
@@ -190,7 +190,7 @@ class TaskManager:
     _executor_shutdown: bool = False
     __instance: "TaskManager | None" = None
 
-    def __init_subclass__(cls, **kwargs) -> None:
+    def __init_subclass__(cls, **kwargs: Any) -> None:
         """Initialize the process pool executor for subclasses."""
         super().__init_subclass__(**kwargs)
         if cls.exec_pool is None:

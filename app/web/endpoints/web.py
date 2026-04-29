@@ -1,7 +1,7 @@
-from typing import Annotated
+from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 import app._version as _version
@@ -21,11 +21,11 @@ templates = Jinja2Templates(directory="templates")
 configure_jinja2_templates(templates)
 
 
-@router.get("/")
+@router.get("/", response_model=None)
 async def home(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
-):
+) -> Union[JSONResponse, HTMLResponse]:
     """
     Loads the homepage of Glyph
     """
@@ -43,7 +43,7 @@ async def home(
 async def config(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
-):
+) -> HTMLResponse:
     """
     Loads the configuration page of Glyph
     """
@@ -61,7 +61,7 @@ async def config(
 
 
 @router.get("/error")
-async def error_page(request: Request, type: str | None = None):
+async def error_page(request: Request, type: str | None = None) -> HTMLResponse:
     """
     Displays errors using the templates system.
     """
@@ -78,11 +78,11 @@ async def error_page(request: Request, type: str | None = None):
     )
 
 
-@router.get("/uploadBinary")
+@router.get("/uploadBinary", response_model=None)
 async def get_upload_binary(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
-):
+) -> Union[JSONResponse, HTMLResponse]:
     """
     Handles GET request to load the upload webpage
     """
@@ -99,11 +99,11 @@ async def get_upload_binary(
         {"request": request, "title": "Glyph - Upload Binary", "allow_prediction": allow_prediction, "models": models, "user": current_user})
 
 
-@router.get("/getModels")
+@router.get("/getModels", response_model=None)
 async def get_list_models(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
-):
+) -> Union[dict[str, list[str]], HTMLResponse]:
     """
     Handles a GET request to obtain all models available
     """
@@ -122,11 +122,11 @@ async def get_list_models(
         {"request": request, "title": "Models List", "models": models_status, "user": current_user})
 
 
-@router.get("/getPredictions")
+@router.get("/getPredictions", response_model=None)
 async def get_list_predictions(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
-):
+) -> Union[dict[str, list[dict[str, Any]]], HTMLResponse]:
     """Obtain all predictions available"""
     predictions = await PredictionPersistanceUtil.get_predictions_list()
     
@@ -140,13 +140,14 @@ async def get_list_predictions(
         {"request": request, "title": "Predictions List", "predictions": predictions, "user": current_user})
 
 
-@router.get("/getPredictionDetails")
+@router.get("/getPredictionDetails", response_model=None)
 async def get_prediction_details(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: str = Query(...),
     function_name: str = Query(...),
-    task_name: str = Query(...)):
+    task_name: str = Query(...)
+) -> Union[dict[str, str], HTMLResponse]:
     """Displays specific details of a prediction"""
     model_name = model_name.strip()
     func_name = function_name.strip()
@@ -193,12 +194,13 @@ async def get_prediction_details(
     )
 
 
-@router.get("/getPrediction")
+@router.get("/getPrediction", response_model=None)
 async def get_prediction(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     task_name: str = Query(...),
-    model_name: str = Query(...)):
+    model_name: str = Query(...)
+) -> Union[dict[str, Any], HTMLResponse]:
     """Obtain predictions for a specific task and model"""
     prediction = await PredictionPersistanceUtil.get_predictions(task_name, model_name)
     
@@ -223,11 +225,11 @@ async def get_prediction(
         })
 
 
-@router.get("/login")
+@router.get("/login", response_model=None)
 async def login_page(
     request: Request,
     current_user: Annotated[User | None, Depends(get_optional_user)]
-):
+) -> Union[HTMLResponse, RedirectResponse]:
     """
     Loads the login page
     """
@@ -241,11 +243,11 @@ async def login_page(
         {"request": request, "title": "Glyph - Login", "user": current_user})
 
 
-@router.get("/register")
+@router.get("/register", response_model=None)
 async def register_page(
     request: Request,
     current_user: Annotated[User | None, Depends(get_optional_user)]
-):
+) -> Union[HTMLResponse, RedirectResponse]:
     """
     Loads the registration page
     """
@@ -263,7 +265,7 @@ async def register_page(
 async def profile_page(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
-):
+) -> HTMLResponse:
     """
     Loads the user profile page
     """

@@ -13,6 +13,7 @@ import sys
 from typing import Any, cast
 
 from numpy.typing import NDArray
+from numpy import int64
 from sklearn.pipeline import Pipeline as SklearnPipeline
 
 from app.processing.pipeline import PipelineContext, PipelineStep
@@ -409,7 +410,7 @@ class TrainStep(PipelineStep):
 
         # Encode labels
         label_encoder = preprocessing.LabelEncoder()
-        y = cast(NDArray, label_encoder.fit_transform(labels))
+        y = cast(NDArray[int64], label_encoder.fit_transform(labels))
         
 
 

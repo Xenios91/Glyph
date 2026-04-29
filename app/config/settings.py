@@ -196,12 +196,7 @@ class GlyphConfig:
 
         Raises:
             ValueError: If the maximum file size is negative.
-            TypeError: If the maximum file size is not an integer.
         """
-        if not isinstance(size, int):
-            logger.warning("Maximum file size must be an integer")
-            return False
-
         if size < 1:
             logger.warning("Invalid file size: {} MB (must be at least 1 MB)", size)
             return False
@@ -225,12 +220,7 @@ class GlyphConfig:
 
         Raises:
             ValueError: If the number of CPU cores is negative.
-            TypeError: If the number of cores is not an integer.
         """
-        if not isinstance(cores, int):
-            logger.warning("Number of CPU cores must be an integer")
-            return False
-
         if cores <= 0:
             logger.warning("Invalid CPU cores: {} (must be positive)", cores)
             return False

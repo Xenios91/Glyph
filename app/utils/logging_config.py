@@ -21,6 +21,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from typing import Any, Callable
 
 from loguru import logger
 
@@ -39,19 +40,19 @@ class SensitiveDataPatcher:
     sensitive patterns before the message is written to any handler.
     """
 
-    SENSITIVE_PATTERNS = [
+    SENSITIVE_PATTERNS: list[tuple[str, str | Callable[[re.Match[str]], str]]] = [
         (r'(?i)bearer\s+[A-Za-z0-9\-\._~\+\/]+=*', 'Bearer [REDACTED]'),
         (r'(?i)(sqlite|postgresql|mysql|mongodb|redis)(\+[\w]+)?://\S+', '[CONNECTION_STRING_REDACTED]'),
-        (r'(?i)(?:^|[\s,;|])((?:token|secret|password|passwd|pwd)\s*[=:]\s*\S+)', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0))),
-        (r'(?i)(?:^|[\s,;|])((?:api[_-]?key|apikey)\s*[=:]\s*\S+)', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0))),
-        (r'(?i)(?:^|[\s,;|])((?:secret_key|jwt_secret|oauth_secret)\s*[=:]\s*\S+)', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0))),
+        (r'(?i)(?:^|[\s,;|])((?:token|secret|password|passwd|pwd)\s*[=:]\s*\S+)', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0) or "")),
+        (r'(?i)(?:^|[\s,;|])((?:api[_-]?key|apikey)\s*[=:]\s*\S+)', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0) or "")),
+        (r'(?i)(?:^|[\s,;|])((?:secret_key|jwt_secret|oauth_secret)\s*[=:]\s*\S+)', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0) or "")),
         (r'(?i)(password|token|secret)[^@]*@[A-Za-z0-9\.-]+\.[A-Za-z]{2,}', '[REDACTED]'),
     ]
 
-    def __init__(self):
-        self._compiled = [(re.compile(p), r) for p, r in self.SENSITIVE_PATTERNS]
+    def __init__(self) -> None:
+        self._compiled: list[tuple[re.Pattern[str], str | Callable[[re.Match[str]], str]]] = [(re.compile(p), r) for p, r in self.SENSITIVE_PATTERNS]
 
-    def __call__(self, record: dict) -> None:
+    def __call__(self, record: dict[str, Any]) -> None:
         """Redact sensitive data from the record's message."""
         if isinstance(record.get("message"), str):
             record["message"] = self.redact(record["message"])
@@ -68,7 +69,7 @@ class SensitiveDataPatcher:
 # Module Level Filter
 # =============================================================================
 
-def create_module_level_filter(module_levels: dict[str, str]):
+def create_module_level_filter(module_levels: dict[str, str]) -> Callable[[dict[str, Any]], bool]:
     """Create a filter function for per-module log level overrides.
 
     Args:
@@ -77,16 +78,16 @@ def create_module_level_filter(module_levels: dict[str, str]):
     Returns:
         Filter function that returns False for records below the module minimum.
     """
-    level_map = {}
+    level_map: dict[str, int] = {}
     for module_name, level_name in module_levels.items():
         try:
             level_map[module_name] = logger.level(level_name.upper()).no
         except ValueError:
             level_map[module_name] = logger.level("INFO").no
 
-    def filter_func(record: dict) -> bool:
-        name = record.get("name", "")
-        record_level = record["level"].no
+    def filter_func(record: dict[str, Any]) -> bool:
+        name: str = record.get("name", "")
+        record_level: int = record["level"].no
         for module, min_level in level_map.items():
             if name.startswith(module):
                 return record_level >= min_level
@@ -99,7 +100,7 @@ def create_module_level_filter(module_levels: dict[str, str]):
 # Loguru Patcher (Sensitive Data + Request Context)
 # =============================================================================
 
-def _loguru_patcher(sensitive: SensitiveDataPatcher):
+def _loguru_patcher(sensitive: SensitiveDataPatcher) -> Callable[[dict[str, Any]], None]:
     """Create the loguru patcher for sensitive data redaction and request context.
 
     This patcher is applied to every log record before it reaches any handler.
@@ -114,10 +115,10 @@ def _loguru_patcher(sensitive: SensitiveDataPatcher):
     Returns:
         Patcher function that applies both redaction and context injection.
     """
-    def patcher(record: dict) -> None:  # type: ignore[assignment]
+    def patcher(record: dict[str, Any]) -> None:
         sensitive(record)
         ctx = get_request_context()
-        extra = record["extra"]
+        extra: dict[str, Any] = record["extra"]
         if ctx.request_id:
             extra["request_id"] = ctx.request_id
         if ctx.user_id is not None:
@@ -172,13 +173,13 @@ def setup_logging(
 
     # Create patcher for sensitive data redaction + request context injection
     sensitive_patcher = SensitiveDataPatcher()
-    patcher = _loguru_patcher(sensitive_patcher)
+    patcher: Callable[[dict[str, Any]], None] = _loguru_patcher(sensitive_patcher)
 
     # File opener for secure permissions (owner rw only - logs may contain sensitive data)
     def file_opener(file: str, flags: int) -> int:
         return os.open(file, flags, 0o600)
 
-    handlers = []
+    handlers: list[dict[str, Any]] = []
 
     # File handler with rotation and compression
     if log_file:

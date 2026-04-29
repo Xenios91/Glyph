@@ -1,5 +1,6 @@
 import threading
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 from loguru import logger
 
@@ -12,7 +13,7 @@ from app.services.task_service import TaskService
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Handle startup/shutdown logic correctly."""
     logger.info("Starting up Glyph service")
 

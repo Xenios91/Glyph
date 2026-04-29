@@ -13,7 +13,7 @@ from loguru import logger
 class PasswordHasherService:
     """Service for password hashing using Argon2id."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the password hasher with recommended settings."""
         self.ph = PasswordHasher(
             time_cost=2,

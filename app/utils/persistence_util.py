@@ -126,13 +126,11 @@ class MLPersistanceUtil:
             pipeline: The sklearn pipeline to save.
 
         Raises:
-            ValueError: If model_name is empty or parameters are None.
+            ValueError: If model_name is empty or label_encoder is None.
             RuntimeError: If serialization fails.
         """
         if not model_name:
             raise ValueError("model_name must be a non-empty string")
-        if pipeline is None:
-            raise ValueError("pipeline must not be None")
         if label_encoder is None:
             raise ValueError("label_encoder must not be None")
 
@@ -283,11 +281,7 @@ class FunctionPersistanceUtil:
         Args:
             training_request: The training request containing functions.
 
-        Raises:
-            ValueError: If training_request is None.
         """
-        if training_request is None:
-            raise ValueError("training_request must not be None")
         functions: list[dict[str, Any]] = training_request.get_functions() or []
         if functions:
             await SQLUtil.save_functions(training_request.model_name, functions)
@@ -302,17 +296,7 @@ class FunctionPersistanceUtil:
             prediction_request: The prediction request.
             predictions: List of predicted labels.
 
-        Raises:
-            ValueError: If prediction_request or predictions is None.
-            TypeError: If predictions is not a list.
         """
-        if prediction_request is None:
-            raise ValueError("prediction_request must not be None")
-        if predictions is None:
-            raise ValueError("predictions must not be None")
-        if not isinstance(predictions, list):
-            raise TypeError("predictions must be a list")
-
         functions: list[dict[str, Any]] = prediction_request.get_functions() or []
         task_name = prediction_request.task_name
 

@@ -29,7 +29,7 @@ class LoginFailureTracker:
         self,
         threshold: int = 5,
         window: float = 300.0,
-        max_keys: int = 1000):
+        max_keys: int = 1000) -> None:
         """Initialize the login failure tracker.
 
         Args:

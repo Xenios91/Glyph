@@ -4,10 +4,11 @@ This module provides endpoints for managing machine learning models,
 including retrieving model information and function predictions.
 """
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.templating import Jinja2Templates
+from starlette.responses import HTMLResponse
 
 from app.api.types import ModelName, FunctionName, TaskName
 from app.auth.dependencies import get_current_active_user
@@ -36,7 +37,8 @@ configure_jinja2_templates(templates)
 @catch_http_exception(status_code=500, error_code="DELETE_MODEL_ERROR", message="Failed to delete model")
 async def delete_model(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    model_name: ModelName = Query(...)):
+    model_name: ModelName = Query(...)
+) -> SuccessResponse[dict[str, Any]]:
     """
     Handles a DELETE request to delete a supplied model by name.
 
@@ -53,12 +55,13 @@ async def delete_model(
         message="Model deleted successfully")
 
 
-@router.get("/getFunction", response_model=SuccessResponse[dict[str, Any]])
+@router.get("/getFunction", response_model=None)
 async def get_function(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
-    function_name: FunctionName = Query(...)):
+    function_name: FunctionName = Query(...)
+) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
     """
     Handles a GET request to return a specific function associated with a model.
 
@@ -126,11 +129,12 @@ async def get_function(
         })
 
 
-@router.get("/getFunctions", response_model=SuccessResponse[dict[str, Any]])
+@router.get("/getFunctions", response_model=None)
 async def get_functions(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    model_name: ModelName = Query(...)):
+    model_name: ModelName = Query(...)
+) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
     """
     Handles a GET request to return all identified functions associated with a model.
 
@@ -171,13 +175,14 @@ async def get_functions(
         })
 
 
-@router.get("/getPredictionDetails", response_model=SuccessResponse[dict[str, Any]])
+@router.get("/getPredictionDetails", response_model=None)
 async def get_prediction_details(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
-    task_name: TaskName = Query(...)):
+    task_name: TaskName = Query(...)
+) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
     """Displays specific details of a prediction.
 
     Args:
@@ -214,7 +219,7 @@ async def get_prediction_details(
         model_tokens = format_code(model_info.tokens)
         prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
-    except (TypeError, IndexError, KeyError) as exc:
+    except (TypeError, IndexError, KeyError):
         logger.exception("Failed to retrieve prediction details")
         raise HTTPException(
             status_code=400,

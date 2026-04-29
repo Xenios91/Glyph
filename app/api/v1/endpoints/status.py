@@ -34,7 +34,8 @@ class StatusUpdatePayload(BaseModel):
 @router.get("/getStatus", response_model=SuccessResponse[dict[str, Any]])
 async def get_status(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    uuid: UUIDType = Query(...)):
+    uuid: UUIDType = Query(...)
+) -> SuccessResponse[dict[str, Any]]:
     """
     Handles a GET request to obtain the supplied uuid task status.
     
@@ -69,7 +70,8 @@ async def get_status(
 @router.post("/statusUpdate", response_model=SuccessResponse[dict[str, Any]])
 async def update_status(
     payload: StatusUpdatePayload,
-    current_user: Annotated[User, Depends(get_current_active_user)]):
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> SuccessResponse[dict[str, Any]]:
     """
     Handles a POST request (typically from Ghidra) to update
     the current status of a task.

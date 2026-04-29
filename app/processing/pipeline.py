@@ -38,8 +38,8 @@ class PipelineContext:
     uuid: str
     binary_path: str
     pipeline_type: str = "generic"
-    metadata: dict[str, Any] = field(default_factory=dict)
-    data: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=lambda: {})
+    data: dict[str, Any] = field(default_factory=lambda: {})
     status: str = "starting"
     error: str | None = None
     exc_info: tuple[Any, Any, Any] | bool = False
