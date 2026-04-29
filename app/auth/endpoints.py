@@ -1,6 +1,6 @@
 """Authentication endpoints for Glyph."""
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from app.auth.jwt_handler import InvalidTokenError, DecodeError
 from app.auth.security_logger import (

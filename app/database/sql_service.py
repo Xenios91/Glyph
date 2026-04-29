@@ -1,9 +1,9 @@
 """SQL utility module for database operations using SQLAlchemy ORM."""
 
 from io import BytesIO
-from typing import Any
+from typing import Any, cast
 
-import joblib
+import joblib  # type: ignore[import-no-untyped]
 from sqlalchemy import delete, exists, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -181,13 +181,14 @@ class SQLUtil:
             predictions = result.scalars().all()
             for pred in predictions:
                 try:
-                    preds = secure_load(BytesIO(pred.functions_data))
-                    if not isinstance(preds, list):
+                    raw_preds = secure_load(BytesIO(pred.functions_data))
+                    if not isinstance(raw_preds, list):
                         logger.warning(
                             "Prediction data for '{}' is not a list, skipping",
                             pred.task_name,
                         )
                         continue
+                    preds: list[dict[str, Any]] = cast(list[dict[str, Any]], raw_preds)
                     prediction_results.append(
                         PredictionResult(
                             task_name=pred.task_name,
@@ -233,14 +234,17 @@ class SQLUtil:
                 return None
 
             try:
-                prediction_data = secure_load(BytesIO(row.functions_data))
-                if not isinstance(prediction_data, list):
+                raw_prediction_data = secure_load(BytesIO(row.functions_data))
+                if not isinstance(raw_prediction_data, list):
                     logger.warning(
                         "Prediction data for task '{}' is not a list, expected list got {}",
                         task_name,
-                        type(prediction_data).__name__,
+                        type(raw_prediction_data).__name__,
                     )
                     return None
+                prediction_data: list[dict[str, Any]] = cast(
+                    list[dict[str, Any]], raw_prediction_data
+                )
             except SecureDeserializationError:
                 logger.exception(
                     "Secure deserialization blocked prediction for task '{}'", task_name
@@ -276,7 +280,7 @@ class SQLUtil:
         session: AsyncSession = await get_async_session("predictions")
         try:
             functions_buffer = BytesIO()
-            joblib.dump(functions, functions_buffer)
+            joblib.dump(functions, functions_buffer)  # type: ignore[call-overload]
             functions_serialized = functions_buffer.getvalue()
 
             now = get_utc_now()
@@ -331,18 +335,18 @@ class SQLUtil:
                 return {}
 
             try:
-                predictions = secure_load(BytesIO(row.functions_data))
-                if not isinstance(predictions, list):
+                raw_predictions = secure_load(BytesIO(row.functions_data))
+                if not isinstance(raw_predictions, list):
                     logger.warning(
                         "Predictions data is not a list, expected list got {}",
-                        type(predictions).__name__,
+                        type(raw_predictions).__name__,
                     )
                     return {}
+                predictions: list[dict[str, Any]] = cast(
+                    list[dict[str, Any]], raw_predictions
+                )
                 for function in predictions:
-                    if (
-                        isinstance(function, dict)
-                        and function.get("functionName") == function_name
-                    ):
+                    if function.get("functionName") == function_name:
                         return function
             except SecureDeserializationError:
                 logger.exception("Secure deserialization blocked predictions")

@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt_handler import JWTHandler
-from app.database.repository import UserRepository, APIKeyRepository
+from app.database.repository import APIKeyRepository
 from app.auth.security_logger import log_api_key_usage
 from app.config.settings import get_settings
 from app.database.models import User
@@ -107,7 +107,7 @@ async def get_current_user(
         if user_id:
             user_id = int(user_id)
             logger.bind(user_id=user_id).debug("JWT token verified")
-    except Exception as jwt_error:
+    except Exception:
         logger.debug("JWT verification failed, trying API key lookup")
         # If JWT verification fails, try API key
         api_key_repo = APIKeyRepository(db)
@@ -219,7 +219,7 @@ async def get_optional_user(
         user_id = payload.get("sub")
         if user_id:
             user_id = int(user_id)
-    except Exception as e:
+    except Exception:
         # If JWT verification fails, try API key
         logger.debug("JWT verification failed, trying API key lookup")
         api_key_repo = APIKeyRepository(db)

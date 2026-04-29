@@ -116,7 +116,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         Returns:
             True if the token format is valid, False otherwise.
         """
-        return isinstance(token, str) and len(token) >= 32
+        return len(token) >= 32
 
     async def _validate_csrf_token(self, request: Request, expected_token: str) -> bool:
         """Validate the CSRF token from the request.
