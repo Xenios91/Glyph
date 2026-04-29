@@ -96,7 +96,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
     # Return JSON for API requests
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail} if isinstance(exc.detail, str) else exc.detail
+        content={"detail": exc.detail}
     )
 
 
