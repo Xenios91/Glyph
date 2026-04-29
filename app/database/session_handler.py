@@ -1,7 +1,8 @@
 """Database session management for Glyph application."""
 
+from typing import Any
+
 from sqlalchemy import event
-from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -9,7 +10,7 @@ from app.database.models import Base, Model, Prediction, Function, User, APIKey
 from loguru import logger
 
 # Async engines and sessions (for auth module)
-ASYNC_DATABASE_URLS = {
+ASYNC_DATABASE_URLS: dict[str, str] = {
     "models": "sqlite+aiosqlite:///data/models.db",
     "predictions": "sqlite+aiosqlite:///data/predictions.db",
     "functions": "sqlite+aiosqlite:///data/functions.db",
@@ -19,7 +20,7 @@ ASYNC_DATABASE_URLS = {
 # Map each database to the tables it should contain.
 # This prevents Base.metadata.create_all from creating every table
 # in every database file, which would waste space and cause confusion.
-DB_TABLE_MAP: dict[str, list] = {
+DB_TABLE_MAP: dict[str, list[Any]] = {
     "models": [Model.__table__],
     "predictions": [Prediction.__table__],
     "functions": [Function.__table__],
@@ -30,7 +31,7 @@ async_engines: dict[str, AsyncEngine] = {}
 async_session_factories: dict[str, async_sessionmaker[AsyncSession]] = {}
 
 
-def _configure_sqlite(dbapi_connection, connection_record) -> None:
+def _configure_sqlite(dbapi_connection: Any, connection_record: Any) -> None:
     """Configure SQLite PRAGMA settings for better performance and reliability.
 
     Applied via SQLAlchemy's pool "connect" event to ensure all connections

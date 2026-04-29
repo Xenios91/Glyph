@@ -4,7 +4,7 @@ from io import BytesIO
 from typing import Any
 
 import joblib
-from sqlalchemy import delete, exists, select, update
+from sqlalchemy import delete, exists, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -262,7 +262,7 @@ class SQLUtil:
             await close_async_session(session)
 
     @staticmethod
-    async def save_predictions(name: str, model_name: str, functions: list) -> None:
+    async def save_predictions(name: str, model_name: str, functions: list[Any]) -> None:
         """Save or update predictions in the database.
 
         Uses SQLAlchemy 2.0's on_conflict_do_update() for efficient upserts
@@ -307,7 +307,7 @@ class SQLUtil:
     @staticmethod
     async def get_prediction_function(
         task_name: str, model_name: str, function_name: str
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Get a specific function prediction from the database.
 
         Args:
@@ -361,7 +361,7 @@ class SQLUtil:
         return {}
 
     @staticmethod
-    async def save_functions(model_name: str, functions: list) -> None:
+    async def save_functions(model_name: str, functions: list[dict[str, Any]]) -> None:
         """Save or update functions in the functions database.
 
         Uses SQLAlchemy 2.0's on_conflict_do_update() for efficient upserts

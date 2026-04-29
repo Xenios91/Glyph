@@ -1,6 +1,6 @@
 """Authentication endpoints for Glyph."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from app.auth.jwt_handler import InvalidTokenError, DecodeError
 from app.auth.security_logger import (
@@ -327,7 +327,7 @@ async def change_password(
     request: Request,
     password_data: ChangePassword,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)]) -> dict:
+    current_user: Annotated[User, Depends(get_current_active_user)]) -> dict[str, str]:
     """Change user password.
 
     Args:
@@ -467,7 +467,7 @@ async def delete_api_key(
     request: Request,
     key_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)]) -> dict:
+    current_user: Annotated[User, Depends(get_current_active_user)]) -> dict[str, str]:
     """Delete an API key.
 
     Args:

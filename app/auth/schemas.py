@@ -95,12 +95,12 @@ class APIKeyResponse(BaseModel):
             try:
                 parsed = json.loads(v)
                 if isinstance(parsed, list):
-                    return parsed
+                    return [str(item) for item in parsed]
                 return []
             except (json.JSONDecodeError, TypeError):
                 return []
         if isinstance(v, list):
-            return v
+            return [str(item) for item in v]
         return []
     
     model_config = {"from_attributes": True}

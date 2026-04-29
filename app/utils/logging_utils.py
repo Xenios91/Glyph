@@ -7,20 +7,25 @@ Key features:
 - catch_http_exception: Decorator that logs exceptions and raises HTTPException
 """
 
-from functools import wraps
 import inspect
-from typing import Any, Callable
+from functools import wraps
+from typing import TypeVar, Callable, ParamSpec, cast
 
 from fastapi import HTTPException
 from loguru import logger
 
 from app.utils.responses import create_error_response
 
+# Type variables for preserving function signatures through the decorator
+_R = TypeVar("_R")
+_P = ParamSpec("_P")
+
 
 def catch_http_exception(
     status_code: int = 500,
     error_code: str = "INTERNAL_ERROR",
-    message: str | None = None) -> Callable:
+    message: str | None = None
+) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
     """Decorator that catches exceptions, logs them with logger.exception(),
     and raises an HTTPException.
 
@@ -44,14 +49,14 @@ def catch_http_exception(
         message: Custom log message. If None, defaults to "Error in {function_name}".
 
     Returns:
-        Decorated function.
+        Decorated function with preserved signature.
     """
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[_P, _R]) -> Callable[_P, _R]:
         log_msg = message or f"Error in {func.__name__}"
 
         if inspect.iscoroutinefunction(func):
             @wraps(func)
-            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            async def async_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
                 try:
                     return await func(*args, **kwargs)
                 except HTTPException:
@@ -63,10 +68,10 @@ def catch_http_exception(
                         detail=create_error_response(
                             error_code=error_code,
                             error_message=str(exc)).model_dump()) from exc
-            return async_wrapper
+            return cast(Callable[_P, _R], async_wrapper)
         else:
             @wraps(func)
-            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            def sync_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
                 try:
                     return func(*args, **kwargs)
                 except HTTPException:
@@ -78,6 +83,6 @@ def catch_http_exception(
                         detail=create_error_response(
                             error_code=error_code,
                             error_message=str(exc)).model_dump()) from exc
-            return sync_wrapper
+            return cast(Callable[_P, _R], sync_wrapper)
 
     return decorator

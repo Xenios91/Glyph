@@ -4,10 +4,9 @@ This module provides middleware for injecting user information into request stat
 for use in templates.
 """
 
-from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware
-
-from app.auth.dependencies import get_optional_user
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.requests import Request
+from starlette.responses import Response
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -17,7 +16,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     the current user (if authenticated) in the request state for use in templates.
     """
     
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process the request and inject user into state.
         
         Args:
@@ -34,7 +33,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         
         # Extract auth token for downstream use
         auth_header = request.headers.get("Authorization")
-        token = None
+        token: str | None = None
         
         if auth_header:
             parts = auth_header.split()
@@ -58,7 +57,7 @@ class UserContextMiddleware(BaseHTTPMiddleware):
     user information in templates.
     """
     
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process the request and inject user context.
         
         Args:

@@ -5,11 +5,13 @@ the application for better logging and debugging.
 """
 
 import uuid
-from typing import Callable
+from typing import Any, Callable, Dict, List, cast
+
+from starlette.types import Receive, Send, Scope, Message
 
 from loguru import logger
 
-from app.utils.request_context import set_request_context, clear_request_context, get_request_id
+from app.utils.request_context import set_request_context, clear_request_context
 
 
 class RequestIDMiddleware:
@@ -25,8 +27,8 @@ class RequestIDMiddleware:
     Usage:
         app.add_middleware(RequestIDMiddleware)
     """
-    
-    def __init__(self, app, header_name: str = "X-Request-ID"):
+
+    def __init__(self, app: Callable[[Scope, Receive, Send], Any], header_name: str = "X-Request-ID") -> None:
         """Initialize the middleware.
         
         Args:
@@ -35,8 +37,8 @@ class RequestIDMiddleware:
         """
         self.app = app
         self.header_name = header_name.lower()
-    
-    async def __call__(self, scope: dict, receive: Callable, send: Callable) -> None:
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Process the request.
 
         Args:
@@ -65,8 +67,8 @@ class RequestIDMiddleware:
         finally:
             # Clear request context after request is complete
             clear_request_context()
-    
-    def _get_or_create_request_id(self, scope: dict) -> str:
+
+    def _get_or_create_request_id(self, scope: Scope) -> str:
         """Get request ID from headers or create a new one.
         
         Args:
@@ -88,8 +90,12 @@ class RequestIDMiddleware:
         
         # Generate new request ID
         return str(uuid.uuid4())
-    
-    def _create_wrapped_send(self, send: Callable, request_id: str) -> Callable:
+
+    def _create_wrapped_send(
+        self,
+        send: Send,
+        request_id: str,
+    ) -> Send:
         """Create a wrapped send function that adds request ID to response headers.
         
         Args:
@@ -99,15 +105,16 @@ class RequestIDMiddleware:
         Returns:
             Wrapped send callable.
         """
-        async def wrapped_send(message: dict) -> None:
+        async def wrapped_send(message: Message) -> None:
             if message["type"] == "http.response.start":
                 # Add request ID to response headers
-                headers = message.get("headers", [])
+                raw_headers = message.get("headers", [])
                 # Convert to list of lists if needed
-                if isinstance(headers, dict):
-                    headers = [[k, v] for k, v in headers.items()]
+                if isinstance(raw_headers, dict):
+                    headers_dict: Dict[str, Any] = cast(Dict[str, Any], raw_headers)
+                    headers: List[List[Any]] = [[k, v] for k, v in headers_dict.items()]
                 else:
-                    headers = list(headers)
+                    headers = list(raw_headers) if raw_headers else []
                 
                 # Add request ID header
                 headers.append([self.header_name.encode(), request_id.encode()])
@@ -118,7 +125,7 @@ class RequestIDMiddleware:
         return wrapped_send
 
 
-def get_request_id_from_scope(scope: dict, header_name: str = "X-Request-ID") -> str | None:
+def get_request_id_from_scope(scope: dict[str, Any], header_name: str = "X-Request-ID") -> str | None:
     """Get request ID from ASGI scope.
     
     Args:
@@ -134,6 +141,7 @@ def get_request_id_from_scope(scope: dict, header_name: str = "X-Request-ID") ->
     if request_id:
         if isinstance(request_id, bytes):
             return request_id.decode("utf-8")
-        return request_id
+        if isinstance(request_id, str):
+            return request_id
     
     return None

@@ -1,4 +1,5 @@
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -112,7 +113,7 @@ async def get_list_models(
     if ACCEPT_TYPE not in accept:
         return {"models": list(models)}
 
-    models_status: dict = TaskManager.get_all_status()
+    models_status: dict[str, str] = TaskManager.get_all_status()
     for model in models:
         models_status[model] = "complete"
 

@@ -4,6 +4,8 @@ This module provides centralized configuration for Jinja2 templates,
 including CSRF token exposure and other global template functions.
 """
 
+from typing import Any
+
 from fastapi.templating import Jinja2Templates
 
 
@@ -17,7 +19,7 @@ def configure_jinja2_templates(templates: Jinja2Templates) -> None:
         templates: The Jinja2Templates instance to configure.
     """
     # Add CSRF token getter for templates
-    def get_csrf_token(request):
+    def get_csrf_token(request: Any) -> str | None:
         token = getattr(request.state, "csrf_token", None)
         return token
     

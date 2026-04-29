@@ -3,7 +3,8 @@
 This module provides endpoints for managing application configuration.
 """
 
-from typing import Annotated
+from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -29,7 +30,7 @@ class ConfigPayload(BaseModel):
     cpu_cores: int | None = None
 
 
-@router.post("/save", response_model=SuccessResponse[dict])
+@router.post("/save", response_model=SuccessResponse[dict[str, Any]])
 async def save_config(
     payload: ConfigPayload,
     current_user: Annotated[User, Depends(get_current_active_user)]):

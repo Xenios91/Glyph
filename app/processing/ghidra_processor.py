@@ -65,7 +65,7 @@ def get_function_tokens(function: Any, decomp_interface: Any) -> list[str]:
         return []
 
 
-def decompile_all_functions(state: Any, program: Any) -> dict[str, list]:
+def decompile_all_functions(state: Any, program: Any) -> dict[str, list[Any]]:
     """Decompile all functions in a program.
 
     Args:
@@ -76,7 +76,7 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list]:
         Dictionary containing functions and errored functions.
     """
     decomp_interface = setup_decompiler(state, program)
-    functions_map: dict[str, list] = {"functions": [], "erroredFunctions": []}
+    functions_map: dict[str, list[Any]] = {"functions": [], "erroredFunctions": []}
 
     function_manager = program.getFunctionManager()
     function_iter = function_manager.getFunctions(True)
@@ -117,7 +117,7 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list]:
     return functions_map
 
 
-def analyze_binary_and_decompile(binary_path: str) -> dict[str, list]:
+def analyze_binary_and_decompile(binary_path: str) -> dict[str, list[Any]]:
     """Analyze a binary file and return decompiled functions.
 
     Args:

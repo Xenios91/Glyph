@@ -41,7 +41,7 @@ class JWTHandler:
     Uses joserfc library (recommended replacement for deprecated authlib.jose).
     """
     
-    def __init__(self, secret_key: str, algorithm: str = "HS256"):
+    def __init__(self, secret_key: str, algorithm: str = "HS256") -> None:
         """Initialize the JWT handler.
         
         Args:

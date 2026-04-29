@@ -288,7 +288,7 @@ class FunctionPersistanceUtil:
         """
         if training_request is None:
             raise ValueError("training_request must not be None")
-        functions: list = training_request.get_functions() or []
+        functions: list[dict[str, Any]] = training_request.get_functions() or []
         if functions:
             await SQLUtil.save_functions(training_request.model_name, functions)
 
@@ -313,7 +313,7 @@ class FunctionPersistanceUtil:
         if not isinstance(predictions, list):
             raise TypeError("predictions must be a list")
 
-        functions: list = prediction_request.get_functions() or []
+        functions: list[dict[str, Any]] = prediction_request.get_functions() or []
         task_name = prediction_request.task_name
 
         if functions and len(functions) == len(predictions):
@@ -335,7 +335,7 @@ class FunctionPersistanceUtil:
     @staticmethod
     async def get_prediction_function(
         task_name: str, model_name: str, function_name: str
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Get a prediction function by task, model, and function name.
 
         Args:
@@ -351,7 +351,7 @@ class FunctionPersistanceUtil:
         """
         if not task_name or not model_name or not function_name:
             raise ValueError("All arguments must be non-empty strings")
-        result: dict = await SQLUtil.get_prediction_function(
+        result: dict[str, Any] = await SQLUtil.get_prediction_function(
             task_name, model_name, function_name
         )
         if not result:

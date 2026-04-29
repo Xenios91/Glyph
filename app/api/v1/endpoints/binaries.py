@@ -10,7 +10,7 @@ import stat
 from pathlib import Path
 import uuid
 import magic
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import (
     APIRouter,
@@ -66,7 +66,7 @@ class BinaryUploadForm(BaseModel):
 
     @field_validator("training_data", mode="before")
     @classmethod
-    def validate_training_data(cls, v: str) -> str:
+    def validate_training_data(cls, v: str | None) -> str:
         """Validate training_data is 'true' or 'false'."""
         if v is None:
             return "false"
@@ -77,7 +77,7 @@ class BinaryUploadForm(BaseModel):
 
     @field_validator("model_name", "ml_class_type", mode="before")
     @classmethod
-    def strip_strings(cls, v: str) -> str:
+    def strip_strings(cls, v: str | None) -> str:
         """Strip whitespace from string fields."""
         if v is None:
             raise ValueError("Field cannot be empty")
@@ -85,7 +85,7 @@ class BinaryUploadForm(BaseModel):
 
     @field_validator("task_name", mode="before")
     @classmethod
-    def strip_task_name(cls, v: str) -> str:
+    def strip_task_name(cls, v: str | None) -> str:
         """Strip whitespace from task_name field."""
         if v is None:
             return ""
@@ -128,7 +128,7 @@ def validate_binary_mime_type(file_content: bytes) -> None:
     """
     try:
         mime_type = magic.from_buffer(file_content[:1024], mime=True)
-    except Exception as exc:
+    except Exception:
         logger.exception("Failed to detect MIME type")
         raise HTTPException(status_code=400, detail="Failed to analyze file type")
 
@@ -260,7 +260,7 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
                         logger.debug(
                             "Predictions saved for task {}",
                             ghidra_request.task_name)
-                    except Exception as pred_req_error:
+                    except Exception:
                         logger.exception("Failed to create PredictionRequest")
                         raise
 
@@ -372,7 +372,7 @@ async def post_upload_binary(
         message="Binary uploaded successfully")
 
 
-@router.get("/listBins", response_model=SuccessResponse[dict])
+@router.get("/listBins", response_model=SuccessResponse[dict[str, Any]])
 async def list_bins(
     current_user: Annotated[User, Depends(get_current_active_user)]):
     """

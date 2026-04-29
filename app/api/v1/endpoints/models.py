@@ -4,13 +4,13 @@ This module provides endpoints for managing machine learning models,
 including retrieving model information and function predictions.
 """
 
-from typing import Annotated
-from fastapi import APIRouter, Depends, Request, Query, HTTPException
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.templating import Jinja2Templates
 
-
 from app.api.types import ModelName, FunctionName, TaskName
-from app.auth.dependencies import get_current_active_user, get_optional_user
+from app.auth.dependencies import get_current_active_user
 from app.database.models import User
 from app.utils.persistence_util import (
     FunctionPersistanceUtil,
@@ -32,7 +32,7 @@ templates = Jinja2Templates(directory="templates")
 configure_jinja2_templates(templates)
 
 
-@router.delete("/deleteModel", response_model=SuccessResponse[dict])
+@router.delete("/deleteModel", response_model=SuccessResponse[dict[str, Any]])
 @catch_http_exception(status_code=500, error_code="DELETE_MODEL_ERROR", message="Failed to delete model")
 async def delete_model(
     current_user: Annotated[User, Depends(get_current_active_user)],
@@ -53,7 +53,7 @@ async def delete_model(
         message="Model deleted successfully")
 
 
-@router.get("/getFunction", response_model=SuccessResponse[dict])
+@router.get("/getFunction", response_model=SuccessResponse[dict[str, Any]])
 async def get_function(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
@@ -126,7 +126,7 @@ async def get_function(
         })
 
 
-@router.get("/getFunctions", response_model=SuccessResponse[dict])
+@router.get("/getFunctions", response_model=SuccessResponse[dict[str, Any]])
 async def get_functions(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
@@ -171,7 +171,7 @@ async def get_functions(
         })
 
 
-@router.get("/getPredictionDetails", response_model=SuccessResponse[dict])
+@router.get("/getPredictionDetails", response_model=SuccessResponse[dict[str, Any]])
 async def get_prediction_details(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],

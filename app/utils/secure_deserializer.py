@@ -138,7 +138,7 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
         )
         self.allowed_classes = allowed_classes or ALLOWED_CLASSES
     
-    def find_class(self, module: str, name: str) -> Type:
+    def find_class(self, module: str, name: str) -> Type[Any]:
         """Override find_class to restrict which classes can be unpickled.
         
         Args:

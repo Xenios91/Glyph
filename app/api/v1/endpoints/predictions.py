@@ -5,7 +5,7 @@ prediction results.
 """
 
 import asyncio
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.templating import Jinja2Templates
@@ -22,7 +22,7 @@ from loguru import logger
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 from app.utils.jinja_utils import configure_jinja2_templates
 from app.utils.logging_utils import catch_http_exception
-from app.auth.dependencies import get_current_active_user, get_optional_user
+from app.auth.dependencies import get_current_active_user
 from app.database.models import User
 
 
@@ -92,7 +92,7 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
         raise
 
 
-@router.post("/predict", status_code=201, response_model=SuccessResponse[dict])
+@router.post("/predict", status_code=201, response_model=SuccessResponse[dict[str, Any]])
 @catch_http_exception(status_code=400, error_code="PREDICTION_ERROR")
 async def predict_tokens(
     background_tasks: BackgroundTasks,
