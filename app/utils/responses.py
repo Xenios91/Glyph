@@ -1,6 +1,6 @@
 """Unified response format for Glyph API."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_serializer
@@ -12,7 +12,7 @@ class Metadata(BaseModel):
     """Response metadata."""
 
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Response timestamp in UTC")
     request_id: str | None = Field(
         default=None,

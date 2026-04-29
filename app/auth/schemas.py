@@ -1,8 +1,8 @@
 """Pydantic schemas for authentication."""
 
 from datetime import datetime
-from typing import Any
 import json
+from typing import Any
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
@@ -89,14 +89,19 @@ class APIKeyResponse(BaseModel):
     
     @field_validator("permissions", mode="before")
     @classmethod
-    def parse_permissions(cls, v):
+    def parse_permissions(cls, v: Any) -> list[str]:
         """Parse permissions from JSON string to list."""
         if isinstance(v, str):
             try:
-                return json.loads(v)
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+                return []
             except (json.JSONDecodeError, TypeError):
                 return []
-        return v
+        if isinstance(v, list):
+            return v
+        return []
     
     model_config = {"from_attributes": True}
 
