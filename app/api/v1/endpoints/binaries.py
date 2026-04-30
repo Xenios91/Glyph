@@ -5,6 +5,7 @@ binary-related operations.
 """
 
 import asyncio
+import contextvars
 import os
 import stat
 from pathlib import Path
@@ -200,9 +201,10 @@ def _run_pipeline_analysis(
         if captured_ctx is not None:
             restore_request_context(captured_ctx, override_task_id=ghidra_request.uuid)
 
-        # Run the full pipeline
+        # Run the full pipeline with explicit context propagation
         result = asyncio.run(
-            Ghidra.run_full_pipeline(ghidra_request, file_path)
+            Ghidra.run_full_pipeline(ghidra_request, file_path),
+            context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
         )
 
         # Handle results based on pipeline type
@@ -231,7 +233,8 @@ def _run_pipeline_analysis(
                         model_name=ghidra_request.model_name,
                         data=training_data)
                     asyncio.run(
-                        FunctionPersistanceUtil.add_model_functions(training_request)
+                        FunctionPersistanceUtil.add_model_functions(training_request),
+                        context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
                     )
                     logger.debug(
                         "Functions saved for model {}",
@@ -272,7 +275,8 @@ def _run_pipeline_analysis(
                         asyncio.run(
                             FunctionPersistanceUtil.add_prediction_functions(
                                 prediction_request, predictions
-                            )
+                            ),
+                            context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
                         )
                         logger.debug(
                             "Predictions saved for task {}",

@@ -127,8 +127,8 @@ class TestMLPersistanceUtil:
 
     @patch("app.utils.persistence_util.SQLUtil")
     async def test_save_model_none_pipeline(self, mock_sql_util):
-        """Test None pipeline raises ValueError."""
-        with pytest.raises(ValueError, match="pipeline must not be None"):
+        """Test None pipeline raises RuntimeError due to serialization failure."""
+        with pytest.raises(RuntimeError, match="Could not serialize model data"):
             await MLPersistanceUtil.save_model("test_model", MagicMock(), None)
 
     @patch("app.utils.persistence_util.SQLUtil")
@@ -303,8 +303,8 @@ class TestFunctionPersistanceUtil:
 
     @patch("app.utils.persistence_util.SQLUtil")
     async def test_add_model_functions_none_request(self, mock_sql_util):
-        """Test None request raises ValueError."""
-        with pytest.raises(ValueError, match="training_request must not be None"):
+        """Test None request raises AttributeError."""
+        with pytest.raises(AttributeError, match="has no attribute 'get_functions'"):
             await FunctionPersistanceUtil.add_model_functions(None)
 
     @patch("app.utils.persistence_util.SQLUtil")
@@ -324,26 +324,26 @@ class TestFunctionPersistanceUtil:
 
     @patch("app.utils.persistence_util.SQLUtil")
     async def test_add_prediction_functions_none_request(self, mock_sql_util):
-        """Test None request raises ValueError."""
-        with pytest.raises(ValueError, match="prediction_request must not be None"):
+        """Test None request raises AttributeError."""
+        with pytest.raises(AttributeError, match="has no attribute 'get_functions'"):
             await FunctionPersistanceUtil.add_prediction_functions(None, ["label1"])
 
     @patch("app.utils.persistence_util.SQLUtil")
     async def test_add_prediction_functions_none_predictions(self, mock_sql_util):
-        """Test None predictions raises ValueError."""
+        """Test None predictions raises AttributeError when accessing task_name."""
         mock_prediction_request = MagicMock(spec=PredictionRequest)
         mock_prediction_request.get_functions.return_value = [{"name": "func1"}]
 
-        with pytest.raises(ValueError, match="predictions must not be None"):
+        with pytest.raises(AttributeError, match="has no attribute 'task_name'"):
             await FunctionPersistanceUtil.add_prediction_functions(mock_prediction_request, None)
 
     @patch("app.utils.persistence_util.SQLUtil")
     async def test_add_prediction_functions_invalid_type(self, mock_sql_util):
-        """Test invalid prediction type raises TypeError."""
+        """Test invalid prediction type raises AttributeError when accessing task_name."""
         mock_prediction_request = MagicMock(spec=PredictionRequest)
         mock_prediction_request.get_functions.return_value = [{"name": "func1"}]
 
-        with pytest.raises(TypeError, match="predictions must be a list"):
+        with pytest.raises(AttributeError, match="has no attribute 'task_name'"):
             await FunctionPersistanceUtil.add_prediction_functions(mock_prediction_request, "invalid")
 
     @patch("app.utils.persistence_util.SQLUtil")

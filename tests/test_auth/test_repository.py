@@ -3,24 +3,57 @@
 import pytest
 import pytest_asyncio
 
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
 from app.database.repository import UserRepository, APIKeyRepository, PasswordHasherService
-from app.database.session_handler import get_async_session, init_async_databases
+from app.database.session_handler import get_async_session
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="function")
 async def init_db():
-    """Initialize async databases before tests."""
-    await init_async_databases()
+    """Recreate auth database tables before each test for isolation.
+
+    Drops and recreates tables so each test starts with a clean database,
+    avoiding UNIQUE constraint failures from shared test data.
+    """
+    from app.database.session_handler import async_engines, ASYNC_DATABASE_URLS, DB_TABLE_MAP, _create_engine, async_session_factories
+
+    if "auth" in async_engines:
+        await async_engines["auth"].dispose()
+        del async_engines["auth"]
+    if "auth" in async_session_factories:
+        del async_session_factories["auth"]
+
+    async_engines["auth"] = _create_engine(ASYNC_DATABASE_URLS["auth"])
+    async_session_factories["auth"] = async_sessionmaker(
+        bind=async_engines["auth"],
+        autoflush=False,
+        expire_on_commit=False,
+    )
+
+    target_tables = DB_TABLE_MAP.get("auth")
+    if target_tables:
+        async with async_engines["auth"].begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all, tables=target_tables)
+            await conn.run_sync(Base.metadata.create_all, tables=target_tables)
 
 
 @pytest_asyncio.fixture
 async def db(init_db):
-    """Create a test database session."""
+    """Create a test database session.
+
+    Yields an AsyncSession for the auth database. Session is closed
+    after each test.
+    """
     session = await get_async_session("auth")
     try:
         yield session
     finally:
         await session.close()
+
+
+# Import Base for table operations
+from app.database.models import Base
 
 
 @pytest.fixture

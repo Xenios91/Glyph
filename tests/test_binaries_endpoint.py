@@ -7,6 +7,18 @@ from fastapi import UploadFile
 import io
 
 from app.api.v1.endpoints.binaries import router as binaries_router, BinaryUploadForm
+from app.database.models import User
+
+
+def mock_get_current_user():
+    """Mock current active user for testing."""
+    return User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        hashed_password="hashed_password",
+        is_active=True,
+    )
 
 
 class TestBinaryUploadForm:
@@ -40,13 +52,20 @@ class TestBinaryUploadForm:
 class TestBinariesRouter:
     """Tests for binaries router endpoints."""
 
+    pytestmark = pytest.mark.timeout(2)
+
     @pytest.fixture
     def client(self):
         """Create test client with binaries router."""
         from fastapi import FastAPI
+        from app.auth.dependencies import get_current_active_user
         app = FastAPI()
         app.include_router(binaries_router, prefix="/binaries")
-        return TestClient(app, raise_server_exceptions=True)
+        app.dependency_overrides[get_current_active_user] = mock_get_current_user
+        test_client = TestClient(app, raise_server_exceptions=True)
+        yield test_client
+        # Clean up overrides after test
+        app.dependency_overrides.clear()
 
     @patch("app.api.v1.endpoints.binaries.BackgroundTasks")
     @patch("app.api.v1.endpoints.binaries.Ghidra")

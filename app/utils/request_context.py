@@ -174,7 +174,7 @@ def set_request_context(
     user_id: int | None = None,
     username: str | None = None,
     task_id: str | None = None,
-    clear_unset: bool = True) -> None:
+    clear_unset: bool = False) -> None:
     """Set the current request context.
 
     Args:
@@ -182,8 +182,8 @@ def set_request_context(
         user_id: User ID if authenticated.
         username: Username if authenticated.
         task_id: Task ID for background tasks.
-        clear_unset: If True (default), clear any fields not explicitly provided.
-                     If False, only update the fields provided (legacy behavior).
+        clear_unset: If True, clear any fields not explicitly provided.
+                     If False (default), only update the fields provided.
     """
     if clear_unset:
         _request_id_var.set(request_id)

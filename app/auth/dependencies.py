@@ -228,6 +228,8 @@ async def get_optional_user(
         if api_key_record:
             user = await db.get(User, api_key_record.user_id)
             if user and user.is_active:
+                # Set request context for downstream logging
+                set_request_context(user_id=user.id, username=user.username, clear_unset=False)
                 return user
         return None
     
@@ -237,6 +239,8 @@ async def get_optional_user(
     
     user = await db.get(User, user_id)
     if user and user.is_active:
+        # Set request context for downstream logging
+        set_request_context(user_id=user.id, username=user.username, clear_unset=False)
         return user
     
     return None

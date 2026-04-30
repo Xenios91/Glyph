@@ -5,6 +5,7 @@ prediction results.
 """
 
 import asyncio
+import contextvars
 from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
@@ -96,7 +97,10 @@ def _run_prediction_task(
                 FeatureExtractStep(),
                 PredictStep(),
             ])
-        result = asyncio.run(pipeline.execute(context))
+        result = asyncio.run(
+            pipeline.execute(context),
+            context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
+        )
 
         if result.error:
             raise Exception(result.error)

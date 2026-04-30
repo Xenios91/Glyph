@@ -53,8 +53,8 @@ class RequestIDMiddleware:
         # Extract or generate request ID
         request_id = self._get_or_create_request_id(scope)
 
-        # Set request context
-        set_request_context(request_id=request_id)
+        # Set request context - clear any leftover state from previous request
+        set_request_context(request_id=request_id, clear_unset=True)
 
         try:
             # Wrap send to add request ID to response headers

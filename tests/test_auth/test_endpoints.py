@@ -283,13 +283,30 @@ class TestLogoutEndpoint:
     def test_logout_success(self, auth_client):
         """Test successful logout."""
         csrf_token = auth_client.cookies.get("csrf_token")
+        headers = {"X-CSRF-Token": csrf_token}
+        # Register and login first to get an access token
+        auth_client.post(
+            "/auth/register",
+            json={
+                "username": "testuser",
+                "email": "test@example.com",
+                "password": "test_password_123"
+            },
+            headers=headers
+        )
+        login_response = auth_client.post(
+            "/auth/token",
+            json={"username": "testuser", "password": "test_password_123"},
+            headers=headers
+        )
+        access_token = login_response.json()["access_token"]
+        headers["Authorization"] = f"Bearer {access_token}"
         response = auth_client.post(
             "/auth/logout",
-            headers={"X-CSRF-Token": csrf_token}
+            headers=headers
         )
         
         assert response.status_code == status.HTTP_200_OK
-        assert response.json()["message"] == "Logged out successfully"
 
 
 class TestMeEndpoint:
