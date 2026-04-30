@@ -86,9 +86,9 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
     
     if "text/html" in accept:
         return templates.TemplateResponse(
+            request,
             "error.html",
             {
-                "request": request,
                 "message": f"Error {exc.status_code}: {exc.detail}"
             },
             status_code=exc.status_code,
@@ -108,9 +108,9 @@ async def general_exception_handler(request: Request, exc: Exception) -> HTMLRes
     accept = request.headers.get("Accept", "")
     if "text/html" in accept:
         return templates.TemplateResponse(
+            request,
             "error.html",
             {
-                "request": request,
                 "message": "An unexpected error occurred. Please try again later."
             },
             status_code=500,

@@ -42,6 +42,13 @@ def sample_training_request():
     )
 
 
+@pytest.fixture
+def sample_captured_context():
+    """Provide a CapturedContext for testing queue operations."""
+    from app.utils.request_context import CapturedContext
+    return CapturedContext(request_id="test-request-id", user_id=1, username="testuser", task_id=None)
+
+
 def test_get_uuid(task_manager):
     """Test UUID generation produces valid format."""
     uuid = task_manager.get_uuid()
@@ -50,10 +57,10 @@ def test_get_uuid(task_manager):
     assert isinstance(uuid, str)
 
 
-def test_get_status(task_manager, sample_training_request):
+def test_get_status(task_manager, sample_training_request, sample_captured_context):
     """Test task status retrieval from queue."""
-    # Queue stores tuples of (request, future) like the actual implementation
-    TaskService().service_queue.put((sample_training_request, None))
+    # Queue stores tuples of (request, captured_context) like the actual implementation
+    TaskService().service_queue.put((sample_training_request, sample_captured_context))
 
     status = task_manager.get_status("1234")
 
@@ -67,9 +74,9 @@ def test_get_status_not_found(task_manager):
     assert status == "UUID Not Found"
 
 
-def test_set_status(task_manager, sample_training_request):
+def test_set_status(task_manager, sample_training_request, sample_captured_context):
     """Test updating task status."""
-    TaskService().service_queue.put((sample_training_request, None))
+    TaskService().service_queue.put((sample_training_request, sample_captured_context))
 
     result = task_manager.set_status("1234", "complete")
 
@@ -85,9 +92,9 @@ def test_set_status_not_found(task_manager):
     assert result is False
 
 
-def test_get_all_status(task_manager, sample_training_request):
+def test_get_all_status(task_manager, sample_training_request, sample_captured_context):
     """Test retrieving status for all tasks."""
-    TaskService().service_queue.put((sample_training_request, None))
+    TaskService().service_queue.put((sample_training_request, sample_captured_context))
 
     all_status = task_manager.get_all_status()
 

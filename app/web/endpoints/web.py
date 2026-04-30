@@ -34,8 +34,9 @@ async def home(
         return JSONResponse(content={"version": _version.__version__})
 
     return templates.TemplateResponse(
+        request,
         "main.html",
-        {"request": request, "title": "Glyph", "user": current_user}
+        {"title": "Glyph", "user": current_user}
     )
 
 
@@ -49,9 +50,9 @@ async def config(
     """
     settings = get_settings()
     return templates.TemplateResponse(
+        request,
         "config.html",
         {
-            "request": request,
             "title": "Glyph - Configuration",
             "max_cpu_cores": MAX_CPU_CORES,
             "current_cpu_cores": settings.cpu_cores,
@@ -74,7 +75,8 @@ async def error_page(request: Request, type: str | None = None) -> HTMLResponse:
         )
 
     return templates.TemplateResponse(
-        "error.html", {"request": request, "title": "Glyph - Error", "message": message}
+        request,
+        "error.html", {"title": "Glyph - Error", "message": message}
     )
 
 
@@ -95,8 +97,9 @@ async def get_upload_binary(
     models: set[str] = await MLPersistanceUtil.get_models_list()
     allow_prediction = len(models) > 0
     return templates.TemplateResponse(
+        request,
         "upload.html",
-        {"request": request, "title": "Glyph - Upload Binary", "allow_prediction": allow_prediction, "models": models, "user": current_user})
+        {"title": "Glyph - Upload Binary", "allow_prediction": allow_prediction, "models": models, "user": current_user})
 
 
 @router.get("/getModels", response_model=None)
@@ -118,8 +121,9 @@ async def get_list_models(
         models_status[model] = "complete"
 
     return templates.TemplateResponse(
+        request,
         "get_models.html",
-        {"request": request, "title": "Models List", "models": models_status, "user": current_user})
+        {"title": "Models List", "models": models_status, "user": current_user})
 
 
 @router.get("/getPredictions", response_model=None)
@@ -136,8 +140,9 @@ async def get_list_predictions(
         return {"predictions": [p.__dict__ for p in predictions]}
 
     return templates.TemplateResponse(
+        request,
         "get_predictions.html",
-        {"request": request, "title": "Predictions List", "predictions": predictions, "user": current_user})
+        {"title": "Predictions List", "predictions": predictions, "user": current_user})
 
 
 @router.get("/getPredictionDetails", response_model=None)
@@ -177,9 +182,9 @@ async def get_prediction_details(
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
         return templates.TemplateResponse(
+            request,
             "prediction_function_details.html",
             {
-                "request": request,
                 "title": "Glyph - Prediction Details",
                 "task_name": task_name,
                 "model_name": model_name,
@@ -214,9 +219,9 @@ async def get_prediction(
         }
 
     return templates.TemplateResponse(
+        request,
         "get_prediction.html",
         {
-            "request": request,
             "title": "Prediction Details",
             "task_name": prediction.task_name,
             "model_name": prediction.model_name,
@@ -239,8 +244,9 @@ async def login_page(
         return RedirectResponse(url="/")
     
     return templates.TemplateResponse(
+        request,
         "login.html",
-        {"request": request, "title": "Glyph - Login", "user": current_user})
+        {"title": "Glyph - Login", "user": current_user})
 
 
 @router.get("/register", response_model=None)
@@ -257,8 +263,9 @@ async def register_page(
         return RedirectResponse(url="/")
     
     return templates.TemplateResponse(
+        request,
         "register.html",
-        {"request": request, "title": "Glyph - Register", "user": current_user})
+        {"title": "Glyph - Register", "user": current_user})
 
 
 @router.get("/profile")
@@ -270,9 +277,9 @@ async def profile_page(
     Loads the user profile page
     """
     return templates.TemplateResponse(
+        request,
         "profile.html",
         {
-            "request": request,
             "title": "Glyph - Profile",
             "user": {
                 "username": current_user.username,

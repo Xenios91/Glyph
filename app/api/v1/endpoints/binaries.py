@@ -393,7 +393,7 @@ async def post_upload_binary(
     logger.info("Binary uploaded to: {}", file_path)
 
     if "*/*" in accept:
-        return templates.TemplateResponse("upload.html", {"request": request})
+        return templates.TemplateResponse(request, "upload.html", {})
 
     return create_success_response(
         data=BinaryUploadResponse(uuid=unique_filename),

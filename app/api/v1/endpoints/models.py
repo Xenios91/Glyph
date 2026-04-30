@@ -117,9 +117,9 @@ async def get_function(
             message="Function retrieved successfully")
 
     return templates.TemplateResponse(
+        request,
         "get_function.html",
         {
-            "request": request,
             "title": f"Glyph - Function: {f_name}",
             "model_name": model_name,
             "function_name": f_name,
@@ -164,9 +164,9 @@ async def get_functions(
             message="Functions retrieved successfully")
 
     return templates.TemplateResponse(
+        request,
         "get_symbols.html",
         {
-            "request": request,
             "title": f"Glyph - Model: {model_name}",
             "bin_name": "test",
             "model_name": model_name,
@@ -230,9 +230,9 @@ async def get_prediction_details(
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
         return templates.TemplateResponse(
+            request,
             "prediction_function_details.html",
             {
-                "request": request,
                 "title": f"Glyph - Prediction: {function_name}",
                 "task_name": task_name,
                 "model_name": model_name,

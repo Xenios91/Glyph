@@ -130,7 +130,7 @@ class TestRegisterEndpoint:
             headers={"X-CSRF-Token": csrf_token}
         )
         
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_register_short_password(self, auth_client):
         """Test registration with short password."""
@@ -145,7 +145,7 @@ class TestRegisterEndpoint:
             headers={"X-CSRF-Token": csrf_token}
         )
         
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 class TestLoginEndpoint:
