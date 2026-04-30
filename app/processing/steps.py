@@ -410,7 +410,9 @@ class TrainStep(PipelineStep):
 
         # Encode labels
         label_encoder = preprocessing.LabelEncoder()
-        y = cast(NDArray[int64], label_encoder.fit_transform(labels))
+        y: NDArray[int64] = cast(
+            NDArray[int64], label_encoder.fit_transform(labels)  # type: ignore[call-arg]
+        )
         
 
 
@@ -426,7 +428,7 @@ class TrainStep(PipelineStep):
             logger.opt(lazy=True).debug("Label distribution: {}", lambda: np.bincount(y).tolist())
             
             # Train the model - ML pipeline handles vectorization internally
-            ml_pipeline.fit(tokens, y)
+            ml_pipeline.fit(tokens, y)  # type: ignore[call-arg]
 
             # Save the model
             await MLPersistanceUtil.save_model(model_name, label_encoder, ml_pipeline)
@@ -437,7 +439,8 @@ class TrainStep(PipelineStep):
             logger.info(
                 "Training completed for model '{}': {} classes",
                 model_name,
-                len(label_encoder.classes_))
+                len(label_encoder.classes_),  # type: ignore[arg-type]
+            )
 
         except Exception as train_error:
             context.error = f"Training failed: {train_error}"

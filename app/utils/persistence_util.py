@@ -136,11 +136,11 @@ class MLPersistanceUtil:
 
         try:
             model_buffer = BytesIO()
-            joblib.dump(pipeline, model_buffer)
+            joblib.dump(pipeline, model_buffer)  # type: ignore[call-overload]
             serialized_model = model_buffer.getvalue()
 
             encoder_buffer = BytesIO()
-            joblib.dump(label_encoder, encoder_buffer)
+            joblib.dump(label_encoder, encoder_buffer)  # type: ignore[call-overload]
             serialized_encoder = encoder_buffer.getvalue()
 
             await SQLUtil.save_model(model_name, serialized_encoder, serialized_model)

@@ -23,4 +23,4 @@ def configure_jinja2_templates(templates: Jinja2Templates) -> None:
         token = getattr(request.state, "csrf_token", None)
         return token
     
-    templates.env.globals["get_csrf_token"] = get_csrf_token
+    templates.env.globals["get_csrf_token"] = get_csrf_token  # type: ignore[union-attr]

@@ -19,31 +19,11 @@ from app.services.request_handler import GhidraRequest
 from app.services.task_service import TaskService
 from app.processing.pipeline import PipelineContext
 from loguru import logger
-from app.utils.request_context import get_request_context, set_request_context, clear_request_context
-
-
-
-def _run_with_context(job_uuid: str, target: Callable[..., Any], *args: Any) -> None:
-    """Run a target function with propagated request context.
-
-    Captures the current request context before entering the background thread
-    and restores it within the target execution.
-
-    Args:
-        job_uuid: The job UUID to set as task_id.
-        target: The callable to execute.
-        *args: Arguments to pass to the target.
-    """
-    ctx = get_request_context()
-    try:
-        set_request_context(
-            request_id=ctx.request_id,
-            task_id=job_uuid,
-            user_id=ctx.user_id,
-            username=ctx.username)
-        target(*args)
-    finally:
-        clear_request_context()
+from app.utils.request_context import (
+    CapturedContext,
+    restore_request_context,
+    clear_request_context,
+)
 
 
 class EventWatcher:
@@ -67,7 +47,7 @@ class EventWatcher:
             return
         self._initialized = True
         self._callbacks: dict[str, Callable[[Any, Any], None]] = {}
-        self._watched_futures: dict[str, tuple[Any, Future[None]]] = {}
+        self._watched_futures: dict[str, tuple[Any, Future[None], CapturedContext | None]] = {}
         self._watching: bool = False
         self._watch_thread: threading.Thread | None = None
         self._stop_event: threading.Event | None = None
@@ -78,6 +58,7 @@ class EventWatcher:
         callback: Callable[[Any, Any], None],
         request: Any,
         future: Future[None],
+        captured_ctx: CapturedContext | None = None,
     ) -> None:
         """Register a callback for a specific job UUID and track the future.
 
@@ -87,9 +68,10 @@ class EventWatcher:
                       Receives (request, future) as arguments.
             request: The request object associated with this job.
             future: The Future object to monitor for completion.
+            captured_ctx: Captured request context from the originating thread.
         """
         self._callbacks[job_uuid] = callback
-        self._watched_futures[job_uuid] = (request, future)
+        self._watched_futures[job_uuid] = (request, future, captured_ctx)
         logger.debug("Registered callback for job {}", job_uuid)
 
     def start_watching(self) -> None:
@@ -149,14 +131,13 @@ class EventWatcher:
                         request = task[0]
                         # Invoke registered callback
                         if job_uuid in self._callbacks:
+                            captured_ctx = task[2]
                             try:
-                                # Propagate request context to callback thread
-                                current_ctx = get_request_context()
-                                set_request_context(
-                                    request_id=current_ctx.request_id,
-                                    task_id=job_uuid,
-                                    user_id=current_ctx.user_id,
-                                    username=current_ctx.username)
+                                # Restore request context from the snapshot captured
+                                # on the originating request thread
+                                if captured_ctx is not None:
+                                    restore_request_context(
+                                        captured_ctx, override_task_id=job_uuid)
                                 self._callbacks[job_uuid](request, future)
                                 logger.debug(
                                     "Callback invoked for job {}",

@@ -23,6 +23,12 @@ from loguru import logger
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 from app.utils.jinja_utils import configure_jinja2_templates
 from app.utils.logging_utils import catch_http_exception
+from app.utils.request_context import (
+    CapturedContext,
+    capture_request_context,
+    restore_request_context,
+    clear_request_context,
+)
 from app.auth.dependencies import get_current_active_user
 from app.database.models import User
 
@@ -46,13 +52,21 @@ class PredictTokensRequest(BaseModel):
     model_config = {"extra": "allow"}
 
 
-def _run_prediction_task(prediction_request: PredictionRequest) -> None:
+def _run_prediction_task(
+    prediction_request: PredictionRequest,
+    captured_ctx: CapturedContext | None = None,
+) -> None:
     """Background task for running predictions.
-    
+
     Args:
         prediction_request: The prediction request containing data.
+        captured_ctx: Captured request context from the originating request
+            thread. Restored before asyncio.run() to preserve tracing.
     """
     try:
+        if captured_ctx is not None:
+            restore_request_context(captured_ctx, override_task_id=prediction_request.uuid)
+
         # Use the pipeline framework for predictions
         from app.processing.steps import (
             ValidationStep,
@@ -62,7 +76,7 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
             FeatureExtractStep,
             PredictStep)
         from app.processing.pipeline import ProcessingPipeline, PipelineContext
-        
+
         context = PipelineContext(
             uuid=prediction_request.uuid,
             binary_path="",  # Will be set by the pipeline
@@ -71,7 +85,7 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
                 "model_name": prediction_request.model_name,
                 "task_name": prediction_request.task_name,
             })
-        
+
         pipeline = ProcessingPipeline(
             "ML Prediction Pipeline",
             [
@@ -83,14 +97,16 @@ def _run_prediction_task(prediction_request: PredictionRequest) -> None:
                 PredictStep(),
             ])
         result = asyncio.run(pipeline.execute(context))
-        
+
         if result.error:
             raise Exception(result.error)
-            
+
         logger.info("Prediction task completed: {}", prediction_request.uuid)
     except Exception:
         logger.exception("Prediction task failed: {}", prediction_request.uuid)
         raise
+    finally:
+        clear_request_context()
 
 
 @router.post("/predict", status_code=201, response_model=SuccessResponse[dict[str, Any]])
@@ -126,9 +142,12 @@ async def predict_tokens(
                 error_message=f"Task name '{task_name}' already exists. Task names must be unique.").model_dump())
 
     prediction_request = PredictionRequest(uuid, model_name, data)
-    
+
+    # Capture request context before handing off to background task
+    captured_ctx = capture_request_context()
+
     # Add prediction as a background task
-    background_tasks.add_task(_run_prediction_task, prediction_request)
+    background_tasks.add_task(_run_prediction_task, prediction_request, captured_ctx)
 
     return create_success_response(
         data={"uuid": prediction_request.uuid},

@@ -131,7 +131,7 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
     def __init__(self, file: Any, allowed_classes: Set[str] | None = None):
         # NumpyUnpickler requires: filename, file_handle, ensure_native_byte_order
         # Use empty string for filename when loading from BytesIO
-        super().__init__(
+        super().__init__(  # type: ignore[call-arg]
             filename="",
             file_handle=file,
             ensure_native_byte_order=False

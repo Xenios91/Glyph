@@ -4,12 +4,16 @@ import queue
 from typing import Any
 
 from loguru import logger
-from app.utils.request_context import get_request_context, set_request_context, clear_request_context
-
+from app.utils.request_context import restore_request_context, clear_request_context
 
 
 class TaskService:
-    """Singleton service for managing background task queue."""
+    """Singleton service for managing background task queue.
+
+    Queue items should be tuples of (request, captured_context) where
+    captured_context is a CapturedContext snapshot taken on the request
+    thread before queuing.
+    """
 
     service_queue: queue.Queue[tuple[Any, Any]] = queue.Queue()
     __instance: Any = None
@@ -29,15 +33,12 @@ class TaskService:
         This method simply manages the queue lifecycle.
         """
         while True:
-            task: tuple[Any, Any] = cls.service_queue.get(block=True)
-            job_uuid: str = task[0].uuid
-            # Propagate request context for background task logging
-            ctx = get_request_context()
-            set_request_context(
-                request_id=ctx.request_id,
-                task_id=job_uuid,
-                user_id=ctx.user_id,
-                username=ctx.username)
+            item: tuple[Any, Any] = cls.service_queue.get(block=True)
+            task = item[0]
+            captured_ctx = item[1]
+            job_uuid: str = task.uuid
+            # Restore request context from the snapshot captured on the request thread
+            restore_request_context(captured_ctx, override_task_id=job_uuid)
             logger.debug(
                 "Job queued: {}", job_uuid)
             clear_request_context()

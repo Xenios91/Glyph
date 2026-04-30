@@ -35,6 +35,12 @@ from app.utils.responses import (
     SuccessResponse)
 from app.utils.jinja_utils import configure_jinja2_templates
 from loguru import logger
+from app.utils.request_context import (
+    CapturedContext,
+    capture_request_context,
+    restore_request_context,
+    clear_request_context,
+)
 from app.auth.dependencies import get_current_active_user
 from app.database.models import User
 
@@ -168,7 +174,11 @@ def sanitize_filename(filename: str) -> str:
     return base_name
 
 
-def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> None:
+def _run_pipeline_analysis(
+    ghidra_request: GhidraRequest,
+    file_path: str,
+    captured_ctx: CapturedContext | None = None,
+) -> None:
     """Background task for running the full analysis pipeline on a binary.
 
     This function uses the pluggable pipeline framework to process the binary:
@@ -182,8 +192,14 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
     Args:
         ghidra_request: The Ghidra request containing analysis parameters.
         file_path: Path to the uploaded binary file.
+        captured_ctx: Captured request context from the originating request
+            thread. Restored before asyncio.run() to preserve tracing.
     """
     try:
+        # Restore request context from the snapshot captured on the request thread
+        if captured_ctx is not None:
+            restore_request_context(captured_ctx, override_task_id=ghidra_request.uuid)
+
         # Run the full pipeline
         result = asyncio.run(
             Ghidra.run_full_pipeline(ghidra_request, file_path)
@@ -268,6 +284,8 @@ def _run_pipeline_analysis(ghidra_request: GhidraRequest, file_path: str) -> Non
     except Exception:
         logger.exception("Pipeline task failed")
         raise
+    finally:
+        clear_request_context()
 
 
 @router.post("/uploadBinary", response_model=None)
@@ -362,7 +380,11 @@ async def post_upload_binary(
         form_data.task_name,
         form_data.ml_class_type)
 
-    background_tasks.add_task(_run_pipeline_analysis, ghidra_task, file_path)
+    # Capture request context before handing off to background task
+    captured_ctx = capture_request_context()
+
+    background_tasks.add_task(
+        _run_pipeline_analysis, ghidra_task, file_path, captured_ctx)
 
     logger.info("Binary uploaded to: {}", file_path)
 
