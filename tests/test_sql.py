@@ -33,7 +33,6 @@ async def init_db():
 class TestSQLUtilInitDB:
     """Tests for SQLUtil.init_db() method."""
 
-    @pytest.mark.asyncio
     async def test_init_db_is_noop(self):
         """Test that init_db is a no-op since tables are managed by session handler."""
         await SQLUtil.init_db()
@@ -42,7 +41,6 @@ class TestSQLUtilInitDB:
 class TestSQLUtilSaveModel:
     """Tests for SQLUtil.save_model() method."""
 
-    @pytest.mark.asyncio
     async def test_save_model_success(self):
         """Test saving a model successfully."""
         await SQLUtil.save_model("test_model", b"encoder_data", b"model_data")
@@ -52,7 +50,6 @@ class TestSQLUtilSaveModel:
         assert result.model_data == b"model_data"
         assert result.label_encoder_data == b"encoder_data"
 
-    @pytest.mark.asyncio
     async def test_save_model_upsert(self):
         """Test that saving an existing model updates it."""
         await SQLUtil.save_model("test_model_upsert", b"encoder_v1", b"model_v1")
@@ -63,7 +60,6 @@ class TestSQLUtilSaveModel:
         assert result.model_data == b"model_v2"
         assert result.label_encoder_data == b"encoder_v2"
 
-    @pytest.mark.asyncio
     async def test_save_model_raises_on_session_error(self):
         """Test that save_model raises when session creation fails."""
         mock_error = AsyncMock(side_effect=Exception("DB Error"))
@@ -75,7 +71,6 @@ class TestSQLUtilSaveModel:
 class TestSQLUtilGetModelsList:
     """Tests for SQLUtil.get_models_list() method."""
 
-    @pytest.mark.asyncio
     async def test_get_models_list_success(self):
         """Test getting list of models."""
         await SQLUtil.save_model("list_model1", b"enc1", b"mod1")
@@ -85,7 +80,6 @@ class TestSQLUtilGetModelsList:
         assert "list_model1" in result
         assert "list_model2" in result
 
-    @pytest.mark.asyncio
     async def test_get_models_list_returns_set(self):
         """Test that get_models_list returns a set."""
         result = await SQLUtil.get_models_list()
@@ -95,7 +89,6 @@ class TestSQLUtilGetModelsList:
 class TestSQLUtilGetModel:
     """Tests for SQLUtil.get_model() method."""
 
-    @pytest.mark.asyncio
     async def test_get_model_success(self):
         """Test getting a specific model."""
         await SQLUtil.save_model("get_test_model", b"encoder_data", b"model_data")
@@ -103,13 +96,11 @@ class TestSQLUtilGetModel:
         assert result is not None
         assert result.model_name == "get_test_model"
 
-    @pytest.mark.asyncio
     async def test_get_model_not_found(self):
         """Test getting a model that doesn't exist."""
         result = await SQLUtil.get_model("nonexistent_model_xyz")
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_get_model_returns_none_on_error(self):
         """Test that get_model catches exceptions and returns None."""
         # The get_model method wraps exceptions and returns None
@@ -121,7 +112,6 @@ class TestSQLUtilGetModel:
 class TestSQLUtilDeleteModel:
     """Tests for SQLUtil.delete_model() method."""
 
-    @pytest.mark.asyncio
     async def test_delete_model_success(self):
         """Test deleting a model."""
         await SQLUtil.save_model("delete_test_model", b"encoder", b"model")
@@ -129,7 +119,6 @@ class TestSQLUtilDeleteModel:
         result = await SQLUtil.get_model("delete_test_model")
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_delete_model_removes_predictions(self):
         """Test that deleting a model also removes associated predictions."""
         await SQLUtil.save_model("delete_pred_model", b"encoder", b"model")
@@ -138,7 +127,6 @@ class TestSQLUtilDeleteModel:
         predictions = await SQLUtil.get_predictions("delete_pred_task", "delete_pred_model")
         assert predictions is None
 
-    @pytest.mark.asyncio
     async def test_delete_model_removes_functions(self):
         """Test that deleting a model also removes associated functions."""
         await SQLUtil.save_model("delete_func_model", b"encoder", b"model")
@@ -147,7 +135,6 @@ class TestSQLUtilDeleteModel:
         functions = await SQLUtil.get_functions("delete_func_model")
         assert functions == []
 
-    @pytest.mark.asyncio
     async def test_delete_model_handles_exception(self):
         """Test that delete_model handles exceptions gracefully."""
         import app.database.sql_service as sql_module
@@ -164,7 +151,6 @@ class TestSQLUtilDeleteModel:
 class TestSQLUtilGetPredictionsList:
     """Tests for SQLUtil.get_predictions_list() method."""
 
-    @pytest.mark.asyncio
     async def test_get_predictions_list_success(self):
         """Test getting list of predictions."""
         functions = [{"functionName": "func1", "prediction": "label1"}]
@@ -176,7 +162,6 @@ class TestSQLUtilGetPredictionsList:
         assert found[0].task_name == "list_pred_task"
         assert found[0].model_name == "list_pred_model"
 
-    @pytest.mark.asyncio
     async def test_get_predictions_list_returns_list(self):
         """Test that get_predictions_list returns a list."""
         result = await SQLUtil.get_predictions_list()
@@ -186,7 +171,6 @@ class TestSQLUtilGetPredictionsList:
 class TestSQLUtilGetPredictions:
     """Tests for SQLUtil.get_predictions() method."""
 
-    @pytest.mark.asyncio
     async def test_get_predictions_success(self):
         """Test getting a specific prediction."""
         functions = [{"functionName": "func1", "prediction": "label1"}]
@@ -197,13 +181,11 @@ class TestSQLUtilGetPredictions:
         assert result.task_name == "get_pred_task"
         assert result.model_name == "get_pred_model"
 
-    @pytest.mark.asyncio
     async def test_get_predictions_not_found(self):
         """Test getting a prediction that doesn't exist."""
         result = await SQLUtil.get_predictions("nonexistent_task_xyz", "nonexistent_model_xyz")
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_get_predictions_corrupted_data(self, caplog):
         """Test handling corrupted prediction data."""
         from app.database.models import Prediction as PredModel
@@ -226,7 +208,6 @@ class TestSQLUtilGetPredictions:
 class TestSQLUtilSavePredictions:
     """Tests for SQLUtil.save_predictions() method."""
 
-    @pytest.mark.asyncio
     async def test_save_predictions_success(self):
         """Test saving predictions successfully."""
         functions = [{"functionName": "func1", "prediction": "label1"}]
@@ -234,7 +215,6 @@ class TestSQLUtilSavePredictions:
         result = await SQLUtil.get_predictions("save_pred_task", "save_pred_model")
         assert result is not None
 
-    @pytest.mark.asyncio
     async def test_save_predictions_upsert(self):
         """Test that saving an existing prediction updates it."""
         functions_v1 = [{"functionName": "func1", "prediction": "label1"}]
@@ -248,7 +228,6 @@ class TestSQLUtilSavePredictions:
         assert len(result.predictions) == 1
         assert result.predictions[0]["functionName"] == "func2"
 
-    @pytest.mark.asyncio
     async def test_save_predictions_handles_exception(self):
         """Test that save_predictions handles exceptions gracefully."""
         import app.database.sql_service as sql_module
@@ -265,7 +244,6 @@ class TestSQLUtilSavePredictions:
 class TestSQLUtilGetPredictionFunction:
     """Tests for SQLUtil.get_prediction_function() method."""
 
-    @pytest.mark.asyncio
     async def test_get_prediction_function_success(self):
         """Test getting a specific prediction function."""
         functions = [{"functionName": "func1", "prediction": "label1", "confidence": 0.95}]
@@ -274,7 +252,6 @@ class TestSQLUtilGetPredictionFunction:
         result = await SQLUtil.get_prediction_function("get_func_task", "get_func_model", "func1")
         assert result == {"functionName": "func1", "prediction": "label1", "confidence": 0.95}
 
-    @pytest.mark.asyncio
     async def test_get_prediction_function_not_found(self):
         """Test getting a prediction function that doesn't exist."""
         functions = [{"functionName": "func2", "prediction": "label2"}]
@@ -287,7 +264,6 @@ class TestSQLUtilGetPredictionFunction:
 class TestSQLUtilSaveFunctions:
     """Tests for SQLUtil.save_functions() method."""
 
-    @pytest.mark.asyncio
     async def test_save_functions_success(self):
         """Test saving functions successfully."""
         functions = [
@@ -298,7 +274,6 @@ class TestSQLUtilSaveFunctions:
         result = await SQLUtil.get_functions("save_func_model")
         assert len(result) >= 2
 
-    @pytest.mark.asyncio
     async def test_save_functions_handles_exception(self):
         """Test that save_functions handles exceptions gracefully."""
         import app.database.sql_service as sql_module
@@ -315,7 +290,6 @@ class TestSQLUtilSaveFunctions:
 class TestSQLUtilGetFunctions:
     """Tests for SQLUtil.get_functions() method."""
 
-    @pytest.mark.asyncio
     async def test_get_functions_success(self):
         """Test getting functions for a model."""
         functions = [
@@ -326,7 +300,6 @@ class TestSQLUtilGetFunctions:
         result = await SQLUtil.get_functions("get_func_model")
         assert len(result) >= 2
 
-    @pytest.mark.asyncio
     async def test_get_functions_empty(self):
         """Test getting empty list when no functions exist."""
         result = await SQLUtil.get_functions("nonexistent_model_xyz")
@@ -336,7 +309,6 @@ class TestSQLUtilGetFunctions:
 class TestSQLUtilGetFunction:
     """Tests for SQLUtil.get_function() method."""
 
-    @pytest.mark.asyncio
     async def test_get_function_success(self):
         """Test getting a specific function."""
         functions = [{"functionName": "single_func", "lowAddress": "0x1000", "tokenList": ["tokens"]}]
@@ -346,7 +318,6 @@ class TestSQLUtilGetFunction:
         assert result is not None
         assert result.function_name == "single_func"
 
-    @pytest.mark.asyncio
     async def test_get_function_not_found(self):
         """Test getting a function that doesn't exist."""
         result = await SQLUtil.get_function("nonexistent_model_xyz", "nonexistent_func_xyz")
@@ -356,7 +327,6 @@ class TestSQLUtilGetFunction:
 class TestSQLUtilDeleteFunctions:
     """Tests for SQLUtil.delete_functions() method."""
 
-    @pytest.mark.asyncio
     async def test_delete_functions_success(self):
         """Test deleting functions for a model."""
         functions = [{"functionName": "func1", "lowAddress": "0x1000", "tokenList": ["t1"]}]
@@ -365,7 +335,6 @@ class TestSQLUtilDeleteFunctions:
         result = await SQLUtil.get_functions("del_func_model")
         assert result == []
 
-    @pytest.mark.asyncio
     async def test_delete_functions_handles_exception(self):
         """Test that delete_functions handles exceptions gracefully."""
         import app.database.sql_service as sql_module
@@ -382,7 +351,6 @@ class TestSQLUtilDeleteFunctions:
 class TestSQLUtilDeletePrediction:
     """Tests for SQLUtil.delete_prediction() method."""
 
-    @pytest.mark.asyncio
     async def test_delete_prediction_success(self):
         """Test deleting a prediction."""
         await SQLUtil.save_predictions("del_pred_task", "del_pred_model", [{"functionName": "func1"}])
@@ -390,7 +358,6 @@ class TestSQLUtilDeletePrediction:
         result = await SQLUtil.get_predictions("del_pred_task", "del_pred_model")
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_delete_prediction_handles_exception(self):
         """Test that delete_prediction handles exceptions gracefully."""
         import app.database.sql_service as sql_module
@@ -407,7 +374,6 @@ class TestSQLUtilDeletePrediction:
 class TestSQLUtilDeleteModelPredictions:
     """Tests for SQLUtil.delete_model_predictions() method."""
 
-    @pytest.mark.asyncio
     async def test_delete_model_predictions_success(self):
         """Test deleting all predictions for a model."""
         await SQLUtil.save_predictions("del_model_pred_task1", "del_model_pred_model", [{"functionName": "func1"}])
@@ -419,7 +385,6 @@ class TestSQLUtilDeleteModelPredictions:
         assert result1 is None
         assert result2 is None
 
-    @pytest.mark.asyncio
     async def test_delete_model_predictions_handles_exception(self):
         """Test that delete_model_predictions handles exceptions gracefully."""
         import app.database.sql_service as sql_module
@@ -436,20 +401,17 @@ class TestSQLUtilDeleteModelPredictions:
 class TestSQLUtilModelNameExists:
     """Tests for SQLUtil.model_name_exists() method."""
 
-    @pytest.mark.asyncio
     async def test_model_name_exists_true(self):
         """Test that model_name_exists returns True for existing model."""
         await SQLUtil.save_model("exists_test_model", b"encoder", b"model")
         result = await SQLUtil.model_name_exists("exists_test_model")
         assert result is True
 
-    @pytest.mark.asyncio
     async def test_model_name_exists_false(self):
         """Test that model_name_exists returns False for non-existing model."""
         result = await SQLUtil.model_name_exists("nonexistent_model_xyz_123")
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_model_name_exists_returns_false_for_missing(self):
         """Test that model_name_exists returns False for non-existent model."""
         result = await SQLUtil.model_name_exists("definitely_nonexistent_xyz_999")
@@ -459,20 +421,17 @@ class TestSQLUtilModelNameExists:
 class TestSQLUtilTaskNameExists:
     """Tests for SQLUtil.task_name_exists() method."""
 
-    @pytest.mark.asyncio
     async def test_task_name_exists_true(self):
         """Test that task_name_exists returns True for existing task."""
         await SQLUtil.save_predictions("exists_task_test", "exists_task_model", [{"functionName": "func1"}])
         result = await SQLUtil.task_name_exists("exists_task_test")
         assert result is True
 
-    @pytest.mark.asyncio
     async def test_task_name_exists_false(self):
         """Test that task_name_exists returns False for non-existing task."""
         result = await SQLUtil.task_name_exists("nonexistent_task_xyz_123")
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_task_name_exists_returns_false_on_error(self):
         """Test that task_name_exists returns False on database errors."""
         mock_error = AsyncMock(side_effect=Exception("DB Error"))

@@ -1,13 +1,9 @@
 """Tests for the lifespan module."""
 
 import pytest
-import asyncio
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import Mock, patch
 
 from app.core.lifespan import lifespan
-
-
-pytestmark = pytest.mark.asyncio
 
 
 class TestLifespan:

@@ -9,7 +9,6 @@ Components:
 - dependencies: FastAPI dependency injection for authentication
 - endpoints: Authentication API endpoints
 - schemas: Pydantic schemas for authentication data
-- middleware: Authentication middleware
 """
 
 from app.auth.dependencies import (
@@ -21,7 +20,6 @@ from app.auth.dependencies import (
     oauth2_scheme)
 from app.auth.endpoints import router as auth_router
 from app.auth.jwt_handler import JWTHandler
-from app.auth.middleware import AuthMiddleware
 from app.database.repository import APIKeyRepository, PasswordHasherService, UserRepository
 from app.auth.schemas import (
     APIKeyCreate,
@@ -44,8 +42,6 @@ __all__ = [
     "oauth2_scheme",
     # Router
     "auth_router",
-    # Middleware
-    "AuthMiddleware",
     # Classes
     "JWTHandler",
     "APIKeyRepository",

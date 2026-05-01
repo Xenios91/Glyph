@@ -104,7 +104,6 @@ class TestPasswordHasherService:
 class TestUserRepository:
     """Test cases for UserRepository."""
 
-    @pytest.mark.asyncio
     async def test_create_user(self, db):
         """Test creating a user."""
         repo = UserRepository(db)
@@ -124,7 +123,6 @@ class TestUserRepository:
         assert user.is_active is True
         assert user.hashed_password != "test_password_123"
 
-    @pytest.mark.asyncio
     async def test_get_by_id(self, db):
         """Test getting user by ID."""
         repo = UserRepository(db)
@@ -139,7 +137,6 @@ class TestUserRepository:
         assert retrieved is not None
         assert retrieved.id == user.id
 
-    @pytest.mark.asyncio
     async def test_get_by_username(self, db):
         """Test getting user by username."""
         repo = UserRepository(db)
@@ -154,7 +151,6 @@ class TestUserRepository:
         assert retrieved is not None
         assert retrieved.username == "testuser_username"
 
-    @pytest.mark.asyncio
     async def test_get_by_email(self, db):
         """Test getting user by email."""
         repo = UserRepository(db)
@@ -169,7 +165,6 @@ class TestUserRepository:
         assert retrieved is not None
         assert retrieved.email == "test_email@example.com"
 
-    @pytest.mark.asyncio
     async def test_verify_credentials_correct(self, db):
         """Test verifying correct credentials."""
         repo = UserRepository(db)
@@ -184,7 +179,6 @@ class TestUserRepository:
         assert user is not None
         assert user.username == "testuser_verify_correct"
 
-    @pytest.mark.asyncio
     async def test_verify_credentials_incorrect(self, db):
         """Test verifying incorrect credentials."""
         repo = UserRepository(db)
@@ -198,7 +192,6 @@ class TestUserRepository:
         user = await repo.verify_credentials("testuser_verify_incorrect", "wrong_password")
         assert user is None
 
-    @pytest.mark.asyncio
     async def test_update_user(self, db):
         """Test updating user."""
         repo = UserRepository(db)
@@ -214,7 +207,6 @@ class TestUserRepository:
         assert updated.full_name == "Updated Name"
         assert updated.email == "updated@example.com"
 
-    @pytest.mark.asyncio
     async def test_change_password(self, db):
         """Test changing password."""
         repo = UserRepository(db)
@@ -235,7 +227,6 @@ class TestUserRepository:
         user = await repo.verify_credentials("testuser_change_password", "new_password_123")
         assert user is not None
 
-    @pytest.mark.asyncio
     async def test_delete_user(self, db):
         """Test deleting user."""
         repo = UserRepository(db)
@@ -257,7 +248,6 @@ class TestUserRepository:
 class TestAPIKeyRepository:
     """Test cases for APIKeyRepository."""
 
-    @pytest.mark.asyncio
     async def test_create_api_key(self, db):
         """Test creating an API key."""
         user_repo = UserRepository(db)
@@ -283,7 +273,6 @@ class TestAPIKeyRepository:
         assert secret.startswith("glp_")
         assert api_key_record.hashed_key != secret
 
-    @pytest.mark.asyncio
     async def test_verify_and_get(self, db):
         """Test verifying and getting API key."""
         user_repo = UserRepository(db)
@@ -306,7 +295,6 @@ class TestAPIKeyRepository:
         # Check that last_used_at was updated
         assert verified.last_used_at is not None
 
-    @pytest.mark.asyncio
     async def test_verify_and_get_invalid_key(self, db):
         """Test verifying invalid API key."""
         api_key_repo = APIKeyRepository(db)
@@ -314,7 +302,6 @@ class TestAPIKeyRepository:
         verified = await api_key_repo.verify_and_get("glp_invalid_key_here")
         assert verified is None
 
-    @pytest.mark.asyncio
     async def test_get_user_api_keys(self, db):
         """Test getting user's API keys."""
         user_repo = UserRepository(db)
@@ -332,7 +319,6 @@ class TestAPIKeyRepository:
         keys = await api_key_repo.get_user_api_keys(user.id)
         assert len(keys) == 2
 
-    @pytest.mark.asyncio
     async def test_delete_api_key(self, db):
         """Test deleting API key."""
         user_repo = UserRepository(db)
@@ -356,7 +342,6 @@ class TestAPIKeyRepository:
         deleted = await api_key_repo.get_by_id(api_key_record.id)
         assert deleted is None
 
-    @pytest.mark.asyncio
     async def test_deactivate_api_key(self, db):
         """Test deactivating API key."""
         user_repo = UserRepository(db)

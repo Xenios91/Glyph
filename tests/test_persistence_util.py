@@ -1,7 +1,6 @@
 """Unit tests for persistence utilities including ML, prediction, and function storage."""
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock, PropertyMock
-from io import BytesIO
+from unittest.mock import MagicMock, patch, AsyncMock
 
 from app.utils.persistence_util import (
     MLTask,
@@ -23,11 +22,6 @@ class TestMLTask:
         assert pipeline.steps[0][0] == "preprocessor"
         assert pipeline.steps[1][0] == "clf"
 
-    def test_get_single_class_pipeline(self):
-        """Test single-class pipeline has correct components."""
-        # Note: MLTask only has get_multi_class_pipeline, not get_single_class_pipeline
-        # This test is skipped as the method doesn't exist
-        pytest.skip("get_single_class_pipeline method does not exist in MLTask")
 
 
 class TestPredictionPersistanceUtil:

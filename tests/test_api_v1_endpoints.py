@@ -8,9 +8,15 @@ from app.api.v1.endpoints.config import router as config_router, ConfigPayload
 from app.api.v1.endpoints.status import router as status_router, StatusUpdatePayload
 from app.api.v1.endpoints.predictions import PredictTokensRequest
 
-# Skip tests that depend on missing tasks module
-# The tasks endpoint module does not exist in the current codebase
-pytestmark = pytest.mark.skip(reason="tasks module does not exist in current codebase")
+
+def _mock_current_user():
+    """Mock current active user for testing."""
+    mock_user = Mock()
+    mock_user.id = 1
+    mock_user.username = "testuser"
+    mock_user.email = "test@example.com"
+    mock_user.is_active = True
+    return mock_user
 
 
 class TestConfigPayload:
@@ -51,34 +57,6 @@ class TestStatusUpdatePayload:
         assert payload.uuid == "test-uuid"
 
 
-class TestTaskRequest:
-    """Tests for TaskRequest model."""
-
-    def test_task_request_minimal(self):
-        """Test TaskRequest with minimal fields."""
-        request = TaskRequest(type="training")
-        assert request.type == "training"
-        assert request.modelName is None
-        assert request.uuid is None
-        assert request.overwriteModel is False
-        assert request.data is None
-
-    def test_task_request_full(self):
-        """Test TaskRequest with all fields."""
-        request = TaskRequest(
-            type="training",
-            modelName="test_model",
-            uuid="test-uuid",
-            overwriteModel=True,
-            data={"key": "value"},
-        )
-        assert request.type == "training"
-        assert request.modelName == "test_model"
-        assert request.uuid == "test-uuid"
-        assert request.overwriteModel is True
-        assert request.data == {"key": "value"}
-
-
 class TestPredictTokensRequest:
     """Tests for PredictTokensRequest model."""
 
@@ -113,11 +91,13 @@ class TestConfigRouter:
 
     @pytest.fixture
     def client(self):
-        """Create test client with config router."""
+        """Create test client with config router and auth override."""
         from fastapi import FastAPI
+        from app.auth.dependencies import get_current_active_user
 
         app = FastAPI()
         app.include_router(config_router, prefix="/config")
+        app.dependency_overrides[get_current_active_user] = _mock_current_user
         return TestClient(app)
 
     @patch("app.api.v1.endpoints.config.get_settings")
@@ -175,10 +155,13 @@ class TestStatusRouter:
 
     @pytest.fixture
     def client(self):
-        """Create test client with status router."""
+        """Create test client with status router and auth override."""
         from fastapi import FastAPI
+        from app.auth.dependencies import get_current_active_user
+
         app = FastAPI()
         app.include_router(status_router, prefix="/status")
+        app.dependency_overrides[get_current_active_user] = _mock_current_user
         return TestClient(app)
 
     @patch("app.api.v1.endpoints.status.TaskManager")
@@ -260,246 +243,3 @@ class TestStatusRouter:
         detail = data.get("detail", data)
         assert detail["success"] is False
         assert "UUID_NOT_FOUND" in detail.get("error", {}).get("code", "")
-
-
-class TestTasksRouter:
-    """Tests for tasks router endpoints."""
-
-    @pytest.fixture
-    def client(self):
-        """Create test client with tasks router."""
-        from fastapi import FastAPI
-        app = FastAPI()
-        app.include_router(tasks_router, prefix="/tasks")
-        return TestClient(app)
-
-    @patch("app.api.v1.endpoints.tasks.Trainer")
-    @patch("app.api.v1.endpoints.tasks.MLPersistanceUtil")
-    @patch("app.api.v1.endpoints.tasks.TrainingRequest")
-    @patch("app.api.v1.endpoints.tasks.FunctionPersistanceUtil")
-    @patch("app.api.v1.endpoints.tasks.create_success_response")
-    def test_train_model_success(
-        self,
-        mock_create_success,
-        mock_func_persistance,
-        mock_training_request,
-        mock_ml_persistance,
-        mock_trainer,
-        client,
-    ):
-        """Test training model successfully."""
-        mock_ml_persistance.check_name.return_value = False
-
-        mock_tr_instance = Mock()
-        mock_tr_instance.start_training = Mock()
-        mock_trainer.return_value = mock_tr_instance
-
-        mock_req_instance = Mock()
-        mock_req_instance.uuid = "test-uuid"
-        mock_training_request.return_value = mock_req_instance
-
-        mock_response = Mock()
-        mock_response.model_dump.return_value = {"success": True, "message": "Training task created successfully"}
-        mock_create_success.return_value = mock_response
-
-        response = client.post(
-            "/tasks/task",
-            json={
-                "type": "training",
-                "modelName": "test_model",
-                "data": {"tokens": "test"},
-            },
-        )
-
-        assert response.status_code == 201
-        data = response.json()
-        assert data["success"] is True
-        assert "Training task created successfully" in data["message"]
-
-    @patch("app.api.v1.endpoints.tasks.MLPersistanceUtil")
-    @patch("app.api.v1.endpoints.tasks.create_error_response")
-    def test_train_model_name_exists(self, mock_create_error, mock_ml_persistance, client):
-        """Test training model with existing name."""
-        mock_ml_persistance.check_name.return_value = True
-
-        mock_response = Mock()
-        mock_response.model_dump.return_value = {"success": False, "error_code": "MODEL_NAME_EXISTS"}
-        mock_create_error.return_value = mock_response
-
-        response = client.post(
-            "/tasks/task",
-            json={
-                "type": "training",
-                "modelName": "existing_model",
-                "data": {"tokens": "test"},
-            },
-        )
-
-        assert response.status_code == 400
-        data = response.json()
-        
-        detail = data.get("detail", data)
-        assert detail["success"] is False
-        assert "MODEL_NAME_EXISTS" in detail.get("error_code", "")
-
-    @patch("app.api.v1.endpoints.tasks.MLPersistanceUtil")
-    @patch("app.api.v1.endpoints.tasks.Trainer")
-    @patch("app.api.v1.endpoints.tasks.TrainingRequest")
-    @patch("app.api.v1.endpoints.tasks.FunctionPersistanceUtil")
-    @patch("app.api.v1.endpoints.tasks.create_success_response")
-    def test_train_model_overwrite_allowed(
-        self,
-        mock_create_success,
-        mock_ml_persistance,
-        mock_trainer,
-        mock_training_request,
-        mock_func_persistance,
-        client,
-    ):
-        """Test training model with overwrite flag."""
-        mock_ml_persistance.check_name.return_value = True
-
-        mock_tr_instance = Mock()
-        mock_tr_instance.start_training = Mock()
-        mock_trainer.return_value = mock_tr_instance
-
-        mock_req_instance = Mock()
-        mock_req_instance.uuid = "test-uuid"
-        mock_training_request.return_value = mock_req_instance
-
-        mock_response = Mock()
-        mock_response.model_dump.return_value = {"success": True, "message": "Training task created successfully"}
-        mock_create_success.return_value = mock_response
-
-        response = client.post(
-            "/tasks/task",
-            json={
-                "type": "training",
-                "modelName": "existing_model",
-                "overwriteModel": True,
-                "data": {"tokens": "test"},
-            },
-        )
-
-        assert response.status_code == 201
-
-    @patch("app.api.v1.endpoints.tasks.Predictor")
-    @patch("app.api.v1.endpoints.tasks.Trainer")
-    @patch("app.api.v1.endpoints.tasks.PredictionRequest")
-    @patch("app.api.v1.endpoints.tasks.create_success_response")
-    def test_predict_tokens_success(
-        self,
-        mock_create_success,
-        mock_prediction_request,
-        mock_trainer,
-        mock_predictor,
-        client,
-    ):
-        """Test predicting tokens successfully."""
-        mock_tr_instance = Mock()
-        mock_tr_instance.get_uuid.return_value = "test-uuid"
-        mock_trainer.return_value = mock_tr_instance
-
-        mock_pred_instance = Mock()
-        mock_pred_instance.start_prediction = Mock()
-        mock_predictor.return_value = mock_pred_instance
-
-        mock_req_instance = Mock()
-        mock_req_instance.uuid = "test-uuid"
-        mock_prediction_request.return_value = mock_req_instance
-
-        mock_response = Mock()
-        mock_response.model_dump.return_value = {"success": True, "message": "Prediction task created successfully"}
-        mock_create_success.return_value = mock_response
-
-        response = client.post(
-            "/tasks/task",
-            json={
-                "type": "prediction",
-                "modelName": "test_model",
-                "data": {"tokens": "test"},
-            },
-        )
-
-        assert response.status_code == 201
-        data = response.json()
-        assert data["success"] is True
-        assert "Prediction task created successfully" in data["message"]
-
-    @patch("app.api.v1.endpoints.tasks.create_error_response")
-    def test_invalid_task_type(self, mock_create_error, client):
-        """Test handling invalid task type."""
-        mock_response = Mock()
-        mock_response.model_dump.return_value = {"success": False, "error_code": "INVALID_REQUEST_TYPE"}
-        mock_create_error.return_value = mock_response
-
-        response = client.post(
-            "/tasks/task",
-            json={
-                "type": "invalid_type",
-                "modelName": "test_model",
-            },
-        )
-
-        assert response.status_code == 400
-        data = response.json()
-        # HTTPException wraps detail in 'detail' key
-        detail = data.get("detail", data)
-        assert detail["success"] is False
-        assert "INVALID_REQUEST_TYPE" in detail.get("error_code", "")
-
-
-class TestTrainModelFunction:
-    """Tests for train_model validation via endpoint."""
-
-    @pytest.fixture
-    def client(self):
-        """Create test client with tasks router."""
-        from fastapi import FastAPI
-        app = FastAPI()
-        app.include_router(tasks_router, prefix="/tasks")
-        return TestClient(app)
-
-    def test_train_model_no_model_name(self, client):
-        """Test training task with no model name returns 400."""
-        response = client.post(
-            "/tasks/task",
-            json={
-                "type": "training",
-            },
-        )
-
-        assert response.status_code == 400
-        data = response.json()
-        
-        detail = data.get("detail", data)
-        assert detail["success"] is False
-        assert "INVALID_MODEL_NAME" in detail.get("error", {}).get("code", "")
-
-
-class TestPredictTokensFunction:
-    """Tests for predict_tokens validation via endpoint."""
-
-    @pytest.fixture
-    def client(self):
-        """Create test client with tasks router."""
-        from fastapi import FastAPI
-        app = FastAPI()
-        app.include_router(tasks_router, prefix="/tasks")
-        return TestClient(app)
-
-    def test_predict_tokens_no_model_name(self, client):
-        """Test prediction task with no model name returns 400."""
-        response = client.post(
-            "/tasks/task",
-            json={
-                "type": "prediction",
-            },
-        )
-
-        assert response.status_code == 400
-        data = response.json()
-        # HTTPException wraps detail in 'detail' key
-        detail = data.get("detail", data)
-        assert detail["success"] is False
-        assert "INVALID_MODEL_NAME" in detail.get("error", {}).get("code", "")

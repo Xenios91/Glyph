@@ -107,7 +107,6 @@ class TestValidationStep:
         step = ValidationStep()
         assert step.get_name() == "ValidationStep"
 
-    @pytest.mark.asyncio
     async def test_execute_valid_file(self):
         """Test validation with a valid file."""
         with tempfile.NamedTemporaryFile(delete=False) as f:
@@ -125,7 +124,6 @@ class TestValidationStep:
         finally:
             os.unlink(temp_path)
 
-    @pytest.mark.asyncio
     async def test_execute_nonexistent_file(self):
         """Test validation with a nonexistent file."""
         step = ValidationStep()
@@ -137,7 +135,6 @@ class TestValidationStep:
         assert result.error is not None
         assert "not found" in result.error
 
-    @pytest.mark.asyncio
     async def test_execute_empty_file(self):
         """Test validation with an empty file."""
         with tempfile.NamedTemporaryFile(delete=False) as f:
@@ -155,7 +152,6 @@ class TestValidationStep:
         finally:
             os.unlink(temp_path)
 
-    @pytest.mark.asyncio
     async def test_execute_max_size(self):
         """Test validation with max size limit."""
         with tempfile.NamedTemporaryFile(delete=False) as f:
@@ -184,7 +180,6 @@ class TestDecompileStep:
         assert step.get_name() == "DecompileStep"
 
     @patch("app.processing.ghidra_processor.analyze_binary_and_decompile")
-    @pytest.mark.asyncio
     async def test_execute_success(self, mock_analyze):
         """Test successful decompilation."""
         mock_analyze.return_value = {
@@ -203,7 +198,6 @@ class TestDecompileStep:
         assert result.get("functions") == [{"name": "test"}]
 
     @patch("app.processing.ghidra_processor.analyze_binary_and_decompile")
-    @pytest.mark.asyncio
     async def test_execute_failure(self, mock_analyze):
         """Test failed decompilation."""
         mock_analyze.side_effect = Exception("Ghidra error")
@@ -227,7 +221,6 @@ class TestTokenizeStep:
         step = TokenizeStep()
         assert step.get_name() == "TokenizeStep"
 
-    @pytest.mark.asyncio
     async def test_execute_success(self):
         """Test successful tokenization."""
         step = TokenizeStep()
@@ -249,7 +242,6 @@ class TestTokenizeStep:
         assert tokenized[0]["tokens"] == "int x ;"
         assert tokenized[1]["tokens"] == "return 0 ;"
 
-    @pytest.mark.asyncio
     async def test_execute_no_functions(self):
         """Test tokenization with no functions."""
         step = TokenizeStep()
@@ -271,7 +263,6 @@ class TestFilterStep:
         step = FilterStep()
         assert step.get_name() == "FilterStep"
 
-    @pytest.mark.asyncio
     async def test_execute_success(self):
         """Test successful filtering."""
         step = FilterStep()
@@ -294,7 +285,6 @@ class TestFilterStep:
         assert len(filtered) == 1
         assert filtered[0]["tokenList"] == ["HEX", "FUNCTION", "VARIABLE", "int"]
 
-    @pytest.mark.asyncio
     async def test_execute_no_tokenized_functions(self):
         """Test filtering with no tokenized functions."""
         step = FilterStep()
@@ -315,7 +305,6 @@ class TestFeatureExtractStep:
         step = FeatureExtractStep()
         assert step.get_name() == "FeatureExtractStep"
 
-    @pytest.mark.asyncio
     async def test_execute_success(self):
         """Test successful feature extraction."""
         step = FeatureExtractStep()
@@ -336,7 +325,6 @@ class TestFeatureExtractStep:
         assert tokens is not None
         assert len(tokens) == 2
 
-    @pytest.mark.asyncio
     async def test_execute_no_filtered_functions(self):
         """Test feature extraction with no filtered functions."""
         step = FeatureExtractStep()
@@ -357,7 +345,6 @@ class TestTrainStep:
         step = TrainStep()
         assert step.get_name() == "TrainStep"
 
-    @pytest.mark.asyncio
     async def test_execute_no_model_name(self):
         """Test training without model name."""
         step = TrainStep()
@@ -371,7 +358,6 @@ class TestTrainStep:
 
     @patch("app.processing.steps.MLPersistanceUtil")
     @patch("app.processing.steps.MLTask")
-    @pytest.mark.asyncio
     async def test_execute_success(self, mock_ml_task, mock_persistence):
         """Test successful training."""
         from unittest.mock import AsyncMock
@@ -407,7 +393,6 @@ class TestPredictStep:
         step = PredictStep()
         assert step.get_name() == "PredictStep"
 
-    @pytest.mark.asyncio
     async def test_execute_no_model_name(self):
         """Test prediction without model name."""
         step = PredictStep()
@@ -420,7 +405,6 @@ class TestPredictStep:
         assert result.error is not None
 
     @patch("app.processing.steps.MLPersistanceUtil")
-    @pytest.mark.asyncio
     async def test_execute_success(self, mock_persistence):
         """Test successful prediction."""
         import numpy as np

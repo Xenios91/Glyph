@@ -133,13 +133,6 @@ class TestPredictionRequest:
         assert len(request.data) == 2
         assert "tokens" in request.data.columns
 
-    def test_set_prediction_values(self):
-        """Test prediction values are correctly assigned to functions.
-        
-        Skip: set_prediction_values method does not exist in current implementation.
-        """
-        import pytest
-        pytest.skip("set_prediction_values method does not exist in current implementation")
 
 
 class TestGhidraRequest:

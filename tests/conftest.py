@@ -39,5 +39,3 @@ def pytest_runtest_teardown(item):
         signal.alarm(0)
 
 
-# Configure pytest-asyncio
-pytest_plugins = ('pytest_asyncio',)

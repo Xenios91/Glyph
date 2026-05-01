@@ -4,8 +4,6 @@ This module provides endpoints for uploading binary files and managing
 binary-related operations.
 """
 
-import asyncio
-import contextvars
 import os
 import stat
 from pathlib import Path
@@ -175,7 +173,7 @@ def sanitize_filename(filename: str) -> str:
     return base_name
 
 
-def _run_pipeline_analysis(
+async def _run_pipeline_analysis(
     ghidra_request: GhidraRequest,
     file_path: str,
     captured_ctx: CapturedContext | None = None,
@@ -194,18 +192,15 @@ def _run_pipeline_analysis(
         ghidra_request: The Ghidra request containing analysis parameters.
         file_path: Path to the uploaded binary file.
         captured_ctx: Captured request context from the originating request
-            thread. Restored before asyncio.run() to preserve tracing.
+            thread. Restored before awaiting to preserve tracing.
     """
     try:
         # Restore request context from the snapshot captured on the request thread
         if captured_ctx is not None:
             restore_request_context(captured_ctx, override_task_id=ghidra_request.uuid)
 
-        # Run the full pipeline with explicit context propagation
-        result = asyncio.run(
-            Ghidra.run_full_pipeline(ghidra_request, file_path),
-            context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
-        )
+        # Run the full pipeline
+        result = await Ghidra.run_full_pipeline(ghidra_request, file_path)
 
         # Handle results based on pipeline type
         if result.error:
@@ -232,10 +227,7 @@ def _run_pipeline_analysis(
                         req_uuid=ghidra_request.uuid,
                         model_name=ghidra_request.model_name,
                         data=training_data)
-                    asyncio.run(
-                        FunctionPersistanceUtil.add_model_functions(training_request),
-                        context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
-                    )
+                    await FunctionPersistanceUtil.add_model_functions(training_request)
                     logger.debug(
                         "Functions saved for model {}",
                         ghidra_request.model_name)
@@ -272,11 +264,8 @@ def _run_pipeline_analysis(
                         logger.debug(
                             "PredictionRequest created for task '{}'",
                             prediction_request.task_name)
-                        asyncio.run(
-                            FunctionPersistanceUtil.add_prediction_functions(
-                                prediction_request, predictions
-                            ),
-                            context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
+                        await FunctionPersistanceUtil.add_prediction_functions(
+                            prediction_request, predictions
                         )
                         logger.debug(
                             "Predictions saved for task {}",
