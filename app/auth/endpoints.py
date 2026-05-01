@@ -36,6 +36,13 @@ from app.auth.schemas import (
     UserUpdate)
 from app.config.settings import get_settings
 from app.database.models import User
+from app.core.rate_limiter import (
+    check_rate_limit,
+    login_limiter,
+    register_limiter,
+    password_change_limiter,
+    refresh_limiter,
+)
 
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -60,6 +67,9 @@ async def register(
     Raises:
         HTTPException: If username or email already exists
     """
+    # Rate limit registration attempts
+    check_rate_limit(register_limiter, request)
+    
     user_repo = UserRepository(db)
 
     # Check if username exists
@@ -118,6 +128,9 @@ async def login(
     Raises:
         HTTPException: If credentials are invalid
     """
+    # Rate limit login attempts
+    check_rate_limit(login_limiter, request)
+    
     # Get client info for logging
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
@@ -214,6 +227,9 @@ async def refresh_token(
     Raises:
         HTTPException: If refresh token is invalid
     """
+    # Rate limit token refresh attempts
+    check_rate_limit(refresh_limiter, request)
+    
     ip_address = request.client.host if request.client else None
     try:
         payload = jwt_handler.verify_refresh_token(token_request.refresh_token)
@@ -270,7 +286,6 @@ async def refresh_token(
 
 
 @router.post("/logout")
-@router.get("/logout")
 async def logout(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
@@ -347,6 +362,9 @@ async def change_password(
     Raises:
         HTTPException: If current password is incorrect
     """
+    # Rate limit password change attempts
+    check_rate_limit(password_change_limiter, request)
+    
     ip_address = request.client.host if request.client else None
     user_repo = UserRepository(db)
 

@@ -45,6 +45,7 @@ ALLOWED_CLASSES: Set[str] = {
     "builtins.frozenset",
     # joblib specific
     "joblib.numpy_pickle.NumpyPickler",
+    "joblib.numpy_pickle.NumpyArrayWrapper",
 }
 
 # Explicitly blocked dangerous builtins and functions
@@ -164,47 +165,19 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
                 f"Deserialization of '{class_name}' is explicitly blocked for security reasons."
             )
         
-        # Check against whitelist
+        # Check against whitelist - strict exact match required.
+        # Previously this allowed any class from trusted modules via prefix matching,
+        # which could be exploited by crafted pickles using dangerous subclasses.
+        # Now requires explicit whitelist membership for all classes.
         if class_name not in self.allowed_classes:
-            # For custom whitelists, be strict - only allow exact matches
-            if self.allowed_classes is not ALLOWED_CLASSES:
-                logger.warning(
-                    "Blocked deserialization of class not in custom whitelist: {}",
-                    class_name
-                )
-                raise SecureDeserializationError(
-                    f"Deserialization of '{class_name}' is not allowed. "
-                    "Only whitelisted classes can be deserialized."
-                )
-            
-            # For default whitelist, check if it's from a trusted module
-            # but NOT a dangerous builtin
-            is_allowed = False
-            trusted_modules = {
-                'sklearn',
-                'numpy',
-                'joblib',
-            }
-            
-            # Check sklearn, numpy, joblib subclasses
-            for trusted_module in trusted_modules:
-                if class_name.startswith(trusted_module + '.'):
-                    is_allowed = True
-                    break
-            
-            # For builtins, only allow exact matches from whitelist
-            if module == 'builtins' and class_name in self.allowed_classes:
-                is_allowed = True
-            
-            if not is_allowed:
-                logger.warning(
-                    "Blocked deserialization of potentially dangerous class: {}",
-                    class_name
-                )
-                raise SecureDeserializationError(
-                    f"Deserialization of '{class_name}' is not allowed. "
-                    "Only whitelisted classes can be deserialized."
-                )
+            logger.warning(
+                "Blocked deserialization of class not in whitelist: {}",
+                class_name
+            )
+            raise SecureDeserializationError(
+                f"Deserialization of '{class_name}' is not allowed. "
+                "Only whitelisted classes can be deserialized."
+            )
         
         return super().find_class(module, name)
 

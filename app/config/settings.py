@@ -127,6 +127,14 @@ def get_settings() -> GlyphSettings:
     if _settings is None:
         try:
             _settings = GlyphSettings()
+            # Warn if using default JWT secret key (regenerates on restart)
+            if _settings.jwt_secret_key and "GLYPH_JWT_SECRET_KEY" not in os.environ:
+                logger.warning(
+                    "Using auto-generated JWT secret key. "
+                    "Set GLYPH_JWT_SECRET_KEY environment variable or "
+                    "jwt_secret_key in config.yml for production use. "
+                    "Tokens will be invalidated on application restart."
+                )
         except Exception as e:
             raise RuntimeError(f"Failed to load configuration: {e}") from e
     return _settings
