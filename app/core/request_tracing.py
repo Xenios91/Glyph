@@ -105,6 +105,9 @@ class RequestIDMiddleware:
         Returns:
             Wrapped send callable.
         """
+        import time as _time
+        _t0 = _time.monotonic()
+
         async def wrapped_send(message: Message) -> None:
             if message["type"] == "http.response.start":
                 # Add request ID to response headers
@@ -119,6 +122,9 @@ class RequestIDMiddleware:
                 # Add request ID header
                 headers.append([self.header_name.encode(), request_id.encode()])
                 message["headers"] = headers
+                logger.info("[MIDDLEWARE-TIMING] RequestID {:.3f}s http.response.start", _time.monotonic() - _t0)
+            elif message["type"] == "http.response.body":
+                logger.info("[MIDDLEWARE-TIMING] RequestID {:.3f}s http.response.body", _time.monotonic() - _t0)
             
             await send(message)
         

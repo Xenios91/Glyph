@@ -1,10 +1,10 @@
-from typing import Awaitable, Callable
+from typing import Any, Awaitable, Callable
 
 
 from loguru import logger
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import escape
@@ -25,14 +25,15 @@ configure_jinja2_templates(templates)
 setup_logging_from_config()
 
 
-# --- Content Security Policy Middleware ---
+# --- Content Security Policy Middleware (pure ASGI) ---
 class CSPMiddleware:
     """Middleware to add Content-Security-Policy headers to responses.
-    
-    Restricts script sources to same-origin only, preventing XSS attacks
-    that inject external scripts.
+
+    Uses pure ASGI interface to avoid threading issues with Starlette's
+    app.middleware("http") decorator that runs call_next in a thread pool,
+    which blocks responses when background tasks are used.
     """
-    
+
     CSP_HEADER = (
         "default-src 'self'; "
         "script-src 'self'; "
@@ -45,58 +46,120 @@ class CSPMiddleware:
         "form-action 'self'"
     )
 
-    async def __call__(
-        self,
-        request: Request,
-        call_next: Callable[[Request], Awaitable[Response]],
-    ) -> Response:
-        response: Response = await call_next(request)
-        response.headers["Content-Security-Policy"] = self.CSP_HEADER
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
-        return response
+    SECURITY_HEADERS: list[tuple[bytes, bytes]] = [
+        (b"x-content-type-options", b"nosniff"),
+        (b"x-frame-options", b"DENY"),
+        (b"referrer-policy", b"strict-origin-when-cross-origin"),
+        (b"permissions-policy", b"geolocation=(), camera=(), microphone=()"),
+    ]
 
-
-# --- CORS Middleware (lightweight, no external dependency) ---
-class CORSMiddleware:
-    """Simple CORS middleware with configurable allowed origins.
-    
-    Restricts cross-origin requests to explicitly allowed origins.
-    """
-    
     def __init__(
         self,
+        app: Callable[[Any, Any, Any], Awaitable[None]],
+    ) -> None:
+        self.app = app
+
+    async def __call__(
+        self,
+        scope: dict[str, Any],
+        receive: Callable[[], Awaitable[dict[str, Any]]],
+        send: Callable[[dict[str, Any]], Awaitable[None]],
+    ) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        import time as _time
+        _t0 = _time.monotonic()
+
+        async def send_wrapper(message: dict[str, Any]) -> None:
+            if message["type"] == "http.response.start":
+                headers: list[tuple[bytes, bytes]] = list(message.get("headers", []))
+                headers.append((b"content-security-policy", self.CSP_HEADER.encode("utf-8")))
+                headers.extend(self.SECURITY_HEADERS)
+                message["headers"] = headers
+                logger.info("[MIDDLEWARE-TIMING] CSP {:.3f}s http.response.start", _time.monotonic() - _t0)
+            elif message["type"] == "http.response.body":
+                logger.info("[MIDDLEWARE-TIMING] CSP {:.3f}s http.response.body", _time.monotonic() - _t0)
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+
+# --- CORS Middleware (pure ASGI, lightweight) ---
+class CORSMiddleware:
+    """Simple CORS middleware with configurable allowed origins.
+
+    Uses pure ASGI interface to avoid threading issues with Starlette's
+    app.middleware("http") decorator that runs call_next in a thread pool,
+    which blocks responses when background tasks are used.
+    """
+
+    def __init__(
+        self,
+        app: Callable[[Any, Any, Any], Awaitable[None]],
         allow_origins: list[str] | None = None,
         allow_methods: list[str] | None = None,
         allow_headers: list[str] | None = None,
     ) -> None:
-        # Default to empty list (same-origin only) instead of wildcard
+        self.app = app
         self.allow_origins = allow_origins or []
         self.allow_methods = allow_methods or ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
         self.allow_headers = allow_headers or ["Content-Type", "Authorization", "X-CSRF-Token"]
-    
+
     async def __call__(
         self,
-        request: Request,
-        call_next: Callable[[Request], Awaitable[Response]],
-    ) -> Response:
-        origin = request.headers.get("Origin")
-        
+        scope: dict[str, Any],
+        receive: Callable[[], Awaitable[dict[str, Any]]],
+        send: Callable[[dict[str, Any]], Awaitable[None]],
+    ) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Extract origin from headers
+        headers = dict(scope.get("headers", []))
+        origin = headers.get(b"origin")
+        if origin:
+            origin = origin.decode("utf-8")
+        method = scope.get("method")
+
         # Handle preflight OPTIONS requests
-        if request.method == "OPTIONS":
-            response: Response = Response(status_code=204)
-        else:
-            response = await call_next(request)
-        
+        if method == "OPTIONS":
+            cors_headers: list[tuple[bytes, bytes]] = []
+            if origin and self.allow_origins and origin in self.allow_origins:
+                cors_headers.append((b"access-control-allow-origin", origin.encode("utf-8")))
+                cors_headers.append((b"access-control-allow-methods", ", ".join(self.allow_methods).encode("utf-8")))
+                cors_headers.append((b"access-control-allow-headers", ", ".join(self.allow_headers).encode("utf-8")))
+                cors_headers.append((b"access-control-max-age", b"86400"))
+
+            await send({
+                "type": "http.response.start",
+                "status": 204,
+                "headers": cors_headers,
+            })
+            await send({"type": "http.response.body", "body": b""})
+            return
+
+        # For non-OPTIONS requests, wrap send to add CORS headers
         if origin and self.allow_origins and origin in self.allow_origins:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Methods"] = ", ".join(self.allow_methods)
-            response.headers["Access-Control-Allow-Headers"] = ", ".join(self.allow_headers)
-            response.headers["Access-Control-Max-Age"] = "86400"
-        
-        return response
+            cors_headers = [
+                (b"access-control-allow-origin", origin.encode("utf-8")),
+                (b"access-control-allow-methods", ", ".join(self.allow_methods).encode("utf-8")),
+                (b"access-control-allow-headers", ", ".join(self.allow_headers).encode("utf-8")),
+                (b"access-control-max-age", b"86400"),
+            ]
+
+            async def send_wrapper(message: dict[str, Any]) -> None:
+                if message["type"] == "http.response.start":
+                    headers_list: list[tuple[bytes, bytes]] = list(message.get("headers", []))
+                    headers_list.extend(cors_headers)
+                    message["headers"] = headers_list
+                await send(message)
+
+            await self.app(scope, receive, send_wrapper)
+        else:
+            await self.app(scope, receive, send)
 
 
 def create_app() -> FastAPI:
@@ -122,12 +185,12 @@ def create_app() -> FastAPI:
     app.add_middleware(CSRFMiddleware)
     logger.info("Middleware registered: CSRFMiddleware")
 
-    # Add Content Security Policy headers
-    app.middleware("http")(CSPMiddleware().__call__)
+    # Add Content Security Policy headers (pure ASGI, no threading)
+    app.add_middleware(CSPMiddleware)
     logger.info("Middleware registered: CSPMiddleware")
 
-    # Add CORS middleware
-    app.middleware("http")(CORSMiddleware().__call__)
+    # Add CORS middleware (pure ASGI, no threading)
+    app.add_middleware(CORSMiddleware)
     logger.info("Middleware registered: CORSMiddleware")
 
     try:

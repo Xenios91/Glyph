@@ -1,24 +1,33 @@
-"""CSRF Protection for FastAPI application using Starlette middleware.
+"""CSRF Protection for FastAPI application using pure ASGI middleware.
 
 This module provides CSRF token generation and validation for state-changing requests.
 Uses session-based CSRF tokens with SameSite cookie policy.
+
+Note: Uses pure ASGI middleware instead of BaseHTTPMiddleware to avoid the
+known Starlette issue where BaseHTTPMiddleware runs call_next in a separate
+thread, causing responses to be blocked until background tasks complete.
 """
 
 import secrets
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from app.auth.security_logger import log_csrf_failure
 
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from loguru import logger
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.status import HTTP_403_FORBIDDEN
 
 
-class CSRFMiddleware(BaseHTTPMiddleware):
+class CSRFMiddleware:
     """Middleware to protect against Cross-Site Request Forgery (CSRF) attacks.
 
     Generates a CSRF token on first request and validates it on state-changing requests
     (POST, PUT, DELETE, PATCH). The token is stored in a secure, HttpOnly cookie.
+
+    Uses pure ASGI interface to avoid threading issues with Starlette's BaseHTTPMiddleware
+    that can block responses when background tasks are used.
     """
 
     # HTTP methods that require CSRF validation
@@ -30,18 +39,40 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     # Header name for CSRF token
     CSRF_HEADER_NAME: str = "X-CSRF-Token"
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    def __init__(
+        self,
+        app: Callable[[Any, Any, Any], Awaitable[None]],
+    ) -> None:
+        self.app = app
+
+    async def __call__(
+        self,
+        scope: dict[str, Any],
+        receive: Callable[[], Awaitable[dict[str, Any]]],
+        send: Callable[[dict[str, Any]], Awaitable[None]],
+    ) -> None:
+        import time as _time
+        _t0 = _time.monotonic()
+
+        # Only process HTTP requests
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
+
         # Skip CSRF validation for static files and API documentation
         if self._is_excluded_path(request.url.path):
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
         # Generate or retrieve CSRF token
         csrf_token = self._get_or_create_token(request)
 
-        # Store token in request state for template access (secure: same-origin only)
-        request.state.csrf_token = csrf_token
+        # Store token in request state for template access
+        # Use Starlette's State object properly (don't overwrite scope["state"])
+        if not hasattr(request.state, "csrf_token"):
+            request.state.csrf_token = csrf_token
 
         # For unsafe methods, validate the CSRF token
         if request.method in self.UNSAFE_METHODS:
@@ -52,19 +83,42 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                     ip_address=ip_address,
                     path=request.url.path,
                     method=request.method)
+
                 # Return 403 Forbidden for invalid CSRF tokens
-                return Response(
+                response = Response(
                     content='{"detail": "CSRF token missing or invalid"}',
                     status_code=HTTP_403_FORBIDDEN,
                     media_type="application/json")
+                await response(scope, receive, send)
+                return
 
-        # Process the request
-        response = await call_next(request)
+        # Build cookie value for the wrapper
+        from app.config.settings import get_settings
+        settings = get_settings()
 
-        # Set the CSRF token cookie in the response
-        self._set_csrf_cookie(response, csrf_token)
+        cookie_value = (
+            f"{self.CSRF_COOKIE_NAME}={csrf_token}; "
+            f"HttpOnly; "
+            f"SameSite=Strict; "
+            f"Max-Age=86400"
+            + ("; Secure" if settings.use_https else "")
+        )
 
-        return response
+        # Wrap send to inject Set-Cookie header on response start
+        async def send_wrapper(message: dict[str, Any]) -> None:
+            if message["type"] == "http.response.start":
+                headers: list[tuple[bytes, bytes]] = list(message.get("headers", []))
+                headers.append(
+                    (b"set-cookie", cookie_value.encode("utf-8"))
+                )
+                message["headers"] = headers
+                logger.info("[MIDDLEWARE-TIMING] CSRF {:.3f}s http.response.start", _time.monotonic() - _t0)
+            elif message["type"] == "http.response.body":
+                logger.info("[MIDDLEWARE-TIMING] CSRF {:.3f}s http.response.body", _time.monotonic() - _t0)
+            await send(message)
+
+        # Process the request through the app
+        await self.app(scope, receive, send_wrapper)
 
     def _is_excluded_path(self, path: str) -> bool:
         """Check if the path should be excluded from CSRF validation.
@@ -170,23 +224,3 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             True if tokens match, False otherwise.
         """
         return secrets.compare_digest(token1.encode(), token2.encode())
-
-    def _set_csrf_cookie(self, response: Response, token: str) -> None:
-        """Set the CSRF token cookie in the response.
-
-        Args:
-            response: The response to add the cookie to.
-            token: The CSRF token to set.
-        """
-        from app.config.settings import get_settings
-        settings = get_settings()
-        response.set_cookie(
-            key=self.CSRF_COOKIE_NAME,
-            value=token,
-            httponly=True,
-            samesite="strict",  # Prevent cross-site requests
-            secure=settings.use_https,
-            max_age=86400,  # 24 hours
-        )
-
-

@@ -92,6 +92,13 @@ function setUploadLoading(isLoading) {
 let uploadMessageTimer = undefined;
 
 /**
+ * Flag to track if the processing message was already dismissed by the fallback timer.
+ * Prevents showUploadStatus() from re-showing the message after a slow server response.
+ * @type {boolean}
+ */
+let uploadMessageDismissed = false;
+
+/**
  * Show the processing/uploading state immediately when upload starts
  */
 function showUploadProcessing() {
@@ -117,13 +124,15 @@ function showUploadProcessing() {
         clearTimeout(uploadMessageTimer);
     }
     uploadMessageTimer = setTimeout(() => {
+        uploadMessageDismissed = true;
+        console.log('[UPLOAD] Fallback timer: message dismissed');
         uploadMessage.style.display = 'none';
         if (uploadBox) {
             uploadBox.style.display = 'block';
         }
         setUploadLoading(false);
         resetUploadForm();
-    }, 30000); // 30-second fallback
+    }, 5000); // 5-second fallback
 }
 
 /**
@@ -132,13 +141,33 @@ function showUploadProcessing() {
  * @param {boolean} isSuccess - Whether the upload was successful
  */
 function showUploadStatus(message, isSuccess = true) {
+    console.log('[UPLOAD] showUploadStatus called:', message, 'isSuccess:', isSuccess);
+    
+    // If the fallback timer already dismissed the message, don't re-show it
+    if (uploadMessageDismissed) {
+        console.log('[UPLOAD] Message already dismissed by fallback timer, showing brief toast instead');
+        uploadMessageDismissed = false;
+        setUploadLoading(false);
+        if (isSuccess) {
+            Toast.success(message || 'Binary uploaded successfully');
+        } else {
+            Toast.error(message || 'Upload failed');
+        }
+        resetUploadForm();
+        return;
+    }
+    
     const uploadMessage = document.getElementById('upload-message');
     const uploadBox = document.getElementById('upload-box');
     
-    if (!uploadMessage) return;
+    if (!uploadMessage) {
+        console.error('[UPLOAD] showUploadStatus: uploadMessage element not found!');
+        return;
+    }
     
     // Clear any existing auto-hide timer (e.g., from processing state)
     if (uploadMessageTimer !== undefined) {
+        console.log('[UPLOAD] Clearing existing timer:', uploadMessageTimer);
         clearTimeout(uploadMessageTimer);
         uploadMessageTimer = undefined;
     }
@@ -152,16 +181,28 @@ function showUploadStatus(message, isSuccess = true) {
     }
     
     uploadMessage.style.display = 'block';
-    uploadBox.style.display = 'none';
+    if (uploadBox) {
+        uploadBox.style.display = 'none';
+    }
     
     // Auto-hide after 5 seconds
+    console.log('[UPLOAD] Setting auto-hide timer for 5 seconds');
     uploadMessageTimer = setTimeout(() => {
+        console.log('[UPLOAD] Auto-hide timer fired!');
+        console.log('[UPLOAD] uploadMessage exists:', !!uploadMessage, 'uploadBox exists:', !!uploadBox);
         uploadMessage.style.display = 'none';
         if (uploadBox) {
             uploadBox.style.display = 'block';
         }
+        console.log('[UPLOAD] After setting styles - uploadMessage.display:', uploadMessage.style.display, 'uploadBox.display:', uploadBox ? uploadBox.style.display : 'N/A');
+        console.log('[UPLOAD] Computed style uploadMessage:', window.getComputedStyle(uploadMessage).display);
+        console.log('[UPLOAD] Computed style uploadBox:', uploadBox ? window.getComputedStyle(uploadBox).display : 'N/A');
         resetUploadForm();
+        console.log('[UPLOAD] After resetUploadForm - uploadMessage.display:', uploadMessage.style.display, 'uploadBox.display:', uploadBox ? uploadBox.style.display : 'N/A');
+        console.log('[UPLOAD] Computed style uploadMessage after reset:', window.getComputedStyle(uploadMessage).display);
+        console.log('[UPLOAD] Computed style uploadBox after reset:', uploadBox ? window.getComputedStyle(uploadBox).display : 'N/A');
     }, 5000);
+    console.log('[UPLOAD] New timer ID:', uploadMessageTimer);
 }
 
 /**
@@ -239,10 +280,16 @@ function validateUploadForm() {
  * Upload binary file using native fetch API
  */
 async function uploadBinary() {
+    const t0 = performance.now();
+    const log = (msg) => console.log(`[UPLOAD] ${((performance.now() - t0) / 1000).toFixed(2)}s ${msg}`);
+    log('uploadBinary() called');
+    
     // Validate form before upload
     if (!validateUploadForm()) {
+        log('Validation failed, aborting');
         return;
     }
+    log('Validation passed');
     
     const formData = new FormData();
     const selectedFile = document.getElementById('upload-binary').files[0];
@@ -272,15 +319,29 @@ async function uploadBinary() {
     
     // Show upload message immediately so user sees feedback during upload
     showUploadProcessing();
+    log('showUploadProcessing() done, awaiting fetch...');
     
     try {
+        // Explicitly set Accept: application/json to prevent server returning HTML
+        // (browser defaults to Accept: */* which triggers HTML response in endpoint)
+        const headers = {
+            'Accept': 'application/json'
+        };
+        const csrfToken = getCsrfToken();
+        if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken;
+        }
+
+        log('Sending fetch request...');
         const response = await fetch('/api/v1/binaries/uploadBinary', {
             method: 'POST',
-            headers: getFetchOptionsWithCsrf({}).headers,
+            headers: headers,
             body: formData
         });
+        log(`Fetch complete, status: ${response.status} OK: ${response.ok}`);
         
         const responseText = await response.text();
+        log(`Response body received (${responseText.length} chars)`);
         
         if (response.ok) {
             let data;
@@ -288,6 +349,7 @@ async function uploadBinary() {
                 data = JSON.parse(responseText);
             } catch (parseError) {
                 console.error('[UPLOAD] Failed to parse response as JSON:', parseError);
+                console.error('[UPLOAD] Raw response:', responseText.substring(0, 500));
                 // If JSON parsing fails but response is ok, treat as success with generic message
                 showUploadStatus('Binary uploaded successfully');
                 return;
@@ -295,16 +357,13 @@ async function uploadBinary() {
             showUploadStatus(data.message || 'Binary uploaded successfully');
         } else {
             // Handle specific error responses
-            const errorData = await response.json().catch(() => ({}));
-            const errorMessage = errorData.detail || errorData.message || 'Upload failed';
+            const errorMessage = responseText.includes('CSRF')
+                ? 'Security token expired. Please refresh the page and try again.'
+                : (responseText.includes('detail') ? JSON.parse(responseText).detail : `Upload failed (${response.status})`);
             
-            if (response.status === 400) {
-                Toast.error(errorMessage);
-                showUploadStatus(errorMessage, false);
-            } else {
-                Toast.error(`Server error: ${response.status}`);
-                showUploadStatus(errorMessage, false);
-            }
+            console.error('[UPLOAD] Server error:', response.status, errorMessage);
+            Toast.error(errorMessage);
+            showUploadStatus(errorMessage, false);
         }
     } catch (error) {
         console.error('Upload error:', error);
