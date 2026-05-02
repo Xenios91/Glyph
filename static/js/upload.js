@@ -170,6 +170,14 @@ function validateUploadForm() {
             predictionModelSelect?.focus();
             return false;
         }
+        
+        // Validate task name for prediction
+        const taskNameInput = document.getElementById('task_name');
+        if (!taskNameInput || !taskNameInput.value.trim()) {
+            Toast.error('Please enter a task name');
+            taskNameInput?.focus();
+            return false;
+        }
     }
     
     // Validate ML class type

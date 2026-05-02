@@ -134,6 +134,26 @@ class LoginFailureTracker:
 _login_failure_tracker = LoginFailureTracker()
 
 
+def is_blocked(username: str, ip_address: str | None = None) -> bool:
+    """Check if a username or IP is currently blocked due to excessive failures.
+
+    Returns True if the key has exceeded the threshold and has not been reset,
+    allowing callers to enforce account/IP lockout.
+
+    Args:
+        username: The username to check.
+        ip_address: Optional IP address to check.
+
+    Returns:
+        True if the username or IP should be blocked.
+    """
+    if _login_failure_tracker.is_suspicious(username):
+        return True
+    if ip_address and _login_failure_tracker.is_suspicious(ip_address):
+        return True
+    return False
+
+
 def log_login_attempt(
     username: str,
     ip_address: str | None = None,

@@ -37,6 +37,11 @@ def get_jwt_handler() -> JWTHandler:
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Get an async database session for auth.
     
+    Commits pending changes after the endpoint returns. Read-only endpoints
+    have no pending changes, so the commit is a no-op. Write endpoints rely
+    on the repository layer to flush() changes, which this dependency then
+    commits.
+    
     Yields:
         AsyncSession for the auth database
     """

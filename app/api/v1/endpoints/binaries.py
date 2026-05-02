@@ -5,6 +5,7 @@ binary-related operations.
 """
 
 import os
+import shutil
 import stat
 from pathlib import Path
 import uuid
@@ -22,7 +23,7 @@ from fastapi import (
     UploadFile)
 from fastapi.templating import Jinja2Templates
 from starlette.responses import HTMLResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.config.settings import get_settings
 from app.services.request_handler import GhidraRequest
@@ -52,7 +53,7 @@ class BinaryUploadForm(BaseModel):
         training_data: Whether this is training data ("true" or "false").
         model_name: Name of the model to use (required, non-empty).
         ml_class_type: Type of ML classification (required, non-empty).
-        task_name: Optional task name (empty string or non-empty).
+        task_name: Required task name for prediction mode (ignored for training).
     """
 
     training_data: str = Field(
@@ -68,7 +69,7 @@ class BinaryUploadForm(BaseModel):
         description="Type of ML classification")
     task_name: str = Field(
         default="",
-        description="Optional task name for prediction mode")
+        description="Required task name for prediction mode")
 
     @field_validator("training_data", mode="before")
     @classmethod
@@ -96,6 +97,13 @@ class BinaryUploadForm(BaseModel):
         if v is None:
             return ""
         return v.strip()
+
+    @model_validator(mode="after")
+    def validate_task_name_required_for_prediction(self) -> "BinaryUploadForm":
+        """Validate task_name is provided when training_data is 'false' (prediction mode)."""
+        if self.training_data == "false" and not self.task_name.strip():
+            raise ValueError("task_name is required for prediction mode")
+        return self
 
 
 class BinaryUploadResponse(BaseModel):
@@ -290,7 +298,7 @@ async def post_upload_binary(
     training_data: str = Form("false"),
     model_name: str = Form(...),
     ml_class_type: str = Form(...),
-    task_name: str = Form("")
+    task_name: str = Form(...)
 ) -> Union[SuccessResponse[BinaryUploadResponse], HTMLResponse]:
     """Handle POST request for binary file uploads.
 
@@ -301,7 +309,7 @@ async def post_upload_binary(
         training_data: Whether this is training data ("true" or "false").
         model_name: Name of the model to use.
         ml_class_type: Type of ML classification.
-        task_name: Optional task name for prediction mode.
+        task_name: Required task name for prediction mode.
 
     Returns:
         JSONResponse with upload result or HTML template.
@@ -354,6 +362,17 @@ async def post_upload_binary(
     upload_folder = settings.upload_folder
 
     os.makedirs(upload_folder, exist_ok=True)
+    # Set restrictive directory permissions (owner only)
+    os.chmod(upload_folder, stat.S_IRWXU)
+
+    # Check available disk space before writing
+    disk_usage = shutil.disk_usage(upload_folder)
+    if disk_usage.free < len(file_content) * 1.1:  # 10% buffer
+        raise HTTPException(
+            status_code=507,
+            detail=create_error_response(
+                error_code="INSUFFICIENT_STORAGE",
+                error_message="Insufficient disk space to complete upload").model_dump())
 
     file_path = os.path.join(upload_folder, unique_filename)
 

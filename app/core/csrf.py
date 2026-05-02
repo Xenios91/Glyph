@@ -145,6 +145,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         ):
             try:
                 form_data = await request.form()
+                # Cache form data in request state for downstream use
+                request.state._csrf_form_data = form_data
                 token_from_form = form_data.get(self.CSRF_COOKIE_NAME)
                 # Ensure token_from_form is a string before comparing
                 if isinstance(token_from_form, str) and self._secure_compare(
@@ -176,12 +178,14 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             response: The response to add the cookie to.
             token: The CSRF token to set.
         """
+        from app.config.settings import get_settings
+        settings = get_settings()
         response.set_cookie(
             key=self.CSRF_COOKIE_NAME,
             value=token,
             httponly=True,
             samesite="strict",  # Prevent cross-site requests
-            secure=False,  # TODO with TLS
+            secure=settings.use_https,
             max_age=86400,  # 24 hours
         )
 

@@ -59,7 +59,10 @@ class RateLimiter:
 
 
 def get_client_ip(request: Any) -> str:
-    """Extract client IP from request, considering proxy headers.
+    """Extract client IP from request, considering trusted proxy headers.
+
+    Only trusts X-Forwarded-For when the direct connection is from a
+    configured trusted proxy. Otherwise uses the direct socket peer address.
 
     Args:
         request: FastAPI request object.
@@ -67,15 +70,19 @@ def get_client_ip(request: Any) -> str:
     Returns:
         Client IP address string.
     """
-    # Check X-Forwarded-For header first (for proxied requests)
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+    from app.config.settings import get_settings
+    settings = get_settings()
 
     client = getattr(request, "client", None)
-    if client and hasattr(client, "host"):
-        return client.host
-    return "unknown"
+    direct_ip = client.host if client and hasattr(client, "host") else "unknown"
+
+    # Only trust X-Forwarded-For when connected via a trusted proxy
+    if settings.trusted_proxies and direct_ip in settings.trusted_proxies:
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            return forwarded_for.split(",")[0].strip()
+
+    return direct_ip
 
 
 def check_rate_limit(limiter: RateLimiter, request: Any) -> None:

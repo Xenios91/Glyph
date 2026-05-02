@@ -20,6 +20,7 @@ from app.auth.dependencies import (
     oauth2_scheme)
 from app.auth.endpoints import router as auth_router
 from app.auth.jwt_handler import JWTHandler
+from app.auth.security_logger import is_blocked
 from app.database.repository import APIKeyRepository, PasswordHasherService, UserRepository
 from app.auth.schemas import (
     APIKeyCreate,
@@ -47,6 +48,8 @@ __all__ = [
     "APIKeyRepository",
     "PasswordHasherService",
     "UserRepository",
+    # Security
+    "is_blocked",
     # Schemas
     "APIKeyCreate",
     "APIKeyResponse",

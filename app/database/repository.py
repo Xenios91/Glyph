@@ -151,7 +151,7 @@ class UserRepository:
         return result.scalar_one_or_none()
     
     async def verify_credentials(self, username: str, password: str) -> User | None:
-        """Verify user credentials.
+        """Verify user credentials and rehash if needed.
         
         Args:
             username: Username
@@ -163,6 +163,11 @@ class UserRepository:
         user = await self.get_by_username(username)
         if user and self.password_hasher.verify_password(password, user.hashed_password):
             logger.bind(user_id=user.id).debug("Credentials verified")
+            # Rehash password if hash parameters are outdated
+            if self.password_hasher.needs_rehash(user.hashed_password):
+                user.hashed_password = self.password_hasher.hash_password(password)
+                await self.db.flush()
+                logger.bind(user_id=user.id).info("Password hash rehashed")
             return user
         return None
     

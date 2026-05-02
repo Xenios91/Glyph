@@ -4,6 +4,7 @@ from typing import Annotated
 
 from app.auth.jwt_handler import InvalidTokenError, DecodeError
 from app.auth.security_logger import (
+    is_blocked,
     log_login_attempt,
     log_login_success,
     log_login_failure,
@@ -130,10 +131,21 @@ async def login(
     """
     # Rate limit login attempts
     check_rate_limit(login_limiter, request)
-    
+
     # Get client info for logging
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
+
+    # Check if username or IP is blocked due to excessive failures
+    if is_blocked(credentials.username, ip_address):
+        log_suspicious_activity(
+            user_id=None,
+            activity_type="login_blocked",
+            details={"username": credentials.username, "reason": "Excessive failures"},
+            ip_address=ip_address)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed login attempts. Please try again later.")
 
     # Log the login attempt before processing
     log_login_attempt(
@@ -192,14 +204,14 @@ async def login(
         key="access_token_cookie",
         value=access_token,
         httponly=True,
-        secure=settings.oauth2_enabled,
+        secure=settings.use_https,
         samesite="strict",
         max_age=settings.access_token_expire_minutes * 60)
     response.set_cookie(
         key="refresh_token_cookie",
         value=refresh_token,
         httponly=True,
-        secure=settings.oauth2_enabled,
+        secure=settings.use_https,
         samesite="strict",
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60)
     

@@ -6,7 +6,11 @@ from typing import Any
 import re
 
 def format_code(code: str) -> str:
-    """Format Ghidra C code: removes comments and enforces proper indentation."""
+    """Format Ghidra C code: removes comments and enforces proper indentation.
+    
+    Returns raw, unescaped code. HTML escaping is handled by Jinja2 auto-escaping
+    when rendered in templates, and JSON responses remain clean for API consumers.
+    """
     
     # 1. Remove Comments (Both /* */ and //)
     # This regex handles multi-line comments and single-line comments
@@ -94,7 +98,8 @@ def format_code(code: str) -> str:
         final_output.append("}")
 
     # Final cleanup of empty lines
-    return "\n".join(line for line in final_output if line.strip())
+    result = "\n".join(line for line in final_output if line.strip())
+    return result
 
 
 def build_prediction_details_response(

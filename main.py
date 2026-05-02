@@ -36,15 +36,15 @@ class CSPMiddleware:
     CSP_HEADER = (
         "default-src 'self'; "
         "script-src 'self'; "
-        "style-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "img-src 'self' data:; "
-        "font-src 'self'; "
+        "font-src 'self' https://fonts.gstatic.com; "
         "object-src 'none'; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
         "form-action 'self'"
     )
-    
+
     async def __call__(
         self,
         request: Request,
@@ -54,6 +54,8 @@ class CSPMiddleware:
         response.headers["Content-Security-Policy"] = self.CSP_HEADER
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
         return response
 
 
@@ -70,7 +72,8 @@ class CORSMiddleware:
         allow_methods: list[str] | None = None,
         allow_headers: list[str] | None = None,
     ) -> None:
-        self.allow_origins = allow_origins or ["*"]
+        # Default to empty list (same-origin only) instead of wildcard
+        self.allow_origins = allow_origins or []
         self.allow_methods = allow_methods or ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
         self.allow_headers = allow_headers or ["Content-Type", "Authorization", "X-CSRF-Token"]
     
@@ -87,7 +90,7 @@ class CORSMiddleware:
         else:
             response = await call_next(request)
         
-        if origin and (origin in self.allow_origins or "*" in self.allow_origins):
+        if origin and self.allow_origins and origin in self.allow_origins:
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Methods"] = ", ".join(self.allow_methods)
             response.headers["Access-Control-Allow-Headers"] = ", ".join(self.allow_headers)

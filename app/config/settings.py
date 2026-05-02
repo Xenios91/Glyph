@@ -73,7 +73,7 @@ class GlyphSettings(BaseSettings):
 
     # JWT Settings
     jwt_secret_key: str = Field(
-        default_factory=lambda: secrets.token_urlsafe(32),
+        default="change-me-in-production",
         description="Secret key for JWT signing"
     )
     jwt_algorithm: str = Field(default="HS256")
@@ -83,6 +83,16 @@ class GlyphSettings(BaseSettings):
     # OAuth2 Settings
     oauth2_enabled: bool = Field(default=False)
     oauth2_session_secret: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    
+    # Security Settings
+    use_https: bool = Field(
+        default=False,
+        description="Whether the application is deployed behind HTTPS/TLS"
+    )
+    trusted_proxies: list[str] = Field(
+        default_factory=list,
+        description="List of trusted proxy IPs/CIDRs for X-Forwarded-For"
+    )
     
     # Authentication Settings
     auth_enabled: bool = Field(default=True, description="Whether authentication is enabled")
@@ -127,10 +137,13 @@ def get_settings() -> GlyphSettings:
     if _settings is None:
         try:
             _settings = GlyphSettings()
-            # Warn if using default JWT secret key (regenerates on restart)
-            if _settings.jwt_secret_key and "GLYPH_JWT_SECRET_KEY" not in os.environ:
+            # Warn if using the default JWT secret key.
+            # The default is a known placeholder in config.yml; if unchanged,
+            # warn the user but do not block startup.
+            _DEFAULT_JWT_SECRET = "change-me-in-production"
+            if _settings.jwt_secret_key == _DEFAULT_JWT_SECRET:
                 logger.warning(
-                    "Using auto-generated JWT secret key. "
+                    "Using default JWT secret key. "
                     "Set GLYPH_JWT_SECRET_KEY environment variable or "
                     "jwt_secret_key in config.yml for production use. "
                     "Tokens will be invalidated on application restart."

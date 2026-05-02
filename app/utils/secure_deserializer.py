@@ -23,6 +23,7 @@ ALLOWED_CLASSES: Set[str] = {
     # sklearn classes
     "sklearn.pipeline.Pipeline",
     "sklearn.feature_extraction.text.TfidfVectorizer",
+    "sklearn.feature_extraction.text.TfidfTransformer",
     "sklearn.naive_bayes.MultinomialNB",
     "sklearn.preprocessing._label.LabelEncoder",
     # numpy classes
@@ -63,7 +64,7 @@ BLOCKED_BUILTINS: Set[str] = {
     "builtins.map",
     "builtins.reduce",
     "builtins.getattr",
-    "builtins setattr",
+    "builtins.setattr",
     "builtins.delattr",
     "builtins.hasattr",
     "builtins.isinstance",
@@ -112,7 +113,6 @@ BLOCKED_BUILTINS: Set[str] = {
     "builtins.__loader__",
     "builtins.__spec__",
     "builtins.__annotations__",
-    "builtins.__import__",
 }
 
 

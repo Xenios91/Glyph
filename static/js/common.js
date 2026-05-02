@@ -161,3 +161,13 @@ function initTableHoverEffects(selector = '.hover-row') {
         });
     });
 }
+
+// Initialize back button handlers (replaces inline onclick="history.back()")
+document.addEventListener('DOMContentLoaded', function() {
+    var backButtons = document.querySelectorAll('.back-btn');
+    backButtons.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            history.back();
+        });
+    });
+});

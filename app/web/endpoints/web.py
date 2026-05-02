@@ -3,6 +3,7 @@ from typing import Annotated, Any, Union
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import app._version as _version
 from app.config.settings import MAX_CPU_CORES, get_settings
@@ -12,7 +13,9 @@ from app.processing.task_management import TaskManager
 from app.utils.common import format_code, build_prediction_details_response
 from app.utils.jinja_utils import configure_jinja2_templates
 from loguru import logger
-from app.auth.dependencies import get_current_active_user, get_optional_user
+from app.auth.dependencies import get_current_active_user, get_optional_user, get_db, get_jwt_handler
+from app.auth.jwt_handler import JWTHandler
+from app.database.repository import UserRepository
 from app.database.models import User
 
 
@@ -240,13 +243,79 @@ async def login_page(
     """
     # Redirect to home if already logged in
     if current_user:
-        from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/")
     
     return templates.TemplateResponse(
         request,
         "login.html",
         {"title": "Glyph - Login", "user": current_user})
+
+
+@router.post("/login", response_model=None)
+async def login_submit(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]
+) -> Union[RedirectResponse, HTMLResponse]:
+    """
+    Handles login form submission (POST).
+
+    Uses cached form data from CSRF middleware (request.state._csrf_form_data)
+    since the middleware consumes the request body first.
+    """
+    # Extract credentials from form data cached by CSRF middleware
+    form_data = getattr(request.state, "_csrf_form_data", None)
+    if form_data:
+        username = str(form_data.get("username", ""))
+        password = str(form_data.get("password", ""))
+    else:
+        # Fallback: parse JSON body if not form data
+        body = await request.json()
+        username = str(body.get("username", ""))
+        password = str(body.get("password", ""))
+
+    user_repo = UserRepository(db)
+    user = await user_repo.verify_credentials(username, password)
+
+    if not user:
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {"title": "Glyph - Login", "user": None, "login_error": "Incorrect username or password"}
+        )
+
+    if not user.is_active:
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {"title": "Glyph - Login", "user": None, "login_error": "User account is disabled"}
+        )
+
+    # Generate tokens using existing JWT handler dependency
+    access_token = jwt_handler.create_access_token(str(user.id))
+    refresh_token = jwt_handler.create_refresh_token(str(user.id))
+
+    # Use same cookie names as /auth/token endpoint so auth dependency can find them
+    settings = get_settings()
+    response = RedirectResponse(url="/", status_code=303)
+    response.set_cookie(
+        key="access_token_cookie",
+        value=access_token,
+        httponly=True,
+        secure=settings.use_https,
+        samesite="lax",
+        max_age=settings.access_token_expire_minutes * 60
+    )
+    response.set_cookie(
+        key="refresh_token_cookie",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.use_https,
+        samesite="lax",
+        max_age=settings.refresh_token_expire_days * 24 * 60 * 60
+    )
+
+    return response
 
 
 @router.get("/register", response_model=None)
@@ -259,13 +328,82 @@ async def register_page(
     """
     # Redirect to home if already logged in
     if current_user:
-        from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/")
     
     return templates.TemplateResponse(
         request,
         "register.html",
         {"title": "Glyph - Register", "user": current_user})
+
+
+@router.post("/register", response_model=None)
+async def register_submit(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)]
+) -> Union[RedirectResponse, HTMLResponse]:
+    """
+    Handles registration form submission (POST).
+
+    Uses cached form data from CSRF middleware.
+    """
+    from app.core.rate_limiter import check_rate_limit, register_limiter
+    from app.auth.security_logger import log_user_registration
+
+    # Extract credentials from form data cached by CSRF middleware
+    form_data = getattr(request.state, "_csrf_form_data", None)
+    if form_data:
+        username = str(form_data.get("username", ""))
+        email = str(form_data.get("email", ""))
+        password = str(form_data.get("password", ""))
+        full_name = str(form_data.get("full_name", ""))
+    else:
+        body = await request.json()
+        username = str(body.get("username", ""))
+        email = str(body.get("email", ""))
+        password = str(body.get("password", ""))
+        full_name = str(body.get("full_name", ""))
+
+    # Rate limit registration attempts
+    check_rate_limit(register_limiter, request)
+
+    user_repo = UserRepository(db)
+
+    # Check if username exists
+    existing_user = await user_repo.get_by_username(username)
+    if existing_user:
+        return templates.TemplateResponse(
+            request,
+            "register.html",
+            {"title": "Glyph - Register", "user": None, "register_error": "Username already registered"}
+        )
+
+    # Check if email exists
+    existing_email = await user_repo.get_by_email(email)
+    if existing_email:
+        return templates.TemplateResponse(
+            request,
+            "register.html",
+            {"title": "Glyph - Register", "user": None, "register_error": "Email already registered"}
+        )
+
+    # Create user with default permissions
+    user = await user_repo.create_user(
+        username=username,
+        email=email,
+        password=password,
+        full_name=full_name or None,
+        permissions=["read"]
+    )
+
+    # Log user registration
+    ip_address = request.client.host if request.client else None
+    log_user_registration(
+        user_id=user.id,
+        username=username,
+        ip_address=ip_address
+    )
+
+    return RedirectResponse(url="/login", status_code=303)
 
 
 @router.get("/profile")
