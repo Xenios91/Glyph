@@ -86,6 +86,47 @@ function setUploadLoading(isLoading) {
 }
 
 /**
+ * Timer reference for auto-hiding the upload message
+ * @type {number|undefined}
+ */
+let uploadMessageTimer = undefined;
+
+/**
+ * Show the processing/uploading state immediately when upload starts
+ */
+function showUploadProcessing() {
+    const uploadMessage = document.getElementById('upload-message');
+    const uploadBox = document.getElementById('upload-box');
+    
+    if (!uploadMessage) return;
+    
+    const statusText = uploadMessage.querySelector('p:last-child');
+    if (statusText) {
+        statusText.textContent = '[ PROCESSING... YOUR BINARY IS BEING ANALYZED ]';
+        statusText.style.color = 'var(--cyan)';
+    }
+    
+    uploadMessage.style.display = 'block';
+    if (uploadBox) {
+        uploadBox.style.display = 'none';
+    }
+    
+    // Set a fallback timer so the message auto-hides even if showUploadStatus is never called
+    // (e.g., network hang, server never responds)
+    if (uploadMessageTimer !== undefined) {
+        clearTimeout(uploadMessageTimer);
+    }
+    uploadMessageTimer = setTimeout(() => {
+        uploadMessage.style.display = 'none';
+        if (uploadBox) {
+            uploadBox.style.display = 'block';
+        }
+        setUploadLoading(false);
+        resetUploadForm();
+    }, 30000); // 30-second fallback
+}
+
+/**
  * Show upload status message
  * @param {string} message - The message to display
  * @param {boolean} isSuccess - Whether the upload was successful
@@ -96,9 +137,15 @@ function showUploadStatus(message, isSuccess = true) {
     
     if (!uploadMessage) return;
     
+    // Clear any existing auto-hide timer (e.g., from processing state)
+    if (uploadMessageTimer !== undefined) {
+        clearTimeout(uploadMessageTimer);
+        uploadMessageTimer = undefined;
+    }
+    
     const statusText = uploadMessage.querySelector('p:last-child');
     if (statusText) {
-        statusText.textContent = isSuccess 
+        statusText.textContent = isSuccess
             ? `[ SUCCESS: ${message} ]`
             : `[ ERROR: ${message} ]`;
         statusText.style.color = isSuccess ? 'var(--green)' : 'var(--red)';
@@ -108,9 +155,11 @@ function showUploadStatus(message, isSuccess = true) {
     uploadBox.style.display = 'none';
     
     // Auto-hide after 5 seconds
-    setTimeout(() => {
+    uploadMessageTimer = setTimeout(() => {
         uploadMessage.style.display = 'none';
-        uploadBox.style.display = 'block';
+        if (uploadBox) {
+            uploadBox.style.display = 'block';
+        }
         resetUploadForm();
     }, 5000);
 }
@@ -120,12 +169,14 @@ function showUploadStatus(message, isSuccess = true) {
  */
 function resetUploadForm() {
     const generateModelCheckbox = document.getElementById('generate-model-checkbox');
-    const modelNameInput = document.getElementById('model_name');
+    const trainingNameInput = document.getElementById('training-name');
+    const predictionNameInput = document.getElementById('prediction-name');
     const mlClassTypeSelect = document.getElementById('ml_class_type');
     const fileInput = document.getElementById('upload-binary');
     
     if (generateModelCheckbox) generateModelCheckbox.checked = false;
-    if (modelNameInput) modelNameInput.value = '';
+    if (trainingNameInput) trainingNameInput.value = '';
+    if (predictionNameInput) predictionNameInput.value = '';
     if (mlClassTypeSelect) mlClassTypeSelect.selectedIndex = 0;
     if (fileInput) fileInput.value = '';
     
@@ -139,7 +190,6 @@ function resetUploadForm() {
 function validateUploadForm() {
     const selectedFile = document.getElementById('upload-binary').files[0];
     const generateModelCheckbox = document.getElementById('generate-model-checkbox');
-    const modelNameInput = document.getElementById('model_name');
     const predictionModelSelect = document.getElementById('prediction_model_selection');
     const mlClassTypeSelect = document.getElementById('ml_class_type');
     
@@ -156,26 +206,22 @@ function validateUploadForm() {
         return false;
     }
     
-    // Validate model name for training
-    if (generateModelCheckbox.checked) {
-        if (!modelNameInput || !modelNameInput.value.trim()) {
-            Toast.error('Please enter a model name');
-            modelNameInput?.focus();
-            return false;
-        }
-    } else {
-        // Validate model selection for prediction
+    // Validate name field based on mode (training or prediction)
+    const isTraining = generateModelCheckbox.checked;
+    const nameInput = isTraining
+        ? document.getElementById('training-name')
+        : document.getElementById('prediction-name');
+    if (!nameInput || !nameInput.value.trim()) {
+        Toast.error('Please enter a name');
+        nameInput?.focus();
+        return false;
+    }
+    
+    // Validate model selection for prediction
+    if (!isTraining) {
         if (!predictionModelSelect || !predictionModelSelect.value) {
             Toast.error('Please select a model for prediction');
             predictionModelSelect?.focus();
-            return false;
-        }
-        
-        // Validate task name for prediction
-        const taskNameInput = document.getElementById('task_name');
-        if (!taskNameInput || !taskNameInput.value.trim()) {
-            Toast.error('Please enter a task name');
-            taskNameInput?.focus();
             return false;
         }
     }
@@ -201,18 +247,16 @@ async function uploadBinary() {
     const formData = new FormData();
     const selectedFile = document.getElementById('upload-binary').files[0];
     const trainingData = document.getElementById('generate-model-checkbox').checked;
-    let modelName;
+    const nameInput = trainingData
+        ? document.getElementById('training-name')
+        : document.getElementById('prediction-name');
+    const nameValue = nameInput ? nameInput.value.trim() : '';
     
+    let modelName;
     if (trainingData) {
-        modelName = document.getElementById('model_name').value;
+        modelName = nameValue;
     } else {
         modelName = document.getElementById('prediction_model_selection').value;
-    }
-    
-    const taskElement = document.getElementById('task_name');
-    const taskNameValue = taskElement ? taskElement.value.trim() : '';
-    if (taskNameValue !== '') {
-        formData.append('task_name', taskNameValue);
     }
     
     const mlClassType = document.getElementById('ml_class_type').value;
@@ -220,10 +264,14 @@ async function uploadBinary() {
     formData.append('binary_file', selectedFile);
     formData.append('training_data', trainingData);
     formData.append('model_name', modelName);
+    formData.append('name', nameValue);
     formData.append('ml_class_type', mlClassType);
     
     // Set loading state
     setUploadLoading(true);
+    
+    // Show upload message immediately so user sees feedback during upload
+    showUploadProcessing();
     
     try {
         const response = await fetch('/api/v1/binaries/uploadBinary', {

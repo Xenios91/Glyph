@@ -27,11 +27,12 @@ class TestBinaryUploadForm:
         request = BinaryUploadForm(
             model_name="test_model",
             ml_class_type="test_type",
+            name="test_name",
         )
         assert request.model_name == "test_model"
         assert request.ml_class_type == "test_type"
         assert request.training_data == "false"
-        assert request.task_name == ""
+        assert request.name == "test_name"
 
     def test_binary_upload_form_full(self):
         """Test BinaryUploadForm with all fields."""
@@ -39,12 +40,12 @@ class TestBinaryUploadForm:
             training_data="true",
             model_name="test_model",
             ml_class_type="test_type",
-            task_name="test_task",
+            name="test_name",
         )
         assert request.training_data == "true"
         assert request.model_name == "test_model"
         assert request.ml_class_type == "test_type"
-        assert request.task_name == "test_task"
+        assert request.name == "test_name"
 
 
 class TestBinariesRouter:

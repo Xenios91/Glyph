@@ -23,7 +23,7 @@ from fastapi import (
     UploadFile)
 from fastapi.templating import Jinja2Templates
 from starlette.responses import HTMLResponse
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.config.settings import get_settings
 from app.services.request_handler import GhidraRequest
@@ -53,7 +53,7 @@ class BinaryUploadForm(BaseModel):
         training_data: Whether this is training data ("true" or "false").
         model_name: Name of the model to use (required, non-empty).
         ml_class_type: Type of ML classification (required, non-empty).
-        task_name: Required task name for prediction mode (ignored for training).
+        name: Required name for both training and prediction modes.
     """
 
     training_data: str = Field(
@@ -67,9 +67,10 @@ class BinaryUploadForm(BaseModel):
         ...,
         min_length=1,
         description="Type of ML classification")
-    task_name: str = Field(
-        default="",
-        description="Required task name for prediction mode")
+    name: str = Field(
+        ...,
+        min_length=1,
+        description="Required name for the task or model")
 
     @field_validator("training_data", mode="before")
     @classmethod
@@ -82,28 +83,13 @@ class BinaryUploadForm(BaseModel):
             raise ValueError("training_data must be 'true' or 'false'")
         return v_lower
 
-    @field_validator("model_name", "ml_class_type", mode="before")
+    @field_validator("model_name", "ml_class_type", "name", mode="before")
     @classmethod
     def strip_strings(cls, v: str | None) -> str:
         """Strip whitespace from string fields."""
         if v is None:
             raise ValueError("Field cannot be empty")
         return v.strip()
-
-    @field_validator("task_name", mode="before")
-    @classmethod
-    def strip_task_name(cls, v: str | None) -> str:
-        """Strip whitespace from task_name field."""
-        if v is None:
-            return ""
-        return v.strip()
-
-    @model_validator(mode="after")
-    def validate_task_name_required_for_prediction(self) -> "BinaryUploadForm":
-        """Validate task_name is provided when training_data is 'false' (prediction mode)."""
-        if self.training_data == "false" and not self.task_name.strip():
-            raise ValueError("task_name is required for prediction mode")
-        return self
 
 
 class BinaryUploadResponse(BaseModel):
@@ -248,13 +234,13 @@ async def _run_pipeline_analysis(
                     "Prediction results: {} predictions, {} functions, task '{}'",
                     len(predictions) if predictions else 0,
                     len(filtered_functions) if filtered_functions else 0,
-                    ghidra_request.task_name)
+                    ghidra_request.name)
                 if predictions and filtered_functions:
                     from app.services.request_handler import PredictionRequest
 
                     prediction_data = {
                         "binaryName": ghidra_request.file_name,
-                        "taskName": ghidra_request.task_name,
+                        "taskName": ghidra_request.name,
                         "functionsMap": {
                             "functions": filtered_functions,
                             "erroredFunctions": result.get("errored_functions", []),
@@ -262,7 +248,7 @@ async def _run_pipeline_analysis(
                     }
                     logger.debug(
                         "Creating PredictionRequest for task '{}' uuid {}",
-                        ghidra_request.task_name,
+                        ghidra_request.name,
                         ghidra_request.uuid)
                     try:
                         prediction_request = PredictionRequest(
@@ -277,7 +263,7 @@ async def _run_pipeline_analysis(
                         )
                         logger.debug(
                             "Predictions saved for task {}",
-                            ghidra_request.task_name)
+                            ghidra_request.name)
                     except Exception:
                         logger.exception("Failed to create PredictionRequest")
                         raise
@@ -298,7 +284,7 @@ async def post_upload_binary(
     training_data: str = Form("false"),
     model_name: str = Form(...),
     ml_class_type: str = Form(...),
-    task_name: str = Form(...)
+    name: str = Form(...)
 ) -> Union[SuccessResponse[BinaryUploadResponse], HTMLResponse]:
     """Handle POST request for binary file uploads.
 
@@ -309,7 +295,7 @@ async def post_upload_binary(
         training_data: Whether this is training data ("true" or "false").
         model_name: Name of the model to use.
         ml_class_type: Type of ML classification.
-        task_name: Required task name for prediction mode.
+        name: Required name for the task or model.
 
     Returns:
         JSONResponse with upload result or HTML template.
@@ -322,7 +308,7 @@ async def post_upload_binary(
         training_data=training_data,
         model_name=model_name,
         ml_class_type=ml_class_type,
-        task_name=task_name)
+        name=name)
 
     accept = request.headers.get("Accept", "")
 
@@ -389,7 +375,7 @@ async def post_upload_binary(
         unique_filename,
         is_training_data,
         form_data.model_name,
-        form_data.task_name,
+        form_data.name,
         form_data.ml_class_type)
 
     # Capture request context before handing off to background task

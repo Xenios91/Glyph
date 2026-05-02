@@ -333,7 +333,7 @@ class Ghidra(TaskManager):
             else "ml_prediction",
             metadata={
                 "model_name": ghidra_request.model_name,
-                "task_name": ghidra_request.task_name,
+                "name": ghidra_request.name,
                 "ml_class_type": ghidra_request.ml_class_type,
             })
 

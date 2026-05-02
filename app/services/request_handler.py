@@ -130,7 +130,7 @@ class GhidraRequest:
     file_name: str
     is_training: bool
     model_name: str
-    task_name: str
+    name: str
     ml_class_type: str
     uuid: str
 
@@ -139,12 +139,12 @@ class GhidraRequest:
         filename: str,
         is_training: bool,
         model_name: str,
-        task_name: str,
+        name: str,
         ml_class_type: str) -> None:
         self.file_name = Path(filename).as_posix()
         self.is_training = is_training
         self.model_name = model_name
-        self.task_name = task_name
+        self.name = name
         self.ml_class_type = ml_class_type
         self.uuid = str(uuid4())
 

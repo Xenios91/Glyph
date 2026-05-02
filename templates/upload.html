@@ -20,9 +20,9 @@
                 <p class="title" id="training-config-title">MODEL CONFIGURATION</p>
                 <div style="margin: 7%">
                     <div class="cyber-field" style="margin: 7%">
-                        <label for="model_name">Model Name</label>
-                        <input type="text" id="model_name" name="model_name" class="cyber-input" placeholder="ENTER NAME..." aria-required="true" aria-describedby="model-name-hint">
-                        <span id="model-name-hint" class="field-hint">Enter a unique name for your model</span>
+                        <label for="training-name">Name</label>
+                        <input type="text" id="training-name" name="name" class="cyber-input" placeholder="ENTER NAME..." aria-required="true" aria-describedby="training-name-hint">
+                        <span id="training-name-hint" class="field-hint">Enter a unique name</span>
                     </div>
                     <label for="ml_class_type">Select ML Class Type</label>
                     <div class="cyber-select">
@@ -38,9 +38,9 @@
                 <p class="title" id="prediction-config-title">PREDICTION CONFIGURATION</p>
                 <div style="margin: 7%">
                     <div class="cyber-field" style="margin: 7%">
-                        <label for="task_name">Task Name</label>
-                        <input type="text" id="task_name" name="task_name" class="cyber-input" placeholder="ENTER TASK..." aria-describedby="task-name-hint">
-                        <span id="task-name-hint" class="field-hint">Enter a name for this prediction task</span>
+                        <label for="prediction-name">Name</label>
+                        <input type="text" id="prediction-name" name="name" class="cyber-input" placeholder="ENTER NAME..." aria-required="true" aria-describedby="prediction-name-hint">
+                        <span id="prediction-name-hint" class="field-hint">Enter a unique name</span>
                         <label for="prediction_model_selection">Select Model</label>
                         <div class="cyber-select">
                             <select required id="prediction_model_selection" name="prediction_model_selection" aria-required="true">
