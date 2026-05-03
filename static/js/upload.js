@@ -125,7 +125,6 @@ function showUploadProcessing() {
     }
     uploadMessageTimer = setTimeout(() => {
         uploadMessageDismissed = true;
-        console.log('[UPLOAD] Fallback timer: message dismissed');
         uploadMessage.style.display = 'none';
         if (uploadBox) {
             uploadBox.style.display = 'block';
@@ -141,11 +140,8 @@ function showUploadProcessing() {
  * @param {boolean} isSuccess - Whether the upload was successful
  */
 function showUploadStatus(message, isSuccess = true) {
-    console.log('[UPLOAD] showUploadStatus called:', message, 'isSuccess:', isSuccess);
-    
     // If the fallback timer already dismissed the message, don't re-show it
     if (uploadMessageDismissed) {
-        console.log('[UPLOAD] Message already dismissed by fallback timer, showing brief toast instead');
         uploadMessageDismissed = false;
         setUploadLoading(false);
         if (isSuccess) {
@@ -161,13 +157,11 @@ function showUploadStatus(message, isSuccess = true) {
     const uploadBox = document.getElementById('upload-box');
     
     if (!uploadMessage) {
-        console.error('[UPLOAD] showUploadStatus: uploadMessage element not found!');
         return;
     }
     
     // Clear any existing auto-hide timer (e.g., from processing state)
     if (uploadMessageTimer !== undefined) {
-        console.log('[UPLOAD] Clearing existing timer:', uploadMessageTimer);
         clearTimeout(uploadMessageTimer);
         uploadMessageTimer = undefined;
     }
@@ -186,23 +180,13 @@ function showUploadStatus(message, isSuccess = true) {
     }
     
     // Auto-hide after 5 seconds
-    console.log('[UPLOAD] Setting auto-hide timer for 5 seconds');
     uploadMessageTimer = setTimeout(() => {
-        console.log('[UPLOAD] Auto-hide timer fired!');
-        console.log('[UPLOAD] uploadMessage exists:', !!uploadMessage, 'uploadBox exists:', !!uploadBox);
         uploadMessage.style.display = 'none';
         if (uploadBox) {
             uploadBox.style.display = 'block';
         }
-        console.log('[UPLOAD] After setting styles - uploadMessage.display:', uploadMessage.style.display, 'uploadBox.display:', uploadBox ? uploadBox.style.display : 'N/A');
-        console.log('[UPLOAD] Computed style uploadMessage:', window.getComputedStyle(uploadMessage).display);
-        console.log('[UPLOAD] Computed style uploadBox:', uploadBox ? window.getComputedStyle(uploadBox).display : 'N/A');
         resetUploadForm();
-        console.log('[UPLOAD] After resetUploadForm - uploadMessage.display:', uploadMessage.style.display, 'uploadBox.display:', uploadBox ? uploadBox.style.display : 'N/A');
-        console.log('[UPLOAD] Computed style uploadMessage after reset:', window.getComputedStyle(uploadMessage).display);
-        console.log('[UPLOAD] Computed style uploadBox after reset:', uploadBox ? window.getComputedStyle(uploadBox).display : 'N/A');
     }, 5000);
-    console.log('[UPLOAD] New timer ID:', uploadMessageTimer);
 }
 
 /**
@@ -280,16 +264,10 @@ function validateUploadForm() {
  * Upload binary file using XMLHttpRequest for progress tracking
  */
 function uploadBinary() {
-    const t0 = performance.now();
-    const log = (msg) => console.log(`[UPLOAD] ${((performance.now() - t0) / 1000).toFixed(2)}s ${msg}`);
-    log('uploadBinary() called');
-
     // Validate form before upload
     if (!validateUploadForm()) {
-        log('Validation failed, aborting');
         return;
     }
-    log('Validation passed');
 
     const formData = new FormData();
     const selectedFile = document.getElementById('upload-binary').files[0];
@@ -321,12 +299,10 @@ function uploadBinary() {
     let statusBarClientId = null;
     if (typeof StatusBar !== 'undefined') {
         statusBarClientId = StatusBar.registerUpload(selectedFile.name);
-        log('Registered with StatusBar, clientId: ' + statusBarClientId);
     }
 
     // Show upload message immediately so user sees feedback during upload
     showUploadProcessing();
-    log('showUploadProcessing() done, initiating XHR upload...');
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/v1/binaries/uploadBinary', true);
@@ -342,22 +318,14 @@ function uploadBinary() {
     xhr.upload.onprogress = function(e) {
         if (e.lengthComputable) {
             const percent = (e.loaded / e.total) * 100;
-            log(`Upload progress: ${percent.toFixed(1)}%`);
             if (statusBarClientId && typeof StatusBar !== 'undefined') {
                 StatusBar.updateUploadProgress(statusBarClientId, percent);
             }
         }
     };
 
-    // Handle upload start
-    xhr.upload.onloadstart = function() {
-        log('Upload started');
-    };
-
     // Handle completion
     xhr.onload = function() {
-        log(`XHR complete, status: ${xhr.status} OK: ${xhr.status >= 200 && xhr.status < 300}`);
-
         if (xhr.status >= 200 && xhr.status < 300) {
             let data;
             try {
@@ -376,7 +344,6 @@ function uploadBinary() {
             // Transition status bar from upload to processing state
             if (statusBarClientId && taskUuid && typeof StatusBar !== 'undefined') {
                 StatusBar.uploadComplete(statusBarClientId, taskUuid);
-                log('Transitioned to processing state for task: ' + taskUuid);
             }
 
             showUploadStatus(data.message || 'Binary uploaded successfully');

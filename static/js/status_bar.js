@@ -204,7 +204,17 @@ const StatusBar = {
         const task = this._tasks.get(clientId);
         if (!task) return;
 
-        task.percent = Math.round(percent);
+        const rounded = Math.round(percent);
+        task.percent = rounded;
+
+        // When upload reaches 100%, immediately transition the UI to "processing" state
+        // so the user sees progress rather than a stuck 100% bar
+        if (rounded >= 100 && task.state === 'uploading') {
+            task.state = 'uploading_complete';
+            this._transitionToProcessingUI(clientId, task.fileName);
+            return;
+        }
+
         const fillEl = document.getElementById(`progress-fill-${clientId}`);
         if (fillEl) {
             fillEl.style.width = `${task.percent}%`;
@@ -216,6 +226,43 @@ const StatusBar = {
     },
 
     /**
+     * Transition an entry's DOM from upload progress view to processing view.
+     * Replaces the progress bar with pulsing dots animation.
+     * @param {string} clientId - Client-side ID from registerUpload.
+     * @param {string} fileName - File name for the processing label.
+     */
+    _transitionToProcessingUI(clientId, fileName) {
+        const entry = document.getElementById(`entry-${clientId}`);
+        if (!entry) return;
+
+        // Remove the upload progress section
+        const progressDiv = entry.querySelector('.status-entry-progress');
+        if (progressDiv) {
+            progressDiv.remove();
+        }
+
+        // Add processing section with pulsing dots
+        const processingDiv = document.createElement('div');
+        processingDiv.className = 'status-entry-processing';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'label';
+        labelSpan.textContent = 'Processing...';
+
+        const dotsSpan = document.createElement('span');
+        dotsSpan.className = 'pulsing-dots';
+        for (let i = 0; i < 3; i++) {
+            const dot = document.createElement('span');
+            dot.className = 'dot';
+            dotsSpan.appendChild(dot);
+        }
+
+        processingDiv.appendChild(labelSpan);
+        processingDiv.appendChild(dotsSpan);
+        entry.appendChild(processingDiv);
+    },
+
+    /**
      * Mark upload as complete and transition to processing state.
      * @param {string} clientId - Client-side ID from registerUpload.
      * @param {string} taskUuid - Server-side task UUID.
@@ -224,13 +271,8 @@ const StatusBar = {
         const task = this._tasks.get(clientId);
         if (!task) return;
 
-        // Remove old client-keyed entry
+        // Remove old client-keyed task tracking
         this._tasks.delete(clientId);
-        const oldEntry = document.getElementById(`entry-${clientId}`);
-        if (oldEntry) {
-            oldEntry.classList.add('is-removing');
-            setTimeout(() => oldEntry.remove(), 250);
-        }
 
         // Register under server UUID
         this._tasks.set(taskUuid, {
@@ -241,9 +283,41 @@ const StatusBar = {
         });
 
         this._persistTasks();
-        this._createEntry(taskUuid, task.fileName, 'processing');
         this._updateBadge();
         this._ensurePolling();
+
+        // If the UI already transitioned to processing (upload hit 100%),
+        // just update the existing entry's ID instead of creating a duplicate
+        const oldEntry = document.getElementById(`entry-${clientId}`);
+        if (oldEntry) {
+            // Check if this entry already has a processing div (UI transitioned)
+            const hasProcessingDiv = oldEntry.querySelector('.status-entry-processing');
+            if (hasProcessingDiv) {
+                // Simply rename the entry ID to use the server UUID
+                oldEntry.id = `entry-${taskUuid}`;
+                // Update the dismiss button handler to use the new UUID
+                const dismissBtn = oldEntry.querySelector('.status-entry-dismiss');
+                if (dismissBtn) {
+                    // Remove old listener and add new one by replacing the button
+                    const newBtn = dismissBtn.cloneNode(true);
+                    newBtn.addEventListener('click', () => {
+                        this.removeEntry(taskUuid);
+                    });
+                    dismissBtn.replaceWith(newBtn);
+                }
+                return;
+            }
+
+            // Entry still shows upload progress - animate it out and create new processing entry
+            oldEntry.classList.add('is-removing');
+            setTimeout(() => {
+                oldEntry.remove();
+                this._checkEmpty();
+            }, 250);
+            this._createEntry(taskUuid, task.fileName, 'processing');
+        } else {
+            this._createEntry(taskUuid, task.fileName, 'processing');
+        }
     },
 
     /**
