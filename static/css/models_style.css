@@ -147,6 +147,11 @@
     outline: 1px solid rgba(125, 216, 216, 0.18);
 }
 
+.cyber-table tbody tr.is-selected {
+    background: rgba(125, 216, 216, 0.12) !important;
+    outline: 1px solid rgba(125, 216, 216, 0.35);
+}
+
 .cyber-table tbody tr:last-child {
     border-bottom: none;
 }
@@ -160,6 +165,72 @@
     background: transparent !important;
     letter-spacing: 0.04em;
     white-space: nowrap;
+}
+
+/* ── Checkbox column ─────────────────────────────────────────── */
+.checkbox-column {
+    width: 40px !important;
+    min-width: 40px !important;
+    text-align: center !important;
+    padding: 0.75rem 0.5rem !important;
+}
+
+.checkbox-cell {
+    width: 40px !important;
+    min-width: 40px !important;
+    text-align: center !important;
+    padding: 0.5rem !important;
+}
+
+/* ── Custom checkbox styling ─────────────────────────────────── */
+.model-select-all,
+.model-select-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--cyan-dim);
+    border-radius: 2px;
+    background: var(--bg-surface);
+    cursor: pointer;
+    position: relative;
+    vertical-align: middle;
+    transition: all 0.15s ease;
+}
+
+.model-select-all:hover,
+.model-select-checkbox:hover {
+    border-color: var(--cyan);
+    box-shadow: 0 0 6px rgba(125, 216, 216, 0.3);
+}
+
+.model-select-all:checked,
+.model-select-checkbox:checked {
+    background: var(--cyan-dim);
+    border-color: var(--cyan);
+}
+
+.model-select-all:checked::after,
+.model-select-checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--bg-surface);
+    font-size: 11px;
+    font-weight: bold;
+}
+
+/* ── Delete button styling ───────────────────────────────────── */
+.delete-selected-btn {
+    margin-top: 1.5rem;
+}
+
+.delete-selected-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .cyber-table thead th,

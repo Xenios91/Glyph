@@ -18,6 +18,7 @@
     {% include 'components/empty_state.html' %}
     {% endif %}
     <div class="btn-group" style="margin-top: 1.5rem;">
+        <button type="button" id="delete-selected-btn" class="cyber-btn is-danger delete-selected-btn" disabled aria-label="Delete selected models">Delete Selected</button>
         <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
     </div>
     <script src="{{ url_for('static', path='js/common.js') }}"></script>

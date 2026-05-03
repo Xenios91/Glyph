@@ -55,6 +55,48 @@ async def delete_model(
         message="Model deleted successfully")
 
 
+@router.delete("/deleteModels", response_model=SuccessResponse[dict[str, Any]])
+@catch_http_exception(status_code=500, error_code="DELETE_MODELS_ERROR", message="Failed to delete models")
+async def delete_models(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    model_names: str = Query(...)
+) -> SuccessResponse[dict[str, Any]]:
+    """
+    Handles a DELETE request to delete multiple models by name.
+
+    Args:
+        model_names: Comma-separated list of model names to delete.
+
+    Returns:
+        Success response when models are deleted.
+    """
+    names = [name.strip() for name in model_names.split(",") if name.strip()]
+    if not names:
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="INVALID_MODEL_NAMES",
+                error_message="At least one model name must be provided").model_dump())
+    
+    deleted: list[str] = []
+    failed: list[str] = []
+    for name in names:
+        try:
+            await MLPersistanceUtil.delete_model(name)
+            await PredictionPersistanceUtil.delete_model_predictions(name)
+            deleted.append(name)
+        except Exception as exc:
+            logger.warning("Failed to delete model '%s': %s", name, exc)
+            failed.append(name)
+    
+    data = {"deleted": deleted, "failed": failed}
+    message = f"Deleted {len(deleted)} model(s)"
+    if failed:
+        message += f"; failed to delete {len(failed)}: {', '.join(failed)}"
+    
+    return create_success_response(data=data, message=message)
+
+
 @router.get("/getFunction", response_model=None)
 async def get_function(
     request: Request,
