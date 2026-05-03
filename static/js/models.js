@@ -128,8 +128,7 @@ async function deleteSelectedModels() {
     }
 
     const confirmed = confirm(
-        `Are you sure you want to delete ${modelNames.length} model(s)?\n\n` +
-        modelNames.join('\n')
+        `Are you sure you want to delete ${modelNames.length} model(s)?`
     );
 
     if (!confirmed) return;

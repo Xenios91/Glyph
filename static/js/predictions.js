@@ -59,7 +59,7 @@ function viewPrediction(taskName, modelName) {
 }
 
 /**
- * Delete a prediction by task name
+ * Delete a prediction by task name (legacy single-delete)
  */
 async function deletePrediction() {
     const taskNameElement = document.getElementById('task-name');
@@ -68,22 +68,21 @@ async function deletePrediction() {
         Toast.error('Task name not found');
         return;
     }
-    
+
     const selection = taskNameElement.innerText;
     const taskToDelete = selection.split(':')[1].replace(/\s+/, '');
-    
+
     const url = '/api/v1/predictions/deletePrediction?task_name=' + encodeURIComponent(taskToDelete);
-    
+
     try {
         const response = await fetch(url, getFetchOptionsWithCsrf({
             method: 'DELETE',
             headers: { 'Content-type': 'application/json' }
         }));
-        
+
         if (response.ok) {
             const data = await response.json();
             Toast.success(data.message || 'Prediction deleted successfully');
-            // Redirect to home after deletion
             setTimeout(() => {
                 window.location = '/';
             }, 1000);
@@ -99,30 +98,173 @@ async function deletePrediction() {
 }
 
 /**
+ * Get all selected task names from checkboxes
+ * @returns {string[]} Array of selected task names
+ */
+function getSelectedTaskNames() {
+    const checkboxes = document.querySelectorAll('.prediction-select-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.dataset.taskName);
+}
+
+/**
+ * Update the delete button state based on selection count
+ */
+function updatePredictionDeleteButtonState() {
+    const deleteBtn = document.getElementById('delete-selected-predictions-btn');
+    if (!deleteBtn) return;
+
+    const selectedCount = document.querySelectorAll('.prediction-select-checkbox:checked').length;
+    deleteBtn.disabled = selectedCount === 0;
+    deleteBtn.textContent = selectedCount > 0
+        ? `Delete Selected (${selectedCount})`
+        : 'Delete Selected';
+}
+
+/**
+ * Sync row selection class with checkbox state
+ * @param {HTMLElement} row - Table row element
+ */
+function syncPredictionRowSelection(row) {
+    const checkbox = row.querySelector('.prediction-select-checkbox');
+    if (checkbox) {
+        row.classList.toggle('is-selected', checkbox.checked);
+    }
+}
+
+/**
+ * Handle select-all checkbox toggle for predictions
+ * @param {boolean} checked - Whether all should be selected
+ */
+function toggleSelectAllPredictions(checked) {
+    const checkboxes = document.querySelectorAll('.prediction-select-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checked;
+        const row = cb.closest('tr');
+        if (row) syncPredictionRowSelection(row);
+    });
+    updatePredictionDeleteButtonState();
+}
+
+/**
+ * Check if all prediction checkboxes are selected and update select-all accordingly
+ */
+function updatePredictionSelectAllState() {
+    const selectAll = document.getElementById('select-all-predictions');
+    if (!selectAll) return;
+
+    const allCheckboxes = document.querySelectorAll('.prediction-select-checkbox');
+    const checkedCount = document.querySelectorAll('.prediction-select-checkbox:checked').length;
+    selectAll.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
+    selectAll.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
+}
+
+/**
+ * Delete multiple selected predictions via API
+ */
+async function deleteSelectedPredictions() {
+    const taskNames = getSelectedTaskNames();
+
+    if (taskNames.length === 0) {
+        Toast.warning('No predictions selected');
+        return;
+    }
+
+    const confirmed = confirm(
+        `Are you sure you want to delete ${taskNames.length} prediction(s)?`
+    );
+
+    if (!confirmed) return;
+
+    const url = '/api/v1/predictions/deletePredictions?task_names=' + encodeURIComponent(taskNames.join(','));
+
+    try {
+        const response = await authenticatedFetch(url, getFetchOptionsWithCsrf({
+            method: 'DELETE',
+            headers: { 'Accept': 'application/json' }
+        }));
+
+        const data = await response.json();
+
+        if (response.ok) {
+            Toast.success(data.message || 'Predictions deleted successfully');
+            sessionStorage.setItem('glyph_predictions_clear_selection', '1');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            Toast.error(data.detail?.error_message || 'Failed to delete predictions');
+        }
+    } catch (error) {
+        console.error('Error deleting predictions:', error);
+        Toast.error('Network error while deleting predictions');
+    }
+}
+
+/**
+ * Clear selections if flagged after a bulk delete
+ */
+function clearPredictionSelectionsIfFlagged() {
+    if (sessionStorage.getItem('glyph_predictions_clear_selection') === '1') {
+        sessionStorage.removeItem('glyph_predictions_clear_selection');
+        const checkboxes = document.querySelectorAll('.prediction-select-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = false;
+            const row = cb.closest('tr');
+            if (row) row.classList.remove('is-selected');
+        });
+        const selectAll = document.getElementById('select-all-predictions');
+        if (selectAll) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+        }
+        updatePredictionDeleteButtonState();
+    }
+}
+
+/**
  * Initialize predictions table with event delegation
  * Uses single event listener on table instead of individual row listeners
  */
 function initPredictionsTable() {
     const table = document.querySelector('.prediction-table');
     if (!table) return;
-    
+
     const clickHandler = table.dataset.clickHandler;
-    
-    // Event delegation: single listener on table for all row clicks
+
+    // Event delegation: single listener on table for all clicks
     table.addEventListener('click', function(e) {
+        // Handle checkbox clicks - prevent row navigation
+        const checkbox = e.target.closest('.prediction-select-checkbox, .prediction-select-all');
+        if (checkbox) {
+            e.stopPropagation();
+
+            setTimeout(() => {
+                if (checkbox.classList.contains('prediction-select-all')) {
+                    toggleSelectAllPredictions(checkbox.checked);
+                } else {
+                    const row = checkbox.closest('tr');
+                    if (row) syncPredictionRowSelection(row);
+                    updatePredictionSelectAllState();
+                    updatePredictionDeleteButtonState();
+                }
+            }, 0);
+            return;
+        }
+
+        // Handle row clicks (navigation)
         const row = e.target.closest('tbody tr.hover-row');
         if (!row) return;
-        
+
         if (clickHandler && typeof window[clickHandler] === 'function') {
             window[clickHandler](row.id);
         }
     });
-    
+
     // Event delegation: single listener for keyboard events
     table.addEventListener('keydown', function(e) {
         const row = e.target.closest('tbody tr.hover-row');
         if (!row) return;
-        
+
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             if (clickHandler && typeof window[clickHandler] === 'function') {
@@ -138,21 +280,24 @@ function initPredictionsTable() {
 function initPredictionsPage() {
     // Initialize table handlers with event delegation
     initPredictionsTable();
-    
+
     // Add click handler directly to table rows for predictions list page
     const clickableRows = document.querySelectorAll('.clickable-row');
     clickableRows.forEach(row => {
         row.addEventListener('click', function(e) {
+            // Don't navigate if clicking a checkbox
+            const checkbox = e.target.closest('.prediction-select-checkbox, .prediction-select-all');
+            if (checkbox) return;
+
             e.preventDefault();
             e.stopPropagation();
-            
+
             const taskName = this.getAttribute('data-task-name');
             const modelName = this.getAttribute('data-model-name');
-            
-            console.log('Row clicked:', { taskName, modelName });
+
             viewPrediction(taskName, modelName);
         });
-        
+
         // Keyboard handler for accessibility
         row.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -163,13 +308,13 @@ function initPredictionsPage() {
             }
         });
     });
-    
-    // Handle delete prediction button
+
+    // Handle delete prediction button (legacy single-delete)
     const deleteBtn = document.querySelector('.delete-prediction-btn');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', deletePrediction);
     }
-    
+
     // Initialize hover effects using CSS classes
     initTableHoverEffects();
 }
@@ -198,6 +343,13 @@ function initSyncScroll() {
 
 // Initialize when DOM is ready using utility
 onDomReady(function() {
+    clearPredictionSelectionsIfFlagged();
     initPredictionsPage();
     initSyncScroll();
+
+    // Attach delete selected button listener (avoids inline onclick which violates CSP)
+    const deleteSelectedBtn = document.getElementById('delete-selected-predictions-btn');
+    if (deleteSelectedBtn) {
+        deleteSelectedBtn.addEventListener('click', deleteSelectedPredictions);
+    }
 });
