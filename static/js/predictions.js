@@ -75,10 +75,10 @@ async function deletePrediction() {
     const url = '/api/v1/predictions/deletePrediction?task_name=' + encodeURIComponent(taskToDelete);
 
     try {
-        const response = await fetch(url, getFetchOptionsWithCsrf({
+        const response = await fetch(url, {
             method: 'DELETE',
             headers: { 'Content-type': 'application/json' }
-        }));
+        });
 
         if (response.ok) {
             const data = await response.json();
@@ -178,10 +178,10 @@ async function deleteSelectedPredictions() {
     const url = '/api/v1/predictions/deletePredictions?task_names=' + encodeURIComponent(taskNames.join(','));
 
     try {
-        const response = await authenticatedFetch(url, getFetchOptionsWithCsrf({
+        const response = await authenticatedFetch(url, {
             method: 'DELETE',
             headers: { 'Accept': 'application/json' }
-        }));
+        });
 
         const data = await response.json();
 

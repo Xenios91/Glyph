@@ -84,8 +84,7 @@ function initLoginForm() {
             const response = await fetch('/auth/token', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': formData.get('csrf_token')
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(data)
             });

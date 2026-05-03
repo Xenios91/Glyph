@@ -106,11 +106,7 @@ async function loadApiKeys() {
     container.setAttribute('aria-busy', 'true');
     
     try {
-        const response = await fetch('/auth/api-keys', {
-            headers: {
-                'X-CSRF-Token': getCsrfToken() || ''
-            }
-        });
+        const response = await fetch('/auth/api-keys', {});
 
         if (response.ok) {
             const keys = await response.json();
@@ -202,8 +198,7 @@ async function createApiKey(formData) {
         const response = await fetch('/auth/api-keys', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': getCsrfToken() || ''
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
         });
@@ -239,10 +234,7 @@ async function deleteApiKey(keyId) {
 
     try {
         const response = await fetch(`/auth/api-keys/${keyId}`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-Token': getCsrfToken() || ''
-            }
+            method: 'DELETE'
         });
 
         if (response.ok) {
@@ -273,8 +265,7 @@ async function updateProfile(formData) {
         const response = await fetch('/auth/update-profile', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': formData.get('csrf_token')
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
         });
@@ -318,8 +309,7 @@ async function changePassword(formData) {
         const response = await fetch('/auth/change-password', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': formData.get('csrf_token')
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
         });
@@ -391,14 +381,6 @@ function showToast(message, type = 'info') {
     } else {
         console.log(`[${type.toUpperCase()}] ${message}`);
     }
-}
-
-/**
- * Get CSRF token from meta tag
- */
-function getCsrfToken() {
-    const metaTag = document.querySelector('meta[name="csrf-token"]');
-    return metaTag ? metaTag.getAttribute('content') : '';
 }
 
 // ── Event Listeners ──────────────────────────────────────────

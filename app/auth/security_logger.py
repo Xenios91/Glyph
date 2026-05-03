@@ -421,16 +421,3 @@ def log_api_key_deleted(
                 name=name, ip_address=ip_address).info("API key deleted")
 
 
-def log_csrf_failure(
-    ip_address: str | None = None,
-    path: str | None = None,
-    method: str | None = None) -> None:
-    """Log a CSRF validation failure.
-
-    Args:
-        ip_address: The IP address of the request.
-        path: The request path.
-        method: The HTTP method.
-    """
-    logger.bind(event="csrf_failure", ip_address=ip_address,
-                path=path, method=method).warning("CSRF validation failed")

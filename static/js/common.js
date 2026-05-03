@@ -27,34 +27,6 @@ function getBaseUrl() {
 }
 
 /**
- * Get CSRF token from meta tag
- * @returns {string|null} CSRF token or null if not found
- */
-function getCsrfToken() {
-    const metaTag = document.querySelector('meta[name="csrf-token"]');
-    return metaTag ? metaTag.getAttribute('content') : null;
-}
-
-/**
- * Create fetch options with CSRF token
- * @param {Object} options - Original fetch options
- * @returns {Object} Fetch options with CSRF header added
- */
-function getFetchOptionsWithCsrf(options) {
-    const csrfToken = getCsrfToken();
-    const headers = { ...options.headers };
-    
-    if (csrfToken) {
-        headers["X-CSRF-Token"] = csrfToken;
-    }
-    
-    return {
-        ...options,
-        headers: headers
-    };
-}
-
-/**
  * Get access token from cookie
  * @returns {string|null} Access token or null if not found
  */

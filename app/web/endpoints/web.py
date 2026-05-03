@@ -259,20 +259,10 @@ async def login_submit(
 ) -> Union[RedirectResponse, HTMLResponse]:
     """
     Handles login form submission (POST).
-
-    Uses cached form data from CSRF middleware (request.state._csrf_form_data)
-    since the middleware consumes the request body first.
     """
-    # Extract credentials from form data cached by CSRF middleware
-    form_data = getattr(request.state, "_csrf_form_data", None)
-    if form_data:
-        username = str(form_data.get("username", ""))
-        password = str(form_data.get("password", ""))
-    else:
-        # Fallback: parse JSON body if not form data
-        body = await request.json()
-        username = str(body.get("username", ""))
-        password = str(body.get("password", ""))
+    body = await request.json()
+    username = str(body.get("username", ""))
+    password = str(body.get("password", ""))
 
     user_repo = UserRepository(db)
     user = await user_repo.verify_credentials(username, password)
@@ -343,25 +333,15 @@ async def register_submit(
 ) -> Union[RedirectResponse, HTMLResponse]:
     """
     Handles registration form submission (POST).
-
-    Uses cached form data from CSRF middleware.
     """
     from app.core.rate_limiter import check_rate_limit, register_limiter
     from app.auth.security_logger import log_user_registration
 
-    # Extract credentials from form data cached by CSRF middleware
-    form_data = getattr(request.state, "_csrf_form_data", None)
-    if form_data:
-        username = str(form_data.get("username", ""))
-        email = str(form_data.get("email", ""))
-        password = str(form_data.get("password", ""))
-        full_name = str(form_data.get("full_name", ""))
-    else:
-        body = await request.json()
-        username = str(body.get("username", ""))
-        email = str(body.get("email", ""))
-        password = str(body.get("password", ""))
-        full_name = str(body.get("full_name", ""))
+    body = await request.json()
+    username = str(body.get("username", ""))
+    email = str(body.get("email", ""))
+    password = str(body.get("password", ""))
+    full_name = str(body.get("full_name", ""))
 
     # Rate limit registration attempts
     check_rate_limit(register_limiter, request)

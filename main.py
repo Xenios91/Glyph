@@ -11,7 +11,6 @@ from starlette.middleware.cors import CORSMiddleware
 from markupsafe import escape
 
 from app.core.lifespan import lifespan
-from app.core.csrf import CSRFMiddleware
 from app.core.request_tracing import RequestIDMiddleware
 from app.api.router import api_router
 from app.web.endpoints.web import router as web_router
@@ -101,10 +100,6 @@ def create_app() -> FastAPI:
     else:
         logger.info("RequestIDMiddleware disabled via config")
 
-    # Add CSRF protection middleware
-    app.add_middleware(CSRFMiddleware)
-    logger.info("Middleware registered: CSRFMiddleware")
-
     # Add Content Security Policy headers (pure ASGI, no threading)
     app.add_middleware(CSPMiddleware)
     logger.info("Middleware registered: CSPMiddleware")
@@ -115,7 +110,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[],
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "X-CSRF-Token"],
+        allow_headers=["Content-Type", "Authorization"],
         allow_credentials=False,
         max_age=86400,
     )

@@ -8,7 +8,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config.settings import GlyphSettings, get_settings, reload_settings
-from app.core.csrf import CSRFMiddleware
 from app.core.rate_limiter import get_client_ip, RateLimiter
 from app.utils.common import format_code
 from app.utils.secure_deserializer import BLOCKED_BUILTINS, RestrictedNumpyUnpickler, SecureDeserializationError
@@ -53,32 +52,6 @@ class TestXSSPrevention:
         result = format_code(code)
         assert "main" in result
         assert "<" not in result  # No special chars to escape
-
-
-class TestCSRFCookieSecureFlag:
-    """Test that CSRF cookie respects use_https setting."""
-
-    def test_csrf_cookie_secure_when_https_enabled(self):
-        """CSRF cookie should have secure=True when use_https=True."""
-        settings = GlyphSettings(use_https=True)
-        with patch("app.core.csrf.get_settings", return_value=settings):
-            middleware = CSRFMiddleware(lambda request: None)
-            response = MagicMock()
-            response.set_cookie = MagicMock()
-            middleware._set_csrf_cookie(response, "test-token")
-            call_kwargs = response.set_cookie.call_args[1]
-            assert call_kwargs["secure"] is True
-
-    def test_csrf_cookie_insecure_when_https_disabled(self):
-        """CSRF cookie should have secure=False when use_https=False."""
-        settings = GlyphSettings(use_https=False)
-        with patch("app.core.csrf.get_settings", return_value=settings):
-            middleware = CSRFMiddleware(lambda request: None)
-            response = MagicMock()
-            response.set_cookie = MagicMock()
-            middleware._set_csrf_cookie(response, "test-token")
-            call_kwargs = response.set_cookie.call_args[1]
-            assert call_kwargs["secure"] is False
 
 
 class TestJWTSecretKeyWarning:

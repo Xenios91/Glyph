@@ -50,10 +50,10 @@ async function deleteModel() {
     const url = '/api/v1/models/deleteModel?model_name=' + encodeURIComponent(modelToDelete);
     
     try {
-        const response = await fetch(url, getFetchOptionsWithCsrf({
+        const response = await fetch(url, {
             method: 'DELETE',
             headers: { 'Content-type': 'application/json' }
-        }));
+        });
         
         if (response.ok) {
             const data = await response.json();

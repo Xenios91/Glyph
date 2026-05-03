@@ -136,10 +136,10 @@ async function deleteSelectedModels() {
     const url = getBaseUrl() + '/api/v1/models/deleteModels?model_names=' + encodeURIComponent(modelNames.join(','));
 
     try {
-        const response = await authenticatedFetch(url, getFetchOptionsWithCsrf({
+        const response = await authenticatedFetch(url, {
             method: 'DELETE',
             headers: { 'Accept': 'application/json' }
-        }));
+        });
 
         const data = await response.json();
 

@@ -145,8 +145,7 @@ function initRegisterForm() {
             const response = await fetch('/auth/register', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': formData.get('csrf_token')
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(data)
             });

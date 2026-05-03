@@ -21,10 +21,10 @@ async function deleteFunction() {
     const url = '/model/deleteFunction?function_name=' + encodeURIComponent(functionToDelete);
     
     try {
-        const response = await fetch(url, getFetchOptionsWithCsrf({
+        const response = await fetch(url, {
             method: 'DELETE',
             headers: { 'Content-type': 'application/json' }
-        }));
+        });
         
         if (response.ok) {
             const data = await response.json();

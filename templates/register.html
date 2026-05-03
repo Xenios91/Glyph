@@ -12,8 +12,6 @@
         <div id="register-error" class="auth-error" role="alert" aria-live="assertive" style="display: none;"></div>
         
         <form id="registerForm" method="POST" novalidate>
-            <input type="hidden" name="csrf_token" value="{{ get_csrf_token(request) }}">
-            
             <div class="auth-form-group">
                 <label for="username" class="auth-form-label">USERNAME</label>
                 <input type="text" id="username" name="username" class="auth-form-input" required minlength="3" maxlength="64" placeholder="Enter username" aria-required="true">

@@ -334,10 +334,6 @@ function uploadBinary() {
 
     // Set headers
     xhr.setRequestHeader('Accept', 'application/json');
-    const csrfToken = getCsrfToken();
-    if (csrfToken) {
-        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
-    }
 
     // Track upload progress and unlock navigation when transfer completes
     xhr.upload.onprogress = function(e) {
@@ -390,9 +386,7 @@ function uploadBinary() {
                 const errData = JSON.parse(xhr.responseText);
                 errorMessage = errData.detail || `Upload failed (${xhr.status})`;
             } catch {
-                errorMessage = xhr.responseText.includes('CSRF')
-                    ? 'Security token expired. Please refresh the page and try again.'
-                    : `Upload failed (${xhr.status})`;
+                errorMessage = `Upload failed (${xhr.status})`;
             }
 
             console.error('[UPLOAD] Server error:', xhr.status, errorMessage);
