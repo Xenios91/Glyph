@@ -1,38 +1,10 @@
 """Pydantic schemas for authentication."""
 
-import re
 from datetime import datetime
 import json
 from typing import Any, cast
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
-
-
-def _validate_password_complexity(password: str) -> str:
-    """Validate password meets complexity requirements.
-    
-    Requires at least 3 of 4 character classes: uppercase, lowercase, digits, special.
-    
-    Args:
-        password: The password to validate.
-        
-    Returns:
-        The validated password.
-        
-    Raises:
-        ValueError: If password does not meet complexity requirements.
-    """
-    has_upper = bool(re.search(r'[A-Z]', password))
-    has_lower = bool(re.search(r'[a-z]', password))
-    has_digit = bool(re.search(r'[0-9]', password))
-    has_special = bool(re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?`~]', password))
-    classes = sum([has_upper, has_lower, has_digit, has_special])
-    if classes < 3:
-        raise ValueError(
-            "Password must contain at least 3 of 4 character types: "
-            "uppercase, lowercase, digits, special characters"
-        )
-    return password
 
 
 class UserCreate(BaseModel):
@@ -43,11 +15,6 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=8, max_length=128, description="Password")
     full_name: str | None = Field(None, max_length=128, description="Full name")
 
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        return _validate_password_complexity(v)
-
 
 class UserRegister(BaseModel):
     """Schema for user registration."""
@@ -56,11 +23,6 @@ class UserRegister(BaseModel):
     email: EmailStr = Field(..., description="Email address")
     password: str = Field(..., min_length=8, max_length=128, description="Password")
     full_name: str | None = Field(None, max_length=128, description="Full name")
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        return _validate_password_complexity(v)
 
 
 class UserLogin(BaseModel):
@@ -103,11 +65,6 @@ class ChangePassword(BaseModel):
     
     current_password: str = Field(..., description="Current password")
     new_password: str = Field(..., min_length=8, max_length=128, description="New password")
-
-    @field_validator("new_password")
-    @classmethod
-    def validate_new_password(cls, v: str) -> str:
-        return _validate_password_complexity(v)
 
 
 class APIKeyCreate(BaseModel):
