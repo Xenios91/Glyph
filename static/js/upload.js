@@ -277,20 +277,20 @@ function validateUploadForm() {
 }
 
 /**
- * Upload binary file using native fetch API
+ * Upload binary file using XMLHttpRequest for progress tracking
  */
-async function uploadBinary() {
+function uploadBinary() {
     const t0 = performance.now();
     const log = (msg) => console.log(`[UPLOAD] ${((performance.now() - t0) / 1000).toFixed(2)}s ${msg}`);
     log('uploadBinary() called');
-    
+
     // Validate form before upload
     if (!validateUploadForm()) {
         log('Validation failed, aborting');
         return;
     }
     log('Validation passed');
-    
+
     const formData = new FormData();
     const selectedFile = document.getElementById('upload-binary').files[0];
     const trainingData = document.getElementById('generate-model-checkbox').checked;
@@ -298,80 +298,120 @@ async function uploadBinary() {
         ? document.getElementById('training-name')
         : document.getElementById('prediction-name');
     const nameValue = nameInput ? nameInput.value.trim() : '';
-    
+
     let modelName;
     if (trainingData) {
         modelName = nameValue;
     } else {
         modelName = document.getElementById('prediction_model_selection').value;
     }
-    
+
     const mlClassType = document.getElementById('ml_class_type').value;
-    
+
     formData.append('binary_file', selectedFile);
     formData.append('training_data', trainingData);
     formData.append('model_name', modelName);
     formData.append('name', nameValue);
     formData.append('ml_class_type', mlClassType);
-    
+
     // Set loading state
     setUploadLoading(true);
-    
+
+    // Register with status bar for upload progress tracking
+    let statusBarClientId = null;
+    if (typeof StatusBar !== 'undefined') {
+        statusBarClientId = StatusBar.registerUpload(selectedFile.name);
+        log('Registered with StatusBar, clientId: ' + statusBarClientId);
+    }
+
     // Show upload message immediately so user sees feedback during upload
     showUploadProcessing();
-    log('showUploadProcessing() done, awaiting fetch...');
-    
-    try {
-        // Explicitly set Accept: application/json to prevent server returning HTML
-        // (browser defaults to Accept: */* which triggers HTML response in endpoint)
-        const headers = {
-            'Accept': 'application/json'
-        };
-        const csrfToken = getCsrfToken();
-        if (csrfToken) {
-            headers['X-CSRF-Token'] = csrfToken;
-        }
+    log('showUploadProcessing() done, initiating XHR upload...');
 
-        log('Sending fetch request...');
-        const response = await fetch('/api/v1/binaries/uploadBinary', {
-            method: 'POST',
-            headers: headers,
-            body: formData
-        });
-        log(`Fetch complete, status: ${response.status} OK: ${response.ok}`);
-        
-        const responseText = await response.text();
-        log(`Response body received (${responseText.length} chars)`);
-        
-        if (response.ok) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/v1/binaries/uploadBinary', true);
+
+    // Set headers
+    xhr.setRequestHeader('Accept', 'application/json');
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+    }
+
+    // Track upload progress
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            const percent = (e.loaded / e.total) * 100;
+            log(`Upload progress: ${percent.toFixed(1)}%`);
+            if (statusBarClientId && typeof StatusBar !== 'undefined') {
+                StatusBar.updateUploadProgress(statusBarClientId, percent);
+            }
+        }
+    };
+
+    // Handle upload start
+    xhr.upload.onloadstart = function() {
+        log('Upload started');
+    };
+
+    // Handle completion
+    xhr.onload = function() {
+        log(`XHR complete, status: ${xhr.status} OK: ${xhr.status >= 200 && xhr.status < 300}`);
+
+        if (xhr.status >= 200 && xhr.status < 300) {
             let data;
             try {
-                data = JSON.parse(responseText);
+                data = JSON.parse(xhr.responseText);
             } catch (parseError) {
                 console.error('[UPLOAD] Failed to parse response as JSON:', parseError);
-                console.error('[UPLOAD] Raw response:', responseText.substring(0, 500));
-                // If JSON parsing fails but response is ok, treat as success with generic message
+                console.error('[UPLOAD] Raw response:', xhr.responseText.substring(0, 500));
+                // If JSON parsing fails but response is ok, treat as success
                 showUploadStatus('Binary uploaded successfully');
                 return;
             }
+
+            // Get the server-side task UUID from response
+            const taskUuid = data.data && data.data.uuid;
+
+            // Transition status bar from upload to processing state
+            if (statusBarClientId && taskUuid && typeof StatusBar !== 'undefined') {
+                StatusBar.uploadComplete(statusBarClientId, taskUuid);
+                log('Transitioned to processing state for task: ' + taskUuid);
+            }
+
             showUploadStatus(data.message || 'Binary uploaded successfully');
         } else {
             // Handle specific error responses
-            const errorMessage = responseText.includes('CSRF')
-                ? 'Security token expired. Please refresh the page and try again.'
-                : (responseText.includes('detail') ? JSON.parse(responseText).detail : `Upload failed (${response.status})`);
-            
-            console.error('[UPLOAD] Server error:', response.status, errorMessage);
+            let errorMessage;
+            try {
+                const errData = JSON.parse(xhr.responseText);
+                errorMessage = errData.detail || `Upload failed (${xhr.status})`;
+            } catch {
+                errorMessage = xhr.responseText.includes('CSRF')
+                    ? 'Security token expired. Please refresh the page and try again.'
+                    : `Upload failed (${xhr.status})`;
+            }
+
+            console.error('[UPLOAD] Server error:', xhr.status, errorMessage);
             Toast.error(errorMessage);
             showUploadStatus(errorMessage, false);
         }
-    } catch (error) {
-        console.error('Upload error:', error);
+    };
+
+    // Handle network errors
+    xhr.onerror = function() {
+        console.error('[UPLOAD] Network error during upload');
         Toast.error('Network error. Please try again.');
         showUploadStatus('Network error', false);
-    } finally {
-        setUploadLoading(false);
-    }
+    };
+
+    xhr.onabort = function() {
+        console.log('[UPLOAD] Upload aborted');
+        showUploadStatus('Upload cancelled', false);
+    };
+
+    // Send the request
+    xhr.send(formData);
 }
 
 /**

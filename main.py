@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.cors import CORSMiddleware
 from markupsafe import escape
 
 from app.core.lifespan import lifespan
@@ -86,82 +87,7 @@ class CSPMiddleware:
         await self.app(scope, receive, send_wrapper)
 
 
-# --- CORS Middleware (pure ASGI, lightweight) ---
-class CORSMiddleware:
-    """Simple CORS middleware with configurable allowed origins.
-
-    Uses pure ASGI interface to avoid threading issues with Starlette's
-    app.middleware("http") decorator that runs call_next in a thread pool,
-    which blocks responses when background tasks are used.
-    """
-
-    def __init__(
-        self,
-        app: Callable[[Any, Any, Any], Awaitable[None]],
-        allow_origins: list[str] | None = None,
-        allow_methods: list[str] | None = None,
-        allow_headers: list[str] | None = None,
-    ) -> None:
-        self.app = app
-        self.allow_origins = allow_origins or []
-        self.allow_methods = allow_methods or ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-        self.allow_headers = allow_headers or ["Content-Type", "Authorization", "X-CSRF-Token"]
-
-    async def __call__(
-        self,
-        scope: dict[str, Any],
-        receive: Callable[[], Awaitable[dict[str, Any]]],
-        send: Callable[[dict[str, Any]], Awaitable[None]],
-    ) -> None:
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
-        # Extract origin from headers
-        headers = dict(scope.get("headers", []))
-        origin = headers.get(b"origin")
-        if origin:
-            origin = origin.decode("utf-8")
-        method = scope.get("method")
-
-        # Handle preflight OPTIONS requests
-        if method == "OPTIONS":
-            cors_headers: list[tuple[bytes, bytes]] = []
-            if origin and self.allow_origins and origin in self.allow_origins:
-                cors_headers.append((b"access-control-allow-origin", origin.encode("utf-8")))
-                cors_headers.append((b"access-control-allow-methods", ", ".join(self.allow_methods).encode("utf-8")))
-                cors_headers.append((b"access-control-allow-headers", ", ".join(self.allow_headers).encode("utf-8")))
-                cors_headers.append((b"access-control-max-age", b"86400"))
-
-            await send({
-                "type": "http.response.start",
-                "status": 204,
-                "headers": cors_headers,
-            })
-            await send({"type": "http.response.body", "body": b""})
-            return
-
-        # For non-OPTIONS requests, wrap send to add CORS headers
-        if origin and self.allow_origins and origin in self.allow_origins:
-            cors_headers = [
-                (b"access-control-allow-origin", origin.encode("utf-8")),
-                (b"access-control-allow-methods", ", ".join(self.allow_methods).encode("utf-8")),
-                (b"access-control-allow-headers", ", ".join(self.allow_headers).encode("utf-8")),
-                (b"access-control-max-age", b"86400"),
-            ]
-
-            async def send_wrapper(message: dict[str, Any]) -> None:
-                if message["type"] == "http.response.start":
-                    headers_list: list[tuple[bytes, bytes]] = list(message.get("headers", []))
-                    headers_list.extend(cors_headers)
-                    message["headers"] = headers_list
-                await send(message)
-
-            await self.app(scope, receive, send_wrapper)
-        else:
-            await self.app(scope, receive, send)
-
-
+# --- Create Application ---
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Glyph API",
@@ -189,8 +115,16 @@ def create_app() -> FastAPI:
     app.add_middleware(CSPMiddleware)
     logger.info("Middleware registered: CSPMiddleware")
 
-    # Add CORS middleware (pure ASGI, no threading)
-    app.add_middleware(CORSMiddleware)
+    # Add CORS middleware (Starlette's built-in CORSMiddleware)
+    # Security-sensitive configuration kept explicit to prevent misconfiguration.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization", "X-CSRF-Token"],
+        allow_credentials=False,
+        max_age=86400,
+    )
     logger.info("Middleware registered: CORSMiddleware")
 
     try:

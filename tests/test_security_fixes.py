@@ -102,33 +102,52 @@ class TestJWTSecretKeyWarning:
 
 
 class TestCORSWildcard:
-    """Test that CORS does not allow wildcard by default."""
+    """Test that CORS does not allow wildcard by default.
+
+    Uses FastAPI's TestClient to verify Starlette's CORSMiddleware behavior
+    through the actual application.
+    """
 
     def test_cors_default_no_origins(self):
         """CORS middleware should default to empty allowed origins."""
-        from main import CORSMiddleware
-        middleware = CORSMiddleware()
-        assert middleware.allow_origins == []
+        from main import app
+        client = TestClient(app)
+        # Make a request with an Origin header
+        response = client.get(
+            "/docs",
+            headers={"Origin": "https://example.com"},
+            follow_redirects=False,
+        )
+        # With empty allow_origins, no Access-Control-Allow-Origin header should be set
+        assert "access-control-allow-origin" not in response.headers
 
     def test_cors_rejects_unlisted_origin(self):
         """Requests from unlisted origins should not get CORS headers."""
-        from main import CORSMiddleware
-        middleware = CORSMiddleware()
-        # Simulate a request with an origin not in the allow list
-        request = MagicMock()
-        request.headers = {"Origin": "https://evil.com"}
-        request.method = "GET"
-        # The middleware should not add CORS headers for unlisted origins
-        # This is tested by checking the logic directly
-        origin = request.headers.get("Origin")
-        allowed = origin and middleware.allow_origins and origin in middleware.allow_origins
-        assert allowed is False
+        from main import app
+        client = TestClient(app)
+        # Make a request with an Origin header for an unlisted origin
+        response = client.get(
+            "/docs",
+            headers={"Origin": "https://evil.com"},
+            follow_redirects=False,
+        )
+        # Should not have CORS headers for unlisted origins
+        assert "access-control-allow-origin" not in response.headers
 
-    def test_cors_allows_configured_origin(self):
-        """Requests from configured origins should get CORS headers."""
-        from main import CORSMiddleware
-        middleware = CORSMiddleware(allow_origins=["https://trusted.com"])
-        assert "https://trusted.com" in middleware.allow_origins
+    def test_cors_preflight_rejected_for_unlisted_origin(self):
+        """OPTIONS preflight requests from unlisted origins should not get CORS headers."""
+        from main import app
+        client = TestClient(app)
+        # Make an OPTIONS preflight request
+        response = client.options(
+            "/api/v1/status",
+            headers={
+                "Origin": "https://evil.com",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        # Should not have CORS headers for unlisted origins
+        assert "access-control-allow-origin" not in response.headers
 
 
 class TestXForwardedForTrust:

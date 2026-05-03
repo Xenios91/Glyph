@@ -1,0 +1,379 @@
+/* =============================================================
+   GLYPH — STATUS BAR (status_bar.css)
+   Bottom-right floating panel for upload & processing status
+   ============================================================= */
+
+/* ── Floating toggle button ─────────────────────────────────── */
+.status-bar-toggle {
+    position: fixed;
+    bottom: var(--space-lg);
+    right: var(--space-lg);
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    border-radius: 50%;
+    background: var(--bg-panel);
+    border: 2px solid var(--cyan-dim);
+    color: var(--cyan);
+    font-size: var(--text-lg);
+    cursor: pointer;
+    z-index: 9001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--animation-normal) ease;
+    box-shadow: 0 0 12px rgba(125, 216, 216, 0.15);
+}
+
+.status-bar-toggle:hover {
+    border-color: var(--cyan);
+    box-shadow: 0 0 20px rgba(125, 216, 216, 0.3);
+    transform: scale(1.05);
+}
+
+.status-bar-toggle:active {
+    transform: scale(0.95);
+}
+
+.status-bar-toggle .badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--cyan);
+    color: var(--bg);
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: var(--font-weight-bold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+}
+
+/* ── Panel container ────────────────────────────────────────── */
+.status-bar-panel {
+    position: fixed;
+    bottom: calc(var(--space-lg) + 56px);
+    right: var(--space-lg);
+    width: 360px;
+    max-height: 400px;
+    background: var(--bg-panel);
+    border: 2px solid var(--cyan-dim);
+    border-radius: 4px;
+    box-shadow:
+        0 0 24px rgba(125, 216, 216, 0.12),
+        inset 0 0 20px rgba(125, 216, 216, 0.02);
+    z-index: 9000;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    animation: panel-slide-in 0.25s ease-out;
+}
+
+.status-bar-panel.is-visible {
+    display: flex;
+}
+
+.status-bar-panel.is-closing {
+    animation: panel-slide-out 0.2s ease-in forwards;
+}
+
+/* ── Panel header ───────────────────────────────────────────── */
+.status-bar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--cyan-dim);
+    flex-shrink: 0;
+}
+
+.status-bar-header h3 {
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    color: var(--cyan);
+    letter-spacing: 0.08em;
+    margin: 0;
+}
+
+.status-bar-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: var(--text-lg);
+    cursor: pointer;
+    padding: 0 var(--space-xs);
+    line-height: 1;
+    transition: color var(--animation-fast) ease;
+}
+
+.status-bar-close:hover {
+    color: var(--red);
+}
+
+/* ── Entries container ──────────────────────────────────────── */
+.status-bar-entries {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+/* Custom scrollbar for entries */
+.status-bar-entries::-webkit-scrollbar {
+    width: 6px;
+}
+
+.status-bar-entries::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+
+.status-bar-entries::-webkit-scrollbar-thumb {
+    background: var(--cyan-dim);
+    border-radius: 3px;
+}
+
+.status-bar-entries::-webkit-scrollbar-thumb:hover {
+    background: var(--cyan);
+}
+
+/* ── Empty state ────────────────────────────────────────────── */
+.status-bar-empty {
+    padding: var(--space-lg) var(--space-md);
+    text-align: center;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+}
+
+/* ── Entry card ─────────────────────────────────────────────── */
+.status-entry {
+    background: var(--bg-surface);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 3px;
+    padding: var(--space-sm) var(--space-md);
+    animation: entry-fade-in 0.25s ease-out;
+}
+
+.status-entry.is-removing {
+    animation: entry-fade-out 0.25s ease-in forwards;
+}
+
+.status-entry-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-xs);
+}
+
+.status-entry-file {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.status-entry-file .icon {
+    color: var(--cyan);
+    flex-shrink: 0;
+}
+
+.status-entry-dismiss {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    padding: 0 var(--space-1xs);
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color var(--animation-fast) ease;
+}
+
+.status-entry-dismiss:hover {
+    color: var(--red);
+}
+
+/* ── Upload progress bar ────────────────────────────────────── */
+.status-entry-progress {
+    margin-bottom: var(--space-xs);
+}
+
+.progress-track {
+    width: 100%;
+    height: 8px;
+    background: var(--bg);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--cyan);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 6px rgba(125, 216, 216, 0.4);
+}
+
+.status-entry-label {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: var(--space-1xs);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.status-entry-percent {
+    color: var(--cyan);
+    font-weight: var(--font-weight-medium);
+}
+
+/* ── Processing state (pulsing dots) ────────────────────────── */
+.status-entry-processing {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-xs) 0;
+}
+
+.status-entry-processing .label {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.pulsing-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pulsing-dots .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+.pulsing-dots .dot:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.pulsing-dots .dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.pulsing-dots .dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+/* ── Completed state ────────────────────────────────────────── */
+.status-entry.completed .progress-fill {
+    background: var(--green);
+    box-shadow: 0 0 6px rgba(110, 201, 122, 0.4);
+}
+
+.status-entry.completed .status-entry-label {
+    color: var(--green);
+}
+
+/* ── Error state ────────────────────────────────────────────── */
+.status-entry.error .progress-fill {
+    background: var(--red);
+    box-shadow: 0 0 6px rgba(201, 84, 106, 0.4);
+}
+
+.status-entry.error .status-entry-label {
+    color: var(--red);
+}
+
+.status-entry.error {
+    border-color: var(--red);
+}
+
+/* ── Animations ─────────────────────────────────────────────── */
+@keyframes pulse-dot {
+    0%, 80%, 100% {
+        opacity: 0.3;
+        transform: scale(0.8);
+    }
+    40% {
+        opacity: 1;
+        transform: scale(1.2);
+    }
+}
+
+@keyframes panel-slide-in {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes panel-slide-out {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+}
+
+@keyframes entry-fade-in {
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes entry-fade-out {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+}
+
+/* ── Responsive adjustments ─────────────────────────────────── */
+@media (max-width: 480px) {
+    .status-bar-panel {
+        width: calc(100vw - var(--space-lg) * 2);
+        right: var(--space-md);
+        bottom: calc(var(--space-md) + 56px);
+    }
+
+    .status-bar-toggle {
+        right: var(--space-md);
+        bottom: var(--space-md);
+    }
+}
