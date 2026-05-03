@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.config.settings import get_settings
 from app.services.request_handler import GhidraRequest
-from app.processing.task_management import Ghidra
+from app.processing.task_management import Ghidra, TaskManager
 from app.utils.persistence_util import FunctionPersistanceUtil
 from app.utils.responses import (
     create_success_response,
@@ -188,16 +188,21 @@ async def _run_pipeline_analysis(
         captured_ctx: Captured request context from the originating request
             thread. Restored before awaiting to preserve tracing.
     """
+    task_uuid = ghidra_request.uuid
     try:
         # Restore request context from the snapshot captured on the request thread
         if captured_ctx is not None:
-            restore_request_context(captured_ctx, override_task_id=ghidra_request.uuid)
+            restore_request_context(captured_ctx, override_task_id=task_uuid)
+
+        # Update status to processing
+        TaskManager.set_status(task_uuid, "processing")
 
         # Run the full pipeline
         result = await Ghidra.run_full_pipeline(ghidra_request, file_path)
 
-        # Handle results based on pipeline type
+        # Update final status
         if result.error:
+            TaskManager.set_status(task_uuid, "error")
             logger.opt(exception=result.exc_info).error(
                 "Pipeline execution failed: {}", result.error)
         else:
@@ -218,7 +223,7 @@ async def _run_pipeline_analysis(
                         },
                     }
                     training_request = TrainingRequest(
-                        req_uuid=ghidra_request.uuid,
+                        req_uuid=task_uuid,
                         model_name=ghidra_request.model_name,
                         data=training_data)
                     await FunctionPersistanceUtil.add_model_functions(training_request)
@@ -249,10 +254,10 @@ async def _run_pipeline_analysis(
                     logger.debug(
                         "Creating PredictionRequest for task '{}' uuid {}",
                         ghidra_request.name,
-                        ghidra_request.uuid)
+                        task_uuid)
                     try:
                         prediction_request = PredictionRequest(
-                            req_uuid=ghidra_request.uuid,
+                            req_uuid=task_uuid,
                             model_name=ghidra_request.model_name,
                             data=prediction_data)
                         logger.debug(
@@ -268,10 +273,20 @@ async def _run_pipeline_analysis(
                         logger.exception("Failed to create PredictionRequest")
                         raise
 
+            TaskManager.set_status(task_uuid, "completed")
+
     except Exception:
+        TaskManager.set_status(task_uuid, "error")
         logger.exception("Pipeline task failed")
         raise
     finally:
+        # Clean up the task from the active registry after a delay
+        # so the final status is still available for a brief window
+        import asyncio
+        async def _cleanup() -> None:
+            await asyncio.sleep(10)
+            TaskManager.remove_task(task_uuid)
+        asyncio.create_task(_cleanup())
         clear_request_context()
 
 
@@ -373,11 +388,14 @@ async def post_upload_binary(
         form_data.name,
         form_data.ml_class_type)
 
+    # Register the task in TaskManager so status polling can find it
+    TaskManager.register_task(ghidra_task.uuid, "starting")
+
     # Capture request context before handing off to background task
     captured_ctx = capture_request_context()
     background_tasks.add_task(
         _run_pipeline_analysis, ghidra_task, file_path, captured_ctx)
-    logger.info("Binary uploaded to: {}, background task queued, returning response now", file_path)
+    logger.info("Binary uploaded to: {}, background task queued (uuid={}), returning response now", file_path, ghidra_task.uuid)
 
     # Return HTML only for browser navigation requests (Accept contains text/html)
     # API requests (Accept: application/json) should get JSON responses
@@ -385,9 +403,9 @@ async def post_upload_binary(
         return templates.TemplateResponse(request, "upload.html", {})
 
     result = create_success_response(
-        data=BinaryUploadResponse(uuid=unique_filename),
+        data=BinaryUploadResponse(uuid=ghidra_task.uuid),
         message="Binary uploaded successfully")
-    logger.info("Returning success response for upload {}", unique_filename)
+    logger.info("Returning success response for upload {}", ghidra_task.uuid)
     return result
 
 

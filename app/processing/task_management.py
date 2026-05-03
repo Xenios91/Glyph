@@ -171,6 +171,9 @@ class TaskManager:
     exec_pool: ProcessPoolExecutor | None = None
     _executor_shutdown: bool = False
     __instance: "TaskManager | None" = None
+    # Registry of active task UUIDs → status strings that persists beyond the queue.
+    # Populated when tasks are queued and updated via set_status().
+    _active_tasks: dict[str, str] = {}
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Initialize the process pool executor for subclasses."""
@@ -237,8 +240,25 @@ class TaskManager:
         return str(uuid.uuid4())
 
     @classmethod
+    def register_task(cls, job_uuid: str, initial_status: str = "starting") -> None:
+        """Register a new task in the active tasks registry.
+
+        Call this when a task is queued so that get_status() can find it
+        even after it leaves the service queue.
+
+        Args:
+            job_uuid: The UUID of the job.
+            initial_status: Initial status string (default "starting").
+        """
+        cls._active_tasks[job_uuid] = initial_status
+        logger.debug("Registered task {} with status '{}'", job_uuid, initial_status)
+
+    @classmethod
     def get_status(cls, job_uuid: str) -> str:
         """Get the status of a job by its UUID.
+
+        Checks the active tasks registry first, then falls back to the
+        service queue for backwards compatibility.
 
         Args:
             job_uuid: The UUID of the job.
@@ -246,23 +266,37 @@ class TaskManager:
         Returns:
             The status of the job or "UUID Not Found".
         """
-        status: str = "UUID Not Found"
+        # Check active tasks registry first
+        if job_uuid in cls._active_tasks:
+            return cls._active_tasks[job_uuid]
+
+        # Fallback: check service queue (backwards compatibility)
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
-                status = task[0].status
-                break
-        return status
+                status: str = task[0].status
+                # Also register in active tasks so future lookups are fast
+                cls._active_tasks[job_uuid] = status
+                return status
+        return "UUID Not Found"
 
     @classmethod
     def get_all_status(cls) -> dict[str, str]:
-        """Get the status of all jobs in the queue.
+        """Get the status of all jobs.
+
+        Returns statuses from both the active tasks registry and the
+        service queue.  For backwards compatibility, queue entries are
+        keyed by model_name while registry entries are keyed by UUID.
 
         Returns:
-            A dictionary mapping model names to their statuses.
+            A dictionary mapping model names / UUIDs to their statuses.
         """
-        status_list: dict[str, str] = {}
+        # Start with active tasks registry
+        status_list: dict[str, str] = dict(cls._active_tasks)
+
+        # Also include anything still in the service queue (keyed by model_name
+        # for backwards compatibility with existing callers).
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             status: str = task[0].status
@@ -274,6 +308,9 @@ class TaskManager:
     def set_status(cls, job_uuid: str, status: str) -> bool:
         """Set the status of a job by its UUID.
 
+        Updates both the active tasks registry and the service queue
+        entry (if still queued).
+
         Args:
             job_uuid: The UUID of the job.
             status: The new status to set.
@@ -281,13 +318,33 @@ class TaskManager:
         Returns:
             True if the status was set, False if the UUID was not found.
         """
+        # Update active tasks registry
+        if job_uuid in cls._active_tasks:
+            cls._active_tasks[job_uuid] = status
+            logger.debug("Updated task {} status to '{}'", job_uuid, status)
+            return True
+
+        # Fallback: update service queue entry (backwards compatibility)
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
                 task[0].status = status
+                # Also register in active tasks
+                cls._active_tasks[job_uuid] = status
                 return True
         return False
+
+    @classmethod
+    def remove_task(cls, job_uuid: str) -> None:
+        """Remove a completed or failed task from the active registry.
+
+        Args:
+            job_uuid: The UUID of the job to remove.
+        """
+        if job_uuid in cls._active_tasks:
+            del cls._active_tasks[job_uuid]
+            logger.debug("Removed task {} from active registry", job_uuid)
 
 
 class Ghidra(TaskManager):

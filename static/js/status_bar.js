@@ -140,7 +140,19 @@ const StatusBar = {
             if (!stored) return;
 
             const tasks = JSON.parse(stored);
+            const validTasks = [];
+
             for (const task of tasks) {
+                // Skip client-side IDs (e.g. "upload_...") because the server
+                // only knows about real UUIDs.  If uploadComplete() was never
+                // called (user navigated away before the server responded),
+                // we have no way to look up the task on the server.
+                if (typeof task.uuid === 'string' && task.uuid.startsWith('upload_')) {
+                    console.debug('[STATUS-BAR] Skipping stale client-side ID on restore:', task.uuid);
+                    continue;
+                }
+                validTasks.push(task);
+
                 this._tasks.set(task.uuid, {
                     uuid: task.uuid,
                     fileName: task.fileName,
@@ -148,6 +160,11 @@ const StatusBar = {
                     notFoundCount: 0
                 });
                 this._createEntry(task.uuid, task.fileName, 'processing');
+            }
+
+            // Persist only the valid (server-side) tasks back to localStorage
+            if (validTasks.length !== tasks.length) {
+                this._persistTasks();
             }
 
             if (this._tasks.size > 0) {

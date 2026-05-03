@@ -7,6 +7,7 @@ filtering, feature extraction, training, and prediction.
 Python 3.11+
 """
 
+import asyncio
 import os
 import re
 import sys
@@ -200,7 +201,10 @@ class DecompileStep(PipelineStep):
         binary_path = context.binary_path
 
         try:
-            results = ghidra_processor.analyze_binary_and_decompile(binary_path)
+            # Offload blocking Ghidra JVM call to thread pool to avoid blocking event loop
+            results = await asyncio.to_thread(
+                ghidra_processor.analyze_binary_and_decompile, binary_path
+            )
 
             functions = results.get("functions", [])
             errored_functions = results.get("erroredFunctions", [])
@@ -427,8 +431,8 @@ class TrainStep(PipelineStep):
             logger.opt(lazy=True).debug("Token sample: {}", lambda: tokens[0][:100] if tokens else "empty")
             logger.opt(lazy=True).debug("Label distribution: {}", lambda: np.bincount(y).tolist())
             
-            # Train the model - ML pipeline handles vectorization internally
-            ml_pipeline.fit(tokens, y)  # type: ignore[call-arg]
+            # Train the model - offload blocking sklearn fit to thread pool
+            await asyncio.to_thread(ml_pipeline.fit, tokens, y)  # type: ignore[misc]
 
             # Save the model
             await MLPersistanceUtil.save_model(model_name, label_encoder, ml_pipeline)
@@ -492,9 +496,10 @@ class PredictStep(PipelineStep):
             # Load the model
             model, label_encoder = await MLPersistanceUtil.load_model(model_name)
 
-            # Run predictions - ML pipeline handles vectorization internally
-            predictions = model.predict(tokens)
-            prediction_probability = model.predict_proba(tokens) * 100
+            # Run predictions - offload blocking sklearn calls to thread pool
+            predictions = await asyncio.to_thread(model.predict, tokens)
+            prediction_probability = await asyncio.to_thread(model.predict_proba, tokens)
+            prediction_probability = prediction_probability * 100
             predicted_labels = label_encoder.inverse_transform(predictions)
 
             # Apply probability threshold
