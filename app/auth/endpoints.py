@@ -297,6 +297,7 @@ async def refresh_token(
     )
 
 
+@router.get("/logout")
 @router.post("/logout")
 async def logout(
     request: Request,

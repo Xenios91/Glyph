@@ -4,7 +4,7 @@ from typing import Any, Awaitable, Callable
 from loguru import logger
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
@@ -141,6 +141,12 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+@app.get("/favicon.ico")
+async def favicon() -> FileResponse:
+    """Serve the favicon at root level."""
+    return FileResponse("static/favicon.ico")
 
 
 @app.exception_handler(HTTPException)

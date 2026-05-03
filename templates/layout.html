@@ -41,7 +41,7 @@
         {%- block content %}{%- endblock content %}
     </div>
 
-    {% include 'components/scripts.html' %}
+    {%- block common_scripts %}{% include 'components/scripts.html' %}{%- endblock common_scripts %}
 
     {%- block scripts %}{%- endblock scripts %}
 
