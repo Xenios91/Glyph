@@ -23,6 +23,8 @@ const StatusBar = {
     _panel: null,
     _entriesContainer: null,
     _toggleBtn: null,
+    _indicatorsContainer: null,
+    _tooltipElement: null,
     _isPanelVisible: false,
 
     /**
@@ -72,10 +74,40 @@ const StatusBar = {
         this._toggleBtn.id = 'status-bar-toggle';
         this._toggleBtn.setAttribute('aria-label', 'Toggle status panel');
         this._toggleBtn.setAttribute('aria-expanded', 'false');
-        this._toggleBtn.innerHTML = `
-            <span class="icon">&#9680;</span>
-            <span class="badge" style="display: none;">0</span>
+
+        // Badge
+        const badgeSpan = document.createElement('span');
+        badgeSpan.className = 'badge';
+        badgeSpan.style.display = 'none';
+        badgeSpan.textContent = '0';
+        this._toggleBtn.appendChild(badgeSpan);
+
+        // Mini status indicators container
+        this._indicatorsContainer = document.createElement('span');
+        this._indicatorsContainer.className = 'status-bar-indicators';
+        this._toggleBtn.appendChild(this._indicatorsContainer);
+
+        // Hover tooltip
+        this._tooltipElement = document.createElement('span');
+        this._tooltipElement.className = 'status-bar-tooltip';
+        this._tooltipElement.innerHTML = `
+            <div class="tooltip-header">// STATUS</div>
+            <div class="tooltip-row is-uploading">
+                <span class="label">Uploading</span>
+                <span class="count">0</span>
+            </div>
+            <div class="tooltip-row is-processing">
+                <span class="label">Processing</span>
+                <span class="count">0</span>
+            </div>
+            <div class="tooltip-row is-total">
+                <span class="label">Total</span>
+                <span class="count">0</span>
+            </div>
+            <div class="tooltip-empty" style="display: none;">No active tasks</div>
         `;
+        this._toggleBtn.appendChild(this._tooltipElement);
+
         this._toggleBtn.addEventListener('click', () => {
             this._togglePanel();
         });
@@ -103,6 +135,7 @@ const StatusBar = {
         this._panel.classList.add('is-visible');
         this._isPanelVisible = true;
         this._toggleBtn.setAttribute('aria-expanded', 'true');
+        this._toggleBtn.classList.add('is-expanded');
     },
 
     /**
@@ -111,6 +144,7 @@ const StatusBar = {
     _hidePanel() {
         this._panel.classList.add('is-closing');
         this._toggleBtn.setAttribute('aria-expanded', 'false');
+        this._toggleBtn.classList.remove('is-expanded');
         setTimeout(() => {
             this._panel.classList.remove('is-visible', 'is-closing');
             this._isPanelVisible = false;
@@ -128,6 +162,130 @@ const StatusBar = {
             badge.style.display = 'flex';
         } else {
             badge.style.display = 'none';
+        }
+        this._updateIndicators();
+        this._updateTooltip();
+        this._toggleActiveState();
+    },
+
+    /**
+     * Update mini status indicator dots on the toggle button.
+     * Shows up to 3 dots: cyan for uploading, yellow for processing.
+     */
+    _updateIndicators() {
+        if (!this._indicatorsContainer) return;
+
+        // Clear existing dots
+        this._indicatorsContainer.innerHTML = '';
+
+        let uploadingCount = 0;
+        let processingCount = 0;
+
+        for (const task of this._tasks.values()) {
+            if (task.state === 'uploading' || task.state === 'uploading_complete') {
+                uploadingCount++;
+            } else if (task.state === 'processing') {
+                processingCount++;
+            }
+        }
+
+        // Max 3 dots total to avoid clutter
+        const maxDots = 3;
+        let dotsToAdd = 0;
+
+        if (uploadingCount > 0 && dotsToAdd < maxDots) {
+            const dot = document.createElement('span');
+            dot.className = 'indicator-dot is-uploading';
+            this._indicatorsContainer.appendChild(dot);
+            dotsToAdd++;
+        }
+
+        if (processingCount > 0 && dotsToAdd < maxDots) {
+            const dot = document.createElement('span');
+            dot.className = 'indicator-dot is-processing';
+            this._indicatorsContainer.appendChild(dot);
+            dotsToAdd++;
+        }
+
+        // Add extra dots if there are more tasks
+        if (uploadingCount > 1 && dotsToAdd < maxDots) {
+            const dot = document.createElement('span');
+            dot.className = 'indicator-dot is-uploading';
+            this._indicatorsContainer.appendChild(dot);
+            dotsToAdd++;
+        }
+
+        if (processingCount > 1 && dotsToAdd < maxDots) {
+            const dot = document.createElement('span');
+            dot.className = 'indicator-dot is-processing';
+            this._indicatorsContainer.appendChild(dot);
+            dotsToAdd++;
+        }
+    },
+
+    /**
+     * Update the hover tooltip with current task counts.
+     */
+    _updateTooltip() {
+        if (!this._tooltipElement) return;
+
+        let uploadingCount = 0;
+        let processingCount = 0;
+
+        for (const task of this._tasks.values()) {
+            if (task.state === 'uploading' || task.state === 'uploading_complete') {
+                uploadingCount++;
+            } else if (task.state === 'processing') {
+                processingCount++;
+            }
+        }
+
+        const totalCount = uploadingCount + processingCount;
+
+        // Update counts in tooltip rows
+        const uploadingRow = this._tooltipElement.querySelector('.is-uploading');
+        const processingRow = this._tooltipElement.querySelector('.is-processing');
+        const totalRow = this._tooltipElement.querySelector('.is-total');
+        const emptyEl = this._tooltipElement.querySelector('.tooltip-empty');
+
+        if (uploadingRow) {
+            const countEl = uploadingRow.querySelector('.count');
+            if (countEl) countEl.textContent = uploadingCount;
+            uploadingRow.style.display = uploadingCount > 0 ? 'flex' : 'none';
+        }
+
+        if (processingRow) {
+            const countEl = processingRow.querySelector('.count');
+            if (countEl) countEl.textContent = processingCount;
+            processingRow.style.display = processingCount > 0 ? 'flex' : 'none';
+        }
+
+        if (totalRow) {
+            const countEl = totalRow.querySelector('.count');
+            if (countEl) countEl.textContent = totalCount;
+        }
+
+        // Show empty state when no tasks
+        if (totalCount === 0) {
+            if (emptyEl) emptyEl.style.display = 'block';
+            if (totalRow) totalRow.style.display = 'none';
+        } else {
+            if (emptyEl) emptyEl.style.display = 'none';
+            if (totalRow) totalRow.style.display = 'flex';
+        }
+    },
+
+    /**
+     * Toggle the pulse animation class based on whether there are active tasks.
+     */
+    _toggleActiveState() {
+        if (!this._toggleBtn) return;
+
+        const hasActiveTasks = this._tasks.size > 0;
+        if (hasActiveTasks) {
+            this._toggleBtn.classList.add('is-active');
+        } else {
+            this._toggleBtn.classList.remove('is-active');
         }
     },
 

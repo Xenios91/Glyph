@@ -26,6 +26,22 @@
     box-shadow: 0 0 12px rgba(125, 216, 216, 0.15);
 }
 
+/* Triangle icon using pseudo-element for perfect centering */
+.status-bar-toggle::before {
+    content: '';
+    display: block;
+    width: 0;
+    height: 0;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 12px solid var(--cyan);
+    margin-left: 2px;
+}
+
+.status-bar-toggle:hover::before {
+    border-left-color: var(--cyan-bright);
+}
+
 .status-bar-toggle:hover {
     border-color: var(--cyan);
     box-shadow: 0 0 20px rgba(125, 216, 216, 0.3);
@@ -364,6 +380,139 @@
     }
 }
 
+/* ── Pulse animation for active tasks ───────────────────────── */
+@keyframes status-pulse {
+    0%, 100% {
+        box-shadow: 0 0 12px rgba(125, 216, 216, 0.15);
+    }
+    50% {
+        box-shadow: 0 0 24px rgba(125, 216, 216, 0.45);
+    }
+}
+
+.status-bar-toggle.is-active {
+    animation: status-pulse 2s ease-in-out infinite;
+}
+
+/* ── Mini status indicator dots ─────────────────────────────── */
+.status-bar-indicators {
+    position: absolute;
+    bottom: -2px;
+    left: -2px;
+    display: flex;
+    gap: 3px;
+    z-index: 1;
+}
+
+.status-bar-indicators .indicator-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.status-bar-indicators .indicator-dot.is-uploading {
+    background: var(--cyan);
+    box-shadow: 0 0 4px rgba(125, 216, 216, 0.6);
+}
+
+.status-bar-indicators .indicator-dot.is-processing {
+    background: var(--yellow);
+    box-shadow: 0 0 4px rgba(212, 200, 122, 0.6);
+}
+
+/* ── Hover tooltip ──────────────────────────────────────────── */
+.status-bar-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    min-width: 160px;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-panel);
+    border: 2px solid var(--cyan-dim);
+    border-radius: 4px;
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-primary);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(4px);
+    transition: all var(--animation-normal) ease;
+    pointer-events: none;
+    z-index: 9002;
+    box-shadow: 0 0 16px rgba(125, 216, 216, 0.15);
+}
+
+/* Tooltip arrow pointing down to button */
+.status-bar-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    right: var(--space-md);
+    border: 6px solid transparent;
+    border-top-color: var(--cyan-dim);
+}
+
+.status-bar-toggle:hover .status-bar-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* Hide tooltip when panel is open */
+.status-bar-toggle.is-expanded .status-bar-tooltip {
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+.status-bar-tooltip .tooltip-header {
+    font-family: var(--font-display);
+    font-size: 0.65rem;
+    color: var(--cyan);
+    letter-spacing: 0.08em;
+    margin-bottom: var(--space-xs);
+    padding-bottom: var(--space-xs);
+    border-bottom: 1px solid var(--cyan-dim);
+}
+
+.status-bar-tooltip .tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+}
+
+.status-bar-tooltip .tooltip-row .label {
+    color: var(--text-muted);
+}
+
+.status-bar-tooltip .tooltip-row .count {
+    font-weight: var(--font-weight-bold);
+}
+
+.status-bar-tooltip .tooltip-row.is-uploading .count {
+    color: var(--cyan);
+}
+
+.status-bar-tooltip .tooltip-row.is-processing .count {
+    color: var(--yellow);
+}
+
+.status-bar-tooltip .tooltip-row.is-total {
+    margin-top: var(--space-xs);
+    padding-top: var(--space-xs);
+    border-top: 1px solid var(--cyan-dim);
+}
+
+.status-bar-tooltip .tooltip-row.is-total .count {
+    color: var(--cyan-bright);
+}
+
+.status-bar-tooltip .tooltip-empty {
+    color: var(--text-muted);
+    font-style: italic;
+    padding: var(--space-xs) 0;
+    text-align: center;
+}
+
 /* ── Responsive adjustments ─────────────────────────────────── */
 @media (max-width: 480px) {
     .status-bar-panel {
@@ -375,5 +524,16 @@
     .status-bar-toggle {
         right: var(--space-md);
         bottom: var(--space-md);
+    }
+
+    .status-bar-tooltip {
+        right: auto;
+        left: 0;
+        min-width: 140px;
+    }
+
+    .status-bar-tooltip::after {
+        right: auto;
+        left: var(--space-md);
     }
 }
