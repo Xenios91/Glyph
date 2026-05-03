@@ -14,7 +14,6 @@ from typing import Any
 
 from app.auth.security_logger import log_csrf_failure
 
-from loguru import logger
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.status import HTTP_403_FORBIDDEN
@@ -51,9 +50,6 @@ class CSRFMiddleware:
         receive: Callable[[], Awaitable[dict[str, Any]]],
         send: Callable[[dict[str, Any]], Awaitable[None]],
     ) -> None:
-        import time as _time
-        _t0 = _time.monotonic()
-
         # Only process HTTP requests
         if scope["type"] != "http":
             await self.app(scope, receive, send)
@@ -112,9 +108,6 @@ class CSRFMiddleware:
                     (b"set-cookie", cookie_value.encode("utf-8"))
                 )
                 message["headers"] = headers
-                logger.info("[MIDDLEWARE-TIMING] CSRF {:.3f}s http.response.start", _time.monotonic() - _t0)
-            elif message["type"] == "http.response.body":
-                logger.info("[MIDDLEWARE-TIMING] CSRF {:.3f}s http.response.body", _time.monotonic() - _t0)
             await send(message)
 
         # Process the request through the app

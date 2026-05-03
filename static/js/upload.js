@@ -99,6 +99,26 @@ let uploadMessageTimer = undefined;
 let uploadMessageDismissed = false;
 
 /**
+ * Flag to track if an upload is currently in progress.
+ * Used to prevent page navigation during active uploads.
+ * @type {boolean}
+ */
+let isUploadInProgress = false;
+
+/**
+ * Handle beforeunload event to prevent navigation during active upload
+ * @param {BeforeUnloadEvent} e - The beforeunload event
+ */
+function handleBeforeUnload(e) {
+    console.log('[UPLOAD] beforeunload fired, isUploadInProgress:', isUploadInProgress);
+    if (isUploadInProgress) {
+        e.preventDefault();
+        e.returnValue = 'Upload is in progress. Are you sure you want to leave?';
+        return e.returnValue;
+    }
+}
+
+/**
  * Show the processing/uploading state immediately when upload starts
  */
 function showUploadProcessing() {
@@ -295,6 +315,11 @@ function uploadBinary() {
     // Set loading state
     setUploadLoading(true);
 
+    // Mark upload as in progress to block page navigation
+    isUploadInProgress = true;
+    let transferComplete = false;
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     // Register with status bar for upload progress tracking
     let statusBarClientId = null;
     if (typeof StatusBar !== 'undefined') {
@@ -314,18 +339,29 @@ function uploadBinary() {
         xhr.setRequestHeader('X-CSRF-Token', csrfToken);
     }
 
-    // Track upload progress
+    // Track upload progress and unlock navigation when transfer completes
     xhr.upload.onprogress = function(e) {
         if (e.lengthComputable) {
             const percent = (e.loaded / e.total) * 100;
             if (statusBarClientId && typeof StatusBar !== 'undefined') {
                 StatusBar.updateUploadProgress(statusBarClientId, percent);
             }
+            // Unlock navigation once the file is fully sent to the server
+            if (percent >= 100 && isUploadInProgress) {
+                transferComplete = true;
+                console.log('[UPLOAD] File transfer complete, navigation unlocked');
+                isUploadInProgress = false;
+                window.removeEventListener('beforeunload', handleBeforeUnload);
+            }
         }
     };
 
     // Handle completion
     xhr.onload = function() {
+        // Also unlock navigation on response (in case upload.onload already fired but handler lingered)
+        isUploadInProgress = false;
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+
         if (xhr.status >= 200 && xhr.status < 300) {
             let data;
             try {
@@ -367,14 +403,23 @@ function uploadBinary() {
 
     // Handle network errors
     xhr.onerror = function() {
+        isUploadInProgress = false;
+        window.removeEventListener('beforeunload', handleBeforeUnload);
         console.error('[UPLOAD] Network error during upload');
         Toast.error('Network error. Please try again.');
         showUploadStatus('Network error', false);
     };
 
     xhr.onabort = function() {
-        console.log('[UPLOAD] Upload aborted');
-        showUploadStatus('Upload cancelled', false);
+        isUploadInProgress = false;
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        if (transferComplete) {
+            // File was already sent to server, just the response was pending
+            console.log('[UPLOAD] Navigation away after transfer complete - server still processing');
+        } else {
+            console.log('[UPLOAD] Upload aborted before transfer complete');
+            showUploadStatus('Upload cancelled', false);
+        }
     };
 
     // Send the request

@@ -7,7 +7,6 @@ binary-related operations.
 import os
 import shutil
 import stat
-import time
 from pathlib import Path
 import uuid
 import magic
@@ -304,12 +303,6 @@ async def post_upload_binary(
     Raises:
         HTTPException: If validation fails or file is too large.
     """
-    _t0 = time.monotonic()
-    def _elapsed(tag: str) -> None:
-        logger.info("[UPLOAD-TIMING] {:.3f}s {}", time.monotonic() - _t0, tag)
-
-    _elapsed("endpoint entry (after auth)")
-
     # Validate form data using Pydantic model
     form_data = BinaryUploadForm(
         training_data=training_data,
@@ -330,8 +323,6 @@ async def post_upload_binary(
     max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
 
     file_content = await binary_file.read()
-    _elapsed("file read complete")
-
     logger.info(
         "Binary upload started: {} ({} bytes)",
         binary_file.filename,
@@ -347,12 +338,8 @@ async def post_upload_binary(
 
     # Validate MIME type to ensure file is a legitimate binary
     validate_binary_mime_type(file_content)
-    _elapsed("MIME validation complete")
-
     # Sanitize filename to prevent path traversal attacks
     sanitize_filename(binary_file.filename)
-    _elapsed("filename sanitized")
-
     # Generate unique filename using UUID (no extension from user input)
     unique_filename = f"{uuid.uuid4()}"
     upload_folder = settings.upload_folder
@@ -375,12 +362,8 @@ async def post_upload_binary(
     # Write file with secure permissions (owner read/write only)
     with open(file_path, "wb") as f:
         f.write(file_content)
-    _elapsed("file written to disk")
-
     # Set restrictive file permissions (0o600 = owner read/write only)
     os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
-    _elapsed("file permissions set")
-
     is_training_data = form_data.training_data == "true"
 
     ghidra_task = GhidraRequest(
@@ -392,12 +375,8 @@ async def post_upload_binary(
 
     # Capture request context before handing off to background task
     captured_ctx = capture_request_context()
-    _elapsed("context captured")
-
     background_tasks.add_task(
         _run_pipeline_analysis, ghidra_task, file_path, captured_ctx)
-    _elapsed("background task added")
-
     logger.info("Binary uploaded to: {}, background task queued, returning response now", file_path)
 
     # Return HTML only for browser navigation requests (Accept contains text/html)
@@ -408,7 +387,6 @@ async def post_upload_binary(
     result = create_success_response(
         data=BinaryUploadResponse(uuid=unique_filename),
         message="Binary uploaded successfully")
-    _elapsed("success response created")
     logger.info("Returning success response for upload {}", unique_filename)
     return result
 

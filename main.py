@@ -70,18 +70,12 @@ class CSPMiddleware:
             await self.app(scope, receive, send)
             return
 
-        import time as _time
-        _t0 = _time.monotonic()
-
         async def send_wrapper(message: dict[str, Any]) -> None:
             if message["type"] == "http.response.start":
                 headers: list[tuple[bytes, bytes]] = list(message.get("headers", []))
                 headers.append((b"content-security-policy", self.CSP_HEADER.encode("utf-8")))
                 headers.extend(self.SECURITY_HEADERS)
                 message["headers"] = headers
-                logger.info("[MIDDLEWARE-TIMING] CSP {:.3f}s http.response.start", _time.monotonic() - _t0)
-            elif message["type"] == "http.response.body":
-                logger.info("[MIDDLEWARE-TIMING] CSP {:.3f}s http.response.body", _time.monotonic() - _t0)
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
