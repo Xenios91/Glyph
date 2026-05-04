@@ -150,7 +150,7 @@ class TestLoginEndpoint:
         # Login
         response = auth_client.post(
             "/auth/token",
-            json={
+            data={
                 "username": "testuser",
                 "password": "test_password_123"
             }
@@ -177,7 +177,7 @@ class TestLoginEndpoint:
         # Try to login with wrong password
         response = auth_client.post(
             "/auth/token",
-            json={
+            data={
                 "username": "testuser",
                 "password": "wrong_password"
             }
@@ -189,7 +189,7 @@ class TestLoginEndpoint:
         """Test login with nonexistent user."""
         response = auth_client.post(
             "/auth/token",
-            json={
+            data={
                 "username": "nonexistent",
                 "password": "test_password_123"
             }
@@ -215,7 +215,7 @@ class TestRefreshEndpoint:
         
         login_response = auth_client.post(
             "/auth/token",
-            json={
+            data={
                 "username": "testuser",
                 "password": "test_password_123"
             }
@@ -260,7 +260,7 @@ class TestLogoutEndpoint:
         )
         login_response = auth_client.post(
             "/auth/token",
-            json={"username": "testuser", "password": "test_password_123"}
+            data={"username": "testuser", "password": "test_password_123"}
         )
         access_token = login_response.json()["access_token"]
         response = auth_client.post(
@@ -288,7 +288,7 @@ class TestMeEndpoint:
         
         login_response = auth_client.post(
             "/auth/token",
-            json={
+            data={
                 "username": "testuser",
                 "password": "test_password_123"
             }
@@ -331,7 +331,7 @@ class TestAPIKeyEndpoints:
         
         login_response = auth_client.post(
             "/auth/token",
-            json={
+            data={
                 "username": "testuser_create_api_key",
                 "password": "test_password_123"
             }
@@ -372,7 +372,7 @@ class TestAPIKeyEndpoints:
         
         login_response = auth_client.post(
             "/auth/token",
-            json={
+            data={
                 "username": f"testuser_list_api_keys_{unique_suffix}",
                 "password": "test_password_123"
             }
@@ -418,7 +418,7 @@ class TestAPIKeyEndpoints:
         
         login_response = auth_client.post(
             "/auth/token",
-            json={
+            data={
                 "username": "testuser",
                 "password": "test_password_123"
             }

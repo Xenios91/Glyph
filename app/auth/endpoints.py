@@ -16,6 +16,7 @@ from app.auth.security_logger import (
     log_api_key_created,
     log_api_key_deleted)
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import (
@@ -31,7 +32,6 @@ from app.auth.schemas import (
     ChangePassword,
     RefreshTokenRequest,
     TokenResponse,
-    UserLogin,
     UserRegister,
     UserResponse,
     UserUpdate)
@@ -111,21 +111,24 @@ async def register(
 @router.post("/token")
 async def login(
     request: Request,
-    credentials: UserLogin,
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[AsyncSession, Depends(get_db)],
     jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]
 ) -> Response:
     """Authenticate user and return tokens.
-    
+
+    Uses OAuth2PasswordRequestForm per the OAuth2 RFC 6749 password grant
+    specification, which expects form-encoded credentials rather than JSON.
+
     Args:
         request: FastAPI request object
-        credentials: Login credentials
+        form_data: OAuth2 form data containing username and password
         db: Database session
         jwt_handler: JWT handler instance
-        
+
     Returns:
         Response with access and refresh tokens and cookies
-        
+
     Raises:
         HTTPException: If credentials are invalid
     """
@@ -137,11 +140,11 @@ async def login(
     user_agent = request.headers.get("user-agent")
 
     # Check if username or IP is blocked due to excessive failures
-    if is_blocked(credentials.username, ip_address):
+    if is_blocked(form_data.username, ip_address):
         log_suspicious_activity(
             user_id=None,
             activity_type="login_blocked",
-            details={"username": credentials.username, "reason": "Excessive failures"},
+            details={"username": form_data.username, "reason": "Excessive failures"},
             ip_address=ip_address)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -149,16 +152,16 @@ async def login(
 
     # Log the login attempt before processing
     log_login_attempt(
-        username=credentials.username,
+        username=form_data.username,
         ip_address=ip_address,
         user_agent=user_agent)
 
     user_repo = UserRepository(db)
-    user = await user_repo.verify_credentials(credentials.username, credentials.password)
-    
+    user = await user_repo.verify_credentials(form_data.username, form_data.password)
+
     if not user:
         log_login_failure(
-            username=credentials.username,
+            username=form_data.username,
             reason="Invalid credentials",
             ip_address=ip_address
         )
@@ -166,10 +169,10 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"})
-    
+
     if not user.is_active:
         log_login_failure(
-            username=credentials.username,
+            username=form_data.username,
             reason="Account disabled",
             ip_address=ip_address
         )
@@ -177,29 +180,30 @@ async def login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is disabled"
         )
-    
+
     # Generate tokens
     access_token = jwt_handler.create_access_token(str(user.id))
     refresh_token = jwt_handler.create_refresh_token(str(user.id))
-    
+
     # Log successful login
     log_login_success(
         user_id=user.id,
         username=user.username,
         ip_address=ip_address
     )
-    
+
     # Create response with cookies
     settings = get_settings()
     response = Response(
         content=TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
-            token_type="bearer"
+            token_type="bearer",
+            expires_in=settings.access_token_expire_minutes * 60
         ).model_dump_json(),
         media_type="application/json"
     )
-    
+
     response.set_cookie(
         key="access_token_cookie",
         value=access_token,
@@ -214,7 +218,7 @@ async def login(
         secure=settings.use_https,
         samesite="strict",
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60)
-    
+
     return response
 
 

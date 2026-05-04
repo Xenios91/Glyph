@@ -150,6 +150,15 @@ class UserRepository:
         result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
     
+    # Dummy hash used to prevent timing attacks when a username does not exist.
+    # By always running verify_password, the endpoint takes roughly the same
+    # amount of time regardless of whether the user exists.
+    _DUMMY_HASH = (
+        "$argon2id$v=19$m=65536,t=2,p=4"
+        "$WMR2Y7DRhPjVl5R1l84gKw"
+        "$xS8VJl5R1l84gKwWMR2Y7DRhPjVl5R1l84gKw"
+    )
+
     async def verify_credentials(self, username: str, password: str) -> User | None:
         """Verify user credentials and rehash if needed.
         
@@ -161,7 +170,12 @@ class UserRepository:
             User instance if credentials are valid, None otherwise
         """
         user = await self.get_by_username(username)
-        if user and self.password_hasher.verify_password(password, user.hashed_password):
+        if user is None:
+            # Verify against a dummy hash to prevent timing attacks that could
+            # be used to enumerate valid usernames.
+            self.password_hasher.verify_password(password, self._DUMMY_HASH)
+            return None
+        if self.password_hasher.verify_password(password, user.hashed_password):
             logger.bind(user_id=user.id).debug("Credentials verified")
             # Rehash password if hash parameters are outdated
             if self.password_hasher.needs_rehash(user.hashed_password):

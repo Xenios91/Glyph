@@ -75,18 +75,11 @@ function initLoginForm() {
         submitBtn.textContent = 'LOGIN...';
         
         const formData = new FormData(form);
-        const data = {
-            username: formData.get('username'),
-            password: formData.get('password')
-        };
         
         try {
             const response = await fetch('/auth/token', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
+                body: formData
             });
             
             if (response.ok) {
