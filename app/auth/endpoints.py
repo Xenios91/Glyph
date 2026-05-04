@@ -209,14 +209,14 @@ async def login(
         value=access_token,
         httponly=True,
         secure=settings.use_https,
-        samesite="strict",
+        samesite="lax",
         max_age=settings.access_token_expire_minutes * 60)
     response.set_cookie(
         key="refresh_token_cookie",
         value=refresh_token,
         httponly=True,
         secure=settings.use_https,
-        samesite="strict",
+        samesite="lax",
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60)
 
     return response

@@ -76,6 +76,10 @@ class JWTHandler:
         }
         
         if extra_claims:
+            _protected_claims = {"sub", "iat", "exp", "type"}
+            overlap = set(extra_claims.keys()) & _protected_claims
+            if overlap:
+                raise ValueError(f"Cannot override protected claims: {overlap}")
             payload.update(extra_claims)
         
         token = jwt.encode({"alg": self.algorithm}, payload, self._key)
@@ -105,6 +109,10 @@ class JWTHandler:
         }
         
         if extra_claims:
+            _protected_claims = {"sub", "iat", "exp", "type"}
+            overlap = set(extra_claims.keys()) & _protected_claims
+            if overlap:
+                raise ValueError(f"Cannot override protected claims: {overlap}")
             payload.update(extra_claims)
         
         token = jwt.encode({"alg": self.algorithm}, payload, self._key)
@@ -144,7 +152,7 @@ class JWTHandler:
             if decoded.claims.get("type") != "access":
                 raise InvalidTokenError("Token is not an access token")
             
-            # Check expiration
+            # Check expiration (joserfc version used does not support claims_options)
             self._check_expiration(dict(decoded.claims))
             
             logger.debug("Access token verified for subject {}", decoded.claims.get("sub"))
@@ -178,7 +186,7 @@ class JWTHandler:
             if decoded.claims.get("type") != "refresh":
                 raise InvalidTokenError("Token is not a refresh token")
             
-            # Check expiration
+            # Check expiration (joserfc version used does not support claims_options)
             self._check_expiration(dict(decoded.claims))
             
             logger.debug("Refresh token verified for subject {}", decoded.claims.get("sub"))
@@ -208,7 +216,7 @@ class JWTHandler:
         try:
             decoded = jwt.decode(token, self._key)
             
-            # Check expiration
+            # Check expiration (joserfc version used does not support claims_options)
             self._check_expiration(dict(decoded.claims))
             
             logger.debug("Token verified for subject {} type {}", decoded.claims.get("sub"), decoded.claims.get("type"))

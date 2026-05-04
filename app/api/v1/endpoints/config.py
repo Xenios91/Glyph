@@ -3,12 +3,15 @@
 This module provides endpoints for managing application configuration.
 """
 
+from pathlib import Path
 from typing import Annotated, Any
+
+import yaml
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.config.settings import MAX_CPU_CORES, get_settings
+from app.config.settings import MAX_CPU_CORES, get_settings, reload_settings
 from loguru import logger
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 from app.auth.dependencies import get_current_active_user
@@ -16,6 +19,8 @@ from app.database.models import User
 
 
 router = APIRouter()
+
+_CONFIG_FILE = Path("config.yml")
 
 
 class ConfigPayload(BaseModel):
@@ -28,6 +33,32 @@ class ConfigPayload(BaseModel):
 
     max_file_size_mb: int | None = None
     cpu_cores: int | None = None
+
+
+def _persist_config_changes(settings: Any) -> None:
+    """Write current settings back to config.yml.
+
+    Reads the existing file, updates the mutable fields, and writes back
+    so that changes survive a process restart.
+    """
+    existing: dict[str, Any] = {}
+    if _CONFIG_FILE.exists():
+        try:
+            with open(_CONFIG_FILE, "r", encoding="utf-8") as f:
+                existing = yaml.safe_load(f) or {}
+        except (yaml.YAMLError, OSError):
+            logger.warning("Failed to read existing config.yml, overwriting")
+
+    existing["max_file_size_mb"] = settings.max_file_size_mb
+    existing["cpu_cores"] = settings.cpu_cores
+
+    try:
+        with open(_CONFIG_FILE, "w", encoding="utf-8") as f:
+            yaml.dump(existing, f, default_flow_style=False, allow_unicode=True)
+        logger.info("Configuration persisted to {}", _CONFIG_FILE)
+    except OSError:
+        logger.exception("Failed to persist configuration to {}", _CONFIG_FILE)
+        raise
 
 
 @router.post("/save", response_model=SuccessResponse[dict[str, Any]])
@@ -70,6 +101,12 @@ async def save_config(
                 detail=create_error_response(
                     error_code="INVALID_CPU_CORES",
                     error_message=f"CPU cores must be between 1 and {MAX_CPU_CORES}").model_dump())
+
+    # Persist changes to config.yml so they survive a restart
+    _persist_config_changes(settings)
+
+    # Reload the singleton so subsequent calls see the new values
+    reload_settings()
 
     logger.info("Configuration saved")
 
