@@ -155,8 +155,8 @@ class UserRepository:
     # amount of time regardless of whether the user exists.
     _DUMMY_HASH = (
         "$argon2id$v=19$m=65536,t=2,p=4"
-        "$WMR2Y7DRhPjVl5R1l84gKw"
-        "$xS8VJl5R1l84gKwWMR2Y7DRhPjVl5R1l84gKw"
+        "$IaW8lT+iFVnKaCPWA+ArYg"
+        "$/rEI6zn8/LYoQNpbGs9wpH/qiB4ggeLb7B9UhCS/gDc"
     )
 
     async def verify_credentials(self, username: str, password: str) -> User | None:
