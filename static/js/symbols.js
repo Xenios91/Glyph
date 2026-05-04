@@ -52,13 +52,11 @@ async function deleteModel() {
     const modelToDelete = selection.split(':')[1].replace(/\s+/, '');
     
     try {
-        const response = await authenticatedFetch('/api/v1/models/deleteModel', {
+        const response = await authenticatedFetch(`/api/v1/models/deleteModel?model_name=${encodeURIComponent(modelToDelete)}`, {
             method: 'DELETE',
             headers: {
-                'Content-Type': 'application/json',
                 'Accept': 'application/json'
-            },
-            body: JSON.stringify({ model_name: modelToDelete })
+            }
         });
         
         if (response.ok) {
@@ -85,24 +83,25 @@ async function deleteModel() {
 function initSymbolsTable() {
     const table = document.querySelector('.symbols-table');
     if (!table) return;
-    
-    const clickHandler = table.dataset.clickHandler;
-    
-    // Use event delegation on the table body for better performance
-    const tbody = table.querySelector('tbody');
-    if (!tbody) return;
 
-    tbody.addEventListener('click', function(e) {
-        const row = e.target.closest('tr.hover-row');
+    const clickHandler = table.dataset.clickHandler;
+
+    // Event delegation: single listener on table for all clicks
+    table.addEventListener('click', function(e) {
+        // Handle row clicks (navigation)
+        const row = e.target.closest('tbody tr.hover-row');
         if (!row) return;
+
         if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
             window[clickHandler](row.id);
         }
     });
 
-    tbody.addEventListener('keydown', function(e) {
-        const row = e.target.closest('tr.hover-row');
+    // Event delegation: single listener for keyboard events
+    table.addEventListener('keydown', function(e) {
+        const row = e.target.closest('tbody tr.hover-row');
         if (!row) return;
+
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
@@ -112,17 +111,16 @@ function initSymbolsTable() {
     });
 }
 
-
 /**
  * Initialize symbols page event listeners
  */
 function initSymbolsPage() {
     // Bind delete model button
-    const deleteBtn = document.getElementById('delete-model-btn');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', deleteModel);
+    const deleteModelBtn = document.getElementById('delete-model-btn');
+    if (deleteModelBtn) {
+        deleteModelBtn.addEventListener('click', deleteModel);
     }
-    
+
     // Initialize table handlers
     initSymbolsTable();
     // Use shared hover effects from common.js instead of duplicate inline-style version

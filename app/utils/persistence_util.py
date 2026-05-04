@@ -343,3 +343,4 @@ class FunctionPersistanceUtil:
                 f"Prediction function for task '{task_name}', model '{model_name}', function '{function_name}' not found."
             )
         return result
+
