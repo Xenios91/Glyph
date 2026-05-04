@@ -3,6 +3,7 @@
  * Handles user profile updates, password changes, API key management, and tab navigation
  * Uses native fetch API and event listeners
  */
+'use strict';
 
 // ── Tab Navigation ──────────────────────────────────────────
 
@@ -113,33 +114,62 @@ async function loadApiKeys() {
             container.innerHTML = '';
 
             if (keys.length === 0) {
-                container.innerHTML = '<p class="no-api-keys">No API keys created yet.</p>';
+                const p = document.createElement('p');
+                p.className = 'no-api-keys';
+                p.textContent = 'No API keys created yet.';
+                container.appendChild(p);
             } else {
                 keys.forEach(key => {
-                    const div = document.createElement('div');
-                    div.className = 'api-key-item';
-                    div.innerHTML = `
-                        <div class="api-key-info">
-                            <strong>${escapeHtml(key.name)}</strong>
-                            <span class="api-key-prefix">${escapeHtml(key.key_prefix)}...</span>
-                            <small>Created: ${formatDate(key.created_at)}</small>
-                            ${key.expires_at ? `<br><small>Expires: ${formatDate(key.expires_at)}</small>` : ''}
-                        </div>
-                        <div class="api-key-actions">
-                            <button class="cyber-btn is-error is-small delete-api-key-btn" 
-                                    data-key-id="${key.id}"
-                                    aria-label="Delete API key: ${escapeHtml(key.name)}">
-                                Delete
-                            </button>
-                        </div>
-                    `;
-                    container.appendChild(div);
+                    const item = document.createElement('div');
+                    item.className = 'api-key-item';
+
+                    // Info section
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'api-key-info';
+
+                    const nameStrong = document.createElement('strong');
+                    nameStrong.textContent = key.name;
+                    infoDiv.appendChild(nameStrong);
+
+                    const prefixSpan = document.createElement('span');
+                    prefixSpan.className = 'api-key-prefix';
+                    prefixSpan.textContent = key.key_prefix + '...';
+                    infoDiv.appendChild(prefixSpan);
+
+                    const createdSmall = document.createElement('small');
+                    createdSmall.textContent = 'Created: ' + formatDate(key.created_at);
+                    infoDiv.appendChild(createdSmall);
+
+                    if (key.expires_at) {
+                        const br = document.createElement('br');
+                        infoDiv.appendChild(br);
+
+                        const expiresSmall = document.createElement('small');
+                        expiresSmall.textContent = 'Expires: ' + formatDate(key.expires_at);
+                        infoDiv.appendChild(expiresSmall);
+                    }
+
+                    item.appendChild(infoDiv);
+
+                    // Actions section
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'api-key-actions';
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'cyber-btn is-error is-small delete-api-key-btn';
+                    deleteBtn.dataset.keyId = key.id;
+                    deleteBtn.setAttribute('aria-label', 'Delete API key: ' + key.name);
+                    deleteBtn.textContent = 'Delete';
+                    actionsDiv.appendChild(deleteBtn);
+
+                    item.appendChild(actionsDiv);
+                    container.appendChild(item);
                 });
             }
         }
     } catch (err) {
         console.error('Error loading API keys:', err);
-        showToast('Failed to load API keys', 'error');
+        Toast.error('Failed to load API keys');
     } finally {
         container.setAttribute('aria-busy', 'false');
     }
@@ -209,18 +239,23 @@ async function createApiKey(formData) {
             document.getElementById('createApiKeyForm').style.display = 'none';
             const secretDiv = document.getElementById('apiKeySecret');
             secretDiv.style.display = 'block';
-            secretDiv.innerHTML = `
-                <p class="api-key-secret-alert">⚠️ Copy this key now - it won't be shown again!</p>
-                <code class="api-key-secret-code">${escapeHtml(result.secret)}</code>
-            `;
-            showToast('API key created successfully!', 'success');
+            secretDiv.innerHTML = '';
+            const alertP = document.createElement('p');
+            alertP.className = 'api-key-secret-alert';
+            alertP.textContent = '\u26A0\uFE0F Copy this key now - it won\'t be shown again!';
+            secretDiv.appendChild(alertP);
+            const codeEl = document.createElement('code');
+            codeEl.className = 'api-key-secret-code';
+            codeEl.textContent = result.secret;
+            secretDiv.appendChild(codeEl);
+            Toast.success('API key created successfully!');
         } else {
             const error = await response.json();
-            showToast(error.detail || 'Failed to create API key', 'error');
+            Toast.error(error.detail || 'Failed to create API key');
         }
     } catch (err) {
         console.error('Error creating API key:', err);
-        showToast('Network error. Please try again.', 'error');
+        Toast.error('Network error. Please try again.');
     }
 }
 
@@ -238,15 +273,15 @@ async function deleteApiKey(keyId) {
         });
 
         if (response.ok) {
-            showToast('API key deleted successfully', 'success');
+            Toast.success('API key deleted successfully');
             loadApiKeys();
         } else {
             const error = await response.json();
-            showToast(error.detail || 'Failed to delete API key', 'error');
+            Toast.error(error.detail || 'Failed to delete API key');
         }
     } catch (err) {
         console.error('Error deleting API key:', err);
-        showToast('Network error. Please try again.', 'error');
+        Toast.error('Network error. Please try again.');
     }
 }
 
@@ -271,17 +306,17 @@ async function updateProfile(formData) {
         });
 
         if (response.ok) {
-            showToast('Profile updated successfully', 'success');
+            Toast.success('Profile updated successfully');
             location.reload();
         } else {
             const error = await response.json();
             showError('profile-error', error.detail || 'Failed to update profile');
-            showToast(error.detail || 'Failed to update profile', 'error');
+            Toast.error(error.detail || 'Failed to update profile');
         }
     } catch (err) {
         console.error('Error updating profile:', err);
         showError('profile-error', 'Network error. Please try again.');
-        showToast('Network error. Please try again.', 'error');
+        Toast.error('Network error. Please try again.');
     }
 }
 
@@ -296,7 +331,7 @@ async function changePassword(formData) {
 
     if (newPassword !== confirmPassword) {
         showError('password-error', 'Passwords do not match');
-        showToast('Passwords do not match', 'error');
+        Toast.error('Passwords do not match');
         return;
     }
 
@@ -315,31 +350,22 @@ async function changePassword(formData) {
         });
 
         if (response.ok) {
-            showToast('Password changed successfully', 'success');
+            Toast.success('Password changed successfully');
             formData.reset();
             hideError('password-error');
         } else {
             const error = await response.json();
             showError('password-error', error.detail || 'Failed to change password');
-            showToast(error.detail || 'Failed to change password', 'error');
+            Toast.error(error.detail || 'Failed to change password');
         }
     } catch (err) {
         console.error('Error changing password:', err);
         showError('password-error', 'Network error. Please try again.');
-        showToast('Network error. Please try again.', 'error');
+        Toast.error('Network error. Please try again.');
     }
 }
 
 // ── Utility Functions ──────────────────────────────────────────
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
 
 /**
  * Format a date string
@@ -372,16 +398,6 @@ function hideError(elementId) {
     }
 }
 
-/**
- * Show toast notification
- */
-function showToast(message, type = 'info') {
-    if (typeof Toast !== 'undefined') {
-        Toast[type](message);
-    } else {
-        console.log(`[${type.toUpperCase()}] ${message}`);
-    }
-}
 
 // ── Event Listeners ──────────────────────────────────────────
 

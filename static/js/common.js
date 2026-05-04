@@ -2,15 +2,7 @@
  * Glyph - Common JavaScript Utilities
  * Contains shared JavaScript functions used across multiple templates
  */
-
-// Change background color for table rows on hover
-function changeBackground(id, color) {
-    const element = document.getElementById(id);
-    if (element) {
-        element.style.background = color;
-    }
-}
-
+'use strict';
 
 // Utility function to encode URL parameters
 function encodeParams(params) {
@@ -19,11 +11,12 @@ function encodeParams(params) {
         .join('&');
 }
 
-// Utility function to get current base URL
+/**
+ * Get the base URL (origin) of the current page
+ * @returns {string} The origin (protocol + host)
+ */
 function getBaseUrl() {
-    const currentURL = window.location.href;
-    const splitIndex = currentURL.lastIndexOf("/");
-    return currentURL.substring(0, splitIndex);
+    return window.location.origin;
 }
 
 /**

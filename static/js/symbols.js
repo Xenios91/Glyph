@@ -3,6 +3,10 @@
  * Handles function navigation and model deletion
  * Uses native fetch API and event listeners
  */
+'use strict';
+
+// Whitelist of allowed click handler function names to prevent arbitrary code execution
+const ALLOWED_CLICK_HANDLERS = ['goToFunctionURL'];
 
 /**
  * Navigate to function details page
@@ -47,12 +51,14 @@ async function deleteModel() {
     const selection = modelNameElement.innerText;
     const modelToDelete = selection.split(':')[1].replace(/\s+/, '');
     
-    const url = '/api/v1/models/deleteModel?model_name=' + encodeURIComponent(modelToDelete);
-    
     try {
-        const response = await fetch(url, {
+        const response = await authenticatedFetch('/api/v1/models/deleteModel', {
             method: 'DELETE',
-            headers: { 'Content-type': 'application/json' }
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ model_name: modelToDelete })
         });
         
         if (response.ok) {
@@ -82,51 +88,30 @@ function initSymbolsTable() {
     
     const clickHandler = table.dataset.clickHandler;
     
-    // Add click handlers to rows
-    const rows = table.querySelectorAll('tbody tr.hover-row');
-    rows.forEach(row => {
-        row.addEventListener('click', function() {
-            if (clickHandler && typeof window[clickHandler] === 'function') {
-                window[clickHandler](this.id);
+    // Use event delegation on the table body for better performance
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+
+    tbody.addEventListener('click', function(e) {
+        const row = e.target.closest('tr.hover-row');
+        if (!row) return;
+        if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
+            window[clickHandler](row.id);
+        }
+    });
+
+    tbody.addEventListener('keydown', function(e) {
+        const row = e.target.closest('tr.hover-row');
+        if (!row) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
+                window[clickHandler](row.id);
             }
-        });
-        
-        // Add keyboard support (Enter key)
-        row.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                if (clickHandler && typeof window[clickHandler] === 'function') {
-                    window[clickHandler](this.id);
-                }
-            }
-        });
+        }
     });
 }
 
-/**
- * Initialize hover effects for table rows
- */
-function initTableHoverEffects() {
-    const hoverRows = document.querySelectorAll('.hover-row');
-    
-    hoverRows.forEach(row => {
-        row.addEventListener('mouseenter', function() {
-            this.style.background = 'rgba(0, 255, 255, 0.07)';
-        });
-        
-        row.addEventListener('mouseleave', function() {
-            this.style.background = '#000000';
-        });
-        
-        row.addEventListener('focus', function() {
-            this.style.background = 'rgba(0, 255, 255, 0.07)';
-        });
-        
-        row.addEventListener('blur', function() {
-            this.style.background = '#000000';
-        });
-    });
-}
 
 /**
  * Initialize symbols page event listeners
@@ -140,12 +125,9 @@ function initSymbolsPage() {
     
     // Initialize table handlers
     initSymbolsTable();
+    // Use shared hover effects from common.js instead of duplicate inline-style version
     initTableHoverEffects();
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initSymbolsPage);
-} else {
-    initSymbolsPage();
-}
+// Initialize when DOM is ready using shared utility
+onDomReady(initSymbolsPage);

@@ -1,9 +1,47 @@
 /**
  * Glyph - Navigation Utilities
- * Handles navigation active state detection and dropdown functionality
+ * Handles navigation active state detection, dropdown functionality,
+ * mobile menu toggle, and keyboard navigation
  */
+'use strict';
 
 (function () {
+    /**
+     * Initialize mobile menu toggle
+     */
+    function initMobileMenu() {
+        const navToggle = document.getElementById('nav-toggle');
+        const navLinks = document.getElementById('nav-links');
+
+        if (!navToggle || !navLinks) return;
+
+        // Mobile menu toggle
+        navToggle.addEventListener('click', function() {
+            const isExpanded = navToggle.getAttribute('aria-expanded') === 'true';
+            navToggle.setAttribute('aria-expanded', !isExpanded);
+            navToggle.classList.toggle('is-active');
+            navLinks.classList.toggle('is-open');
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!navToggle.contains(e.target) && !navLinks.contains(e.target)) {
+                navToggle.setAttribute('aria-expanded', 'false');
+                navToggle.classList.remove('is-active');
+                navLinks.classList.remove('is-open');
+            }
+        });
+
+        // Close mobile menu on Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                navToggle.setAttribute('aria-expanded', 'false');
+                navToggle.classList.remove('is-active');
+                navLinks.classList.remove('is-open');
+            }
+        });
+    }
+
     /**
      * Set active navigation link based on current path
      */
@@ -146,11 +184,13 @@
     // Run when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function() {
+            initMobileMenu();
             setActiveNav();
             initDropdowns();
             initKeyboardNavigation();
         });
     } else {
+        initMobileMenu();
         setActiveNav();
         initDropdowns();
         initKeyboardNavigation();

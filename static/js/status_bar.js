@@ -3,6 +3,7 @@
  * Bottom-right floating panel showing upload and processing status
  * for tasks submitted by the current user.
  */
+'use strict';
 
 /**
  * Status bar manager
@@ -793,7 +794,33 @@ const StatusBar = {
     },
 
     /**
+     * Poll a single task's status.
+     * @param {string} uuid - Task UUID.
+     */
+    async _pollTaskStatus(uuid) {
+        const token = this._getAccessToken();
+        const headers = { 'Accept': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch(
+            `/api/v1/status/getStatus?uuid=${encodeURIComponent(uuid)}`,
+            { headers }
+        );
+
+        if (response.ok) {
+            const data = await response.json();
+            const status = data.data && data.data.status;
+            if (status) {
+                this.updateStatus(uuid, status);
+            }
+        } else if (response.status === 404) {
+            this.handleNotFound(uuid);
+        }
+    },
+
+    /**
      * Poll backend for status updates on all tracked tasks.
+     * Uses Promise.all for parallel polling instead of sequential.
      */
     async _pollStatuses() {
         const uuids = Array.from(this._tasks.keys());
@@ -803,31 +830,10 @@ const StatusBar = {
             return task && task.state === 'processing';
         });
 
-        for (const uuid of processingUuids) {
-            try {
-                const token = this._getAccessToken();
-                const headers = { 'Accept': 'application/json' };
-                if (token) headers['Authorization'] = `Bearer ${token}`;
-
-                const response = await fetch(
-                    `/api/v1/status/getStatus?uuid=${encodeURIComponent(uuid)}`,
-                    { headers }
-                );
-
-                if (response.ok) {
-                    const data = await response.json();
-                    const status = data.data && data.data.status;
-                    if (status) {
-                        this.updateStatus(uuid, status);
-                    }
-                } else if (response.status === 404) {
-                    this.handleNotFound(uuid);
-                }
-            } catch (e) {
-                // Silently fail on network errors - retry next poll
-                console.debug('[STATUS-BAR] Poll failed for', uuid, e);
-            }
-        }
+        // Poll all tasks in parallel
+        await Promise.allSettled(
+            processingUuids.map(uuid => this._pollTaskStatus(uuid))
+        );
     },
 
     /**
@@ -843,9 +849,5 @@ const StatusBar = {
 // Expose globally
 window.StatusBar = StatusBar;
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => StatusBar.init());
-} else {
-    StatusBar.init();
-}
+// Initialize when DOM is ready using shared utility
+onDomReady(() => StatusBar.init());

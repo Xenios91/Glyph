@@ -3,6 +3,7 @@
  * Handles configuration form interactions and saving
  * Uses native fetch API and event listeners
  */
+'use strict';
 
 /**
  * Update slider display value and sync with input field
@@ -288,9 +289,5 @@ function initConfigPage() {
     }
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initConfigPage);
-} else {
-    initConfigPage();
-}
+// Initialize when DOM is ready using shared utility
+onDomReady(initConfigPage);

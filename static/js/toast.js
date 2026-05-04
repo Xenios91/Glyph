@@ -2,6 +2,7 @@
  * Glyph - Toast Notification System
  * Provides unified notification system for success, error, warning, and info messages
  */
+'use strict';
 
 /**
  * Toast notification manager

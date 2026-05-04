@@ -3,6 +3,7 @@
  * Handles binary upload and ML type switching
  * Uses native fetch API instead of jQuery
  */
+'use strict';
 
 /**
  * Change ML type between training and prediction modes
@@ -478,9 +479,5 @@ function initUploadPage() {
     });
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initUploadPage);
-} else {
-    initUploadPage();
-}
+// Initialize when DOM is ready using shared utility
+onDomReady(initUploadPage);

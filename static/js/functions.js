@@ -3,6 +3,7 @@
  * Handles function viewing and deletion
  * Uses native fetch API and event listeners
  */
+'use strict';
 
 /**
  * Delete a function by name
@@ -18,12 +19,14 @@ async function deleteFunction() {
     const selection = functionNameElement.innerText;
     const functionToDelete = selection.split(':')[1].replace(/\s+/, '');
     
-    const url = '/model/deleteFunction?function_name=' + encodeURIComponent(functionToDelete);
-    
     try {
-        const response = await fetch(url, {
+        const response = await authenticatedFetch('/model/deleteFunction', {
             method: 'DELETE',
-            headers: { 'Content-type': 'application/json' }
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ function_name: functionToDelete })
         });
         
         if (response.ok) {
@@ -55,9 +58,5 @@ function initFunctionPage() {
     }
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initFunctionPage);
-} else {
-    initFunctionPage();
-}
+// Initialize when DOM is ready using shared utility
+onDomReady(initFunctionPage);

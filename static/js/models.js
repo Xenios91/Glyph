@@ -3,6 +3,10 @@
  * Handles model viewing, multi-selection, and bulk deletion
  * Uses native fetch API and event delegation
  */
+'use strict';
+
+// Whitelist of allowed click handler function names to prevent arbitrary code execution
+const ALLOWED_CLICK_HANDLERS = ['goToModelURL'];
 
 /**
  * Navigate to model functions page
@@ -34,26 +38,6 @@ function goToModelURL(rowElement) {
     }
 }
 
-/**
- * Delete a model entry (legacy single-delete via redirect)
- */
-async function deleteModelEntry() {
-    const fileNameElement = document.getElementById('file-name');
-    if (!fileNameElement) {
-        console.error('File name element not found');
-        Toast.error('File name not found');
-        return;
-    }
-
-    const selection = fileNameElement.innerText;
-    const binToDelete = selection.split(':')[1].replace(/\s+/, '');
-
-    const url = getBaseUrl() + '/models/getSymbols?binaryDel=' + encodeURIComponent(binToDelete);
-
-    if (url) {
-        window.location = url;
-    }
-}
 
 /**
  * Get all selected model names from checkboxes
@@ -111,7 +95,8 @@ function updateSelectAllState() {
     if (!selectAll) return;
 
     const allCheckboxes = document.querySelectorAll('.model-select-checkbox');
-    const checkedCount = document.querySelectorAll('.model-select-checkbox:checked').length;
+    const checkedCheckboxes = document.querySelectorAll('.model-select-checkbox:checked');
+    const checkedCount = checkedCheckboxes.length;
     selectAll.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
     selectAll.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
 }
@@ -133,12 +118,14 @@ async function deleteSelectedModels() {
 
     if (!confirmed) return;
 
-    const url = getBaseUrl() + '/api/v1/models/deleteModels?model_names=' + encodeURIComponent(modelNames.join(','));
-
     try {
-        const response = await authenticatedFetch(url, {
+        const response = await authenticatedFetch('/api/v1/models/deleteModels', {
             method: 'DELETE',
-            headers: { 'Accept': 'application/json' }
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ model_names: modelNames })
         });
 
         const data = await response.json();
@@ -196,7 +183,8 @@ function initModelTable() {
         if (!row) return;
 
         // Only navigate if the click was not on a checkbox
-        if (clickHandler && typeof window[clickHandler] === 'function') {
+        // Use whitelist to prevent arbitrary function execution
+        if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
             window[clickHandler](row);
         }
     });
@@ -208,7 +196,7 @@ function initModelTable() {
 
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            if (clickHandler && typeof window[clickHandler] === 'function') {
+            if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
                 window[clickHandler](row);
             }
         }

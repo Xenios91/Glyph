@@ -2,6 +2,7 @@
  * Glyph - Register Form JavaScript
  * Handles registration form validation and submission
  */
+'use strict';
 
 /**
  * Validate email format
@@ -181,9 +182,5 @@ function initRegisterForm() {
     }
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initRegisterForm);
-} else {
-    initRegisterForm();
-}
+// Initialize when DOM is ready using shared utility
+onDomReady(initRegisterForm);

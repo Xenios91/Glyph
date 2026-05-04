@@ -3,6 +3,10 @@
  * Handles prediction viewing and deletion
  * Uses native fetch API and event listeners with event delegation
  */
+'use strict';
+
+// Whitelist of allowed click handler function names to prevent arbitrary code execution
+const ALLOWED_CLICK_HANDLERS = ['goToPredictionDetailsURL'];
 
 /**
  * Navigate to prediction details page
@@ -72,12 +76,14 @@ async function deletePrediction() {
     const selection = taskNameElement.innerText;
     const taskToDelete = selection.split(':')[1].replace(/\s+/, '');
 
-    const url = '/api/v1/predictions/deletePrediction?task_name=' + encodeURIComponent(taskToDelete);
-
     try {
-        const response = await fetch(url, {
+        const response = await authenticatedFetch('/api/v1/predictions/deletePrediction', {
             method: 'DELETE',
-            headers: { 'Content-type': 'application/json' }
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ task_name: taskToDelete })
         });
 
         if (response.ok) {
@@ -175,12 +181,14 @@ async function deleteSelectedPredictions() {
 
     if (!confirmed) return;
 
-    const url = '/api/v1/predictions/deletePredictions?task_names=' + encodeURIComponent(taskNames.join(','));
-
     try {
-        const response = await authenticatedFetch(url, {
+        const response = await authenticatedFetch('/api/v1/predictions/deletePredictions', {
             method: 'DELETE',
-            headers: { 'Accept': 'application/json' }
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ task_names: taskNames })
         });
 
         const data = await response.json();
@@ -255,7 +263,7 @@ function initPredictionsTable() {
         const row = e.target.closest('tbody tr.hover-row');
         if (!row) return;
 
-        if (clickHandler && typeof window[clickHandler] === 'function') {
+        if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
             window[clickHandler](row.id);
         }
     });
@@ -267,7 +275,7 @@ function initPredictionsTable() {
 
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            if (clickHandler && typeof window[clickHandler] === 'function') {
+            if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
                 window[clickHandler](row.id);
             }
         }

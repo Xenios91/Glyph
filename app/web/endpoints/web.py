@@ -260,7 +260,13 @@ async def login_submit(
     """
     Handles login form submission (POST).
     """
-    body = await request.json()
+    # Handle both JSON and form-urlencoded submissions
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        body = await request.json()
+    else:
+        form = await request.form()
+        body = dict(form)
     username = str(body.get("username", ""))
     password = str(body.get("password", ""))
 
@@ -337,7 +343,13 @@ async def register_submit(
     from app.core.rate_limiter import check_rate_limit, register_limiter
     from app.auth.security_logger import log_user_registration
 
-    body = await request.json()
+    # Handle both JSON and form-urlencoded submissions
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        body = await request.json()
+    else:
+        form = await request.form()
+        body = dict(form)
     username = str(body.get("username", ""))
     email = str(body.get("email", ""))
     password = str(body.get("password", ""))

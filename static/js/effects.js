@@ -2,6 +2,7 @@
  * Glyph Background Effects
  * Handles stars, city lights, particles, and clouds animations
  * Optimized: Reduced DOM elements from 238 to 99 (58% reduction)
+ * Uses DocumentFragment to minimize DOM reflows
  */
 
 (function() {
@@ -9,14 +10,15 @@
 
     /**
      * Create starfield effect
-     * Optimized: Reduced from 120 to 50 stars
+     * Optimized: Reduced from 120 to 50 stars, uses DocumentFragment
      */
     function createStarfield() {
         const sf = document.getElementById('starfield');
         if (!sf) return;
 
         const colors = ['#e0e0ff', '#00ffff', '#ff00ff', '#ffffff'];
-        const starCount = 50; // Reduced from 120
+        const starCount = 50;
+        const fragment = document.createDocumentFragment();
 
         for (let i = 0; i < starCount; i++) {
             const s = document.createElement('div');
@@ -25,20 +27,22 @@
             const col = colors[Math.floor(Math.random() * colors.length)];
             const blink = Math.random() < 0.4;
             s.style.cssText = `width:${sz}px;height:${sz}px;top:${Math.random() * 75}%;left:${Math.random() * 100}%;background:${col};${blink ? `animation:px-blink ${0.8 + Math.random() * 2.4}s ${Math.random() * 3}s step-end infinite;` : ''}`;
-            sf.appendChild(s);
+            fragment.appendChild(s);
         }
+        sf.appendChild(fragment);
     }
 
     /**
      * Create city window lights effect
-     * Optimized: Reduced from 80 to 30 windows
+     * Optimized: Reduced from 80 to 30 windows, uses DocumentFragment
      */
     function createCityLights() {
         const city = document.getElementById('cityline');
         if (!city) return;
 
         const winColors = ['#ffff00', '#00ffff', '#ff00ff', '#ff4400', '#ffffff'];
-        const windowCount = 30; // Reduced from 80
+        const windowCount = 30;
+        const fragment = document.createDocumentFragment();
 
         for (let i = 0; i < windowCount; i++) {
             const w = document.createElement('div');
@@ -46,13 +50,14 @@
             const col = winColors[Math.floor(Math.random() * winColors.length)];
             const blink = Math.random() < 0.35;
             w.style.cssText = `left:${Math.random() * 100}%;top:${20 + Math.random() * 70}%;background:${col};box-shadow:0 0 4px ${col};${blink ? `animation:px-blink ${0.5 + Math.random() * 3}s ${Math.random() * 4}s step-end infinite;` : ''}`;
-            city.appendChild(w);
+            fragment.appendChild(w);
         }
+        city.appendChild(fragment);
     }
 
     /**
      * Create falling data particles effect
-     * Optimized: Reduced from 30 to 15 particles
+     * Optimized: Reduced from 30 to 15 particles, uses DocumentFragment
      */
     function createParticles() {
         const ptcl = document.getElementById('particles');
@@ -60,7 +65,8 @@
 
         const chars = '01 アイウエオカキクケコサシスセソ#@%&';
         const bitColors = ['#00ffff', '#ff00ff', '#00ff41', '#ffff00'];
-        const particleCount = 15; // Reduced from 30
+        const particleCount = 15;
+        const fragment = document.createDocumentFragment();
 
         for (let i = 0; i < particleCount; i++) {
             const b = document.createElement('div');
@@ -71,19 +77,21 @@
             const delay = Math.random() * 5;
             b.style.cssText = `left:${Math.random() * 100}%;top:-20px;color:${col};animation:fall ${dur}s ${delay}s linear infinite;`;
             b.textContent = ch;
-            ptcl.appendChild(b);
+            fragment.appendChild(b);
         }
+        ptcl.appendChild(fragment);
     }
 
     /**
      * Create cloud drift effect
-     * Optimized: Reduced from 8 to 4 clouds
+     * Optimized: Reduced from 8 to 4 clouds, uses DocumentFragment
      */
     function createClouds() {
         const cl = document.getElementById('clouds');
         if (!cl) return;
 
-        const cloudCount = 4; // Reduced from 8
+        const cloudCount = 4;
+        const fragment = document.createDocumentFragment();
 
         for (let i = 0; i < cloudCount; i++) {
             const c = document.createElement('div');
@@ -91,8 +99,9 @@
             const dur = 20 + Math.random() * 40;
             const delay = Math.random() * 20;
             c.style.cssText = `left:-15%;top:${10 + Math.random() * 35}%;animation:cloud-drift ${dur}s ${delay}s linear infinite;`;
-            cl.appendChild(c);
+            fragment.appendChild(c);
         }
+        cl.appendChild(fragment);
     }
 
     /**

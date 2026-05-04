@@ -2,6 +2,7 @@
  * Glyph - Login Form JavaScript
  * Handles login form validation and submission
  */
+'use strict';
 
 /**
  * Initialize login form with validation and submission handling
@@ -113,9 +114,5 @@ function initLoginForm() {
     }
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initLoginForm);
-} else {
-    initLoginForm();
-}
+// Initialize when DOM is ready using shared utility
+onDomReady(initLoginForm);
