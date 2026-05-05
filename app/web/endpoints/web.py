@@ -2,7 +2,6 @@ from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app._version as _version
@@ -11,7 +10,7 @@ from app.utils.helpers import ACCEPT_TYPE
 from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
 from app.processing.task_management import TaskManager
 from app.utils.common import format_code, build_prediction_details_response
-from app.utils.jinja_utils import configure_jinja2_templates
+from app.templates import templates  # Shared Jinja2Templates instance
 from loguru import logger
 from app.auth.dependencies import get_current_active_user, get_optional_user, get_db, get_jwt_handler
 from app.auth.jwt_handler import JWTHandler
@@ -20,8 +19,6 @@ from app.database.models import User
 
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
-configure_jinja2_templates(templates)
 
 
 @router.get("/", response_model=None)

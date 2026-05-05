@@ -6,8 +6,8 @@ from loguru import logger
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from markupsafe import escape
 
 from app.core.lifespan import lifespan
@@ -15,11 +15,8 @@ from app.core.request_tracing import RequestIDMiddleware
 from app.api.router import api_router
 from app.web.endpoints.web import router as web_router
 from app.auth.endpoints import router as auth_router
-from app.utils.jinja_utils import configure_jinja2_templates
+from app.templates import templates  # Shared Jinja2Templates instance
 from app.utils.logging_config import setup_logging_from_config
-
-templates = Jinja2Templates(directory="templates")
-configure_jinja2_templates(templates)
 
 # Set up logging from config
 setup_logging_from_config()
@@ -80,6 +77,26 @@ class CSPMiddleware:
         await self.app(scope, receive, send_wrapper)
 
 
+# --- Cached Static Files ---
+class CachedStaticFiles(StaticFiles):
+    """Static files with long-term caching headers for better performance.
+    
+    Serves static assets with Cache-Control headers to enable browser caching,
+    reducing bandwidth and improving load times for returning visitors.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.cache_control_max_age = 86400  # 24 hours
+
+    async def get_response(self, path: str, scope: Any) -> FileResponse:
+        response = await super().get_response(path, scope)
+        if isinstance(response, FileResponse):
+            response.headers["Cache-Control"] = f"public, max-age={self.cache_control_max_age}"
+            response.headers["Immutable"] = "true"
+        return response  # type: ignore[return-value]
+
+
 # --- Create Application ---
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -89,6 +106,10 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         strict_content_type=True,
     )
+
+    # Add Gzip compression middleware (reduces response size by 70-80%)
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+    logger.info("Middleware registered: GZipMiddleware")
 
     # Add Request ID tracing middleware (must be first to capture all requests)
     # Respect the request_tracing.enabled config option
@@ -117,8 +138,8 @@ def create_app() -> FastAPI:
     logger.info("Middleware registered: CORSMiddleware")
 
     try:
-        app.mount("/static", StaticFiles(directory="static"), name="static")
-        logger.info("Static files mounted at /static")
+        app.mount("/static", CachedStaticFiles(directory="static"), name="static")
+        logger.info("Static files mounted at /static with caching headers")
     except Exception as e:
         logger.warning("Static files mount failed: {}", e)
 

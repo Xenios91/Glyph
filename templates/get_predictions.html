@@ -10,38 +10,36 @@
     </div>
     
     <div class="cyber-table-responsive">
-        <blockquote>
-            <table class="cyber-table is-bordered is-centered prediction-table" data-click-handler="">
-                <thead>
-                    <tr>
-                        <th scope="col" class="checkbox-column">
-                            <input type="checkbox" id="select-all-predictions" class="prediction-select-all" aria-label="Select all predictions">
-                        </th>
-                        <th scope="col">Task Name</th>
-                        <th scope="col">Model Name</th>
-                        <th scope="col">Function Count</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for prediction in predictions %}
-                    <tr id="prediction-{{ loop.index }}"
-                        data-task-name="{{ prediction.task_name | e }}"
-                        data-model-name="{{ prediction.model_name | e }}"
-                        class="hover-row clickable-row"
-                        tabindex="0"
-                        role="row"
-                        aria-label="Prediction: {{ prediction.task_name | e }}">
-                        <td class="checkbox-cell">
-                            <input type="checkbox" class="prediction-select-checkbox" data-task-name="{{ prediction.task_name | e }}" aria-label="Select {{ prediction.task_name | e }}">
-                        </td>
-                        <td>{{ prediction.task_name | e }}</td>
-                        <td>{{ prediction.model_name | e }}</td>
-                        <td>{{ prediction.predictions | length }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </blockquote>
+        <table class="cyber-table is-bordered is-centered prediction-table" data-click-handler="">
+            <thead>
+                <tr>
+                    <th scope="col" class="checkbox-column">
+                        <input type="checkbox" id="select-all-predictions" class="prediction-select-all" aria-label="Select all predictions">
+                    </th>
+                    <th scope="col">Task Name</th>
+                    <th scope="col">Model Name</th>
+                    <th scope="col">Function Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prediction in predictions %}
+                <tr id="prediction-{{ loop.index }}"
+                    data-task-name="{{ prediction.task_name | e }}"
+                    data-model-name="{{ prediction.model_name | e }}"
+                    class="hover-row clickable-row"
+                    tabindex="0"
+                    role="row"
+                    aria-label="Prediction: {{ prediction.task_name | e }}">
+                    <td class="checkbox-cell">
+                        <input type="checkbox" class="prediction-select-checkbox" data-task-name="{{ prediction.task_name | e }}" aria-label="Select {{ prediction.task_name | e }}">
+                    </td>
+                    <td>{{ prediction.task_name | e }}</td>
+                    <td>{{ prediction.model_name | e }}</td>
+                    <td>{{ prediction.predictions | length }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     <div class="btn-group" style="margin-top: 1.5rem;">
         <button type="button" id="delete-selected-predictions-btn" class="cyber-btn is-danger delete-selected-btn" disabled aria-label="Delete selected predictions">Delete Selected</button>

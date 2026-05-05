@@ -7,7 +7,6 @@ including retrieving model information and function predictions.
 from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.templating import Jinja2Templates
 from starlette.responses import HTMLResponse
 
 from app.api.types import ModelName, FunctionName, TaskName
@@ -24,13 +23,11 @@ from app.utils.responses import (
     create_success_response,
     create_error_response,
     SuccessResponse)
-from app.utils.jinja_utils import configure_jinja2_templates
+from app.templates import templates  # Shared Jinja2Templates instance
 from app.utils.logging_utils import catch_http_exception
 
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
-configure_jinja2_templates(templates)
 
 
 @router.delete("/deleteModel", response_model=SuccessResponse[dict[str, Any]])

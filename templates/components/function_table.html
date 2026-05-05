@@ -10,54 +10,52 @@
 #   } %}
 #}
 <div class="cyber-table-responsive">
-    <blockquote>
-        <table class="cyber-table is-bordered is-centered function-table"
-               data-click-handler="{{ click_handler | default('') }}"
-               data-hover-color="{{ hover_color | default('rgba(0,255,255,0.07)') }}"
-               data-default-color="{{ default_color | default('#000000') }}">
-            <thead>
-                <tr>
-                    {% for column in columns %}
-                    <th scope="col">{{ column }}</th>
-                    {% endfor %}
-                    {% if show_action %}
-                    <th scope="col">Action</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                {% if rows %}
-                {% for row in rows %}
-                {% set row_id = row_id_prefix ~ '-' ~ loop.index %}
-                <tr id="{{ row_id }}"
-                    class="hover-row"
-                    tabindex="0"
-                    role="row"
-                    aria-label="Row {{ loop.index }}">
-                    {% for cell in row.cells %}
-                    <td>{{ cell | e }}</td>
-                    {% endfor %}
-                    {% if show_action %}
-                    <td>
-                        <button type="button" class="cyber-btn is-primary view-btn"
-                            {% for attr, value in action_attrs.items() %}
-                            data-{{ attr }}="{{ value | e }}"
-                            {% endfor %}
-                            aria-label="{{ action_text | default('View') }} this item">
-                            {{ action_text | default('View') }}
-                        </button>
-                    </td>
-                    {% endif %}
-                </tr>
+    <table class="cyber-table is-bordered is-centered function-table"
+           data-click-handler="{{ click_handler | default('') }}"
+           data-hover-color="{{ hover_color | default('rgba(0,255,255,0.07)') }}"
+           data-default-color="{{ default_color | default('#000000') }}">
+        <thead>
+            <tr>
+                {% for column in columns %}
+                <th scope="col">{{ column }}</th>
                 {% endfor %}
-                {% else %}
-                <tr>
-                    <td colspan="{{ columns | length + (1 if show_action else 0) }}" style="text-align: center;">
-                        {{ empty_message | default('No data available') }}
-                    </td>
-                </tr>
+                {% if show_action %}
+                <th scope="col">Action</th>
                 {% endif %}
-            </tbody>
-        </table>
-    </blockquote>
+            </tr>
+        </thead>
+        <tbody>
+            {% if rows %}
+            {% for row in rows %}
+            {% set row_id = row_id_prefix ~ '-' ~ loop.index %}
+            <tr id="{{ row_id }}"
+                class="hover-row"
+                tabindex="0"
+                role="row"
+                aria-label="Row {{ loop.index }}">
+                {% for cell in row.cells %}
+                <td>{{ cell | e }}</td>
+                {% endfor %}
+                {% if show_action %}
+                <td>
+                    <button type="button" class="cyber-btn is-primary view-btn"
+                        {% for attr, value in action_attrs.items() %}
+                        data-{{ attr }}="{{ value | e }}"
+                        {% endfor %}
+                        aria-label="{{ action_text | default('View') }} this item">
+                        {{ action_text | default('View') }}
+                    </button>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="{{ columns | length + (1 if show_action else 0) }}" style="text-align: center;">
+                    {{ empty_message | default('No data available') }}
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
 </div>

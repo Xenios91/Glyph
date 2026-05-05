@@ -9,7 +9,6 @@ import contextvars
 from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from fastapi.templating import Jinja2Templates
 from starlette.responses import HTMLResponse
 from markupsafe import escape
 from pydantic import BaseModel
@@ -22,7 +21,7 @@ from app.processing.task_management import TaskManager
 from app.utils.common import format_code
 from loguru import logger
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
-from app.utils.jinja_utils import configure_jinja2_templates
+from app.templates import templates  # Shared Jinja2Templates instance
 from app.utils.logging_utils import catch_http_exception
 from app.utils.request_context import (
     CapturedContext,
@@ -35,8 +34,6 @@ from app.database.models import User
 
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
-configure_jinja2_templates(templates)
 
 
 class PredictTokensRequest(BaseModel):
@@ -201,6 +198,7 @@ async def get_prediction(
             "model_name": prediction.model_name,
             "task_name": prediction.task_name,
             "prediction": prediction,
+            "user": current_user,
         })
 
 

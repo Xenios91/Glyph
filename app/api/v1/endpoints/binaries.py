@@ -21,7 +21,6 @@ from fastapi import (
     HTTPException,
     Request,
     UploadFile)
-from fastapi.templating import Jinja2Templates
 from starlette.responses import HTMLResponse
 from pydantic import BaseModel, Field, field_validator
 
@@ -33,7 +32,7 @@ from app.utils.responses import (
     create_success_response,
     create_error_response,
     SuccessResponse)
-from app.utils.jinja_utils import configure_jinja2_templates
+from app.templates import templates  # Shared Jinja2Templates instance
 from loguru import logger
 from app.utils.request_context import (
     CapturedContext,
@@ -103,8 +102,6 @@ class BinaryUploadResponse(BaseModel):
 
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
-configure_jinja2_templates(templates)
 
 # Allowed MIME types for binary files
 ALLOWED_MIME_TYPES = {
@@ -400,7 +397,7 @@ async def post_upload_binary(
     # Return HTML only for browser navigation requests (Accept contains text/html)
     # API requests (Accept: application/json) should get JSON responses
     if "text/html" in accept and "application/json" not in accept:
-        return templates.TemplateResponse(request, "upload.html", {})
+        return templates.TemplateResponse(request, "upload.html", {"user": current_user})
 
     result = create_success_response(
         data=BinaryUploadResponse(uuid=ghidra_task.uuid),
