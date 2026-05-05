@@ -4,6 +4,7 @@
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
+    {% if predictions and predictions|length > 0 %}
     <div class="center-contents">
         <h2>Predictions List</h2>
     </div>
@@ -37,10 +38,6 @@
                         <td>{{ prediction.model_name | e }}</td>
                         <td>{{ prediction.predictions | length }}</td>
                     </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="4" style="text-align: center;">No predictions available</td>
-                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -50,6 +47,9 @@
         <button type="button" id="delete-selected-predictions-btn" class="cyber-btn is-danger delete-selected-btn" disabled aria-label="Delete selected predictions">Delete Selected</button>
         <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
     </div>
+    {% else %}
+    {% include 'components/no_predictions_empty_state.html' %}
+    {% endif %}
 </div>
 
 {% endblock content %}

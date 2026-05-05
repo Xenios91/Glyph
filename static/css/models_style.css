@@ -417,3 +417,195 @@
 .content.blue-bg .center-contents[style*="margin-top"] {
     margin-top: 0.5rem !important;
 }
+
+/* =============================================================
+   No Models Empty State
+   ============================================================= */
+
+.no-models-empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 400px;
+    padding: var(--space-xl) var(--space-md);
+}
+
+.empty-state-card {
+    background: var(--bg-panel) !important;
+    border: 2px solid var(--cyan-dim) !important;
+    box-shadow:
+        0 0 20px rgba(125, 216, 216, 0.12),
+        0 0 60px rgba(125, 216, 216, 0.05),
+        inset 0 0 24px rgba(125, 216, 216, 0.03);
+    max-width: 520px;
+    width: 100%;
+    padding: var(--space-2xl) var(--space-xl);
+    position: relative;
+    text-align: center;
+}
+
+/* Corner brackets */
+.empty-state-card::before,
+.empty-state-card::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: var(--magenta-dim);
+    border-style: solid;
+}
+
+.empty-state-card::before {
+    top: -2px;
+    left: -2px;
+    border-width: 2px 0 0 2px;
+}
+
+.empty-state-card::after {
+    bottom: -2px;
+    right: -2px;
+    border-width: 0 2px 2px 0;
+}
+
+.empty-state-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    letter-spacing: 0.08em;
+    color: var(--cyan-bright);
+    text-shadow:
+        0 0 10px rgba(168, 236, 236, 0.30),
+        2px 2px 0 var(--magenta-dim);
+    margin: 0 0 var(--space-xl) 0;
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--cyan-dim);
+}
+
+/* Empty box icon */
+.empty-state-icon-wrapper {
+    margin: var(--space-lg) auto;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-box-icon {
+    position: relative;
+    width: 80px;
+    height: 70px;
+    animation: box-float 3s ease-in-out infinite;
+}
+
+@keyframes box-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+}
+
+/* Box body */
+.box-body {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: rgba(125, 216, 216, 0.05);
+    border: 2px solid var(--cyan-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Box lid */
+.box-lid {
+    position: absolute;
+    top: 10px;
+    left: -6px;
+    right: -6px;
+    height: 16px;
+    background: rgba(125, 216, 216, 0.08);
+    border: 2px solid var(--cyan-dim);
+    border-bottom: none;
+}
+
+/* Question mark */
+.question-mark {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    color: var(--magenta);
+    text-shadow: 0 0 12px rgba(200, 122, 184, 0.5);
+    animation: question-pulse 2s ease-in-out infinite;
+}
+
+@keyframes question-pulse {
+    0%, 100% {
+        opacity: 1;
+        text-shadow: 0 0 12px rgba(200, 122, 184, 0.5);
+    }
+    50% {
+        opacity: 0.6;
+        text-shadow: 0 0 6px rgba(200, 122, 184, 0.2);
+    }
+}
+
+.empty-state-message {
+    margin: var(--space-lg) 0;
+}
+
+.empty-state-description {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    margin: var(--space-xs) 0;
+}
+
+.empty-state-actions {
+    margin-top: var(--space-xl);
+}
+
+.empty-state-cta {
+    font-size: var(--text-xs);
+    padding: var(--btn-padding-y) var(--btn-padding-x);
+    min-height: auto;
+    display: inline-block;
+    animation: cta-pulse 2s ease-in-out infinite;
+}
+
+@keyframes cta-pulse {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(212, 200, 122, 0.2);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(212, 200, 122, 0.4);
+    }
+}
+
+.empty-state-hint {
+    font-family: var(--font-display);
+    color: var(--text-muted);
+    font-size: var(--text-xs) !important;
+    margin-top: var(--space-md) !important;
+    letter-spacing: 0.06em;
+}
+
+/* Responsive adjustments */
+@media (max-width: var(--breakpoint-sm)) {
+    .empty-state-card {
+        padding: var(--space-xl) var(--space-md);
+    }
+
+    .empty-state-title {
+        font-size: var(--text-xs);
+    }
+
+    .empty-box-icon {
+        width: 60px;
+        height: 55px;
+    }
+
+    .question-mark {
+        font-size: 1.25rem;
+    }
+}
