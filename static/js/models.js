@@ -5,9 +5,6 @@
  */
 'use strict';
 
-// Whitelist of allowed click handler function names to prevent arbitrary code execution
-const ALLOWED_CLICK_HANDLERS = ['goToModelURL'];
-
 /**
  * Navigate to model functions page
  * @param {HTMLElement} rowElement - Model row element
@@ -38,74 +35,11 @@ function goToModelURL(rowElement) {
     }
 }
 
-
-/**
- * Get all selected model names from checkboxes
- * @returns {string[]} Array of selected model names
- */
-function getSelectedModelNames() {
-    const checkboxes = document.querySelectorAll('.model-select-checkbox:checked');
-    return Array.from(checkboxes).map(cb => cb.dataset.modelName);
-}
-
-/**
- * Update the delete button state based on selection count
- */
-function updateDeleteButtonState() {
-    const deleteBtn = document.getElementById('delete-selected-btn');
-    if (!deleteBtn) return;
-
-    const selectedCount = document.querySelectorAll('.model-select-checkbox:checked').length;
-    deleteBtn.disabled = selectedCount === 0;
-    deleteBtn.textContent = selectedCount > 0
-        ? `Delete Selected (${selectedCount})`
-        : 'Delete Selected';
-}
-
-/**
- * Sync row selection class with checkbox state
- * @param {HTMLElement} row - Table row element
- */
-function syncRowSelection(row) {
-    const checkbox = row.querySelector('.model-select-checkbox');
-    if (checkbox) {
-        row.classList.toggle('is-selected', checkbox.checked);
-    }
-}
-
-/**
- * Handle select-all checkbox toggle
- * @param {boolean} checked - Whether all should be selected
- */
-function toggleSelectAll(checked) {
-    const checkboxes = document.querySelectorAll('.model-select-checkbox');
-    checkboxes.forEach(cb => {
-        cb.checked = checked;
-        const row = cb.closest('tr');
-        if (row) syncRowSelection(row);
-    });
-    updateDeleteButtonState();
-}
-
-/**
- * Check if all checkboxes are selected and update select-all accordingly
- */
-function updateSelectAllState() {
-    const selectAll = document.getElementById('select-all-models');
-    if (!selectAll) return;
-
-    const allCheckboxes = document.querySelectorAll('.model-select-checkbox');
-    const checkedCheckboxes = document.querySelectorAll('.model-select-checkbox:checked');
-    const checkedCount = checkedCheckboxes.length;
-    selectAll.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
-    selectAll.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
-}
-
 /**
  * Delete multiple selected models via API
  */
 async function deleteSelectedModels() {
-    const modelNames = getSelectedModelNames();
+    const modelNames = selectionManager.getSelected();
 
     if (modelNames.length === 0) {
         Toast.warning('No models selected');
@@ -147,85 +81,31 @@ async function deleteSelectedModels() {
     }
 }
 
-/**
- * Initialize model table with event delegation
- * Uses single event listener on table instead of individual row listeners
- */
-function initModelTable() {
-    const table = document.querySelector('.model-table');
-    if (!table) return;
-
-    const clickHandler = table.dataset.clickHandler;
-
-    // Event delegation: single listener on table for all clicks
-    table.addEventListener('click', function(e) {
-        // Handle checkbox clicks - prevent row navigation
-        const checkbox = e.target.closest('.model-select-checkbox, .model-select-all');
-        if (checkbox) {
-            e.stopPropagation();
-
-            // Small delay to allow the checkbox state to update before handlers run
-            setTimeout(() => {
-                if (checkbox.classList.contains('model-select-all')) {
-                    toggleSelectAll(checkbox.checked);
-                } else {
-                    const row = checkbox.closest('tr');
-                    if (row) syncRowSelection(row);
-                    updateSelectAllState();
-                    updateDeleteButtonState();
-                }
-            }, 0);
-            return;
-        }
-
-        // Handle row clicks (navigation)
-        const row = e.target.closest('tbody tr.hover-row');
-        if (!row) return;
-
-        // Only navigate if the click was not on a checkbox
-        // Use whitelist to prevent arbitrary function execution
-        if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
-            window[clickHandler](row);
-        }
-    });
-
-    // Event delegation: single listener for keyboard events
-    table.addEventListener('keydown', function(e) {
-        const row = e.target.closest('tbody tr.hover-row');
-        if (!row) return;
-
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
-                window[clickHandler](row);
-            }
-        }
-    });
-}
+// Create selection manager instance
+const selectionManager = new SelectionManager({
+    checkboxClass: '.model-select-checkbox',
+    selectAllId: 'select-all-models',
+    selectAllClass: '.model-select-all',
+    deleteBtnId: 'delete-selected-btn',
+    deleteBtnText: 'Delete Selected',
+    storageKey: 'glyph_models_clear_selection',
+    dataAttribute: 'modelName'
+});
 
 // Initialize when DOM is ready using utility
-// Clear selections if flagged after a bulk delete (browser may restore checkbox state on reload)
-function clearSelectionsIfFlagged() {
-    if (sessionStorage.getItem('glyph_models_clear_selection') === '1') {
-        sessionStorage.removeItem('glyph_models_clear_selection');
-        const checkboxes = document.querySelectorAll('.model-select-checkbox');
-        checkboxes.forEach(cb => {
-            cb.checked = false;
-            const row = cb.closest('tr');
-            if (row) row.classList.remove('is-selected');
-        });
-        const selectAll = document.getElementById('select-all-models');
-        if (selectAll) {
-            selectAll.checked = false;
-            selectAll.indeterminate = false;
-        }
-        updateDeleteButtonState();
-    }
-}
-
 onDomReady(function() {
-    clearSelectionsIfFlagged();
-    initModelTable();
+    selectionManager.clearSelectionsIfFlagged();
+
+    // Initialize table with event delegation
+    initTableDelegation(
+        '.model-table',
+        ['goToModelURL'],
+        null,
+        {
+            checkboxSelector: selectionManager.getCheckboxSelector(),
+            checkboxHandler: selectionManager.getCheckboxHandler()
+        }
+    );
 
     // Attach delete button listener (avoids inline onclick which violates CSP)
     const deleteBtn = document.getElementById('delete-selected-btn');

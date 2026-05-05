@@ -5,9 +5,6 @@
  */
 'use strict';
 
-// Whitelist of allowed click handler function names to prevent arbitrary code execution
-const ALLOWED_CLICK_HANDLERS = ['goToFunctionURL'];
-
 /**
  * Navigate to function details page
  * @param {string} id - Row ID element
@@ -28,13 +25,7 @@ function goToFunctionURL(id) {
  */
 function getModelName() {
     const modelNameElement = document.getElementById('model-name');
-    if (!modelNameElement) {
-        console.error('Model name element not found');
-        return '';
-    }
-    
-    const selection = modelNameElement.innerText;
-    return selection.split(':')[1].replace(/\s+/, '');
+    return extractLabelValue(modelNameElement);
 }
 
 /**
@@ -48,8 +39,7 @@ async function deleteModel() {
         return;
     }
     
-    const selection = modelNameElement.innerText;
-    const modelToDelete = selection.split(':')[1].replace(/\s+/, '');
+    const modelToDelete = extractLabelValue(modelNameElement);
     
     try {
         const response = await authenticatedFetch(`/api/v1/models/deleteModel?model_name=${encodeURIComponent(modelToDelete)}`, {
@@ -78,40 +68,6 @@ async function deleteModel() {
 }
 
 /**
- * Initialize symbols table event handlers
- */
-function initSymbolsTable() {
-    const table = document.querySelector('.symbols-table');
-    if (!table) return;
-
-    const clickHandler = table.dataset.clickHandler;
-
-    // Event delegation: single listener on table for all clicks
-    table.addEventListener('click', function(e) {
-        // Handle row clicks (navigation)
-        const row = e.target.closest('tbody tr.hover-row');
-        if (!row) return;
-
-        if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
-            window[clickHandler](row.id);
-        }
-    });
-
-    // Event delegation: single listener for keyboard events
-    table.addEventListener('keydown', function(e) {
-        const row = e.target.closest('tbody tr.hover-row');
-        if (!row) return;
-
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
-                window[clickHandler](row.id);
-            }
-        }
-    });
-}
-
-/**
  * Initialize symbols page event listeners
  */
 function initSymbolsPage() {
@@ -121,8 +77,16 @@ function initSymbolsPage() {
         deleteModelBtn.addEventListener('click', deleteModel);
     }
 
-    // Initialize table handlers
-    initSymbolsTable();
+    // Initialize table with event delegation
+    initTableDelegation(
+        '.symbols-table',
+        ['goToFunctionURL'],
+        null,
+        {
+            useRowId: true
+        }
+    );
+
     // Use shared hover effects from common.js instead of duplicate inline-style version
     initTableHoverEffects();
 }

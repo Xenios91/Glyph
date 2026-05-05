@@ -16,34 +16,12 @@ async function deleteFunction() {
         return;
     }
     
-    const selection = functionNameElement.innerText;
-    const functionToDelete = selection.split(':')[1].replace(/\s+/, '');
+    const functionToDelete = extractLabelValue(functionNameElement);
     
     try {
-        const response = await authenticatedFetch('/model/deleteFunction', {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({ function_name: functionToDelete })
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            Toast.success(data.message || 'Function deleted successfully');
-            // Redirect to home after deletion
-            setTimeout(() => {
-                window.location = '/';
-            }, 1000);
-        } else {
-            const errorData = await response.json().catch(() => ({}));
-            const errorMessage = errorData.detail || errorData.message || 'Failed to delete function';
-            Toast.error(errorMessage);
-        }
+        await deleteResource('/model/deleteFunction', { function_name: functionToDelete }, '/');
     } catch (error) {
         console.error('Error deleting function:', error);
-        Toast.error('Network error. Please try again.');
     }
 }
 

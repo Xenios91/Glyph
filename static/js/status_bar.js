@@ -798,7 +798,7 @@ const StatusBar = {
      * @param {string} uuid - Task UUID.
      */
     async _pollTaskStatus(uuid) {
-        const token = this._getAccessToken();
+        const token = getAccessToken();
         const headers = { 'Accept': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -834,15 +834,6 @@ const StatusBar = {
         await Promise.allSettled(
             processingUuids.map(uuid => this._pollTaskStatus(uuid))
         );
-    },
-
-    /**
-     * Get access token from cookie.
-     * @returns {string|null}
-     */
-    _getAccessToken() {
-        const match = document.cookie.match(/access_token_cookie=([^;]+)/);
-        return match ? match[1] : null;
     }
 };
 

@@ -24,5 +24,8 @@
     </div>
 </div>
 
-<script src="{{ url_for('static', path='js/functions.js') }}"></script>
 {% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/functions.js') }}" defer></script>
+{% endblock scripts %}

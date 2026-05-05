@@ -112,5 +112,8 @@
     </div>
 </div>
 
-<script src="{{ url_for('static', path='js/config.js') }}"></script>
 {% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/config.js') }}" defer></script>
+{% endblock scripts %}

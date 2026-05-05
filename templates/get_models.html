@@ -21,7 +21,9 @@
         <button type="button" id="delete-selected-btn" class="cyber-btn is-danger delete-selected-btn" disabled aria-label="Delete selected models">Delete Selected</button>
         <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
     </div>
-    <script src="{{ url_for('static', path='js/common.js') }}"></script>
-    <script src="{{ url_for('static', path='js/models.js') }}"></script>
 </div>
 {% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/models.js') }}" defer></script>
+{% endblock scripts %}

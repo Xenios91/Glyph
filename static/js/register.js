@@ -28,74 +28,33 @@ function initRegisterForm() {
     
     if (!form) return;
     
-    // Real-time validation for username
-    usernameInput.addEventListener('blur', function() {
-        if (this.value.length < 3) {
-            this.classList.add('is-error');
-            this.setAttribute('aria-invalid', 'true');
-        } else {
-            this.classList.remove('is-error');
-            this.setAttribute('aria-invalid', 'false');
-        }
-    });
-    
-    usernameInput.addEventListener('input', function() {
-        if (this.classList.contains('is-error')) {
-            this.classList.remove('is-error');
-            this.setAttribute('aria-invalid', 'false');
-        }
-    });
+    // Real-time validation for username (min 3 characters)
+    setupFieldValidation(usernameInput, value => value.length >= 3);
     
     // Real-time validation for email
-    emailInput.addEventListener('blur', function() {
-        if (this.value && !isValidEmail(this.value)) {
-            this.classList.add('is-error');
-            this.setAttribute('aria-invalid', 'true');
-        } else {
-            this.classList.remove('is-error');
-            this.setAttribute('aria-invalid', 'false');
-        }
-    });
+    setupFieldValidation(emailInput, value => !value || isValidEmail(value));
     
-    emailInput.addEventListener('input', function() {
-        if (this.classList.contains('is-error')) {
-            this.classList.remove('is-error');
-            this.setAttribute('aria-invalid', 'false');
-        }
-    });
-    
-    // Real-time validation for password
-    passwordInput.addEventListener('blur', function() {
-        if (this.value.length < 8) {
-            this.classList.add('is-error');
-            this.setAttribute('aria-invalid', 'true');
-        } else {
-            this.classList.remove('is-error');
-            this.setAttribute('aria-invalid', 'false');
-        }
-    });
-    
-    passwordInput.addEventListener('input', function() {
-        if (this.classList.contains('is-error')) {
-            this.classList.remove('is-error');
-            this.setAttribute('aria-invalid', 'false');
-        }
-        // Check password match on input
-        checkPasswordMatch();
-    });
+    // Real-time validation for password (min 8 characters)
+    setupFieldValidation(passwordInput, value => value.length >= 8);
     
     // Real-time validation for confirm password
-    confirmPasswordInput.addEventListener('input', checkPasswordMatch);
+    confirmPasswordInput.addEventListener('input', function() {
+        if (this.value && passwordInput.value !== this.value) {
+            this.classList.add('is-error');
+            this.setAttribute('aria-invalid', 'true');
+        } else if (this.value) {
+            this.classList.remove('is-error');
+            this.setAttribute('aria-invalid', 'false');
+        }
+    });
     
-    function checkPasswordMatch() {
-        if (confirmPasswordInput.value && passwordInput.value !== confirmPasswordInput.value) {
-            confirmPasswordInput.classList.add('is-error');
-            confirmPasswordInput.setAttribute('aria-invalid', 'true');
-        } else if (confirmPasswordInput.value) {
+    // Also clear confirm password error when password changes
+    passwordInput.addEventListener('input', function() {
+        if (confirmPasswordInput.classList.contains('is-error')) {
             confirmPasswordInput.classList.remove('is-error');
             confirmPasswordInput.setAttribute('aria-invalid', 'false');
         }
-    }
+    });
     
     // Form submission
     form.addEventListener('submit', async (e) => {
@@ -160,26 +119,18 @@ function initRegisterForm() {
             } else {
                 const error = await response.json();
                 const errorMessage = error.detail || 'Registration failed';
-                showError(errorMessage);
+                showError('register-error', errorMessage);
                 Toast.error(errorMessage);
             }
         } catch (err) {
             console.error('Registration error:', err);
-            showError('Network error. Please try again.');
+            showError('register-error', 'Network error. Please try again.');
             Toast.error('Network error. Please try again.');
         } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = '[ REGISTER ]';
         }
     });
-    
-    function showError(message) {
-        errorDiv.textContent = message;
-        errorDiv.style.display = 'block';
-        setTimeout(() => {
-            errorDiv.style.display = 'none';
-        }, 5000);
-    }
 }
 
 // Initialize when DOM is ready using shared utility

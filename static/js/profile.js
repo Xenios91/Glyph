@@ -374,30 +374,6 @@ function formatDate(dateString) {
     return new Date(dateString).toLocaleDateString();
 }
 
-/**
- * Show error message
- */
-function showError(elementId, message) {
-    const errorDiv = document.getElementById(elementId);
-    if (errorDiv) {
-        errorDiv.textContent = message;
-        errorDiv.style.display = 'block';
-        setTimeout(() => {
-            errorDiv.style.display = 'none';
-        }, 5000);
-    }
-}
-
-/**
- * Hide error message
- */
-function hideError(elementId) {
-    const errorDiv = document.getElementById(elementId);
-    if (errorDiv) {
-        errorDiv.style.display = 'none';
-    }
-}
-
 
 // ── Event Listeners ──────────────────────────────────────────
 
@@ -545,14 +521,10 @@ function initProfilePage() {
             localStorage.setItem('dyslexia_font', enabled);
             
             // Show toast notification
-            showToast(enabled ? 'Dyslexia-friendly font enabled' : 'Dyslexia-friendly font disabled', 'info');
+            Toast.info(enabled ? 'Dyslexia-friendly font enabled' : 'Dyslexia-friendly font disabled');
         });
     }
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initProfilePage);
-} else {
-    initProfilePage();
-}
+// Initialize when DOM is ready using shared utility
+onDomReady(initProfilePage);

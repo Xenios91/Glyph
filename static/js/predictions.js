@@ -1,12 +1,9 @@
 /**
  * Glyph - Predictions Page JavaScript
  * Handles prediction viewing and deletion
- * Uses native fetch API and event listeners with event delegation
+ * Uses native fetch API and event delegation
  */
 'use strict';
-
-// Whitelist of allowed click handler function names to prevent arbitrary code execution
-const ALLOWED_CLICK_HANDLERS = ['goToPredictionDetailsURL'];
 
 /**
  * Navigate to prediction details page
@@ -22,8 +19,8 @@ function goToPredictionDetailsURL(id) {
         return;
     }
     
-    const taskName = taskNameElement.innerText.split(':')[1].replace(/\s+/, '');
-    const modelName = modelNameElement.innerText.split(':')[1].replace(/\s+/, '');
+    const taskName = extractLabelValue(taskNameElement);
+    const modelName = extractLabelValue(modelNameElement);
     
     const url = '/api/v1/models/getPredictionDetails?function_name=' +
         encodeURIComponent(functionName) +
@@ -73,17 +70,14 @@ async function deletePrediction() {
         return;
     }
 
-    const selection = taskNameElement.innerText;
-    const taskToDelete = selection.split(':')[1].replace(/\s+/, '');
+    const taskToDelete = extractLabelValue(taskNameElement);
 
     try {
-        const response = await authenticatedFetch('/api/v1/predictions/deletePrediction', {
+        const response = await authenticatedFetch(`/api/v1/predictions/deletePrediction?task_name=${encodeURIComponent(taskToDelete)}`, {
             method: 'DELETE',
             headers: {
-                'Content-Type': 'application/json',
                 'Accept': 'application/json'
-            },
-            body: JSON.stringify({ task_name: taskToDelete })
+            }
         });
 
         if (response.ok) {
@@ -104,71 +98,10 @@ async function deletePrediction() {
 }
 
 /**
- * Get all selected task names from checkboxes
- * @returns {string[]} Array of selected task names
- */
-function getSelectedTaskNames() {
-    const checkboxes = document.querySelectorAll('.prediction-select-checkbox:checked');
-    return Array.from(checkboxes).map(cb => cb.dataset.taskName);
-}
-
-/**
- * Update the delete button state based on selection count
- */
-function updatePredictionDeleteButtonState() {
-    const deleteBtn = document.getElementById('delete-selected-predictions-btn');
-    if (!deleteBtn) return;
-
-    const selectedCount = document.querySelectorAll('.prediction-select-checkbox:checked').length;
-    deleteBtn.disabled = selectedCount === 0;
-    deleteBtn.textContent = selectedCount > 0
-        ? `Delete Selected (${selectedCount})`
-        : 'Delete Selected';
-}
-
-/**
- * Sync row selection class with checkbox state
- * @param {HTMLElement} row - Table row element
- */
-function syncPredictionRowSelection(row) {
-    const checkbox = row.querySelector('.prediction-select-checkbox');
-    if (checkbox) {
-        row.classList.toggle('is-selected', checkbox.checked);
-    }
-}
-
-/**
- * Handle select-all checkbox toggle for predictions
- * @param {boolean} checked - Whether all should be selected
- */
-function toggleSelectAllPredictions(checked) {
-    const checkboxes = document.querySelectorAll('.prediction-select-checkbox');
-    checkboxes.forEach(cb => {
-        cb.checked = checked;
-        const row = cb.closest('tr');
-        if (row) syncPredictionRowSelection(row);
-    });
-    updatePredictionDeleteButtonState();
-}
-
-/**
- * Check if all prediction checkboxes are selected and update select-all accordingly
- */
-function updatePredictionSelectAllState() {
-    const selectAll = document.getElementById('select-all-predictions');
-    if (!selectAll) return;
-
-    const allCheckboxes = document.querySelectorAll('.prediction-select-checkbox');
-    const checkedCount = document.querySelectorAll('.prediction-select-checkbox:checked').length;
-    selectAll.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
-    selectAll.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
-}
-
-/**
  * Delete multiple selected predictions via API
  */
 async function deleteSelectedPredictions() {
-    const taskNames = getSelectedTaskNames();
+    const taskNames = selectionManager.getSelected();
 
     if (taskNames.length === 0) {
         Toast.warning('No predictions selected');
@@ -208,86 +141,54 @@ async function deleteSelectedPredictions() {
     }
 }
 
+// Create selection manager instance
+const selectionManager = new SelectionManager({
+    checkboxClass: '.prediction-select-checkbox',
+    selectAllId: 'select-all-predictions',
+    selectAllClass: '.prediction-select-all',
+    deleteBtnId: 'delete-selected-predictions-btn',
+    deleteBtnText: 'Delete Selected',
+    storageKey: 'glyph_predictions_clear_selection',
+    dataAttribute: 'taskName'
+});
+
 /**
- * Clear selections if flagged after a bulk delete
+ * Initialize synchronized scrolling for token display containers
  */
-function clearPredictionSelectionsIfFlagged() {
-    if (sessionStorage.getItem('glyph_predictions_clear_selection') === '1') {
-        sessionStorage.removeItem('glyph_predictions_clear_selection');
-        const checkboxes = document.querySelectorAll('.prediction-select-checkbox');
-        checkboxes.forEach(cb => {
-            cb.checked = false;
-            const row = cb.closest('tr');
-            if (row) row.classList.remove('is-selected');
-        });
-        const selectAll = document.getElementById('select-all-predictions');
-        if (selectAll) {
-            selectAll.checked = false;
-            selectAll.indeterminate = false;
-        }
-        updatePredictionDeleteButtonState();
+function initSyncScroll() {
+    const modelTokensDiv = document.getElementById('model_tokens_div');
+    const predictionTokensDiv = document.getElementById('prediction_tokens_div');
+    
+    if (!modelTokensDiv || !predictionTokensDiv) {
+        return;
     }
-}
-
-/**
- * Initialize predictions table with event delegation
- * Uses single event listener on table instead of individual row listeners
- */
-function initPredictionsTable() {
-    const table = document.querySelector('.prediction-table');
-    if (!table) return;
-
-    const clickHandler = table.dataset.clickHandler;
-
-    // Event delegation: single listener on table for all clicks
-    table.addEventListener('click', function(e) {
-        // Handle checkbox clicks - prevent row navigation
-        const checkbox = e.target.closest('.prediction-select-checkbox, .prediction-select-all');
-        if (checkbox) {
-            e.stopPropagation();
-
-            setTimeout(() => {
-                if (checkbox.classList.contains('prediction-select-all')) {
-                    toggleSelectAllPredictions(checkbox.checked);
-                } else {
-                    const row = checkbox.closest('tr');
-                    if (row) syncPredictionRowSelection(row);
-                    updatePredictionSelectAllState();
-                    updatePredictionDeleteButtonState();
-                }
-            }, 0);
-            return;
-        }
-
-        // Handle row clicks (navigation)
-        const row = e.target.closest('tbody tr.hover-row');
-        if (!row) return;
-
-        if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
-            window[clickHandler](row.id);
-        }
+    
+    // Scroll model_tokens_div when prediction_tokens_div scrolls
+    predictionTokensDiv.addEventListener('scroll', function() {
+        modelTokensDiv.scrollTop = this.scrollTop;
     });
-
-    // Event delegation: single listener for keyboard events
-    table.addEventListener('keydown', function(e) {
-        const row = e.target.closest('tbody tr.hover-row');
-        if (!row) return;
-
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            if (clickHandler && ALLOWED_CLICK_HANDLERS.includes(clickHandler) && typeof window[clickHandler] === 'function') {
-                window[clickHandler](row.id);
-            }
-        }
+    
+    // Scroll prediction_tokens_div when model_tokens_div scrolls
+    modelTokensDiv.addEventListener('scroll', function() {
+        predictionTokensDiv.scrollTop = this.scrollTop;
     });
 }
 
-/**
- * Initialize predictions page event listeners with event delegation
- */
-function initPredictionsPage() {
-    // Initialize table handlers with event delegation
-    initPredictionsTable();
+// Initialize when DOM is ready using utility
+onDomReady(function() {
+    selectionManager.clearSelectionsIfFlagged();
+
+    // Initialize table with event delegation
+    initTableDelegation(
+        '.prediction-table',
+        ['goToPredictionDetailsURL'],
+        null,
+        {
+            useRowId: true,
+            checkboxSelector: selectionManager.getCheckboxSelector(),
+            checkboxHandler: selectionManager.getCheckboxHandler()
+        }
+    );
 
     // Add click handler directly to table rows for predictions list page
     const clickableRows = document.querySelectorAll('.clickable-row');
@@ -318,41 +219,15 @@ function initPredictionsPage() {
     });
 
     // Handle delete prediction button (legacy single-delete)
-    const deleteBtn = document.querySelector('.delete-prediction-btn');
+    const deleteBtn = document.getElementById('delete-prediction-btn');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', deletePrediction);
     }
 
     // Initialize hover effects using CSS classes
     initTableHoverEffects();
-}
 
-/**
- * Initialize synchronized scrolling for token display containers
- */
-function initSyncScroll() {
-    const modelTokensDiv = document.getElementById('model_tokens_div');
-    const predictionTokensDiv = document.getElementById('prediction_tokens_div');
-    
-    if (!modelTokensDiv || !predictionTokensDiv) {
-        return;
-    }
-    
-    // Scroll model_tokens_div when prediction_tokens_div scrolls
-    predictionTokensDiv.addEventListener('scroll', function() {
-        modelTokensDiv.scrollTop = this.scrollTop;
-    });
-    
-    // Scroll prediction_tokens_div when model_tokens_div scrolls
-    modelTokensDiv.addEventListener('scroll', function() {
-        predictionTokensDiv.scrollTop = this.scrollTop;
-    });
-}
-
-// Initialize when DOM is ready using utility
-onDomReady(function() {
-    clearPredictionSelectionsIfFlagged();
-    initPredictionsPage();
+    // Initialize synchronized scrolling
     initSyncScroll();
 
     // Attach delete selected button listener (avoids inline onclick which violates CSP)

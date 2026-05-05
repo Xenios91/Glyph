@@ -40,11 +40,14 @@
             </blockquote>
         </div>
         <div class="button-group">
+            <button type="button" class="cyber-btn is-primary is-delete" id="delete-prediction-btn" aria-label="Delete this prediction">Delete</button>
             <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
         </div>
     </div>
 </div>
 
-<script src="{{ url_for('static', path='js/common.js') }}"></script>
-<script src="{{ url_for('static', path='js/predictions.js') }}"></script>
 {% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/predictions.js') }}" defer></script>
+{% endblock scripts %}

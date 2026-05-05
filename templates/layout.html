@@ -9,14 +9,14 @@
     
     <!-- Content Security Policy -->
     <!-- Optimized: Removed 'unsafe-inline' from scripts, jQuery domain (no longer used), and unpkg.com -->
-    <meta http-equiv="Content-Security-Policy" 
-          content="default-src 'self'; 
+    <!-- Note: frame-ancestors is not supported in meta CSP, use X-Frame-Options header instead -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
                    script-src 'self' 'unsafe-inline';
                    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-                   font-src 'self' https://fonts.gstatic.com; 
-                   img-src 'self' data: https:; 
-                   connect-src 'self'; 
-                   frame-ancestors 'none';">
+                   font-src 'self' https://fonts.gstatic.com;
+                   img-src 'self' data: https:;
+                   connect-src 'self';">
     
     <link rel="shortcut icon" href="{{ url_for('static', path='favicon.ico') }}">
     
