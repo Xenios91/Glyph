@@ -73,7 +73,7 @@ class TestPredictTokensRequest:
         assert request.uuid == "test-uuid"
 
     def test_predict_tokens_request_extra_fields(self):
-        """Test PredictTokensRequest allows extra fields."""
+        """Test PredictTokensRequest allows extra fields for taskName and data."""
         request = PredictTokensRequest(
             modelName="test_model",
             taskName="test_task",
@@ -135,10 +135,13 @@ class TestConfigRouter:
         assert "INVALID_CPU_CORES" in detail.get("error", {}).get("code", "")
 
     @patch("app.api.v1.endpoints.config.get_settings")
-    def test_save_config_partial_update(self, mock_get_settings, client):
+    @patch("app.api.v1.endpoints.config._persist_config_changes")
+    def test_save_config_partial_update(self, mock_persist, mock_get_settings, client):
         """Test saving config with partial update."""
         mock_settings = Mock()
+        mock_settings.max_file_size_mb = 100
         mock_get_settings.return_value = mock_settings
+        mock_persist.return_value = None
 
         response = client.post(
             "/config/save",

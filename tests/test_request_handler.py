@@ -144,14 +144,14 @@ class TestGhidraRequest:
             filename="test_file.txt",
             is_training=True,
             model_name="test-model",
-            task_name="test_task",
+            name="test_name",
             ml_class_type="test_class",
         )
         # Path.as_posix() returns the path as-is without adding workspace directory
         assert request.file_name == "test_file.txt"
         assert request.is_training is True
         assert request.model_name == "test-model"
-        assert request.task_name == "test_task"
+        assert request.name == "test_name"
         assert request.ml_class_type == "test_class"
         assert request.uuid is not None
         assert isinstance(request.uuid, str)

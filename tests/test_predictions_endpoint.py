@@ -26,7 +26,7 @@ class TestPredictTokensRequest:
         assert request.uuid == "test-uuid"
 
     def test_predict_tokens_request_extra_fields(self):
-        """Test PredictTokensRequest allows extra fields."""
+        """Test PredictTokensRequest allows extra fields for taskName and data."""
         request = PredictTokensRequest(
             modelName="test_model",
             taskName="test_task",

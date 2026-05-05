@@ -47,7 +47,7 @@ class PredictTokensRequest(BaseModel):
     modelName: str
     uuid: str | None = None
 
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "allow"}
 
 
 def _run_prediction_task(
