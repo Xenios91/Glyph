@@ -115,6 +115,45 @@
     border-color: #4a7a7a;
 }
 
+/* ── Password input wrapper ─────────────────────────────────── */
+.password-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-input-wrapper .password-field {
+    padding-right: 3rem;
+}
+
+/* ── Password toggle button ─────────────────────────────────── */
+.password-toggle-btn {
+    position: absolute;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #5a6080;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s ease;
+    z-index: 5;
+}
+
+.password-toggle-btn:hover {
+    color: #7dd8d8;
+}
+
+.password-toggle-btn:focus {
+    outline: none;
+}
+
+.password-toggle-btn svg {
+    pointer-events: none;
+}
+
 /* ── Auth button ────────────────────────────────────────────── */
 /* Note: .auth-btn styles now defined in style.css for consistency */
 /* This file only contains auth-specific overrides if needed */

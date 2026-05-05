@@ -13,8 +13,22 @@ function initLoginForm() {
     const passwordInput = document.getElementById('password');
     const submitBtn = document.getElementById('login-submit-btn');
     const errorDiv = document.getElementById('login-error');
+    const toggleBtn = document.querySelector('.password-toggle-btn');
+    const iconEye = toggleBtn?.querySelector('.icon-eye');
+    const iconEyeOff = toggleBtn?.querySelector('.icon-eye-off');
     
     if (!form) return;
+    
+    // Password visibility toggle
+    if (toggleBtn && passwordInput) {
+        toggleBtn.addEventListener('click', () => {
+            const isPassword = passwordInput.type === 'password';
+            passwordInput.type = isPassword ? 'text' : 'password';
+            toggleBtn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+            if (iconEye) iconEye.style.display = isPassword ? 'none' : 'block';
+            if (iconEyeOff) iconEyeOff.style.display = isPassword ? 'block' : 'none';
+        });
+    }
     
     // Real-time validation for username (min 3 characters)
     setupFieldValidation(usernameInput, value => value.length >= 3);
