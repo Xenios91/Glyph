@@ -60,9 +60,8 @@ class TestTaskService:
         # Queue should be empty now
         assert service.service_queue.empty()
 
-    @patch('loguru.logger')
-    def test_start_service_logs_info_on_task_start(self, mock_logger, clean_queue):
-        """Test that start_service logs info when processing a task."""
+    def test_task_processing_success(self, clean_queue):
+        """Test that successful task processing completes without error."""
         mock_future = MagicMock()
         mock_future.result.return_value = None
 
@@ -71,32 +70,15 @@ class TestTaskService:
         TaskService().service_queue.put((mock_request, mock_future))
 
         task = TaskService().service_queue.get(block=False)
+        # Simulate what TaskService.start_service does
         job_uuid = task[0].uuid
+        task[1].result()  # Should not raise
+        TaskService().service_queue.task_done()
         
-        # Simulate the logging call using loguru
-        mock_logger.info("Processing job: job_uuid={}", job_uuid)
-        mock_logger.info.assert_called()
+        assert TaskService().service_queue.empty()
 
-    @patch('loguru.logger')
-    def test_start_service_logs_completion_on_success(self, mock_logger, clean_queue):
-        """Test that start_service logs completion on successful task."""
-        mock_future = MagicMock()
-        mock_future.result.return_value = None
-
-        mock_request = MagicMock()
-        mock_request.uuid = "test-uuid"
-        TaskService().service_queue.put((mock_request, mock_future))
-
-        task = TaskService().service_queue.get(block=False)
-        job_uuid = task[0].uuid
-        
-        # Simulate successful completion logging using loguru
-        mock_logger.info("Job completed successfully: job_uuid={}", job_uuid)
-        mock_logger.info.assert_called()
-
-    @patch('loguru.logger')
-    def test_start_service_logs_exception_on_failure(self, mock_logger, clean_queue):
-        """Test that start_service logs exception on task failure."""
+    def test_task_processing_failure_handling(self, clean_queue):
+        """Test that failed task processing handles exceptions gracefully."""
         mock_future = MagicMock()
         mock_future.result.side_effect = Exception("Task failed")
 
@@ -107,10 +89,11 @@ class TestTaskService:
         task = TaskService().service_queue.get(block=False)
         job_uuid = task[0].uuid
         
-        # Simulate exception logging using loguru
+        # Simulate what TaskService.start_service does - catch the exception
         try:
             task[1].result()
-        except Exception as e:
-            mock_logger.exception("Job failed: job_uuid={}, error={}", job_uuid, e)
+        except Exception:
+            pass  # Expected exception
         
-        mock_logger.exception.assert_called()
+        TaskService().service_queue.task_done()
+        assert TaskService().service_queue.empty()

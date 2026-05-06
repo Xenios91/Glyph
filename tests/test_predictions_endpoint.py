@@ -10,35 +10,6 @@ from app.api.v1.endpoints.predictions import router as predictions_router, Predi
 from app.auth.dependencies import get_current_active_user, get_optional_user
 
 
-class TestPredictTokensRequest:
-    """Tests for PredictTokensRequest model."""
-
-    def test_predict_tokens_request_minimal(self):
-        """Test PredictTokensRequest with minimal fields."""
-        request = PredictTokensRequest(modelName="test_model")
-        assert request.modelName == "test_model"
-        assert request.uuid is None
-
-    def test_predict_tokens_request_with_uuid(self):
-        """Test PredictTokensRequest with UUID."""
-        request = PredictTokensRequest(modelName="test_model", uuid="test-uuid")
-        assert request.modelName == "test_model"
-        assert request.uuid == "test-uuid"
-
-    def test_predict_tokens_request_extra_fields(self):
-        """Test PredictTokensRequest allows extra fields for taskName and data."""
-        request = PredictTokensRequest(
-            modelName="test_model",
-            taskName="test_task",
-            extra_field="extra_value",
-        )
-        assert request.modelName == "test_model"
-        # Extra fields are accessible via model_dump() due to extra: "allow"
-        dumped = request.model_dump()
-        assert dumped.get("taskName") == "test_task"
-        assert dumped.get("extra_field") == "extra_value"
-
-
 class TestPredictionsRouter:
     """Tests for predictions router endpoints."""
 

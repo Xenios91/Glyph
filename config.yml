@@ -1,38 +1,23 @@
-prediction_probability_threshold: 50.0 # must be a value between 0-100
-
-max_file_size_mb: 512 # maximum file size in MB for uploaded binaries
-cpu_cores: 2 # number of CPU cores to use for processing (must be between 1 and 32)
-
-# JWT secret key - CHANGE THIS for production
-jwt_secret_key: "change-me-in-production"
-
-# Logging configuration
-# Uses Loguru (https://loguru.readthedocs.io/) for modern Python logging
-#
-# Environment Variables (override config.yml settings):
-#   LOGURU_LEVEL     - Override log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-#   LOGURU_FORMAT    - Override log format (json, text)
-#   LOGURU_DIAGNOSE  - Enable/disable variable diagnosis in exceptions (YES/NO)
-#   LOGURU_COLORIZE  - Enable/disable colorization (YES/NO)
-#   GLYPH_LOG_BEST_PRACTICE - Enable logging best practice validation (true/false)
-#
+cpu_cores: 4
+jwt_secret_key: change-me-in-production
 logging:
-  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-  format: json  # json or text
-  file:
-    path: logs/glyph.log
-    rotation: "50 MB"  # Loguru rotation string (e.g., "50 MB", "00:00", "1 week")
-    retention: "10 days"  # Loguru retention string (e.g., "10 days", "1 month")
   console:
+    colorize: true
     enabled: true
     level: INFO
-    colorize: true
+  file:
+    path: logs/glyph.log
+    retention: 10 days
+    rotation: 50 MB
+  format: json
+  level: INFO
+  module_levels:
+    app.auth: INFO
+    app.database: WARNING
+    app.processing: DEBUG
+    uvicorn: INFO
   request_tracing:
     enabled: true
     header_name: X-Request-ID
-  # Per-module log level overrides
-  module_levels:
-    app.database: WARNING
-    app.auth: INFO
-    app.processing: DEBUG
-    uvicorn: INFO
+max_file_size_mb: 100
+prediction_probability_threshold: 50.0

@@ -100,7 +100,6 @@ BLOCKED_BUILTINS: Set[str] = {
     "builtins.zip",
     "builtins.iter",
     "builtins.next",
-    "builtins.next",
     "builtins.dir",
     "builtins.locals",
     "builtins.globals",

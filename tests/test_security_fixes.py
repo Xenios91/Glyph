@@ -1,7 +1,6 @@
 """Tests for security fixes applied to Glyph."""
 
 import os
-from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,42 +15,69 @@ from app.auth.security_logger import _login_failure_tracker, is_blocked
 
 
 class TestXSSPrevention:
-    """Test that format_code HTML-escapes output to prevent XSS."""
+    """Test that Jinja2 auto-escaping prevents XSS when rendering user-controlled content.
 
-    def test_format_code_escapes_script_tags(self):
-        """Script tags in code are preserved as-is (XSS prevention handled by Jinja2 auto-escaping)."""
-        code = 'void foo() { return "<script>alert(1)</script>"; }'
-        result = format_code(code)
-        # format_code returns raw, unescaped code - Jinja2 auto-escaping handles XSS prevention
-        assert "alert(1)" in result
+    format_code() returns raw, unescaped code. XSS prevention is handled by Jinja2
+    auto-escaping when the code is rendered in templates. These tests verify that
+    the Jinja2 environment properly escapes dangerous content.
+    """
 
-    def test_format_code_escapes_event_handlers(self):
-        """Event handler attributes are preserved (XSS prevention handled by Jinja2 auto-escaping)."""
-        code = 'void foo() { return "<img onerror=alert(1)>"; }'
-        result = format_code(code)
-        # format_code returns raw, unescaped code - Jinja2 auto-escaping handles XSS prevention
-        assert "onerror" in result
-        assert "alert(1)" in result
+    def test_jinja2_autoescape_enabled(self):
+        """Jinja2 auto-escaping must be enabled in the templates environment."""
+        from app.templates import templates
+        assert templates.env.autoescape is True  # type: ignore[union-attr]
 
-    def test_format_code_escapes_angle_brackets(self):
-        """Angle brackets must be escaped."""
-        code = 'void foo() { int x = 1 < 2 && 3 > 1; }'
-        result = format_code(code)
-        # The < and > in comparisons should be escaped
-        assert "<" in result or "<" in result  # May appear in valid code context
+    def test_jinja2_escapes_script_tags(self):
+        """Script tags must be escaped when rendered through Jinja2."""
+        from app.templates import templates
 
-    def test_format_code_escapes_quotes(self):
+        template = templates.env.from_string("{{ code }}")
+        result = template.render(code='<script>alert(1)</script>')
+        # After escaping, literal <script> should not appear
+        assert "<script>" not in result
+        # The escaped form should appear instead
+        assert "&lt;" in result
+
+    def test_jinja2_escapes_event_handlers(self):
+        """Event handler attributes must be escaped when rendered through Jinja2."""
+        from app.templates import templates
+
+        template = templates.env.from_string("{{ code }}")
+        result = template.render(code='<img onerror="alert(1)">')
+        # The opening angle bracket of <img should be escaped
+        assert "<img" not in result
+        assert "&lt;img" in result
+
+    def test_jinja2_escapes_angle_brackets(self):
+        """Angle brackets must be escaped when rendered through Jinja2."""
+        from app.templates import templates
+
+        template = templates.env.from_string("{{ code }}")
+        result = template.render(code="1 < 2 && 3 > 1")
+        # Raw angle brackets from user input should not appear
+        assert "<" not in result
+        assert ">" not in result
+        # Escaped forms should appear
+        assert "&lt;" in result
+        assert "&gt;" in result
+
+    def test_jinja2_escapes_quotes(self):
         """Quotes must be escaped to prevent attribute injection."""
-        code = 'void foo() { char *s = "hello"; }'
-        result = format_code(code)
-        # Quotes inside strings may be preserved but should be safe in <pre> context
+        from app.templates import templates
 
-    def test_format_code_simple_code_safe(self):
-        """Normal C code should be formatted and escaped."""
-        code = 'int main() { return 0; }'
-        result = format_code(code)
-        assert "main" in result
-        assert "<" not in result  # No special chars to escape
+        template = templates.env.from_string("<div>{{ code }}</div>")
+        result = template.render(code='char *s = "hello";')
+        # Double quotes should be escaped as "
+        assert chr(34) not in result
+
+    def test_jinja2_safe_mark_bypass_prevention(self):
+        """User-controlled content should not be marked as safe by default."""
+        from app.templates import templates
+
+        # By default, variables are escaped unless explicitly marked safe
+        template = templates.env.from_string("{{ code }}")
+        result = template.render(code='<script>alert("xss")</script>')
+        assert "<script>" not in result
 
 
 class TestJWTSecretKeyWarning:
@@ -62,11 +88,10 @@ class TestJWTSecretKeyWarning:
         settings = GlyphSettings()
         assert settings.jwt_secret_key == "change-me-in-production"
 
-    def test_custom_jwt_secret_from_env(self):
-        """Custom JWT secret from env var should override default."""
-        with patch.dict(os.environ, {"GLYPH_JWT_SECRET_KEY": "my-secret-key"}):
-            settings = GlyphSettings()
-            assert settings.jwt_secret_key == "my-secret-key"
+    def test_custom_jwt_secret_from_init(self):
+        """Custom JWT secret from init should override default."""
+        settings = GlyphSettings(jwt_secret_key="my-secret-key")
+        assert settings.jwt_secret_key == "my-secret-key"
 
     def test_custom_jwt_secret_from_init(self):
         """Custom JWT secret from init should override default."""

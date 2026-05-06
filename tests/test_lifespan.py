@@ -161,3 +161,72 @@ class TestLifespan:
         # and the finally block was executed
         # Verify dispose was still called during shutdown
         mock_dispose_async_engines.assert_called_once()
+
+    @patch("app.core.lifespan.dispose_async_engines")
+    @patch("app.core.lifespan.init_async_databases")
+    @patch("app.core.lifespan.get_settings")
+    @patch("app.core.lifespan.TaskService")
+    @patch("app.core.lifespan.threading")
+    @patch("app.core.lifespan.EventWatcher")
+    async def test_lifespan_starts_event_watcher(
+        self,
+        mock_event_watcher_class,
+        mock_threading,
+        mock_task_service,
+        mock_get_settings,
+        mock_init_async_databases,
+        mock_dispose_async_engines,
+        mock_app,
+    ):
+        """Test lifespan startup starts the EventWatcher."""
+        mock_get_settings.return_value = Mock()
+        mock_init_async_databases.return_value = None
+        mock_dispose_async_engines.return_value = None
+
+        mock_thread = Mock()
+        mock_threading.Thread.return_value = mock_thread
+        mock_thread.start = Mock()
+
+        mock_event_watcher_instance = Mock()
+        mock_event_watcher_class.return_value = mock_event_watcher_instance
+
+        async with lifespan(mock_app):
+            pass
+
+        # Verify EventWatcher was instantiated and started
+        mock_event_watcher_class.assert_called_once()
+        mock_event_watcher_instance.start_watching.assert_called_once()
+
+    @patch("app.core.lifespan.dispose_async_engines")
+    @patch("app.core.lifespan.init_async_databases")
+    @patch("app.core.lifespan.get_settings")
+    @patch("app.core.lifespan.TaskService")
+    @patch("app.core.lifespan.threading")
+    @patch("app.core.lifespan.EventWatcher")
+    async def test_lifespan_stops_event_watcher_on_shutdown(
+        self,
+        mock_event_watcher_class,
+        mock_threading,
+        mock_task_service,
+        mock_get_settings,
+        mock_init_async_databases,
+        mock_dispose_async_engines,
+        mock_app,
+    ):
+        """Test lifespan shutdown stops the EventWatcher."""
+        mock_get_settings.return_value = Mock()
+        mock_init_async_databases.return_value = None
+        mock_dispose_async_engines.return_value = None
+
+        mock_thread = Mock()
+        mock_threading.Thread.return_value = mock_thread
+        mock_thread.start = Mock()
+
+        mock_event_watcher_instance = Mock()
+        mock_event_watcher_class.return_value = mock_event_watcher_instance
+
+        async with lifespan(mock_app):
+            pass
+
+        # Verify EventWatcher was stopped during shutdown
+        mock_event_watcher_instance.stop_watching.assert_called_once()

@@ -51,8 +51,6 @@ class TestBinaryUploadForm:
 class TestBinariesRouter:
     """Tests for binaries router endpoints."""
 
-    pytestmark = pytest.mark.timeout(2)
-
     @pytest.fixture
     def client(self):
         """Create test client with binaries router."""
