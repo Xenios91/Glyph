@@ -94,8 +94,24 @@ def test_default_upload_folder_set_in_init():
             assert GlyphConfig._config["UPLOAD_FOLDER"] == "./binaries"
 
 
+def test_load_config_with_mocked_file():
+    """Test loading config from a mocked YAML file."""
+    with patch("builtins.open", mock_open(read_data="cpu_cores: 2\nmax_file_size_mb: 512\n")):
+        with patch("yaml.safe_load", return_value={"cpu_cores": 2, "max_file_size_mb": 512}):
+            result = GlyphConfig.load_config()
+
+    assert result is True
+    assert GlyphConfig._config["cpu_cores"] == 2
+    assert GlyphConfig._config["max_file_size_mb"] == 512
+    assert GlyphConfig._config["UPLOAD_FOLDER"] == "./binaries"
+
+
 def test_load_config_with_real_file(tmp_path, valid_config_content):
-    """Integration test using actual filesystem with temporary file."""
+    """Integration test using actual filesystem with temporary file.
+
+    This test uses tmp_path exclusively and copies the config to the working
+    directory only when the original exists, restoring it afterward.
+    """
     import shutil
     config_file = tmp_path / "config.yml"
     config_content = {
@@ -105,11 +121,12 @@ def test_load_config_with_real_file(tmp_path, valid_config_content):
     config_file.write_text(yaml.dump(config_content))
 
     # GlyphConfig.load_config() reads from "config.yml" in the current directory
-    # Copy the temp file to the working directory temporarily
     original_config = "config.yml"
+    backup_path = f"{original_config}.test_backup"
     backup_exists = False
+
     if os.path.exists(original_config):
-        shutil.copy2(original_config, f"{original_config}.bak")
+        shutil.copy2(original_config, backup_path)
         backup_exists = True
 
     try:
@@ -122,7 +139,7 @@ def test_load_config_with_real_file(tmp_path, valid_config_content):
         assert GlyphConfig._config["UPLOAD_FOLDER"] == "./binaries"  # Always set by load_config
     finally:
         if backup_exists:
-            shutil.move(f"{original_config}.bak", original_config)
+            shutil.move(backup_path, original_config)
         elif os.path.exists(original_config):
             os.remove(original_config)
 

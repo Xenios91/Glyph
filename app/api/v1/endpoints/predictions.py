@@ -6,7 +6,7 @@ prediction results.
 
 import asyncio
 import contextvars
-from typing import Annotated, Any, Union
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from starlette.responses import HTMLResponse
@@ -94,13 +94,16 @@ def _run_prediction_task(
                 FeatureExtractStep(),
                 PredictStep(),
             ])
-        result = asyncio.run(
-            pipeline.execute(context),
-            context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
+        result = cast(
+            PipelineContext,
+            asyncio.run(
+                pipeline.execute(context),
+                context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
+            ),
         )
 
         if result.error:
-            raise Exception(result.error)
+            raise RuntimeError(result.error)
 
         logger.info("Prediction task completed: {}", prediction_request.uuid)
     except Exception:
@@ -161,7 +164,7 @@ async def get_prediction(
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     task_name: TaskName = Query(...)
-) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
+) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
     """Obtain all predictions from one task.
     
     Args:
@@ -271,7 +274,7 @@ async def get_prediction_details(
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
     task_name: TaskName = Query(...)
-) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
+) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
     """Displays specific details of a prediction.
     
     Args:

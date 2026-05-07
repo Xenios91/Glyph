@@ -242,7 +242,7 @@ class GlyphConfig:
         Raises:
             ValueError: If the number of CPU cores is negative.
         """
-        if not isinstance(cores, int) or isinstance(cores, bool):
+        if isinstance(cores, bool):
             logger.warning("Invalid CPU cores: {} (must be an integer)", cores)
             return False
 

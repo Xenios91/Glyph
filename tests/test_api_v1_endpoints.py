@@ -1,5 +1,7 @@
 """Tests for API v1 endpoints."""
 
+from typing import Any
+
 import pytest
 from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
@@ -9,7 +11,7 @@ from app.api.v1.endpoints.status import router as status_router, StatusUpdatePay
 from app.api.v1.endpoints.predictions import PredictTokensRequest
 
 
-def _mock_current_user():
+def _mock_current_user() -> Mock:
     """Mock current active user for testing."""
     mock_user = Mock()
     mock_user.id = 1
@@ -22,19 +24,19 @@ def _mock_current_user():
 class TestConfigPayload:
     """Tests for ConfigPayload model."""
 
-    def test_config_payload_minimal(self):
+    def test_config_payload_minimal(self) -> None:
         """Test ConfigPayload with no fields."""
         payload = ConfigPayload()
         assert payload.max_file_size_mb is None
         assert payload.cpu_cores is None
 
-    def test_config_payload_with_fields(self):
+    def test_config_payload_with_fields(self) -> None:
         """Test ConfigPayload with all fields."""
         payload = ConfigPayload(max_file_size_mb=100, cpu_cores=8)
         assert payload.max_file_size_mb == 100
         assert payload.cpu_cores == 8
 
-    def test_config_payload_partial(self):
+    def test_config_payload_partial(self) -> None:
         """Test ConfigPayload with partial fields."""
         payload = ConfigPayload(max_file_size_mb=50)
         assert payload.max_file_size_mb == 50
@@ -44,13 +46,13 @@ class TestConfigPayload:
 class TestStatusUpdatePayload:
     """Tests for StatusUpdatePayload model."""
 
-    def test_status_update_payload(self):
+    def test_status_update_payload(self) -> None:
         """Test StatusUpdatePayload with valid data."""
         payload = StatusUpdatePayload(status="running", uuid="test-uuid")
         assert payload.status == "running"
         assert payload.uuid == "test-uuid"
 
-    def test_status_update_payload_with_whitespace(self):
+    def test_status_update_payload_with_whitespace(self) -> None:
         """Test StatusUpdatePayload strips whitespace."""
         payload = StatusUpdatePayload(status="  running  ", uuid="  test-uuid  ")
         assert payload.status == "running"
@@ -60,24 +62,23 @@ class TestStatusUpdatePayload:
 class TestPredictTokensRequest:
     """Tests for PredictTokensRequest model."""
 
-    def test_predict_tokens_request_minimal(self):
+    def test_predict_tokens_request_minimal(self) -> None:
         """Test PredictTokensRequest with minimal fields."""
         request = PredictTokensRequest(modelName="test_model")
         assert request.modelName == "test_model"
         assert request.uuid is None
 
-    def test_predict_tokens_request_with_uuid(self):
+    def test_predict_tokens_request_with_uuid(self) -> None:
         """Test PredictTokensRequest with UUID."""
         request = PredictTokensRequest(modelName="test_model", uuid="test-uuid")
         assert request.modelName == "test_model"
         assert request.uuid == "test-uuid"
 
-    def test_predict_tokens_request_extra_fields(self):
+    def test_predict_tokens_request_extra_fields(self) -> None:
         """Test PredictTokensRequest allows extra fields for taskName and data."""
         request = PredictTokensRequest(
             modelName="test_model",
-            taskName="test_task",
-            extra_field="extra_value",
+            **{"taskName": "test_task", "extra_field": "extra_value"}
         )
         assert request.modelName == "test_model"
         # Extra fields are accessible via model_dump() due to extra: "allow"
@@ -90,7 +91,7 @@ class TestConfigRouter:
     """Tests for config router endpoints."""
 
     @pytest.fixture
-    def client(self):
+    def client(self) -> TestClient:
         """Create test client with config router and auth override."""
         from fastapi import FastAPI
         from app.auth.dependencies import get_current_active_user
@@ -101,7 +102,7 @@ class TestConfigRouter:
         return TestClient(app)
 
     @patch("app.api.v1.endpoints.config.get_settings")
-    def test_save_config_success(self, mock_get_settings, client):
+    def test_save_config_success(self, mock_get_settings: Any, client: TestClient) -> None:
         """Test saving config successfully."""
         mock_settings = Mock()
         mock_get_settings.return_value = mock_settings
@@ -117,7 +118,7 @@ class TestConfigRouter:
         assert "Configuration saved successfully" in data["message"]
 
     @patch("app.api.v1.endpoints.config.get_settings")
-    def test_save_config_invalid_cpu_cores(self, mock_get_settings, client):
+    def test_save_config_invalid_cpu_cores(self, mock_get_settings: Any, client: TestClient) -> None:
         """Test saving config with invalid CPU cores."""
         mock_settings = Mock()
         mock_get_settings.return_value = mock_settings
@@ -136,7 +137,7 @@ class TestConfigRouter:
 
     @patch("app.api.v1.endpoints.config.get_settings")
     @patch("app.api.v1.endpoints.config._persist_config_changes")
-    def test_save_config_partial_update(self, mock_persist, mock_get_settings, client):
+    def test_save_config_partial_update(self, mock_persist: Any, mock_get_settings: Any, client: TestClient) -> None:
         """Test saving config with partial update."""
         mock_settings = Mock()
         mock_settings.max_file_size_mb = 100
@@ -157,7 +158,7 @@ class TestStatusRouter:
     """Tests for status router endpoints."""
 
     @pytest.fixture
-    def client(self):
+    def client(self) -> TestClient:
         """Create test client with status router and auth override."""
         from fastapi import FastAPI
         from app.auth.dependencies import get_current_active_user
@@ -168,7 +169,7 @@ class TestStatusRouter:
         return TestClient(app)
 
     @patch("app.api.v1.endpoints.status.TaskManager")
-    def test_get_status_success(self, mock_task_manager, client):
+    def test_get_status_success(self, mock_task_manager: Any, client: TestClient) -> None:
         """Test getting status successfully."""
         mock_instance = Mock()
         mock_instance.get_status.return_value = "running"
@@ -182,7 +183,7 @@ class TestStatusRouter:
         assert data["data"]["status"] == "running"
 
     @patch("app.api.v1.endpoints.status.TaskManager")
-    def test_get_status_not_found(self, mock_task_manager, client):
+    def test_get_status_not_found(self, mock_task_manager: Any, client: TestClient) -> None:
         """Test getting status for non-existent UUID."""
         mock_instance = Mock()
         mock_instance.get_status.return_value = "UUID Not Found"
@@ -198,7 +199,7 @@ class TestStatusRouter:
         assert "UUID_NOT_FOUND" in detail.get("error", {}).get("code", "")
 
     @patch("app.api.v1.endpoints.status.TaskManager")
-    def test_update_status_success(self, mock_task_manager, client):
+    def test_update_status_success(self, mock_task_manager: Any, client: TestClient) -> None:
         """Test updating status successfully."""
         mock_instance = Mock()
         mock_instance.set_status.return_value = True
@@ -213,7 +214,7 @@ class TestStatusRouter:
         data = response.json()
         assert data["success"] is True
 
-    def test_update_status_empty_fields(self, client):
+    def test_update_status_empty_fields(self, client: TestClient) -> None:
         """Test updating status with empty fields."""
         # Pydantic's StringConstraints with strip_whitespace=True and min_length=1
         # will reject empty strings after stripping, returning a 422 validation error
@@ -229,7 +230,7 @@ class TestStatusRouter:
         assert "detail" in data
 
     @patch("app.api.v1.endpoints.status.TaskManager")
-    def test_update_status_not_found(self, mock_task_manager, client):
+    def test_update_status_not_found(self, mock_task_manager: Any, client: TestClient) -> None:
         """Test updating status for non-existent UUID."""
         mock_instance = Mock()
         mock_instance.set_status.return_value = False

@@ -48,13 +48,11 @@ class TestTokenFilteringUtilities:
         assert _check_if_variable("printf") is False
         assert _check_if_variable("myFunction") is False
 
-    def test_remove_comments_single_line(self):
-        """Test removing single-line comments.
+    def test_single_line_comments_not_removed(self):
+        """Test that single-line // comments are preserved (not removed).
         
-        Note: _remove_comments only handles multi-line /* */ comments, not // comments.
+        _remove_comments only handles multi-line /* */ comments, not // comments.
         """
-        # The _remove_comments function only handles /* */ style comments
-        # Single-line // comments are not removed
         tokens = ["int", "x", "//", "this", "is", "a", "comment"]
         result = _remove_comments(tokens)
         # Single-line comments are preserved as-is

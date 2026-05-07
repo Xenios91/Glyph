@@ -47,6 +47,63 @@ class TestBinaryUploadForm:
         assert request.ml_class_type == "test_type"
         assert request.name == "test_name"
 
+    def test_binary_upload_form_strips_whitespace(self):
+        """Test that string fields are stripped of whitespace."""
+        request = BinaryUploadForm(
+            model_name="  test_model  ",
+            ml_class_type="  test_type  ",
+            name="  test_name  ",
+        )
+        assert request.model_name == "test_model"
+        assert request.ml_class_type == "test_type"
+        assert request.name == "test_name"
+
+    def test_binary_upload_form_training_data_validation(self):
+        """Test that training_data accepts 'true' and 'false' (case-insensitive)."""
+        request = BinaryUploadForm(
+            training_data="TRUE",
+            model_name="test_model",
+            ml_class_type="test_type",
+            name="test_name",
+        )
+        assert request.training_data == "true"
+
+        request = BinaryUploadForm(
+            training_data=" False ",
+            model_name="test_model",
+            ml_class_type="test_type",
+            name="test_name",
+        )
+        assert request.training_data == "false"
+
+    def test_binary_upload_form_invalid_training_data(self):
+        """Test that training_data rejects invalid values."""
+        with pytest.raises(Exception):
+            BinaryUploadForm(
+                training_data="yes",
+                model_name="test_model",
+                ml_class_type="test_type",
+                name="test_name",
+            )
+
+    def test_binary_upload_form_empty_model_name_rejected(self):
+        """Test that empty model_name is rejected."""
+        with pytest.raises(Exception):
+            BinaryUploadForm(
+                model_name="",
+                ml_class_type="test_type",
+                name="test_name",
+            )
+
+    def test_binary_upload_form_whitespace_only_model_name_rejected(self):
+        """Test that whitespace-only model_name is rejected."""
+        with pytest.raises(Exception):
+            BinaryUploadForm(
+                model_name="   ",
+                ml_class_type="test_type",
+                name="test_name",
+            )
+
 
 class TestBinariesRouter:
     """Tests for binaries router endpoints."""

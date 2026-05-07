@@ -93,11 +93,6 @@ class TestJWTSecretKeyWarning:
         settings = GlyphSettings(jwt_secret_key="my-secret-key")
         assert settings.jwt_secret_key == "my-secret-key"
 
-    def test_custom_jwt_secret_from_init(self):
-        """Custom JWT secret from init should override default."""
-        settings = GlyphSettings(jwt_secret_key="my-custom-key")
-        assert settings.jwt_secret_key == "my-custom-key"
-
 
 class TestCORSWildcard:
     """Test that CORS does not allow wildcard by default.
@@ -301,9 +296,9 @@ class TestPasswordComplexity:
 class TestSecurityHeaders:
     """Test that security headers are set correctly via CSPMiddleware ASGI interface."""
 
-    def test_csp_middleware_sets_referrer_policy(self):
+    @pytest.mark.asyncio
+    async def test_csp_middleware_sets_referrer_policy(self):
         """CSP middleware should set Referrer-Policy header."""
-        import asyncio
         captured_headers: dict[str, str] = {}
 
         async def capture_send(message: dict) -> None:
@@ -318,18 +313,16 @@ class TestSecurityHeaders:
         from main import CSPMiddleware
         mw = CSPMiddleware(dummy_app)
 
-        async def run_middleware():
-            scope = {"type": "http", "method": "GET", "path": "/"}
-            async def receive():
-                return {"type": "http.request"}
-            await mw(scope, receive, capture_send)
+        scope = {"type": "http", "method": "GET", "path": "/"}
+        async def receive():
+            return {"type": "http.request"}
+        await mw(scope, receive, capture_send)
 
-        asyncio.get_event_loop().run_until_complete(run_middleware())
         assert captured_headers.get("referrer-policy") == "strict-origin-when-cross-origin"
 
-    def test_csp_middleware_sets_permissions_policy(self):
+    @pytest.mark.asyncio
+    async def test_csp_middleware_sets_permissions_policy(self):
         """CSP middleware should set Permissions-Policy header."""
-        import asyncio
         captured_headers: dict[str, str] = {}
 
         async def capture_send(message: dict) -> None:
@@ -344,21 +337,19 @@ class TestSecurityHeaders:
         from main import CSPMiddleware
         mw = CSPMiddleware(dummy_app)
 
-        async def run_middleware():
-            scope = {"type": "http", "method": "GET", "path": "/"}
-            async def receive():
-                return {"type": "http.request"}
-            await mw(scope, receive, capture_send)
+        scope = {"type": "http", "method": "GET", "path": "/"}
+        async def receive():
+            return {"type": "http.request"}
+        await mw(scope, receive, capture_send)
 
-        asyncio.get_event_loop().run_until_complete(run_middleware())
         policy = captured_headers.get("permissions-policy", "")
         assert "geolocation=()" in policy
         assert "camera=()" in policy
         assert "microphone=()" in policy
 
-    def test_csp_middleware_sets_x_content_type_options(self):
+    @pytest.mark.asyncio
+    async def test_csp_middleware_sets_x_content_type_options(self):
         """CSP middleware should set X-Content-Type-Options: nosniff."""
-        import asyncio
         captured_headers: dict[str, str] = {}
 
         async def capture_send(message: dict) -> None:
@@ -373,13 +364,11 @@ class TestSecurityHeaders:
         from main import CSPMiddleware
         mw = CSPMiddleware(dummy_app)
 
-        async def run_middleware():
-            scope = {"type": "http", "method": "GET", "path": "/"}
-            async def receive():
-                return {"type": "http.request"}
-            await mw(scope, receive, capture_send)
+        scope = {"type": "http", "method": "GET", "path": "/"}
+        async def receive():
+            return {"type": "http.request"}
+        await mw(scope, receive, capture_send)
 
-        asyncio.get_event_loop().run_until_complete(run_middleware())
         assert captured_headers.get("x-content-type-options") == "nosniff"
 
 
