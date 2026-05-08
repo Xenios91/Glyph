@@ -1,9 +1,8 @@
 """Security tests for path traversal prevention in binary upload endpoint."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+
 from fastapi import HTTPException
-from fastapi.testclient import TestClient
 from app.api.v1.endpoints.binaries import (
     validate_binary_mime_type,
     sanitize_filename,

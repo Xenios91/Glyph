@@ -1,11 +1,12 @@
 """Unit tests for SQL database operations using SQLAlchemy ORM."""
+from typing import Any
+
 import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
 
-from app.database.models import Prediction
 from app.database.session_handler import (
     get_async_session,
     close_async_session,
@@ -186,7 +187,7 @@ class TestSQLUtilGetPredictions:
         result = await SQLUtil.get_predictions("nonexistent_task_xyz", "nonexistent_model_xyz")
         assert result is None
 
-    async def test_get_predictions_corrupted_data(self, caplog):
+    async def test_get_predictions_corrupted_data(self, caplog: Any) -> None:
         """Test handling corrupted prediction data."""
         from app.database.models import Prediction as PredModel
         session = await get_async_session("predictions")

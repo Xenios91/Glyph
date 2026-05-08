@@ -63,3 +63,7 @@ argon2-cffi==25.1.0
 argon2-cffi-bindings==21.2.0
 bcrypt==5.0.0
 aiosqlite==0.22.1
+
+# Testing - Playwright
+playwright==1.59.0
+pytest-playwright==0.7.2

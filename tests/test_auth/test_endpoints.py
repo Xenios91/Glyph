@@ -1,30 +1,30 @@
 """Tests for authentication endpoints."""
 
+from typing import Any, Generator
+
 import pytest
 import time
-from httpx import AsyncClient
 from fastapi import status
 from fastapi.testclient import TestClient
 
 from app.database.session_handler import get_async_session
-from app.database.repository import UserRepository
 
 
 @pytest.fixture
-def auth_client():
+def auth_client() -> Generator[TestClient, Any, Any]:
     """Create a test client for auth endpoints."""
     from main import app
     with TestClient(app) as client:
         yield client
 
 
-def get_unique_suffix():
+def get_unique_suffix() -> int:
     """Generate a unique suffix for test usernames to avoid conflicts."""
     return int(time.time() * 1000) % 100000
 
 
 @pytest.fixture
-async def db():
+async def db() -> Any:
     """Create a test database session."""
     session = await get_async_session("auth")
     try:
@@ -36,7 +36,7 @@ async def db():
 class TestRegisterEndpoint:
     """Test cases for /auth/register endpoint."""
 
-    def test_register_success(self, auth_client):
+    def test_register_success(self, auth_client: TestClient) -> None:
         """Test successful user registration."""
         unique_suffix = get_unique_suffix()
         response = auth_client.post(
@@ -55,7 +55,7 @@ class TestRegisterEndpoint:
         assert data["email"] == f"test_register_success_{unique_suffix}@example.com"
         assert data["is_active"] is True
 
-    def test_register_duplicate_username(self, auth_client):
+    def test_register_duplicate_username(self, auth_client: TestClient) -> None:
         """Test registration with duplicate username."""
         # Register first user
         auth_client.post(
@@ -80,7 +80,7 @@ class TestRegisterEndpoint:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "already registered" in response.json()["detail"]
 
-    def test_register_duplicate_email(self, auth_client):
+    def test_register_duplicate_email(self, auth_client: TestClient) -> None:
         """Test registration with duplicate email."""
         # Register first user
         auth_client.post(
@@ -105,7 +105,7 @@ class TestRegisterEndpoint:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "already registered" in response.json()["detail"]
 
-    def test_register_invalid_email(self, auth_client):
+    def test_register_invalid_email(self, auth_client: TestClient) -> None:
         """Test registration with invalid email."""
         response = auth_client.post(
             "/auth/register",
@@ -118,7 +118,7 @@ class TestRegisterEndpoint:
         
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
-    def test_register_short_password(self, auth_client):
+    def test_register_short_password(self, auth_client: TestClient) -> None:
         """Test registration with short password."""
         response = auth_client.post(
             "/auth/register",
@@ -135,7 +135,7 @@ class TestRegisterEndpoint:
 class TestLoginEndpoint:
     """Test cases for /auth/token endpoint."""
 
-    def test_login_success(self, auth_client):
+    def test_login_success(self, auth_client: TestClient) -> None:
         """Test successful login."""
         # Register user first
         auth_client.post(
@@ -162,7 +162,7 @@ class TestLoginEndpoint:
         assert "refresh_token" in data
         assert data["token_type"] == "bearer"
 
-    def test_login_invalid_credentials(self, auth_client):
+    def test_login_invalid_credentials(self, auth_client: TestClient) -> None:
         """Test login with invalid credentials."""
         # Register user first
         auth_client.post(
@@ -185,7 +185,7 @@ class TestLoginEndpoint:
         
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_login_nonexistent_user(self, auth_client):
+    def test_login_nonexistent_user(self, auth_client: TestClient) -> None:
         """Test login with nonexistent user."""
         response = auth_client.post(
             "/auth/token",
@@ -201,7 +201,7 @@ class TestLoginEndpoint:
 class TestRefreshEndpoint:
     """Test cases for /auth/refresh endpoint."""
 
-    def test_refresh_success(self, auth_client):
+    def test_refresh_success(self, auth_client: TestClient) -> None:
         """Test successful token refresh."""
         # Register user and login
         auth_client.post(
@@ -234,7 +234,7 @@ class TestRefreshEndpoint:
         assert "access_token" in data
         assert "refresh_token" in data
 
-    def test_refresh_invalid_token(self, auth_client):
+    def test_refresh_invalid_token(self, auth_client: TestClient) -> None:
         """Test refresh with invalid token."""
         response = auth_client.post(
             "/auth/refresh",
@@ -247,7 +247,7 @@ class TestRefreshEndpoint:
 class TestLogoutEndpoint:
     """Test cases for /auth/logout endpoint."""
 
-    def test_logout_success(self, auth_client):
+    def test_logout_success(self, auth_client: TestClient) -> None:
         """Test successful logout."""
         # Register and login first to get an access token
         auth_client.post(
@@ -274,7 +274,7 @@ class TestLogoutEndpoint:
 class TestMeEndpoint:
     """Test cases for /auth/me endpoint."""
 
-    def test_me_success(self, auth_client):
+    def test_me_success(self, auth_client: TestClient) -> None:
         """Test getting current user info."""
         # Register user and login
         auth_client.post(
@@ -307,7 +307,7 @@ class TestMeEndpoint:
         assert data["username"] == "testuser"
         assert data["email"] == "test@example.com"
 
-    def test_me_unauthorized(self, auth_client):
+    def test_me_unauthorized(self, auth_client: TestClient) -> None:
         """Test getting current user without authentication."""
         response = auth_client.get("/auth/me")
         
@@ -317,7 +317,7 @@ class TestMeEndpoint:
 class TestAPIKeyEndpoints:
     """Test cases for API key endpoints."""
 
-    def test_create_api_key(self, auth_client):
+    def test_create_api_key(self, auth_client: TestClient) -> None:
         """Test creating an API key."""
         # Register user and login
         auth_client.post(
@@ -356,7 +356,7 @@ class TestAPIKeyEndpoints:
         assert "secret" in data
         assert data["secret"].startswith("glp_")
 
-    def test_list_api_keys(self, auth_client):
+    def test_list_api_keys(self, auth_client: TestClient) -> None:
         """Test listing API keys."""
         unique_suffix = get_unique_suffix()
         
@@ -399,12 +399,12 @@ class TestAPIKeyEndpoints:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         # Filter for keys belonging to this user (by name pattern)
-        user_keys = [k for k in data if f"Test API Key List {unique_suffix}" in k["name"]]
+        user_keys: list[dict[str, Any]] = [k for k in data if f"Test API Key List {unique_suffix}" in k["name"]]
         assert len(user_keys) >= 1
         assert user_keys[0]["name"] == f"Test API Key List {unique_suffix}"
         assert "secret" not in user_keys[0]
 
-    def test_delete_api_key(self, auth_client):
+    def test_delete_api_key(self, auth_client: TestClient) -> None:
         """Test deleting an API key."""
         # Register user and login
         auth_client.post(

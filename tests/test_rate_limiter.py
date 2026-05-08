@@ -1,5 +1,7 @@
 """Tests for rate limiting utilities."""
 
+from typing import Any, Optional
+
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -12,31 +14,31 @@ from app.core.rate_limiter import RateLimiter, check_rate_limit, get_client_ip
 class TestRateLimiter:
     """Tests for RateLimiter class."""
 
-    def test_init_defaults(self):
+    def test_init_defaults(self) -> None:
         """Test default initialization values."""
         limiter = RateLimiter()
         assert limiter.max_requests == 10
         assert limiter.window_seconds == 60
-        assert limiter._requests == {}
+        assert limiter._requests == {}  # pyright: ignore[reportPrivateUsage]
 
-    def test_init_custom_values(self):
+    def test_init_custom_values(self) -> None:
         """Test custom initialization values."""
         limiter = RateLimiter(max_requests=5, window_seconds=120)
         assert limiter.max_requests == 5
         assert limiter.window_seconds == 120
 
-    def test_is_rate_limited_first_request(self):
+    def test_is_rate_limited_first_request(self) -> None:
         """Test that the first request is not rate limited."""
         limiter = RateLimiter(max_requests=5, window_seconds=60)
         assert limiter.is_rate_limited("192.168.1.1") is False
 
-    def test_is_rate_limited_under_threshold(self):
+    def test_is_rate_limited_under_threshold(self) -> None:
         """Test requests under threshold are not rate limited."""
         limiter = RateLimiter(max_requests=5, window_seconds=60)
         for _ in range(4):
             assert limiter.is_rate_limited("192.168.1.1") is False
 
-    def test_is_rate_limited_at_threshold(self):
+    def test_is_rate_limited_at_threshold(self) -> None:
         """Test that requests at threshold are rate limited."""
         limiter = RateLimiter(max_requests=3, window_seconds=60)
         # First 3 requests should pass
@@ -45,7 +47,7 @@ class TestRateLimiter:
         # 4th request should be rate limited
         assert limiter.is_rate_limited("192.168.1.1") is True
 
-    def test_is_rate_limited_different_ips(self):
+    def test_is_rate_limited_different_ips(self) -> None:
         """Test that different IPs have independent limits."""
         limiter = RateLimiter(max_requests=2, window_seconds=60)
         # IP 1: 2 requests (at limit)
@@ -55,7 +57,7 @@ class TestRateLimiter:
         # IP 2: should still be allowed
         assert limiter.is_rate_limited("192.168.1.2") is False
 
-    def test_is_rate_limited_window_expiry(self):
+    def test_is_rate_limited_window_expiry(self) -> None:
         """Test that old requests expire from the window."""
         limiter = RateLimiter(max_requests=2, window_seconds=60)
         # Fill up the limit
@@ -65,61 +67,61 @@ class TestRateLimiter:
 
         # Simulate time passing by backdating requests
         old_time = datetime.now(timezone.utc) - timedelta(seconds=120)
-        limiter._requests["192.168.1.1"] = [old_time]
+        limiter._requests["192.168.1.1"] = [old_time]  # pyright: ignore[reportPrivateUsage]
         # Should no longer be rate limited after window expires
         assert limiter.is_rate_limited("192.168.1.1") is False
 
-    def test_cleanup_removes_expired_keys(self):
+    def test_cleanup_removes_expired_keys(self) -> None:
         """Test that cleanup removes expired entries."""
         limiter = RateLimiter(max_requests=5, window_seconds=60)
         limiter.is_rate_limited("192.168.1.1")
         limiter.is_rate_limited("192.168.1.2")
-        assert len(limiter._requests) == 2
+        assert len(limiter._requests) == 2  # pyright: ignore[reportPrivateUsage]
 
         # Backdate all requests
         old_time = datetime.now(timezone.utc) - timedelta(seconds=120)
-        limiter._requests["192.168.1.1"] = [old_time]
-        limiter._requests["192.168.1.2"] = [old_time]
+        limiter._requests["192.168.1.1"] = [old_time]  # pyright: ignore[reportPrivateUsage]
+        limiter._requests["192.168.1.2"] = [old_time]  # pyright: ignore[reportPrivateUsage]
 
         limiter.cleanup()
-        assert len(limiter._requests) == 0
+        assert len(limiter._requests) == 0  # pyright: ignore[reportPrivateUsage]
 
-    def test_cleanup_keeps_recent_keys(self):
+    def test_cleanup_keeps_recent_keys(self) -> None:
         """Test that cleanup keeps recent entries."""
         limiter = RateLimiter(max_requests=5, window_seconds=60)
         limiter.is_rate_limited("192.168.1.1")
         limiter.is_rate_limited("192.168.1.2")
-        assert len(limiter._requests) == 2
+        assert len(limiter._requests) == 2  # pyright: ignore[reportPrivateUsage]
 
         limiter.cleanup()
         # Recent requests should remain
-        assert len(limiter._requests) == 2
+        assert len(limiter._requests) == 2  # pyright: ignore[reportPrivateUsage]
 
-    def test_cleanup_removes_empty_keys(self):
+    def test_cleanup_removes_empty_keys(self) -> None:
         """Test that cleanup removes keys with empty request lists."""
         limiter = RateLimiter(max_requests=5, window_seconds=60)
-        limiter._requests["192.168.1.1"] = []
-        limiter._requests["192.168.1.2"] = [datetime.now(timezone.utc)]
+        limiter._requests["192.168.1.1"] = []  # pyright: ignore[reportPrivateUsage]
+        limiter._requests["192.168.1.2"] = [datetime.now(timezone.utc)]  # pyright: ignore[reportPrivateUsage]
 
         limiter.cleanup()
-        assert "192.168.1.1" not in limiter._requests
-        assert "192.168.1.2" in limiter._requests
+        assert "192.168.1.1" not in limiter._requests  # pyright: ignore[reportPrivateUsage]
+        assert "192.168.1.2" in limiter._requests  # pyright: ignore[reportPrivateUsage]
 
 
 class TestGetClientIP:
     """Tests for get_client_ip function."""
 
-    def _make_request(self, host, xff=None):
+    def _make_request(self, host: str, xff: Optional[str] = None) -> Any:
         """Helper to create a mock request."""
         request = MagicMock()
         request.client.host = host
-        headers = {}
+        headers: dict[str, str] = {}
         if xff:
             headers["X-Forwarded-For"] = xff
         request.headers = headers
         return request
 
-    def test_get_client_ip_no_proxy(self):
+    def test_get_client_ip_no_proxy(self) -> None:
         """Test IP extraction without proxy headers."""
         request = self._make_request("192.168.1.1")
         with patch("app.config.settings.get_settings") as mock_settings:
@@ -127,7 +129,7 @@ class TestGetClientIP:
             ip = get_client_ip(request)
             assert ip == "192.168.1.1"
 
-    def test_get_client_ip_with_trusted_proxy(self):
+    def test_get_client_ip_with_trusted_proxy(self) -> None:
         """Test IP extraction with trusted proxy."""
         request = self._make_request("10.0.0.1", xff="203.0.113.50")
         with patch("app.config.settings.get_settings") as mock_settings:
@@ -135,7 +137,7 @@ class TestGetClientIP:
             ip = get_client_ip(request)
             assert ip == "203.0.113.50"
 
-    def test_get_client_ip_ignores_xff_without_trusted_proxy(self):
+    def test_get_client_ip_ignores_xff_without_trusted_proxy(self) -> None:
         """Test that X-Forwarded-For is ignored without trusted proxy."""
         request = self._make_request("192.168.1.1", xff="203.0.113.50")
         with patch("app.config.settings.get_settings") as mock_settings:
@@ -143,7 +145,7 @@ class TestGetClientIP:
             ip = get_client_ip(request)
             assert ip == "192.168.1.1"
 
-    def test_get_client_ip_xff_first_ip(self):
+    def test_get_client_ip_xff_first_ip(self) -> None:
         """Test that first IP from X-Forwarded-For chain is used."""
         request = self._make_request("10.0.0.1", xff="203.0.113.50, 70.41.3.18, 150.172.238.178")
         with patch("app.config.settings.get_settings") as mock_settings:
@@ -151,7 +153,7 @@ class TestGetClientIP:
             ip = get_client_ip(request)
             assert ip == "203.0.113.50"
 
-    def test_get_client_ip_no_client(self):
+    def test_get_client_ip_no_client(self) -> None:
         """Test handling when request has no client."""
         request = MagicMock()
         request.client = None
@@ -165,7 +167,7 @@ class TestGetClientIP:
 class TestCheckRateLimit:
     """Tests for check_rate_limit function."""
 
-    def test_check_rate_limit_allowed(self):
+    def test_check_rate_limit_allowed(self) -> None:
         """Test that allowed requests don't raise."""
         limiter = RateLimiter(max_requests=5, window_seconds=60)
         request = MagicMock()
@@ -176,7 +178,7 @@ class TestCheckRateLimit:
             # Should not raise
             check_rate_limit(limiter, request)
 
-    def test_check_rate_limit_exceeded(self):
+    def test_check_rate_limit_exceeded(self) -> None:
         """Test that exceeded rate limit raises HTTPException."""
         limiter = RateLimiter(max_requests=2, window_seconds=60)
         request = MagicMock()

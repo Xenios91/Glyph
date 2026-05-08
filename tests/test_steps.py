@@ -5,9 +5,9 @@ This module contains tests for the individual pipeline steps.
 
 import os
 import tempfile
-from unittest.mock import MagicMock, patch
+from typing import Any
 
-import pytest
+from unittest.mock import MagicMock, patch
 
 from app.processing.pipeline import PipelineContext
 from app.processing.steps import (
@@ -18,9 +18,9 @@ from app.processing.steps import (
     FeatureExtractStep,
     TrainStep,
     PredictStep,
-    _filter_tokens,
-    _remove_comments,
-    _check_if_variable,
+    _filter_tokens,  # pyright: ignore[reportPrivateUsage]
+    _remove_comments,  # pyright: ignore[reportPrivateUsage]
+    _check_if_variable,  # pyright: ignore[reportPrivateUsage]
 )
 
 
@@ -178,7 +178,7 @@ class TestDecompileStep:
         assert step.get_name() == "DecompileStep"
 
     @patch("app.processing.ghidra_processor.analyze_binary_and_decompile")
-    async def test_execute_success(self, mock_analyze):
+    async def test_execute_success(self, mock_analyze: Any) -> None:
         """Test successful decompilation."""
         mock_analyze.return_value = {
             "functions": [{"name": "test"}],
@@ -196,7 +196,7 @@ class TestDecompileStep:
         assert result.get("functions") == [{"name": "test"}]
 
     @patch("app.processing.ghidra_processor.analyze_binary_and_decompile")
-    async def test_execute_failure(self, mock_analyze):
+    async def test_execute_failure(self, mock_analyze: Any) -> None:
         """Test failed decompilation."""
         mock_analyze.side_effect = Exception("Ghidra error")
 
@@ -356,12 +356,12 @@ class TestTrainStep:
 
     @patch("app.processing.steps.MLPersistanceUtil")
     @patch("app.processing.steps.MLTask")
-    async def test_execute_success(self, mock_ml_task, mock_persistence):
+    async def test_execute_success(self, mock_ml_task: Any, mock_persistence: Any) -> None:
         """Test successful training."""
         from unittest.mock import AsyncMock
 
         mock_pipeline = MagicMock()
-        mock_ml_task.get_multi_class_pipeline.return_value = mock_pipeline
+        mock_ml_task.get_multi_class_pipeline.return_value = mock_pipeline  # pyright: ignore[reportUnknownMemberType]
         mock_persistence.save_model = AsyncMock()
 
         step = TrainStep()
@@ -403,7 +403,7 @@ class TestPredictStep:
         assert result.error is not None
 
     @patch("app.processing.steps.MLPersistanceUtil")
-    async def test_execute_success(self, mock_persistence):
+    async def test_execute_success(self, mock_persistence: Any) -> None:
         """Test successful prediction."""
         import numpy as np
         from unittest.mock import AsyncMock

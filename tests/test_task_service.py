@@ -1,12 +1,14 @@
 """Unit tests for task service."""
+from typing import Any
+
 import queue
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from app.services.task_service import TaskService
 
 
 @pytest.fixture
-def clean_queue():
+def clean_queue() -> Any:
     """Fixture to ensure queue is empty before each test."""
     # Empty the queue before the test
     while not TaskService().service_queue.empty():
@@ -30,18 +32,18 @@ def clean_queue():
 class TestTaskService:
     """Tests for TaskService singleton and queue operations."""
 
-    def test_singleton_pattern(self, clean_queue):
+    def test_singleton_pattern(self, clean_queue: Any) -> None:
         """Test that TaskService follows singleton pattern."""
         service1 = TaskService()
         service2 = TaskService()
         assert service1 is service2
 
-    def test_service_queue_exists(self, clean_queue):
+    def test_service_queue_exists(self, clean_queue: Any) -> None:
         """Test that service_queue is initialized."""
         service = TaskService()
         assert hasattr(service, 'service_queue')
 
-    def test_service_queue_put_and_get(self, clean_queue):
+    def test_service_queue_put_and_get(self, clean_queue: Any) -> None:
         """Test that items can be put and retrieved from queue."""
         service = TaskService()
         test_item = (MagicMock(), MagicMock())
@@ -50,7 +52,7 @@ class TestTaskService:
         assert retrieved == test_item
         service.service_queue.task_done()
 
-    def test_service_queue_task_done(self, clean_queue):
+    def test_service_queue_task_done(self, clean_queue: Any) -> None:
         """Test that task_done is called after processing."""
         service = TaskService()
         test_item = (MagicMock(), MagicMock())
@@ -60,7 +62,7 @@ class TestTaskService:
         # Queue should be empty now
         assert service.service_queue.empty()
 
-    def test_task_processing_success(self, clean_queue):
+    def test_task_processing_success(self, clean_queue: Any) -> None:
         """Test that successful task processing completes without error."""
         mock_future = MagicMock()
         mock_future.result.return_value = None
@@ -71,13 +73,12 @@ class TestTaskService:
 
         task = TaskService().service_queue.get(block=False)
         # Simulate what TaskService.start_service does
-        job_uuid = task[0].uuid
         task[1].result()  # Should not raise
         TaskService().service_queue.task_done()
         
         assert TaskService().service_queue.empty()
 
-    def test_task_processing_failure_handling(self, clean_queue):
+    def test_task_processing_failure_handling(self, clean_queue: Any) -> None:
         """Test that failed task processing handles exceptions gracefully."""
         mock_future = MagicMock()
         mock_future.result.side_effect = Exception("Task failed")
@@ -87,7 +88,6 @@ class TestTaskService:
         TaskService().service_queue.put((mock_request, mock_future))
 
         task = TaskService().service_queue.get(block=False)
-        job_uuid = task[0].uuid
         
         # Simulate what TaskService.start_service does - catch the exception
         try:

@@ -27,7 +27,7 @@ from app.utils.secure_deserializer import (
 class TestSecureLoad:
     """Tests for the secure_load function."""
 
-    def test_load_valid_sklearn_pipeline(self):
+    def test_load_valid_sklearn_pipeline(self) -> None:
         """Test that valid sklearn pipelines can be loaded."""
         # Create a valid pipeline
         pipeline = Pipeline([
@@ -37,56 +37,56 @@ class TestSecureLoad:
 
         # Serialize it
         buffer = BytesIO()
-        joblib.dump(pipeline, buffer)
+        joblib.dump(pipeline, buffer)  # pyright: ignore[reportUnknownMemberType]
         buffer.seek(0)
 
         # Load it securely
         loaded = secure_load(buffer)
 
         assert isinstance(loaded, Pipeline)
-        assert len(loaded.steps) == 2
+        assert len(loaded.steps) == 2  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
 
-    def test_load_valid_numpy_array(self):
+    def test_load_valid_numpy_array(self) -> None:
         """Test that valid numpy arrays can be loaded."""
         # Create a valid numpy array
         arr = np.array([1, 2, 3, 4, 5])
 
         # Serialize it
         buffer = BytesIO()
-        joblib.dump(arr, buffer)
+        joblib.dump(arr, buffer)  # pyright: ignore[reportUnknownMemberType]
         buffer.seek(0)
 
         # Load it securely
         loaded = secure_load(buffer)
 
         assert isinstance(loaded, np.ndarray)
-        assert np.array_equal(loaded, arr)
+        assert np.array_equal(loaded, arr)  # pyright: ignore[reportUnknownArgumentType]
 
-    def test_load_valid_list(self):
+    def test_load_valid_list(self) -> None:
         """Test that valid Python lists can be loaded."""
         # Create a valid list
         data = [{'functionName': 'test', 'tokens': 'abc'}]
 
         # Serialize it
         buffer = BytesIO()
-        joblib.dump(data, buffer)
+        joblib.dump(data, buffer)  # pyright: ignore[reportUnknownMemberType]
         buffer.seek(0)
 
         # Load it securely
         loaded = secure_load(buffer)
 
         assert isinstance(loaded, list)
-        assert len(loaded) == 1
+        assert len(loaded) == 1  # pyright: ignore[reportUnknownArgumentType]
         assert loaded[0]['functionName'] == 'test'
 
-    def test_load_valid_dict(self):
+    def test_load_valid_dict(self) -> None:
         """Test that valid Python dicts can be loaded."""
         # Create a valid dict
         data = {'key': 'value', 'number': 42}
 
         # Serialize it
         buffer = BytesIO()
-        joblib.dump(data, buffer)
+        joblib.dump(data, buffer)  # pyright: ignore[reportUnknownMemberType]
         buffer.seek(0)
 
         # Load it securely
@@ -96,24 +96,24 @@ class TestSecureLoad:
         assert loaded['key'] == 'value'
         assert loaded['number'] == 42
 
-    def test_load_valid_label_encoder(self):
+    def test_load_valid_label_encoder(self) -> None:
         """Test that valid sklearn LabelEncoder can be loaded."""
         from sklearn.preprocessing import LabelEncoder
 
         # Create and fit a label encoder
         le = LabelEncoder()
-        le.fit(['cat', 'dog', 'bird'])
+        le.fit(['cat', 'dog', 'bird'])  # pyright: ignore[reportUnknownMemberType]
 
         # Serialize it
         buffer = BytesIO()
-        joblib.dump(le, buffer)
+        joblib.dump(le, buffer)  # pyright: ignore[reportUnknownMemberType]
         buffer.seek(0)
 
         # Load it securely
         loaded = secure_load(buffer)
 
         assert isinstance(loaded, LabelEncoder)
-        assert len(loaded.classes_) == 3
+        assert len(loaded.classes_) == 3  # pyright: ignore[reportUnknownMemberType, reportArgumentType]
 
 
 class TestMaliciousPayloadBlocking:
@@ -242,7 +242,7 @@ class TestEdgeCases:
         with pytest.raises(SecureDeserializationError):
             secure_load(buffer)
 
-    def test_none_allowed_classes(self):
+    def test_none_allowed_classes(self) -> None:
         """Test that None allowed_classes uses default whitelist."""
         pipeline = Pipeline([
             ('tfidf', TfidfVectorizer()),
@@ -250,19 +250,19 @@ class TestEdgeCases:
         ])
 
         buffer = BytesIO()
-        joblib.dump(pipeline, buffer)
+        joblib.dump(pipeline, buffer)  # pyright: ignore[reportUnknownMemberType]
         buffer.seek(0)
 
         # Should work with default whitelist
         loaded = secure_load(buffer, allowed_classes=None)
         assert isinstance(loaded, Pipeline)
 
-    def test_custom_allowed_classes(self):
+    def test_custom_allowed_classes(self) -> None:
         """Test that custom allowed_classes is used."""
         data = [1, 2, 3]
 
         buffer = BytesIO()
-        joblib.dump(data, buffer)
+        joblib.dump(data, buffer)  # pyright: ignore[reportUnknownMemberType]
         buffer.seek(0)
 
         # Should work with custom whitelist

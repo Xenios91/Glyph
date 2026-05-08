@@ -1,7 +1,6 @@
 """Unit tests for helper utilities."""
-import pytest
-from app.utils.helpers import ACCEPT_TYPE
 
+from app.utils.helpers import ACCEPT_TYPE
 
 class TestHelpers:
     """Tests for helper constants and functions."""

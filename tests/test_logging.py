@@ -1,18 +1,14 @@
 """Tests for logging configuration and utilities using loguru."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 from loguru import logger
 
 from app.utils.logging_config import (
     setup_logging,
     SensitiveDataPatcher,
-    setup_logging_from_config,
 )
 from app.utils.request_context import (
-    RequestContext,
     get_request_context,
     set_request_context,
     clear_request_context,

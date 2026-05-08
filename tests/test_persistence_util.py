@@ -1,4 +1,7 @@
 """Unit tests for persistence utilities including ML, prediction, and function storage."""
+
+from typing import Any
+
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
@@ -14,13 +17,13 @@ from app.services.request_handler import Prediction, PredictionRequest, Training
 class TestMLTask:
     """Tests for MLTask pipeline creation."""
 
-    def test_get_multi_class_pipeline(self):
+    def test_get_multi_class_pipeline(self) -> None:
         """Test multi-class pipeline has correct components."""
         pipeline = MLTask.get_multi_class_pipeline()
         assert pipeline is not None
-        assert len(pipeline.steps) == 2
-        assert pipeline.steps[0][0] == "preprocessor"
-        assert pipeline.steps[1][0] == "clf"
+        assert len(pipeline.steps) == 2  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+        assert pipeline.steps[0][0] == "preprocessor"  # pyright: ignore[reportUnknownMemberType]
+        assert pipeline.steps[1][0] == "clf"  # pyright: ignore[reportUnknownMemberType]
 
 
 
@@ -28,7 +31,7 @@ class TestPredictionPersistanceUtil:
     """Tests for PredictionPersistanceUtil operations."""
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_predictions_list(self, mock_sql_util):
+    async def test_get_predictions_list(self, mock_sql_util: Any) -> None:
         """Test retrieving list of predictions."""
         mock_prediction = MagicMock(spec=Prediction)
         mock_sql_util.get_predictions_list = AsyncMock(return_value=[mock_prediction])
@@ -40,7 +43,7 @@ class TestPredictionPersistanceUtil:
         mock_sql_util.get_predictions_list.assert_awaited_once()
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_predictions_success(self, mock_sql_util):
+    async def test_get_predictions_success(self, mock_sql_util: Any) -> None:
         """Test retrieving a specific prediction by task and model."""
         mock_prediction = MagicMock(spec=Prediction)
         mock_sql_util.get_predictions = AsyncMock(return_value=mock_prediction)
@@ -51,7 +54,7 @@ class TestPredictionPersistanceUtil:
         mock_sql_util.get_predictions.assert_awaited_once_with("test_task", "test_model")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_predictions_not_found(self, mock_sql_util):
+    async def test_get_predictions_not_found(self, mock_sql_util: Any) -> None:
         """Test retrieving non-existent prediction raises ValueError."""
         mock_sql_util.get_predictions = AsyncMock(return_value=None)
 
@@ -59,39 +62,39 @@ class TestPredictionPersistanceUtil:
             await PredictionPersistanceUtil.get_predictions("test_task", "test_model")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_predictions_empty_task_name(self, mock_sql_util):
+    async def test_get_predictions_empty_task_name(self, mock_sql_util: Any) -> None:
         """Test empty task name raises ValueError."""
         with pytest.raises(ValueError, match="non-empty strings"):
             await PredictionPersistanceUtil.get_predictions("", "test_model")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_predictions_empty_model_name(self, mock_sql_util):
+    async def test_get_predictions_empty_model_name(self, mock_sql_util: Any) -> None:
         """Test empty model name raises ValueError."""
         with pytest.raises(ValueError, match="non-empty strings"):
             await PredictionPersistanceUtil.get_predictions("test_task", "")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_delete_prediction(self, mock_sql_util):
+    async def test_delete_prediction(self, mock_sql_util: Any) -> None:
         """Test deleting a prediction by task name."""
         mock_sql_util.delete_prediction = AsyncMock()
         await PredictionPersistanceUtil.delete_prediction("test_task")
         mock_sql_util.delete_prediction.assert_awaited_once_with("test_task")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_delete_prediction_empty_task_name(self, mock_sql_util):
+    async def test_delete_prediction_empty_task_name(self, mock_sql_util: Any) -> None:
         """Test empty task name raises ValueError."""
         with pytest.raises(ValueError, match="non-empty string"):
             await PredictionPersistanceUtil.delete_prediction("")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_delete_model_predictions(self, mock_sql_util):
+    async def test_delete_model_predictions(self, mock_sql_util: Any) -> None:
         """Test deleting all predictions for a model."""
         mock_sql_util.delete_model_predictions = AsyncMock()
         await PredictionPersistanceUtil.delete_model_predictions("test_model")
         mock_sql_util.delete_model_predictions.assert_awaited_once_with("test_model")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_delete_model_predictions_empty_model_name(self, mock_sql_util):
+    async def test_delete_model_predictions_empty_model_name(self, mock_sql_util: Any) -> None:
         """Test empty model name raises ValueError."""
         with pytest.raises(ValueError, match="non-empty string"):
             await PredictionPersistanceUtil.delete_model_predictions("")
@@ -102,7 +105,7 @@ class TestMLPersistanceUtil:
 
     @patch("app.utils.persistence_util.SQLUtil")
     @patch("app.utils.persistence_util.joblib")
-    async def test_save_model_success(self, mock_joblib, mock_sql_util):
+    async def test_save_model_success(self, mock_joblib: Any, mock_sql_util: Any) -> None:
         """Test saving a model successfully."""
         mock_pipeline = MagicMock()
         mock_label_encoder = MagicMock()
@@ -114,26 +117,26 @@ class TestMLPersistanceUtil:
         mock_sql_util.save_model.assert_awaited_once()
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_save_model_empty_model_name(self, mock_sql_util):
+    async def test_save_model_empty_model_name(self, mock_sql_util: Any) -> None:
         """Test empty model name raises ValueError."""
         with pytest.raises(ValueError, match="model_name must be a non-empty string"):
             await MLPersistanceUtil.save_model("", MagicMock(), MagicMock())
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_save_model_none_pipeline(self, mock_sql_util):
+    async def test_save_model_none_pipeline(self, mock_sql_util: Any) -> None:
         """Test None pipeline raises RuntimeError due to serialization failure."""
         with pytest.raises(RuntimeError, match="Could not serialize model data"):
-            await MLPersistanceUtil.save_model("test_model", MagicMock(), None)
+            await MLPersistanceUtil.save_model("test_model", MagicMock(), None)  # pyright: ignore[reportArgumentType]
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_save_model_none_label_encoder(self, mock_sql_util):
+    async def test_save_model_none_label_encoder(self, mock_sql_util: Any) -> None:
         """Test None label encoder raises ValueError."""
         with pytest.raises(ValueError, match="label_encoder must not be None"):
             await MLPersistanceUtil.save_model("test_model", None, MagicMock())
 
     @patch("app.utils.persistence_util.SQLUtil")
     @patch("app.utils.persistence_util.secure_load")
-    async def test_load_model_success(self, mock_secure_load, mock_sql_util):
+    async def test_load_model_success(self, mock_secure_load: Any, mock_sql_util: Any) -> None:
         """Test loading a model successfully."""
         # Create a mock Model ORM object with attributes
         mock_model = MagicMock()
@@ -149,7 +152,7 @@ class TestMLPersistanceUtil:
         mock_sql_util.get_model.assert_awaited_once_with("test_model")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_load_model_not_found(self, mock_sql_util):
+    async def test_load_model_not_found(self, mock_sql_util: Any) -> None:
         """Test loading non-existent model raises ValueError."""
         mock_sql_util.get_model = AsyncMock(return_value=None)
 
@@ -157,14 +160,14 @@ class TestMLPersistanceUtil:
             await MLPersistanceUtil.load_model("nonexistent")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_load_model_empty_model_name(self, mock_sql_util):
+    async def test_load_model_empty_model_name(self, mock_sql_util: Any) -> None:
         """Test empty model name raises ValueError."""
         with pytest.raises(ValueError, match="model_name must be a non-empty string"):
             await MLPersistanceUtil.load_model("")
 
     @patch("app.utils.persistence_util.SQLUtil")
     @patch("app.utils.persistence_util.secure_load")
-    async def test_load_model_invalid_schema(self, mock_secure_load, mock_sql_util):
+    async def test_load_model_invalid_schema(self, mock_secure_load: Any, mock_sql_util: Any) -> None:
         """Test loading model with invalid schema raises RuntimeError."""
         mock_model = MagicMock()
         mock_model.model_data = b"model_data"
@@ -176,7 +179,7 @@ class TestMLPersistanceUtil:
             await MLPersistanceUtil.load_model("test_model")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_models_list(self, mock_sql_util):
+    async def test_get_models_list(self, mock_sql_util: Any) -> None:
         """Test retrieving list of model names."""
         mock_sql_util.get_models_list = AsyncMock(return_value={"model1", "model2"})
 
@@ -186,7 +189,7 @@ class TestMLPersistanceUtil:
         mock_sql_util.get_models_list.assert_awaited_once()
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_check_name_exists(self, mock_sql_util):
+    async def test_check_name_exists(self, mock_sql_util: Any) -> None:
         """Test checking if model name exists."""
         mock_sql_util.model_name_exists = AsyncMock(return_value=True)
 
@@ -195,7 +198,7 @@ class TestMLPersistanceUtil:
         assert result is True
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_check_name_not_exists(self, mock_sql_util):
+    async def test_check_name_not_exists(self, mock_sql_util: Any) -> None:
         """Test checking if model name does not exist."""
         mock_sql_util.model_name_exists = AsyncMock(return_value=False)
 
@@ -204,21 +207,21 @@ class TestMLPersistanceUtil:
         assert result is False
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_check_name_empty(self, mock_sql_util):
+    async def test_check_name_empty(self, mock_sql_util: Any) -> None:
         """Test checking empty model name returns False."""
         result = await MLPersistanceUtil.check_name("")
 
         assert result is False
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_delete_model(self, mock_sql_util):
+    async def test_delete_model(self, mock_sql_util: Any) -> None:
         """Test deleting a model."""
         mock_sql_util.delete_model = AsyncMock()
         await MLPersistanceUtil.delete_model("test_model")
         mock_sql_util.delete_model.assert_awaited_once_with("test_model")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_delete_model_empty_name(self, mock_sql_util):
+    async def test_delete_model_empty_name(self, mock_sql_util: Any) -> None:
         """Test deleting model with empty name raises ValueError."""
         with pytest.raises(ValueError, match="model_name must be a non-empty string"):
             await MLPersistanceUtil.delete_model("")
@@ -228,7 +231,7 @@ class TestFunctionPersistanceUtil:
     """Tests for FunctionPersistanceUtil operations."""
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_functions(self, mock_sql_util):
+    async def test_get_functions(self, mock_sql_util: Any) -> None:
         """Test retrieving functions for a model."""
         mock_functions = [MagicMock(), MagicMock()]
         mock_sql_util.get_functions = AsyncMock(return_value=mock_functions)
@@ -239,7 +242,7 @@ class TestFunctionPersistanceUtil:
         mock_sql_util.get_functions.assert_awaited_once_with("test_model")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_functions_empty_result(self, mock_sql_util):
+    async def test_get_functions_empty_result(self, mock_sql_util: Any) -> None:
         """Test retrieving functions when none exist returns empty list."""
         mock_sql_util.get_functions = AsyncMock(return_value=[])
 
@@ -248,13 +251,13 @@ class TestFunctionPersistanceUtil:
         assert result == []
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_functions_empty_model_name(self, mock_sql_util):
+    async def test_get_functions_empty_model_name(self, mock_sql_util: Any) -> None:
         """Test empty model name raises ValueError."""
         with pytest.raises(ValueError, match="model_name must be a non-empty string"):
             await FunctionPersistanceUtil.get_functions("")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_function(self, mock_sql_util):
+    async def test_get_function(self, mock_sql_util: Any) -> None:
         """Test retrieving a specific function."""
         mock_function = MagicMock()
         mock_sql_util.get_function = AsyncMock(return_value=mock_function)
@@ -265,7 +268,7 @@ class TestFunctionPersistanceUtil:
         mock_sql_util.get_function.assert_awaited_once_with("test_model", "func1")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_function_not_found(self, mock_sql_util):
+    async def test_get_function_not_found(self, mock_sql_util: Any) -> None:
         """Test non-existent function returns None."""
         mock_sql_util.get_function = AsyncMock(return_value=None)
 
@@ -274,7 +277,7 @@ class TestFunctionPersistanceUtil:
         assert result is None
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_function_empty_args(self, mock_sql_util):
+    async def test_get_function_empty_args(self, mock_sql_util: Any) -> None:
         """Test empty arguments raise ValueError."""
         with pytest.raises(ValueError, match="non-empty strings"):
             await FunctionPersistanceUtil.get_function("", "func1")
@@ -283,7 +286,7 @@ class TestFunctionPersistanceUtil:
             await FunctionPersistanceUtil.get_function("test_model", "")
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_add_model_functions(self, mock_sql_util):
+    async def test_add_model_functions(self, mock_sql_util: Any) -> None:
         """Test adding functions for a model."""
         mock_training_request = MagicMock(spec=TrainingRequest)
         mock_functions = [{"name": "func1", "tokenList": ["token1"]}]
@@ -296,13 +299,13 @@ class TestFunctionPersistanceUtil:
         mock_sql_util.save_functions.assert_awaited_once_with("test_model", mock_functions)
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_add_model_functions_none_request(self, mock_sql_util):
+    async def test_add_model_functions_none_request(self, mock_sql_util: Any) -> None:
         """Test None request raises AttributeError."""
         with pytest.raises(AttributeError, match="has no attribute 'get_functions'"):
-            await FunctionPersistanceUtil.add_model_functions(None)
+            await FunctionPersistanceUtil.add_model_functions(None)  # pyright: ignore[reportArgumentType]
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_add_prediction_functions(self, mock_sql_util):
+    async def test_add_prediction_functions(self, mock_sql_util: Any) -> None:
         """Test adding prediction functions."""
         mock_prediction_request = MagicMock(spec=PredictionRequest)
         mock_functions = [{"name": "func1"}]
@@ -317,31 +320,31 @@ class TestFunctionPersistanceUtil:
         mock_sql_util.save_predictions.assert_awaited_once()
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_add_prediction_functions_none_request(self, mock_sql_util):
+    async def test_add_prediction_functions_none_request(self, mock_sql_util: Any) -> None:
         """Test None request raises AttributeError."""
         with pytest.raises(AttributeError, match="has no attribute 'get_functions'"):
-            await FunctionPersistanceUtil.add_prediction_functions(None, ["label1"])
+            await FunctionPersistanceUtil.add_prediction_functions(None, ["label1"])  # pyright: ignore[reportArgumentType]
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_add_prediction_functions_none_predictions(self, mock_sql_util):
+    async def test_add_prediction_functions_none_predictions(self, mock_sql_util: Any) -> None:
         """Test None predictions raises AttributeError when accessing task_name."""
         mock_prediction_request = MagicMock(spec=PredictionRequest)
         mock_prediction_request.get_functions.return_value = [{"name": "func1"}]
 
         with pytest.raises(AttributeError, match="has no attribute 'task_name'"):
-            await FunctionPersistanceUtil.add_prediction_functions(mock_prediction_request, None)
+            await FunctionPersistanceUtil.add_prediction_functions(mock_prediction_request, None)  # pyright: ignore[reportArgumentType]
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_add_prediction_functions_invalid_type(self, mock_sql_util):
+    async def test_add_prediction_functions_invalid_type(self, mock_sql_util: Any) -> None:
         """Test invalid prediction type raises AttributeError when accessing task_name."""
         mock_prediction_request = MagicMock(spec=PredictionRequest)
         mock_prediction_request.get_functions.return_value = [{"name": "func1"}]
 
         with pytest.raises(AttributeError, match="has no attribute 'task_name'"):
-            await FunctionPersistanceUtil.add_prediction_functions(mock_prediction_request, "invalid")
+            await FunctionPersistanceUtil.add_prediction_functions(mock_prediction_request, "invalid")  # pyright: ignore[reportArgumentType]
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_prediction_function(self, mock_sql_util):
+    async def test_get_prediction_function(self, mock_sql_util: Any) -> None:
         """Test retrieving a prediction function."""
         mock_function = {"name": "func1", "tokens": "pred tokens"}
         mock_sql_util.get_prediction_function = AsyncMock(return_value=mock_function)
@@ -356,7 +359,7 @@ class TestFunctionPersistanceUtil:
         )
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_prediction_function_not_found(self, mock_sql_util):
+    async def test_get_prediction_function_not_found(self, mock_sql_util: Any) -> None:
         """Test non-existent prediction function raises ValueError."""
         mock_sql_util.get_prediction_function = AsyncMock(return_value={})
 
@@ -366,7 +369,7 @@ class TestFunctionPersistanceUtil:
             )
 
     @patch("app.utils.persistence_util.SQLUtil")
-    async def test_get_prediction_function_empty_args(self, mock_sql_util):
+    async def test_get_prediction_function_empty_args(self, mock_sql_util: Any) -> None:
         """Test empty arguments raise ValueError."""
         with pytest.raises(ValueError, match="non-empty strings"):
             await FunctionPersistanceUtil.get_prediction_function("", "test_model", "func1")

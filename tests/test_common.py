@@ -1,7 +1,6 @@
 """Unit tests for common utility functions."""
-import pytest
-from app.utils.common import format_code
 
+from app.utils.common import format_code
 
 class TestFormatCode:
     """Tests for format_code function."""
