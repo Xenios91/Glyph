@@ -5,49 +5,45 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
-from app.database.repository import UserRepository, APIKeyRepository, PasswordHasherService
-from app.database.session_handler import get_async_session
 from app.database.models import Base
+from app.database.repository import UserRepository, APIKeyRepository, PasswordHasherService
+from app.database.session_handler import (
+    get_async_session,
+    init_async_databases,
+    dispose_async_engines,
+    async_engines,
+    DB_TABLE_MAP,
+)  # pyright: ignore[reportPrivateUsage]
 
 
-@pytest_asyncio.fixture(scope="function")
-async def init_db() -> None:
-    """Recreate auth database tables before each test for isolation.
-
-    Drops and recreates tables so each test starts with a clean database,
-    avoiding UNIQUE constraint failures from shared test data.
-    """
-    from app.database.session_handler import async_engines, ASYNC_DATABASE_URLS, DB_TABLE_MAP, _create_engine, async_session_factories  # pyright: ignore[reportPrivateUsage]
-
-    if "auth" in async_engines:
-        await async_engines["auth"].dispose()
-        del async_engines["auth"]
-    if "auth" in async_session_factories:
-        del async_session_factories["auth"]
-
-    async_engines["auth"] = _create_engine(ASYNC_DATABASE_URLS["auth"])
-    async_session_factories["auth"] = async_sessionmaker(
-        bind=async_engines["auth"],
-        autoflush=False,
-        expire_on_commit=False,
-    )
-
+@pytest_asyncio.fixture(scope="module", autouse=True)
+async def auth_db_lifecycle():
+    """Initialize and cleanup in-memory databases for this test module."""
+    await init_async_databases()
+    # Ensure auth tables are fresh
     target_tables = DB_TABLE_MAP.get("auth")
-    if target_tables:
+    if target_tables and "auth" in async_engines:
+        async with async_engines["auth"].begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all, tables=target_tables)
+            await conn.run_sync(Base.metadata.create_all, tables=target_tables)
+    yield
+    await dispose_async_engines()
+
+
+@pytest_asyncio.fixture
+async def db() -> Any:
+    """Create a test database session for the auth database.
+
+    Drops and recreates auth tables before each test for isolation,
+    then yields a fresh AsyncSession. Session is closed after each test.
+    """
+    # Reset auth tables for test isolation
+    target_tables = DB_TABLE_MAP.get("auth")
+    if target_tables and "auth" in async_engines:
         async with async_engines["auth"].begin() as conn:
             await conn.run_sync(Base.metadata.drop_all, tables=target_tables)
             await conn.run_sync(Base.metadata.create_all, tables=target_tables)
 
-
-@pytest_asyncio.fixture
-async def db(init_db: Any) -> Any:
-    """Create a test database session.
-
-    Yields an AsyncSession for the auth database. Session is closed
-    after each test.
-    """
     session = await get_async_session("auth")
     try:
         yield session

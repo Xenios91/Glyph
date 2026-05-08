@@ -1,34 +1,36 @@
 """Unit tests for SQL database operations using SQLAlchemy ORM."""
 from typing import Any
 
-import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
 
+from app.database.models import Base
 from app.database.session_handler import (
     get_async_session,
     close_async_session,
     init_async_databases,
     dispose_async_engines,
+    async_engines,
+    DB_TABLE_MAP,
 )
 from app.database.sql_service import SQLUtil
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
-async def init_db():
-    """Initialize async databases before tests and clean up after."""
+async def sql_db_lifecycle():
+    """Initialize and cleanup in-memory databases for this test module."""
     await init_async_databases()
+    # Ensure tables are fresh
+    for db_name, engine in async_engines.items():
+        target_tables = DB_TABLE_MAP.get(db_name)
+        if target_tables:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all, tables=target_tables)
+                await conn.run_sync(Base.metadata.create_all, tables=target_tables)
     yield
     await dispose_async_engines()
-    # Clean up database files
-    for db_file in ["data/models.db", "data/predictions.db", "data/functions.db", "data/auth.db"]:
-        for suffix in ["", "-wal", "-shm"]:
-            try:
-                os.remove(f"{db_file}{suffix}")
-            except FileNotFoundError:
-                pass
 
 
 class TestSQLUtilInitDB:

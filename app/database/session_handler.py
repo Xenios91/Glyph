@@ -9,13 +9,32 @@ from sqlalchemy.pool import StaticPool
 from app.database.models import Base, Model, Prediction, Function, User, APIKey
 from loguru import logger
 
-# Async engines and sessions (for auth module)
-ASYNC_DATABASE_URLS: dict[str, str] = {
+# Default database URLs - can be overridden via set_database_urls()
+_DEFAULT_ASYNC_DATABASE_URLS: dict[str, str] = {
     "models": "sqlite+aiosqlite:///data/models.db",
     "predictions": "sqlite+aiosqlite:///data/predictions.db",
     "functions": "sqlite+aiosqlite:///data/functions.db",
     "auth": "sqlite+aiosqlite:///data/auth.db",  # New database for auth
 }
+
+# Async engines and sessions (for auth module)
+ASYNC_DATABASE_URLS: dict[str, str] = _DEFAULT_ASYNC_DATABASE_URLS.copy()
+
+
+def set_database_urls(urls: dict[str, str]) -> None:
+    """Override database URLs (primarily for testing with in-memory databases).
+
+    Args:
+        urls: Dictionary mapping database names to connection URLs.
+    """
+    ASYNC_DATABASE_URLS.clear()
+    ASYNC_DATABASE_URLS.update(urls)
+
+
+def reset_database_urls() -> None:
+    """Reset database URLs to defaults."""
+    ASYNC_DATABASE_URLS.clear()
+    ASYNC_DATABASE_URLS.update(_DEFAULT_ASYNC_DATABASE_URLS)
 
 # Map each database to the tables it should contain.
 # This prevents Base.metadata.create_all from creating every table

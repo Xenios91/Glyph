@@ -5,6 +5,16 @@ from unittest import mock
 import pytest
 
 
+# In-memory database URLs for testing.
+# Each database uses a unique URI so they remain separate in-memory databases.
+IN_MEMORY_DATABASE_URLS: dict[str, str] = {
+    "models": "sqlite+aiosqlite:///file:mem_models?mode=memory&cache=shared",
+    "predictions": "sqlite+aiosqlite:///file:mem_predictions?mode=memory&cache=shared",
+    "functions": "sqlite+aiosqlite:///file:mem_functions?mode=memory&cache=shared",
+    "auth": "sqlite+aiosqlite:///file:mem_auth?mode=memory&cache=shared",
+}
+
+
 def pytest_configure(config: Any) -> None:
     """Mocks the Ghidra/Java world so pytest can collect tests safely."""
     mock_modules: list[str] = [
@@ -14,6 +24,10 @@ def pytest_configure(config: Any) -> None:
     ]
     for mod in mock_modules:
         sys.modules[mod] = mock.MagicMock()
+
+    # Switch to in-memory databases for all tests.
+    from app.database.session_handler import set_database_urls
+    set_database_urls(IN_MEMORY_DATABASE_URLS)
 
 
 @pytest.fixture(autouse=True)
