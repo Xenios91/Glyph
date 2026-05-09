@@ -36,6 +36,15 @@ def server() -> Any:
     env = os.environ.copy()
     env["GLYPH_JWT_SECRET_KEY"] = "test-secret-key-for-playwright-testing"
     env["GLYPH_DATABASE_URL"] = "sqlite+aiosqlite:///./test_playwright.db"
+    # Set generous rate limits for testing (100 requests per 60 seconds)
+    env["GLYPH_RATE_LIMIT_LOGIN_MAX"] = "100"
+    env["GLYPH_RATE_LIMIT_LOGIN_WINDOW"] = "60"
+    env["GLYPH_RATE_LIMIT_REGISTER_MAX"] = "100"
+    env["GLYPH_RATE_LIMIT_REGISTER_WINDOW"] = "60"
+    env["GLYPH_RATE_LIMIT_PASSWORD_CHANGE_MAX"] = "100"
+    env["GLYPH_RATE_LIMIT_PASSWORD_CHANGE_WINDOW"] = "60"
+    env["GLYPH_RATE_LIMIT_REFRESH_MAX"] = "100"
+    env["GLYPH_RATE_LIMIT_REFRESH_WINDOW"] = "60"
     
     process = subprocess.Popen(
         [sys.executable, "main.py"],

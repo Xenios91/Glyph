@@ -19,6 +19,9 @@ function initLoginForm() {
     
     if (!form) return;
     
+    // Mark form as initialized for testing
+    form.setAttribute('data-initialized', 'true');
+    
     // Password visibility toggle
     if (toggleBtn && passwordInput) {
         toggleBtn.addEventListener('click', () => {

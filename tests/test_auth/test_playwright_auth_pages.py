@@ -35,9 +35,18 @@ def wait_for_server(url: str, timeout: int = 30) -> None:
 @pytest.fixture(scope="session")
 def server() -> Any:
     """Start the FastAPI server for testing."""
-    # Use sys.executable to get the correct Python interpreter
     env = os.environ.copy()
     env["GLYPH_JWT_SECRET_KEY"] = "test-secret-key-for-playwright"
+    env["GLYPH_DATABASE_URL"] = "sqlite+aiosqlite:///./test_playwright_auth.db"
+    # Set generous rate limits for testing
+    env["GLYPH_RATE_LIMIT_LOGIN_MAX"] = "100"
+    env["GLYPH_RATE_LIMIT_LOGIN_WINDOW"] = "60"
+    env["GLYPH_RATE_LIMIT_REGISTER_MAX"] = "100"
+    env["GLYPH_RATE_LIMIT_REGISTER_WINDOW"] = "60"
+    env["GLYPH_RATE_LIMIT_PASSWORD_CHANGE_MAX"] = "100"
+    env["GLYPH_RATE_LIMIT_PASSWORD_CHANGE_WINDOW"] = "60"
+    env["GLYPH_RATE_LIMIT_REFRESH_MAX"] = "100"
+    env["GLYPH_RATE_LIMIT_REFRESH_WINDOW"] = "60"
     process = subprocess.Popen(
         [sys.executable, "main.py"],
         cwd="/workspaces/Glyph",
@@ -46,7 +55,15 @@ def server() -> Any:
     wait_for_server(BASE_URL)
     yield process
     process.terminate()
-    process.wait(timeout=10)
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+    # Clean up test database
+    db_path = "/workspaces/Glyph/test_playwright_auth.db"
+    if os.path.exists(db_path):
+        os.remove(db_path)
 
 
 def test_login_page_loads(page: Any, server: Any) -> None:

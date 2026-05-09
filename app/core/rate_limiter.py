@@ -4,6 +4,7 @@ Provides in-memory rate limiting to protect against brute-force attacks
 on login, registration, and password change endpoints.
 """
 
+import os
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -22,6 +23,10 @@ class RateLimiter:
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self._requests: dict[str, list[datetime]] = defaultdict(list)
+
+    def reset(self) -> None:
+        """Reset all rate limit tracking data. Useful for testing."""
+        self._requests.clear()
 
     def is_rate_limited(self, key: str) -> bool:
         """Check if a key (IP address) has exceeded the rate limit.
@@ -103,8 +108,21 @@ def check_rate_limit(limiter: RateLimiter, request: Any) -> None:
         )
 
 
+# Allow rate limits to be overridden via environment variables for testing
+def _get_rate_limit(max_requests: int, window_seconds: int, env_prefix: str) -> tuple[int, int]:
+    """Get rate limit values, allowing environment variable overrides."""
+    env_max = os.environ.get(f"GLYPH_RATE_LIMIT_{env_prefix}_MAX")
+    env_window = os.environ.get(f"GLYPH_RATE_LIMIT_{env_prefix}_WINDOW")
+    return int(env_max) if env_max else max_requests, int(env_window) if env_window else window_seconds
+
+
 # Rate limiters for different endpoints
-login_limiter = RateLimiter(max_requests=10, window_seconds=60)
-register_limiter = RateLimiter(max_requests=5, window_seconds=300)
-password_change_limiter = RateLimiter(max_requests=5, window_seconds=300)
-refresh_limiter = RateLimiter(max_requests=10, window_seconds=60)
+_login_max, _login_window = _get_rate_limit(10, 60, "LOGIN")
+_register_max, _register_window = _get_rate_limit(5, 300, "REGISTER")
+_password_max, _password_window = _get_rate_limit(5, 300, "PASSWORD_CHANGE")
+_refresh_max, _refresh_window = _get_rate_limit(10, 60, "REFRESH")
+
+login_limiter = RateLimiter(max_requests=_login_max, window_seconds=_login_window)
+register_limiter = RateLimiter(max_requests=_register_max, window_seconds=_register_window)
+password_change_limiter = RateLimiter(max_requests=_password_max, window_seconds=_password_window)
+refresh_limiter = RateLimiter(max_requests=_refresh_max, window_seconds=_refresh_window)

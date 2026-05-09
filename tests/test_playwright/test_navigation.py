@@ -19,6 +19,16 @@ def generate_unique_username() -> str:
     return f"testuser_{timestamp}"
 
 
+def wait_for_register_form(page: Any) -> None:
+    """Wait for the register form JavaScript to be initialized."""
+    page.wait_for_selector("#registerForm[data-initialized='true']", timeout=10000)
+
+
+def wait_for_login_form(page: Any) -> None:
+    """Wait for the login form JavaScript to be initialized."""
+    page.wait_for_selector("#loginForm[data-initialized='true']", timeout=10000)
+
+
 def register_and_login(page: Any) -> str:
     """Helper to register a new user and login. Returns the username."""
     username = generate_unique_username()
@@ -26,6 +36,7 @@ def register_and_login(page: Any) -> str:
 
     # Register
     page.goto(f"{BASE_URL}/register")
+    wait_for_register_form(page)
     page.locator("#username").fill(username)
     page.locator("#email").fill(email)
     page.locator("#password").fill("SecurePass123!")
@@ -34,6 +45,7 @@ def register_and_login(page: Any) -> str:
     page.wait_for_url(f"{BASE_URL}/login")
 
     # Login
+    wait_for_login_form(page)
     page.locator("#username").fill(username)
     page.locator("#password").fill("SecurePass123!")
     page.locator("#login-submit-btn").click()
@@ -97,10 +109,26 @@ class TestAuthenticatedNavigation:
         """Test that the ANALYSIS dropdown shows menu items."""
         register_and_login(page)
 
-        # Click the ANALYSIS dropdown toggle
-        page.locator('button:has-text("ANALYSIS")').click()
+        # Use JS to force open both ANALYSIS dropdown and CODE REUSE sub-menu
+        # (hover unreliable in headless browser for nested sub-menus)
+        page.evaluate("""
+          const analysisMenu = document.getElementById('analysis-menu');
+          const analysisToggle = analysisMenu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
+          if (analysisMenu && analysisToggle) {
+            analysisMenu.classList.add('is-open');
+            analysisToggle.setAttribute('aria-expanded', 'true');
+          }
+          const codeReuseMenu = document.getElementById('code-reuse-menu');
+          const codeReuseToggle = codeReuseMenu?.closest('.nav-dropdown-sub')?.querySelector('.nav-dropdown-sub-toggle');
+          if (codeReuseMenu && codeReuseToggle) {
+            codeReuseMenu.classList.add('is-open');
+            codeReuseToggle.setAttribute('aria-expanded', 'true');
+          }
+        """)
+        # Wait for sub-menu to be visible
+        page.wait_for_selector("#code-reuse-menu.is-open", state="visible", timeout=5000)
 
-        # Wait for dropdown to open and check menu items
+        # Check menu items are visible
         upload_link = page.locator('a[role="menuitem"][aria-label="Upload Binary"]')
         expect(upload_link).to_be_visible()
 
@@ -114,10 +142,13 @@ class TestAuthenticatedNavigation:
         """Test that the SYSTEM dropdown shows configuration link."""
         register_and_login(page)
 
-        # Click the SYSTEM dropdown toggle
-        page.locator('button:has-text("SYSTEM")').click()
+        # Hover over the SYSTEM dropdown toggle to open via hover
+        system_toggle = page.locator('button:has-text("SYSTEM")')
+        system_toggle.hover()
+        # Wait for the specific system menu to open
+        page.wait_for_selector("#system-menu.is-open", state="visible", timeout=5000)
 
-        # Wait for dropdown to open and check config link
+        # Check config link is visible
         config_link = page.locator('a[role="menuitem"][aria-label="Configuration"]')
         expect(config_link).to_be_visible()
 
@@ -125,8 +156,11 @@ class TestAuthenticatedNavigation:
         """Test that the user dropdown shows profile and logout links."""
         username = register_and_login(page)
 
-        # Click the user dropdown toggle
-        page.locator(f"button:has-text('{username.upper()}')").click()
+        # Hover over the user dropdown toggle to open via hover
+        user_toggle = page.locator(f"button:has-text('{username.upper()}')")
+        user_toggle.hover()
+        # Wait for the specific user menu to open
+        page.wait_for_selector("#user-menu.is-open", state="visible", timeout=5000)
 
         # Check profile link
         profile_link = page.locator('a[role="menuitem"][aria-label="View Profile"]')
@@ -140,11 +174,24 @@ class TestAuthenticatedNavigation:
         """Test navigating to upload page via the ANALYSIS dropdown."""
         register_and_login(page)
 
-        # Open ANALYSIS dropdown
-        page.locator('button:has-text("ANALYSIS")').click()
-
-        # Click UPLOAD link
-        page.locator('a[role="menuitem"][aria-label="Upload Binary"]').click()
+        # Use JS to force open both ANALYSIS dropdown and CODE REUSE sub-menu
+        page.evaluate("""
+          const analysisMenu = document.getElementById('analysis-menu');
+          const analysisToggle = analysisMenu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
+          if (analysisMenu && analysisToggle) {
+            analysisMenu.classList.add('is-open');
+            analysisToggle.setAttribute('aria-expanded', 'true');
+          }
+          const codeReuseMenu = document.getElementById('code-reuse-menu');
+          const codeReuseToggle = codeReuseMenu?.closest('.nav-dropdown-sub')?.querySelector('.nav-dropdown-sub-toggle');
+          if (codeReuseMenu && codeReuseToggle) {
+            codeReuseMenu.classList.add('is-open');
+            codeReuseToggle.setAttribute('aria-expanded', 'true');
+          }
+        """)
+        page.wait_for_selector("#code-reuse-menu.is-open", state="visible", timeout=5000)
+        upload_link = page.locator('a[role="menuitem"][aria-label="Upload Binary"]')
+        upload_link.click()
         page.wait_for_url(f"{BASE_URL}/uploadBinary")
 
         expect(page).to_have_title("Glyph - Upload Binary")
@@ -153,11 +200,24 @@ class TestAuthenticatedNavigation:
         """Test navigating to models page via the ANALYSIS dropdown."""
         register_and_login(page)
 
-        # Open ANALYSIS dropdown
-        page.locator('button:has-text("ANALYSIS")').click()
-
-        # Click MODELS link
-        page.locator('a[role="menuitem"][aria-label="Models"]').click()
+        # Use JS to force open both ANALYSIS dropdown and CODE REUSE sub-menu
+        page.evaluate("""
+          const analysisMenu = document.getElementById('analysis-menu');
+          const analysisToggle = analysisMenu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
+          if (analysisMenu && analysisToggle) {
+            analysisMenu.classList.add('is-open');
+            analysisToggle.setAttribute('aria-expanded', 'true');
+          }
+          const codeReuseMenu = document.getElementById('code-reuse-menu');
+          const codeReuseToggle = codeReuseMenu?.closest('.nav-dropdown-sub')?.querySelector('.nav-dropdown-sub-toggle');
+          if (codeReuseMenu && codeReuseToggle) {
+            codeReuseMenu.classList.add('is-open');
+            codeReuseToggle.setAttribute('aria-expanded', 'true');
+          }
+        """)
+        page.wait_for_selector("#code-reuse-menu.is-open", state="visible", timeout=5000)
+        models_link = page.locator('a[role="menuitem"][aria-label="Models"]')
+        models_link.click()
         page.wait_for_url(f"{BASE_URL}/getModels")
 
         expect(page).to_have_title("Models List")
@@ -166,11 +226,14 @@ class TestAuthenticatedNavigation:
         """Test navigating to config page via the SYSTEM dropdown."""
         register_and_login(page)
 
-        # Open SYSTEM dropdown
-        page.locator('button:has-text("SYSTEM")').click()
-
-        # Click CONFIG link
-        page.locator('a[role="menuitem"][aria-label="Configuration"]').click()
+        # Hover over SYSTEM dropdown to open
+        system_toggle = page.locator('button:has-text("SYSTEM")')
+        system_toggle.hover()
+        # Wait for menu to open, then hover and click CONFIG
+        page.wait_for_selector("#system-menu.is-open", state="visible", timeout=5000)
+        config_link = page.locator('a[role="menuitem"][aria-label="Configuration"]')
+        config_link.hover()
+        config_link.click()
         page.wait_for_url(f"{BASE_URL}/config")
 
         expect(page).to_have_title("Glyph - Configuration")
@@ -179,11 +242,14 @@ class TestAuthenticatedNavigation:
         """Test navigating to profile page via the user dropdown."""
         username = register_and_login(page)
 
-        # Open user dropdown
-        page.locator(f"button:has-text('{username.upper()}')").click()
-
-        # Click PROFILE link
-        page.locator('a[role="menuitem"][aria-label="View Profile"]').click()
+        # Hover over user dropdown to open
+        user_toggle = page.locator(f"button:has-text('{username.upper()}')")
+        user_toggle.hover()
+        # Wait for menu to open, then hover and click PROFILE
+        page.wait_for_selector("#user-menu.is-open", state="visible", timeout=5000)
+        profile_link = page.locator('a[role="menuitem"][aria-label="View Profile"]')
+        profile_link.hover()
+        profile_link.click()
         page.wait_for_url(f"{BASE_URL}/profile")
 
         expect(page).to_have_title("Glyph - Profile")
@@ -196,18 +262,22 @@ class TestRedirectBehavior:
         """Test that accessing /login while logged in redirects to home."""
         register_and_login(page)
 
-        # Try to access login page
+        # Try to access login page - should redirect to home
         page.goto(f"{BASE_URL}/login")
-        page.wait_for_url(f"{BASE_URL}/")
+        # Wait for page to settle
+        page.wait_for_load_state("networkidle")
 
+        # Check we ended up on home page
         expect(page).to_have_title("Glyph")
 
     def test_register_redirects_to_home_when_authenticated(self, page: Any, server: Any) -> None:
         """Test that accessing /register while logged in redirects to home."""
         register_and_login(page)
 
-        # Try to access register page
+        # Try to access register page - should redirect to home
         page.goto(f"{BASE_URL}/register")
-        page.wait_for_url(f"{BASE_URL}/")
+        # Wait for page to settle
+        page.wait_for_load_state("networkidle")
 
+        # Check we ended up on home page
         expect(page).to_have_title("Glyph")

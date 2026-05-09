@@ -28,6 +28,9 @@ function initRegisterForm() {
     
     if (!form) return;
     
+    // Mark form as initialized for testing
+    form.setAttribute('data-initialized', 'true');
+    
     // Real-time validation for username (min 3 characters)
     setupFieldValidation(usernameInput, value => value.length >= 3);
     

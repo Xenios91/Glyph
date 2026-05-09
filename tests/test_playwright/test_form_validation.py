@@ -19,12 +19,23 @@ def generate_unique_username() -> str:
     return f"testuser_{timestamp}"
 
 
+def wait_for_register_form(page: Any) -> None:
+    """Wait for the register form JavaScript to be initialized."""
+    page.wait_for_selector("#registerForm[data-initialized='true']", timeout=10000)
+
+
+def wait_for_login_form(page: Any) -> None:
+    """Wait for the login form JavaScript to be initialized."""
+    page.wait_for_selector("#loginForm[data-initialized='true']", timeout=10000)
+
+
 class TestLoginFormValidation:
     """Tests for login form validation."""
 
     def test_login_form_requires_username(self, page: Any, server: Any) -> None:
         """Test that login form requires a username."""
         page.goto(f"{BASE_URL}/login")
+        wait_for_login_form(page)
 
         # Leave username empty, fill password only
         page.locator("#password").fill("SomePassword123!")
@@ -36,6 +47,7 @@ class TestLoginFormValidation:
     def test_login_form_requires_password(self, page: Any, server: Any) -> None:
         """Test that login form requires a password."""
         page.goto(f"{BASE_URL}/login")
+        wait_for_login_form(page)
 
         # Fill username only, leave password empty
         page.locator("#username").fill("testuser")
@@ -47,6 +59,7 @@ class TestLoginFormValidation:
     def test_login_form_shows_error_on_invalid_credentials(self, page: Any, server: Any) -> None:
         """Test that login form shows error message on invalid credentials."""
         page.goto(f"{BASE_URL}/login")
+        wait_for_login_form(page)
 
         page.locator("#username").fill("invalid_user")
         page.locator("#password").fill("WrongPassword123!")
@@ -76,6 +89,7 @@ class TestRegisterFormValidation:
     def test_register_form_requires_username(self, page: Any, server: Any) -> None:
         """Test that registration form requires a username."""
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
 
         # Fill all fields except username
         page.locator("#email").fill("test@example.com")
@@ -89,6 +103,7 @@ class TestRegisterFormValidation:
     def test_register_form_requires_email(self, page: Any, server: Any) -> None:
         """Test that registration form requires an email."""
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
 
         # Fill all fields except email
         username = generate_unique_username()
@@ -103,6 +118,7 @@ class TestRegisterFormValidation:
     def test_register_form_requires_password(self, page: Any, server: Any) -> None:
         """Test that registration form requires a password."""
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
 
         # Fill all fields except password
         username = generate_unique_username()
@@ -117,6 +133,7 @@ class TestRegisterFormValidation:
     def test_register_form_passwords_must_match(self, page: Any, server: Any) -> None:
         """Test that registration form requires matching passwords."""
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
 
         username = generate_unique_username()
         page.locator("#username").fill(username)
@@ -150,6 +167,7 @@ class TestRegisterFormValidation:
     def test_register_form_username_min_length(self, page: Any, server: Any) -> None:
         """Test that registration form enforces minimum username length."""
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
 
         # Try username with less than 3 characters
         page.locator("#username").fill("ab")
@@ -164,6 +182,7 @@ class TestRegisterFormValidation:
     def test_register_form_password_min_length(self, page: Any, server: Any) -> None:
         """Test that registration form enforces minimum password length."""
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
 
         username = generate_unique_username()
         page.locator("#username").fill(username)
@@ -187,6 +206,7 @@ class TestProfileFormValidation:
 
         # Register
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(email)
         page.locator("#full_name").fill(full_name)
@@ -196,6 +216,7 @@ class TestProfileFormValidation:
         page.wait_for_url(f"{BASE_URL}/login")
 
         # Login
+        wait_for_login_form(page)
         page.locator("#username").fill(username)
         page.locator("#password").fill("SecurePass123!")
         page.locator("#login-submit-btn").click()
@@ -215,6 +236,7 @@ class TestProfileFormValidation:
 
         # Register and login
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(email)
         page.locator("#password").fill("SecurePass123!")
@@ -222,6 +244,7 @@ class TestProfileFormValidation:
         page.locator("#register-submit-btn").click()
         page.wait_for_url(f"{BASE_URL}/login")
 
+        wait_for_login_form(page)
         page.locator("#username").fill(username)
         page.locator("#password").fill("SecurePass123!")
         page.locator("#login-submit-btn").click()

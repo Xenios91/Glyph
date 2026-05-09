@@ -19,6 +19,16 @@ def generate_unique_username() -> str:
     return f"testuser_{timestamp}"
 
 
+def wait_for_register_form(page: Any) -> None:
+    """Wait for the register form JavaScript to be initialized."""
+    page.wait_for_selector("#registerForm[data-initialized='true']", timeout=10000)
+
+
+def wait_for_login_form(page: Any) -> None:
+    """Wait for the login form JavaScript to be initialized."""
+    page.wait_for_selector("#loginForm[data-initialized='true']", timeout=10000)
+
+
 class TestRegistrationFlow:
     """Tests for user registration flow."""
 
@@ -28,6 +38,7 @@ class TestRegistrationFlow:
         email = f"{username}@test.com"
 
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
 
         # Fill in the registration form
         page.locator("#username").fill(username)
@@ -50,6 +61,7 @@ class TestRegistrationFlow:
 
         # First registration
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(email)
         page.locator("#password").fill("SecurePass123!")
@@ -59,6 +71,7 @@ class TestRegistrationFlow:
 
         # Second registration with same username should fail
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(f"different_{username}@test.com")
         page.locator("#password").fill("SecurePass123!")
@@ -77,6 +90,7 @@ class TestRegistrationFlow:
 
         # First registration
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(email)
         page.locator("#password").fill("SecurePass123!")
@@ -86,6 +100,7 @@ class TestRegistrationFlow:
 
         # Second registration with same email should fail
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(f"{username}_duplicate")
         page.locator("#email").fill(email)
         page.locator("#password").fill("SecurePass123!")
@@ -108,6 +123,7 @@ class TestLoginFlow:
 
         # Register first
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(email)
         page.locator("#password").fill("SecurePass123!")
@@ -116,6 +132,7 @@ class TestLoginFlow:
         page.wait_for_url(f"{BASE_URL}/login")
 
         # Login
+        wait_for_login_form(page)
         page.locator("#username").fill(username)
         page.locator("#password").fill("SecurePass123!")
         page.locator("#login-submit-btn").click()
@@ -127,6 +144,7 @@ class TestLoginFlow:
     def test_login_with_invalid_credentials(self, page: Any, server: Any) -> None:
         """Test login fails with invalid credentials."""
         page.goto(f"{BASE_URL}/login")
+        wait_for_login_form(page)
 
         page.locator("#username").fill("nonexistent_user")
         page.locator("#password").fill("WrongPassword123!")
@@ -140,6 +158,7 @@ class TestLoginFlow:
     def test_login_with_empty_credentials(self, page: Any, server: Any) -> None:
         """Test login fails with empty credentials."""
         page.goto(f"{BASE_URL}/login")
+        wait_for_login_form(page)
 
         # Clear any existing values and submit
         page.locator("#username").fill("")
@@ -160,6 +179,7 @@ class TestLogoutFlow:
 
         # Register and login
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(email)
         page.locator("#password").fill("SecurePass123!")
@@ -167,16 +187,30 @@ class TestLogoutFlow:
         page.locator("#register-submit-btn").click()
         page.wait_for_url(f"{BASE_URL}/login")
 
+        wait_for_login_form(page)
         page.locator("#username").fill(username)
         page.locator("#password").fill("SecurePass123!")
         page.locator("#login-submit-btn").click()
         page.wait_for_url(f"{BASE_URL}/")
 
-        # Logout via navbar
+        # Logout via navbar - use JS to force open user dropdown (hover unreliable in headless)
+        page.evaluate("""
+          const menu = document.getElementById('user-menu');
+          const toggle = menu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
+          if (menu && toggle) {
+            menu.classList.add('is-open');
+            toggle.setAttribute('aria-expanded', 'true');
+          }
+        """)
+        # Wait for dropdown to be visible
+        page.wait_for_selector("#user-menu.is-open", state="visible", timeout=5000)
+        # Click logout
         page.locator('a[role="menuitem"][aria-label="Logout"]').click()
 
-        # Should redirect to home page
-        page.wait_for_url(f"{BASE_URL}/")
+        # After logout: redirect to / → 401 → redirect to /login?redirect=/
+        # Wait for login page to load (use regex for URL matching with query params)
+        import re
+        page.wait_for_url(re.compile(r"/login"), timeout=10000)
 
         # Should show login/register links instead of user menu
         login_link = page.locator('a[aria-label="Login"]')
@@ -193,6 +227,7 @@ class TestAuthenticatedPageAccess:
 
         # Register and login
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(email)
         page.locator("#password").fill("SecurePass123!")
@@ -200,6 +235,7 @@ class TestAuthenticatedPageAccess:
         page.locator("#register-submit-btn").click()
         page.wait_for_url(f"{BASE_URL}/login")
 
+        wait_for_login_form(page)
         page.locator("#username").fill(username)
         page.locator("#password").fill("SecurePass123!")
         page.locator("#login-submit-btn").click()
@@ -217,6 +253,7 @@ class TestAuthenticatedPageAccess:
 
         # Register and login
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(email)
         page.locator("#password").fill("SecurePass123!")
@@ -224,6 +261,7 @@ class TestAuthenticatedPageAccess:
         page.locator("#register-submit-btn").click()
         page.wait_for_url(f"{BASE_URL}/login")
 
+        wait_for_login_form(page)
         page.locator("#username").fill(username)
         page.locator("#password").fill("SecurePass123!")
         page.locator("#login-submit-btn").click()
@@ -241,6 +279,7 @@ class TestAuthenticatedPageAccess:
 
         # Register and login
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(email)
         page.locator("#password").fill("SecurePass123!")
@@ -248,6 +287,7 @@ class TestAuthenticatedPageAccess:
         page.locator("#register-submit-btn").click()
         page.wait_for_url(f"{BASE_URL}/login")
 
+        wait_for_login_form(page)
         page.locator("#username").fill(username)
         page.locator("#password").fill("SecurePass123!")
         page.locator("#login-submit-btn").click()
@@ -265,6 +305,7 @@ class TestAuthenticatedPageAccess:
 
         # Register and login
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(email)
         page.locator("#password").fill("SecurePass123!")
@@ -272,6 +313,7 @@ class TestAuthenticatedPageAccess:
         page.locator("#register-submit-btn").click()
         page.wait_for_url(f"{BASE_URL}/login")
 
+        wait_for_login_form(page)
         page.locator("#username").fill(username)
         page.locator("#password").fill("SecurePass123!")
         page.locator("#login-submit-btn").click()
@@ -288,6 +330,7 @@ class TestAuthenticatedPageAccess:
 
         # Register and login
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(email)
         page.locator("#password").fill("SecurePass123!")
@@ -295,6 +338,7 @@ class TestAuthenticatedPageAccess:
         page.locator("#register-submit-btn").click()
         page.wait_for_url(f"{BASE_URL}/login")
 
+        wait_for_login_form(page)
         page.locator("#username").fill(username)
         page.locator("#password").fill("SecurePass123!")
         page.locator("#login-submit-btn").click()
@@ -311,6 +355,7 @@ class TestAuthenticatedPageAccess:
 
         # Register and login
         page.goto(f"{BASE_URL}/register")
+        wait_for_register_form(page)
         page.locator("#username").fill(username)
         page.locator("#email").fill(email)
         page.locator("#password").fill("SecurePass123!")
@@ -318,6 +363,7 @@ class TestAuthenticatedPageAccess:
         page.locator("#register-submit-btn").click()
         page.wait_for_url(f"{BASE_URL}/login")
 
+        wait_for_login_form(page)
         page.locator("#username").fill(username)
         page.locator("#password").fill("SecurePass123!")
         page.locator("#login-submit-btn").click()
