@@ -5,7 +5,7 @@ certifi==2026.2.25
 click==8.3.1
 dnspython==2.8.0
 email-validator==2.3.0
-fastapi==0.135.1
+fastapi==0.136.1
 fastapi-cli==0.0.24
 fastapi-cloud-cli==0.15.0
 fastar==0.9.0
@@ -41,7 +41,7 @@ rich-toolkit==0.19.7
 rignore==0.7.6
 scikit-learn==1.8.0
 scipy==1.17.1
-sentry-sdk==2.55.0
+sentry-sdk==2.59.0
 shellingham==1.5.4
 SQLAlchemy>=2.0.48,<2.2
 starlette==0.52.1
@@ -49,8 +49,8 @@ threadpoolctl==3.6.0
 typer==0.24.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
-urllib3==2.6.3
-uvicorn==0.42.0
+urllib3==2.7.0
+uvicorn==0.46.0
 uvloop==0.22.1
 watchfiles==1.1.1
 websockets==16.0
