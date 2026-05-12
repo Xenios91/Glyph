@@ -1,70 +1,57 @@
-"""Rate limiting utilities for authentication endpoints.
+"""Rate limiting configuration using slowapi.
 
-Provides in-memory rate limiting to protect against brute-force attacks
-on login, registration, and password change endpoints.
+Provides rate limiting for authentication endpoints to protect against
+brute-force attacks. Uses slowapi with a custom key function that respects
+trusted proxy configuration for accurate client IP extraction.
+
+Rate limits can be overridden via environment variables:
+    GLYPH_RATE_LIMIT_LOGIN_MAX (default: 10)
+    GLYPH_RATE_LIMIT_LOGIN_WINDOW (default: 60)
+    GLYPH_RATE_LIMIT_REGISTER_MAX (default: 5)
+    GLYPH_RATE_LIMIT_REGISTER_WINDOW (default: 300)
+    GLYPH_RATE_LIMIT_PASSWORD_CHANGE_MAX (default: 5)
+    GLYPH_RATE_LIMIT_PASSWORD_CHANGE_WINDOW (default: 300)
+    GLYPH_RATE_LIMIT_REFRESH_MAX (default: 10)
+    GLYPH_RATE_LIMIT_REFRESH_WINDOW (default: 60)
 """
 
 import os
-from collections import defaultdict
-from datetime import datetime, timedelta, timezone
-from typing import Any
 
-from fastapi import HTTPException, status
+from fastapi import Request
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
 
 
-class RateLimiter:
-    """Simple in-memory rate limiter for authentication endpoints.
+def _build_rate_limit(max_requests: int, window_seconds: int, env_prefix: str) -> str:
+    """Build a slowapi rate limit string, allowing environment variable overrides.
 
-    Tracks request counts per IP address within a sliding time window.
-    When the threshold is exceeded, returns HTTP 429 Too Many Requests.
+    Args:
+        max_requests: Default maximum requests allowed.
+        window_seconds: Default window size in seconds.
+        env_prefix: Environment variable prefix for overrides.
+
+    Returns:
+        Rate limit string in slowapi format (e.g., "10/minute", "5/5 minutes").
     """
+    env_max = os.environ.get(f"GLYPH_RATE_LIMIT_{env_prefix}_MAX")
+    env_window = os.environ.get(f"GLYPH_RATE_LIMIT_{env_prefix}_WINDOW")
 
-    def __init__(self, max_requests: int = 10, window_seconds: int = 60) -> None:
-        self.max_requests = max_requests
-        self.window_seconds = window_seconds
-        self._requests: dict[str, list[datetime]] = defaultdict(list)
+    max_req = int(env_max) if env_max else max_requests
+    window = int(env_window) if env_window else window_seconds
 
-    def reset(self) -> None:
-        """Reset all rate limit tracking data. Useful for testing."""
-        self._requests.clear()
-
-    def is_rate_limited(self, key: str) -> bool:
-        """Check if a key (IP address) has exceeded the rate limit.
-
-        Args:
-            key: The identifier to check (usually IP address).
-
-        Returns:
-            True if the key is rate limited, False otherwise.
-        """
-        now = datetime.now(timezone.utc)
-        window_start = now - timedelta(seconds=self.window_seconds)
-
-        # Clean up old entries
-        self._requests[key] = [
-            t for t in self._requests[key] if t > window_start
-        ]
-
-        if len(self._requests[key]) >= self.max_requests:
-            return True
-
-        self._requests[key].append(now)
-        return False
-
-    def cleanup(self) -> None:
-        """Remove expired entries to prevent memory leaks."""
-        now = datetime.now(timezone.utc)
-        window_start = now - timedelta(seconds=self.window_seconds)
-        expired_keys = [
-            key for key, times in self._requests.items()
-            if not times or all(t <= window_start for t in times)
-        ]
-        for key in expired_keys:
-            del self._requests[key]
+    # Convert to human-readable slowapi format
+    if window == 60:
+        return f"{max_req}/minute"
+    elif window == 300:
+        return f"{max_req}/5 minutes"
+    elif window == 3600:
+        return f"{max_req}/hour"
+    else:
+        return f"{max_req}/{window} seconds"
 
 
-def get_client_ip(request: Any) -> str:
-    """Extract client IP from request, considering trusted proxy headers.
+def rate_limit_key_func(request: Request) -> str:
+    """Extract client IP for rate limiting, respecting trusted proxies.
 
     Only trusts X-Forwarded-For when the direct connection is from a
     configured trusted proxy. Otherwise uses the direct socket peer address.
@@ -76,8 +63,8 @@ def get_client_ip(request: Any) -> str:
         Client IP address string.
     """
     from app.config.settings import get_settings
-    settings = get_settings()
 
+    settings = get_settings()
     client = getattr(request, "client", None)
     direct_ip = client.host if client and hasattr(client, "host") else "unknown"
 
@@ -90,39 +77,23 @@ def get_client_ip(request: Any) -> str:
     return direct_ip
 
 
-def check_rate_limit(limiter: RateLimiter, request: Any) -> None:
-    """Check rate limit for a request and raise HTTPException if exceeded.
+# Create limiter with custom key function for proxy support
+limiter = Limiter(key_func=rate_limit_key_func)
 
-    Args:
-        limiter: RateLimiter instance to check against.
-        request: FastAPI request object.
 
-    Raises:
-        HTTPException: If rate limit is exceeded.
+# --- Rate limit definitions per endpoint ---
+# These match the original in-house rate limiter defaults.
+
+LOGIN_LIMIT = _build_rate_limit(10, 60, "LOGIN")
+REGISTER_LIMIT = _build_rate_limit(5, 300, "REGISTER")
+PASSWORD_CHANGE_LIMIT = _build_rate_limit(5, 300, "PASSWORD_CHANGE")
+REFRESH_LIMIT = _build_rate_limit(10, 60, "REFRESH")
+
+
+def get_rate_limit_exceeded_handler() -> RateLimitExceeded:
+    """Return the RateLimitExceeded exception class for handler registration.
+
+    Returns:
+        The RateLimitExceeded class from slowapi.
     """
-    client_ip = get_client_ip(request)
-    if limiter.is_rate_limited(client_ip):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many requests. Please try again later."
-        )
-
-
-# Allow rate limits to be overridden via environment variables for testing
-def _get_rate_limit(max_requests: int, window_seconds: int, env_prefix: str) -> tuple[int, int]:
-    """Get rate limit values, allowing environment variable overrides."""
-    env_max = os.environ.get(f"GLYPH_RATE_LIMIT_{env_prefix}_MAX")
-    env_window = os.environ.get(f"GLYPH_RATE_LIMIT_{env_prefix}_WINDOW")
-    return int(env_max) if env_max else max_requests, int(env_window) if env_window else window_seconds
-
-
-# Rate limiters for different endpoints
-_login_max, _login_window = _get_rate_limit(10, 60, "LOGIN")
-_register_max, _register_window = _get_rate_limit(5, 300, "REGISTER")
-_password_max, _password_window = _get_rate_limit(5, 300, "PASSWORD_CHANGE")
-_refresh_max, _refresh_window = _get_rate_limit(10, 60, "REFRESH")
-
-login_limiter = RateLimiter(max_requests=_login_max, window_seconds=_login_window)
-register_limiter = RateLimiter(max_requests=_register_max, window_seconds=_register_window)
-password_change_limiter = RateLimiter(max_requests=_password_max, window_seconds=_password_window)
-refresh_limiter = RateLimiter(max_requests=_refresh_max, window_seconds=_refresh_window)
+    return RateLimitExceeded

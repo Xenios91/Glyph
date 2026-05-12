@@ -10,8 +10,12 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from markupsafe import escape
 
+from asgi_correlation_id import CorrelationIdMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 from app.core.lifespan import lifespan
-from app.core.request_tracing import RequestIDMiddleware
+from app.core.rate_limiter import limiter
 from app.api.router import api_router
 from app.web.endpoints.web import router as web_router
 from app.auth.endpoints import router as auth_router
@@ -111,15 +115,28 @@ def create_app() -> FastAPI:
     app.add_middleware(GZipMiddleware, minimum_size=1000)
     logger.info("Middleware registered: GZipMiddleware")
 
-    # Add Request ID tracing middleware (must be first to capture all requests)
-    # Respect the request_tracing.enabled config option
+    # Add Correlation ID tracing middleware (must be first to capture all requests)
+    # Uses asgi-correlation-id library for request ID generation and propagation.
+    # Security: Default validator enforces UUID4 format to prevent ID injection.
     from app.config.settings import get_settings
     settings = get_settings()
     if settings.logging.request_tracing.enabled:
-        app.add_middleware(RequestIDMiddleware)
-        logger.info("Middleware registered: RequestIDMiddleware")
+        # Bridge middleware must be added BEFORE CorrelationIdMiddleware so that
+        # CorrelationId runs first (inner middleware), then Bridge reads the
+        # updated headers and propagates to Glyph request context.
+        from app.core.correlation_bridge import CorrelationIdBridgeMiddleware
+        app.add_middleware(CorrelationIdBridgeMiddleware)
+        app.add_middleware(CorrelationIdMiddleware, header_name="X-Request-ID")
+        logger.info("Middleware registered: CorrelationIdMiddleware (asgi-correlation-id)")
+        logger.info("Middleware registered: CorrelationIdBridgeMiddleware")
     else:
-        logger.info("RequestIDMiddleware disabled via config")
+        logger.info("CorrelationIdMiddleware disabled via config")
+
+    # Register slowapi for rate limiting
+    # Uses custom key function that respects trusted proxy configuration.
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    logger.info("Rate limiter registered: slowapi")
 
     # Add Content Security Policy headers (pure ASGI, no threading)
     app.add_middleware(CSPMiddleware)
@@ -131,9 +148,10 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[],
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization"],
+        allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
         allow_credentials=False,
         max_age=86400,
+        expose_headers=["X-Request-ID"],
     )
     logger.info("Middleware registered: CORSMiddleware")
 

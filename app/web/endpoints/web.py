@@ -13,6 +13,7 @@ from app.utils.common import format_code, build_prediction_details_response
 from app.templates import templates  # Shared Jinja2Templates instance
 from loguru import logger
 from app.auth.dependencies import get_current_active_user, get_optional_user, get_db, get_jwt_handler
+from app.core.rate_limiter import limiter, REGISTER_LIMIT
 from app.auth.jwt_handler import JWTHandler
 from app.database.repository import UserRepository
 from app.database.models import User
@@ -330,6 +331,7 @@ async def register_page(
 
 
 @router.post("/register", response_model=None)
+@limiter.limit(REGISTER_LIMIT)
 async def register_submit(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)]
@@ -337,7 +339,6 @@ async def register_submit(
     """
     Handles registration form submission (POST).
     """
-    from app.core.rate_limiter import check_rate_limit, register_limiter
     from app.auth.security_logger import log_user_registration
 
     # Handle both JSON and form-urlencoded submissions
@@ -351,9 +352,6 @@ async def register_submit(
     email = str(body.get("email", ""))
     password = str(body.get("password", ""))
     full_name = str(body.get("full_name", ""))
-
-    # Rate limit registration attempts
-    check_rate_limit(register_limiter, request)
 
     user_repo = UserRepository(db)
 

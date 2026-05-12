@@ -38,11 +38,11 @@ from app.auth.schemas import (
 from app.config.settings import get_settings
 from app.database.models import User
 from app.core.rate_limiter import (
-    check_rate_limit,
-    login_limiter,
-    register_limiter,
-    password_change_limiter,
-    refresh_limiter,
+    limiter,
+    LOGIN_LIMIT,
+    REGISTER_LIMIT,
+    PASSWORD_CHANGE_LIMIT,
+    REFRESH_LIMIT,
 )
 
 
@@ -50,6 +50,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(REGISTER_LIMIT)
 async def register(
     request: Request,
     user_data: UserRegister,
@@ -68,9 +69,6 @@ async def register(
     Raises:
         HTTPException: If username or email already exists
     """
-    # Rate limit registration attempts
-    check_rate_limit(register_limiter, request)
-    
     user_repo = UserRepository(db)
 
     # Check if username exists
@@ -109,6 +107,7 @@ async def register(
 
 
 @router.post("/token")
+@limiter.limit(LOGIN_LIMIT)
 async def login(
     request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
@@ -132,9 +131,6 @@ async def login(
     Raises:
         HTTPException: If credentials are invalid
     """
-    # Rate limit login attempts
-    check_rate_limit(login_limiter, request)
-
     # Get client info for logging
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
@@ -223,6 +219,7 @@ async def login(
 
 
 @router.post("/refresh")
+@limiter.limit(REFRESH_LIMIT)
 async def refresh_token(
     request: Request,
     token_request: RefreshTokenRequest,
@@ -243,9 +240,6 @@ async def refresh_token(
     Raises:
         HTTPException: If refresh token is invalid
     """
-    # Rate limit token refresh attempts
-    check_rate_limit(refresh_limiter, request)
-    
     ip_address = request.client.host if request.client else None
     try:
         payload = jwt_handler.verify_refresh_token(token_request.refresh_token)
@@ -359,6 +353,7 @@ async def get_current_user_info(
 
 
 @router.post("/change-password")
+@limiter.limit(PASSWORD_CHANGE_LIMIT)
 async def change_password(
     request: Request,
     password_data: ChangePassword,
@@ -379,9 +374,6 @@ async def change_password(
     Raises:
         HTTPException: If current password is incorrect
     """
-    # Rate limit password change attempts
-    check_rate_limit(password_change_limiter, request)
-    
     ip_address = request.client.host if request.client else None
     user_repo = UserRepository(db)
 

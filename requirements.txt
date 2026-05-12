@@ -58,6 +58,10 @@ websockets==16.0
 # Logging
 loguru>=0.7.3
 
+# Middleware
+asgi-correlation-id>=4.3.4
+slowapi>=0.1.9
+
 # Authentication
 argon2-cffi==25.1.0
 argon2-cffi-bindings==21.2.0

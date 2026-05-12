@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config.settings import GlyphSettings
-from app.core.rate_limiter import get_client_ip
+from app.core.rate_limiter import rate_limit_key_func as get_client_ip
 from app.utils.secure_deserializer import BLOCKED_BUILTINS
 from app.auth.schemas import UserRegister, ChangePassword
 from app.auth.security_logger import _login_failure_tracker, is_blocked  # pyright: ignore[reportPrivateUsage]
