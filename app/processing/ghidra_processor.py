@@ -139,6 +139,10 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list[Any]]:
 def analyze_binary_and_decompile(binary_path: str) -> dict[str, list[Any]]:
     """Analyze a binary file and return decompiled functions.
 
+    Opens the program with auto-analysis disabled, then runs analysis
+    synchronously to avoid background threads outliving the context manager
+    and producing 'File is closed' errors.
+
     Args:
         binary_path: Path to the binary file to analyze.
 
@@ -154,7 +158,19 @@ def analyze_binary_and_decompile(binary_path: str) -> dict[str, list[Any]]:
     if not pyghidra.started():
         pyghidra.start()
 
-    with pyghidra.open_program(binary_path, project_location="/tmp/") as flat_api:
+    with pyghidra.open_program(binary_path, project_location="/tmp/", analyze=False) as flat_api:
         program = flat_api.getCurrentProgram()
+
+        # Run analysis synchronously to avoid background threads racing
+        # with the context manager exit (ClosedException: File is closed).
+        try:
+            from ghidra.program.util import GhidraProgramUtilities  # type: ignore[import-not-found]
+            if GhidraProgramUtilities.shouldAskToAnalyze(program):
+                flat_api.analyzeAll(program)
+        except ImportError:
+            # Fallback: if GhidraProgramUtilities is unavailable,
+            # analyze anyway to ensure functions are detected.
+            flat_api.analyzeAll(program)
+
         return decompile_all_functions(None, program)
 
