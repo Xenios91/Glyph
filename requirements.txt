@@ -55,7 +55,7 @@ watchfiles==1.1.1
 websockets==16.0
 
 # Authentication
-authlib==1.7.0
+authlib==1.7.1
 argon2-cffi==25.1.0
 argon2-cffi-bindings==21.2.0
 bcrypt==5.0.0
