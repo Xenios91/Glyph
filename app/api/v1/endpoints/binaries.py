@@ -279,11 +279,8 @@ async def _run_pipeline_analysis(
     finally:
         # Clean up the task from the active registry after a delay
         # so the final status is still available for a brief window
-        import asyncio
-        async def _cleanup() -> None:
-            await asyncio.sleep(10)
-            TaskManager.remove_task(task_uuid)
-        asyncio.create_task(_cleanup())
+        import threading
+        threading.Timer(10, TaskManager.remove_task, args=[task_uuid]).start()
         clear_request_context()
 
 

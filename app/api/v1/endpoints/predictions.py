@@ -137,6 +137,15 @@ async def predict_tokens(
     data = request_values.model_dump()
     task_name = data.get("taskName", "")
 
+    # Validate task name is provided and non-empty before checking uniqueness
+    if not task_name or not task_name.strip():
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="TASK_NAME_REQUIRED",
+                error_message="taskName is required for predictions").model_dump())
+    task_name = task_name.strip()
+
     # Validate that task name is unique
     if not await PredictionPersistanceUtil.is_task_name_unique(task_name):
         raise HTTPException(
@@ -190,7 +199,13 @@ async def get_prediction(
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE not in accept:
         return create_success_response(
-            data={"prediction": prediction.__dict__},
+            data={
+                "prediction": {
+                    "task_name": prediction.task_name,
+                    "model_name": prediction.model_name,
+                    "predictions": prediction.predictions
+                }
+            },
             message="Prediction retrieved successfully")
 
     return templates.TemplateResponse(

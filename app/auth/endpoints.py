@@ -317,10 +317,6 @@ async def logout(
         username=current_user.username,
         ip_address=ip_address)
     
-    response = Response()
-    response.delete_cookie("access_token_cookie")
-    response.delete_cookie("refresh_token_cookie")
-    
     # Check if this is a web request (HTML) or API request
     accept = request.headers.get("Accept", "")
     if "text/html" in accept:
@@ -330,12 +326,13 @@ async def logout(
         redirect.delete_cookie("access_token_cookie")
         redirect.delete_cookie("refresh_token_cookie")
         return redirect
-    
-    # Return JSON for API requests
-    return Response(
-        content='{"message": "Logged out successfully"}',
-        media_type="application/json"
-    )
+
+    # Return JSON for API requests with cookies deleted
+    from fastapi.responses import JSONResponse
+    json_response = JSONResponse(content={"message": "Logged out successfully"})
+    json_response.delete_cookie("access_token_cookie")
+    json_response.delete_cookie("refresh_token_cookie")
+    return json_response
 
 
 @router.get("/me", response_model=UserResponse)

@@ -53,13 +53,13 @@ async function deleteSelectedModels() {
     if (!confirmed) return;
 
     try {
-        const response = await authenticatedFetch('/api/v1/models/deleteModels', {
+        const queryString = modelNames.map(encodeURIComponent).join(',');
+        const response = await authenticatedFetch(
+            `/api/v1/models/deleteModels?model_names=${queryString}`, {
             method: 'DELETE',
             headers: {
-                'Content-Type': 'application/json',
                 'Accept': 'application/json'
-            },
-            body: JSON.stringify({ model_names: modelNames })
+            }
         });
 
         const data = await response.json();

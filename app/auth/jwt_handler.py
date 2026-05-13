@@ -146,7 +146,7 @@ class JWTHandler:
             DecodeError: If the token cannot be decoded
         """
         try:
-            decoded = jwt.decode(token, self._key)
+            decoded = jwt.decode(token, self._key, algorithms=[self.algorithm])
             
             # Verify token type
             if decoded.claims.get("type") != "access":
@@ -180,7 +180,7 @@ class JWTHandler:
             DecodeError: If the token cannot be decoded
         """
         try:
-            decoded = jwt.decode(token, self._key)
+            decoded = jwt.decode(token, self._key, algorithms=[self.algorithm])
             
             # Verify token type
             if decoded.claims.get("type") != "refresh":
@@ -214,7 +214,7 @@ class JWTHandler:
             DecodeError: If the token cannot be decoded
         """
         try:
-            decoded = jwt.decode(token, self._key)
+            decoded = jwt.decode(token, self._key, algorithms=[self.algorithm])
             
             # Check expiration (joserfc version used does not support claims_options)
             self._check_expiration(dict(decoded.claims))

@@ -46,6 +46,7 @@ class EventWatcher:
         if self._initialized:
             return
         self._initialized = True
+        self._data_lock = threading.Lock()
         self._callbacks: dict[str, Callable[[Any, Any], None]] = {}
         self._watched_futures: dict[str, tuple[Any, Future[None], CapturedContext | None]] = {}
         self._watching: bool = False
@@ -70,8 +71,9 @@ class EventWatcher:
             future: The Future object to monitor for completion.
             captured_ctx: Captured request context from the originating thread.
         """
-        self._callbacks[job_uuid] = callback
-        self._watched_futures[job_uuid] = (request, future, captured_ctx)
+        with self._data_lock:
+            self._callbacks[job_uuid] = callback
+            self._watched_futures[job_uuid] = (request, future, captured_ctx)
         logger.debug("Registered callback for job {}", job_uuid)
 
     def start_watching(self) -> None:
@@ -110,56 +112,71 @@ class EventWatcher:
         # Type guard: _stop_event is set in start_watching before this loop runs
         assert self._stop_event is not None
         while self._watching and not self._stop_event.is_set():
-            # Get all futures we're watching
-            if not self._watched_futures:
-                # No futures to watch, wait before checking again
+            # Snapshot watched futures under lock to avoid race conditions
+            # with register_callback() calling from the main thread.
+            futures_only: list[Future[None]] = []
+            with self._data_lock:
+                if self._watched_futures:
+                    futures_only = [
+                        task[1] for task in self._watched_futures.values()
+                    ]
+
+            if not futures_only:
+                # No futures to watch - sleep outside the lock to avoid
+                # blocking register_callback().
                 time.sleep(2.5)
                 continue
 
-            # Extract futures for waiting
-            futures_only: list[Future[None]] = [
-                task[1] for task in self._watched_futures.values()
-            ]
-
-            # Wait for any future to complete
+            # Wait for any future to complete (outside the lock to avoid
+            # blocking register_callback while waiting for I/O).
             done, _ = wait(futures_only, timeout=2.5, return_when=FIRST_COMPLETED)
 
             for future in done:
-                # Find the corresponding job_uuid and request
-                for job_uuid, task in self._watched_futures.items():
-                    if task[1] is future:
-                        request = task[0]
-                        # Invoke registered callback
-                        if job_uuid in self._callbacks:
-                            captured_ctx = task[2]
-                            try:
-                                # Restore request context from the snapshot captured
-                                # on the originating request thread
-                                if captured_ctx is not None:
-                                    restore_request_context(
-                                        captured_ctx, override_task_id=job_uuid)
-                                self._callbacks[job_uuid](request, future)
-                                logger.debug(
-                                    "Callback invoked for job {}",
-                                    job_uuid)
-                            except Exception:
-                                logger.exception(
-                                    "Callback failed for job {}", job_uuid)
-                            finally:
-                                clear_request_context()
-                        if (
-                            self._watched_futures.get(job_uuid)
-                            and self._watched_futures[job_uuid][1] is future
-                        ):
-                            del self._watched_futures[job_uuid]
-                            logger.debug("Cleaned up job {}", job_uuid)
-                        else:
-                            logger.debug(
-                                "Job {} re-registered by callback, keeping alive",
-                                job_uuid)
+                # Lookup job_uuid, callback, and task data under lock.
+                with self._data_lock:
+                    target_uuid: str | None = None
+                    target_task: tuple[Any, Future[None], CapturedContext | None] | None = None
+                    target_callback: Callable[[Any, Any], None] | None = None
 
-                        break
-            # Wait before next iteration to avoid busy-looping
+                    for job_uuid, task in self._watched_futures.items():
+                        if task[1] is future:
+                            target_uuid = job_uuid
+                            target_task = task
+                            target_callback = self._callbacks.get(job_uuid)
+                            break
+
+                    if target_uuid is None or target_task is None:
+                        continue
+
+                # Invoke callback outside the lock to prevent deadlocks.
+                if target_callback is not None:
+                    request = target_task[0]
+                    captured_ctx = target_task[2]
+                    try:
+                        if captured_ctx is not None:
+                            restore_request_context(
+                                captured_ctx, override_task_id=target_uuid)
+                        target_callback(request, future)
+                        logger.debug("Callback invoked for job {}", target_uuid)
+                    except Exception:
+                        logger.exception(
+                            "Callback failed for job {}", target_uuid)
+                    finally:
+                        clear_request_context()
+
+                # Clean up or keep alive under lock.
+                with self._data_lock:
+                    if (
+                        self._watched_futures.get(target_uuid)
+                        and self._watched_futures[target_uuid][1] is future
+                    ):
+                        del self._watched_futures[target_uuid]
+                        logger.debug("Cleaned up job {}", target_uuid)
+                    else:
+                        logger.debug(
+                            "Job {} re-registered by callback, keeping alive",
+                            target_uuid)
+
             time.sleep(0.5)
 
         logger.info("EventWatcher watch loop stopped")
@@ -182,9 +199,12 @@ class TaskManager:
             cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
             # Register cleanup handlers
             atexit.register(cls._shutdown_executor)
-            # Register signal handlers for graceful shutdown
-            signal.signal(signal.SIGTERM, cls._signal_handler)
-            signal.signal(signal.SIGINT, cls._signal_handler)
+            # Register signal handlers for graceful shutdown (only from main thread).
+            # signal.signal() raises ValueError when called from a non-main thread,
+            # which can happen during testing or certain deployment scenarios.
+            if threading.current_thread() is threading.main_thread():
+                signal.signal(signal.SIGTERM, cls._signal_handler)
+                signal.signal(signal.SIGINT, cls._signal_handler)
 
     def __new__(cls) -> "TaskManager":
         """Create or return the singleton instance of TaskManager."""

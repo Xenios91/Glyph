@@ -1,4 +1,4 @@
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, cast
 
 
 from loguru import logger
@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, File
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.responses import Response
 from markupsafe import escape
 
 from asgi_correlation_id import CorrelationIdMiddleware
@@ -93,12 +94,12 @@ class CachedStaticFiles(StaticFiles):
         super().__init__(*args, **kwargs)
         self.cache_control_max_age = 86400  # 24 hours
 
-    async def get_response(self, path: str, scope: Any) -> FileResponse:
+    async def get_response(self, path: str, scope: Any) -> Response:
         response = await super().get_response(path, scope)
         if isinstance(response, FileResponse):
             response.headers["Cache-Control"] = f"public, max-age={self.cache_control_max_age}"
             response.headers["Immutable"] = "true"
-        return response  # type: ignore[return-value]
+        return cast(Response, response)
 
 
 # --- Create Application ---

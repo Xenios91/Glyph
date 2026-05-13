@@ -169,11 +169,23 @@ def get_request_context() -> RequestContext:
     return RequestContext()
 
 
+# Sentinel to distinguish "not provided" from "explicitly set to None".
+class _UnsetSentinel:
+    """Sentinel class used as default to detect whether a kwarg was provided."""
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "<UNSET>"
+
+
+_UNSET = _UnsetSentinel()
+
+
 def set_request_context(
-    request_id: str | None = None,
-    user_id: int | None = None,
-    username: str | None = None,
-    task_id: str | None = None,
+    request_id: str | None | _UnsetSentinel = _UNSET,
+    user_id: int | None | _UnsetSentinel = _UNSET,
+    username: str | None | _UnsetSentinel = _UNSET,
+    task_id: str | None | _UnsetSentinel = _UNSET,
     clear_unset: bool = False) -> None:
     """Set the current request context.
 
@@ -182,23 +194,26 @@ def set_request_context(
         user_id: User ID if authenticated.
         username: Username if authenticated.
         task_id: Task ID for background tasks.
-        clear_unset: If True, clear any fields not explicitly provided.
-                     If False (default), only update the fields provided.
+        clear_unset: If True, first clear all fields to None, then apply
+            only the fields explicitly provided. This preserves any values
+            not overridden (unlike the previous behavior which cleared
+            everything to None). If False (default), only update the fields
+            provided.
     """
     if clear_unset:
-        _request_id_var.set(request_id)
-        _user_id_var.set(user_id)
-        _username_var.set(username)
-        _task_id_var.set(task_id)
-    else:
-        if request_id is not None:
-            _request_id_var.set(request_id)
-        if user_id is not None:
-            _user_id_var.set(user_id)
-        if username is not None:
-            _username_var.set(username)
-        if task_id is not None:
-            _task_id_var.set(task_id)
+        _request_id_var.set(None)
+        _user_id_var.set(None)
+        _username_var.set(None)
+        _task_id_var.set(None)
+
+    if request_id is not _UNSET:
+        _request_id_var.set(request_id)  # pyright: ignore[reportArgumentType]
+    if user_id is not _UNSET:
+        _user_id_var.set(user_id)  # pyright: ignore[reportArgumentType]
+    if username is not _UNSET:
+        _username_var.set(username)  # pyright: ignore[reportArgumentType]
+    if task_id is not _UNSET:
+        _task_id_var.set(task_id)  # pyright: ignore[reportArgumentType]
 
 
 def clear_request_context() -> None:

@@ -170,8 +170,8 @@ async def get_prediction_details(
         if not prediction_data:
             raise HTTPException(status_code=404, detail="Prediction not found")
 
-        # model_info is a dict with keys: model_name, function_name, entrypoint, tokens
-        model_tokens = format_code(model_info.get("tokens", ""))
+        # model_info is a Function ORM object with attributes: model_name, function_name, entrypoint, tokens
+        model_tokens = format_code(getattr(model_info, "tokens", ""))
         prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
     except HTTPException:

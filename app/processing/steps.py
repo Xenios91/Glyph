@@ -396,8 +396,8 @@ class TrainStep(PipelineStep):
         filtered_functions = context.get("filtered_functions")
         tokens = context.get("tokens")
 
-        if filtered_functions is None:
-            context.error = "No filtered functions found in context"
+        if not filtered_functions:
+            context.error = "No filtered functions available for training"
             return context
 
         if tokens is None:

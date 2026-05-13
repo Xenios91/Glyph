@@ -177,6 +177,7 @@ class TestPredictionsRouter:
             def __init__(self) -> None:
                 self.task_name = "test_task"
                 self.model_name = "test_model"
+                self.predictions = [{"functionName": "test_func", "predictedLabel": "test_label"}]
 
         mock_prediction = SimplePrediction()
         mock_pred_persistance.get_predictions = AsyncMock(return_value=mock_prediction)

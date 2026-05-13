@@ -61,9 +61,11 @@ class PredictionPersistanceUtil:
         Raises:
             ValueError: If task_name or model_name is empty, or prediction not found.
         """
-        if not task_name or not model_name:
+        if not task_name.strip() or not model_name.strip():
             raise ValueError("task_name and model_name must be non-empty strings")
-        prediction: Prediction | None = await SQLUtil.get_predictions(task_name, model_name)
+        prediction: Prediction | None = await SQLUtil.get_predictions(
+            task_name.strip(), model_name.strip()
+        )
         if prediction is None:
             raise ValueError(
                 f"Prediction for task '{task_name}' with model '{model_name}' not found."
@@ -108,9 +110,9 @@ class PredictionPersistanceUtil:
         Returns:
             True if the task name is unique, False if it already exists.
         """
-        if not task_name:
+        if not task_name.strip():
             raise ValueError("task_name must be a non-empty string")
-        return not await SQLUtil.task_name_exists(task_name)
+        return not await SQLUtil.task_name_exists(task_name.strip())
 
 
 class MLPersistanceUtil:

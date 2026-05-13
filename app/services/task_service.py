@@ -33,12 +33,17 @@ class TaskService:
         This method simply manages the queue lifecycle.
         """
         while True:
-            item: tuple[Any, Any] = cls.service_queue.get(block=True)
-            task = item[0]
-            captured_ctx = item[1]
-            job_uuid: str = task.uuid
-            # Restore request context from the snapshot captured on the request thread
-            restore_request_context(captured_ctx, override_task_id=job_uuid)
-            logger.debug(
-                "Job queued: {}", job_uuid)
-            clear_request_context()
+            try:
+                item: tuple[Any, Any] = cls.service_queue.get(block=True)
+                task = item[0]
+                captured_ctx = item[1]
+                job_uuid: str = task.uuid
+                # Restore request context from the snapshot captured on the request thread
+                restore_request_context(captured_ctx, override_task_id=job_uuid)
+                logger.debug(
+                    "Job queued: {}", job_uuid)
+                clear_request_context()
+            finally:
+                # Always mark the task as done to prevent queue.join() from
+                # blocking forever and to keep the unfinished_task count accurate.
+                cls.service_queue.task_done()
