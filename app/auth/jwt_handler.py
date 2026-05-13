@@ -1,6 +1,8 @@
 """JWT handler using joserfc for token generation and verification.
 
 Uses joserfc library (recommended replacement for deprecated authlib.jose).
+Claims validation is performed via JWTClaimsRegistry per the official
+joserfc documentation, which validates exp/nbf/iat automatically.
 """
 
 import base64
@@ -9,11 +11,13 @@ from typing import Any
 
 from joserfc import jwt
 from joserfc.jwk import OctKey
+from joserfc.jwt import JWTClaimsRegistry
 from joserfc.errors import (
     JoseError,
     InvalidTokenError as JoserfcInvalidTokenError,
     DecodeError as JoserfcDecodeError,
-    BadSignatureError as JoserfcBadSignatureError)
+    BadSignatureError as JoserfcBadSignatureError,
+    ClaimError as JoserfcClaimError)
 
 from loguru import logger
 
@@ -119,42 +123,53 @@ class JWTHandler:
         logger.debug("Refresh token created for subject {}", subject)
         return token
     
-    def _check_expiration(self, claims: dict[str, Any]) -> None:
-        """Check if the token has expired.
-        
+    def _validate_claims(self, claims: dict[str, Any]) -> None:
+        """Validate JWT claims using JWTClaimsRegistry.
+
+        Uses the official joserfc JWTClaimsRegistry which provides built-in
+        validation for exp (expiration), nbf (not before), and iat (issued at)
+        claims per RFC 7519.
+
+        Per the joserfc documentation:
+        - jwt.decode() only verifies the signature, NOT claims
+        - JWTClaimsRegistry must be used separately to validate claims
+        - It raises ExpiredTokenError, InvalidClaimError, etc.
+
         Args:
-            claims: The token claims
-            
+            claims: The decoded token claims dictionary.
+
         Raises:
-            InvalidTokenError: If the token has expired
+            InvalidTokenError: If any claim validation fails.
         """
-        exp = claims.get("exp")
-        if exp and datetime.now(timezone.utc).timestamp() > exp:
-            raise InvalidTokenError("Token has expired")
-    
+        registry = JWTClaimsRegistry()
+        try:
+            registry.validate(claims)
+        except JoserfcClaimError as e:
+            raise InvalidTokenError(str(e)) from e
+
     def verify_access_token(self, token: str) -> dict[str, Any]:
         """Verify and decode an access token.
-        
+
         Args:
-            token: The JWT access token to verify
-            
+            token: The JWT access token to verify.
+
         Returns:
-            Decoded token payload as a dictionary
-            
+            Decoded token payload as a dictionary.
+
         Raises:
-            InvalidTokenError: If the token is invalid or expired
-            DecodeError: If the token cannot be decoded
+            InvalidTokenError: If the token is invalid or expired.
+            DecodeError: If the token cannot be decoded.
         """
         try:
             decoded = jwt.decode(token, self._key, algorithms=[self.algorithm])
-            
+
             # Verify token type
             if decoded.claims.get("type") != "access":
                 raise InvalidTokenError("Token is not an access token")
-            
-            # Check expiration (joserfc version used does not support claims_options)
-            self._check_expiration(dict(decoded.claims))
-            
+
+            # Validate claims (exp, nbf, iat) via JWTClaimsRegistry
+            self._validate_claims(dict(decoded.claims))
+
             logger.debug("Access token verified for subject {}", decoded.claims.get("sub"))
             return dict(decoded.claims)
         except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
@@ -165,30 +180,30 @@ class JWTHandler:
         except Exception as e:
             logger.warning("Access token verification error: {}", type(e).__name__)
             raise InvalidTokenError(f"Failed to verify token: {e}") from e
-    
+
     def verify_refresh_token(self, token: str) -> dict[str, Any]:
         """Verify and decode a refresh token.
-        
+
         Args:
-            token: The JWT refresh token to verify
-            
+            token: The JWT refresh token to verify.
+
         Returns:
-            Decoded token payload as a dictionary
-            
+            Decoded token payload as a dictionary.
+
         Raises:
-            InvalidTokenError: If the token is invalid or expired
-            DecodeError: If the token cannot be decoded
+            InvalidTokenError: If the token is invalid or expired.
+            DecodeError: If the token cannot be decoded.
         """
         try:
             decoded = jwt.decode(token, self._key, algorithms=[self.algorithm])
-            
+
             # Verify token type
             if decoded.claims.get("type") != "refresh":
                 raise InvalidTokenError("Token is not a refresh token")
-            
-            # Check expiration (joserfc version used does not support claims_options)
-            self._check_expiration(dict(decoded.claims))
-            
+
+            # Validate claims (exp, nbf, iat) via JWTClaimsRegistry
+            self._validate_claims(dict(decoded.claims))
+
             logger.debug("Refresh token verified for subject {}", decoded.claims.get("sub"))
             return dict(decoded.claims)
         except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
@@ -199,26 +214,26 @@ class JWTHandler:
         except Exception as e:
             logger.warning("Refresh token verification error: {}", type(e).__name__)
             raise InvalidTokenError(f"Failed to verify token: {e}") from e
-    
+
     def verify_token(self, token: str) -> dict[str, Any]:
         """Verify and decode any token (access or refresh).
-        
+
         Args:
-            token: The JWT token to verify
-            
+            token: The JWT token to verify.
+
         Returns:
-            Decoded token payload as a dictionary
-            
+            Decoded token payload as a dictionary.
+
         Raises:
-            InvalidTokenError: If the token is invalid or expired
-            DecodeError: If the token cannot be decoded
+            InvalidTokenError: If the token is invalid or expired.
+            DecodeError: If the token cannot be decoded.
         """
         try:
             decoded = jwt.decode(token, self._key, algorithms=[self.algorithm])
-            
-            # Check expiration (joserfc version used does not support claims_options)
-            self._check_expiration(dict(decoded.claims))
-            
+
+            # Validate claims (exp, nbf, iat) via JWTClaimsRegistry
+            self._validate_claims(dict(decoded.claims))
+
             logger.debug("Token verified for subject {} type {}", decoded.claims.get("sub"), decoded.claims.get("type"))
             return dict(decoded.claims)
         except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
