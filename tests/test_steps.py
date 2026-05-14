@@ -3,8 +3,6 @@
 This module contains tests for the individual pipeline steps.
 """
 
-import os
-import tempfile
 from typing import Any
 
 from unittest.mock import MagicMock, patch
@@ -105,22 +103,18 @@ class TestValidationStep:
         step = ValidationStep()
         assert step.get_name() == "ValidationStep"
 
-    async def test_execute_valid_file(self):
+    async def test_execute_valid_file(self, tmp_path: Any) -> None:
         """Test validation with a valid file."""
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            f.write(b"test content")
-            temp_path = f.name
+        temp_file = tmp_path / "test_binary"
+        temp_file.write_bytes(b"test content")
 
-        try:
-            step = ValidationStep()
-            context = PipelineContext(
-                uuid="test-uuid",
-                binary_path=temp_path,
-            )
-            result = await step.execute(context)
-            assert result.error is None
-        finally:
-            os.unlink(temp_path)
+        step = ValidationStep()
+        context = PipelineContext(
+            uuid="test-uuid",
+            binary_path=str(temp_file),
+        )
+        result = await step.execute(context)
+        assert result.error is None
 
     async def test_execute_nonexistent_file(self):
         """Test validation with a nonexistent file."""
@@ -133,40 +127,33 @@ class TestValidationStep:
         assert result.error is not None
         assert "not found" in result.error
 
-    async def test_execute_empty_file(self):
+    async def test_execute_empty_file(self, tmp_path: Any) -> None:
         """Test validation with an empty file."""
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            temp_path = f.name
+        temp_file = tmp_path / "empty_binary"
+        temp_file.write_bytes(b"")
 
-        try:
-            step = ValidationStep()
-            context = PipelineContext(
-                uuid="test-uuid",
-                binary_path=temp_path,
-            )
-            result = await step.execute(context)
-            assert result.error is not None
-            assert "empty" in result.error
-        finally:
-            os.unlink(temp_path)
+        step = ValidationStep()
+        context = PipelineContext(
+            uuid="test-uuid",
+            binary_path=str(temp_file),
+        )
+        result = await step.execute(context)
+        assert result.error is not None
+        assert "empty" in result.error
 
-    async def test_execute_max_size(self):
+    async def test_execute_max_size(self, tmp_path: Any) -> None:
         """Test validation with max size limit."""
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            f.write(b"x" * 1024 * 1024)  # 1 MB file
-            temp_path = f.name
+        temp_file = tmp_path / "large_binary"
+        temp_file.write_bytes(b"x" * 1024 * 1024)  # 1 MB file
 
-        try:
-            step = ValidationStep(max_size_mb=0.5)  # 0.5 MB limit
-            context = PipelineContext(
-                uuid="test-uuid",
-                binary_path=temp_path,
-            )
-            result = await step.execute(context)
-            assert result.error is not None
-            assert "exceeds" in result.error
-        finally:
-            os.unlink(temp_path)
+        step = ValidationStep(max_size_mb=0.5)  # 0.5 MB limit
+        context = PipelineContext(
+            uuid="test-uuid",
+            binary_path=str(temp_file),
+        )
+        result = await step.execute(context)
+        assert result.error is not None
+        assert "exceeds" in result.error
 
 
 class TestDecompileStep:
