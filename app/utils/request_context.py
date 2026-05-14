@@ -1,13 +1,7 @@
-"""Request context management for Glyph application.
+"""Request context management using async-safe ContextVars.
 
-This module provides async-safe context storage for request-specific data
-that can be accessed throughout the request lifecycle using ContextVars.
-
-ContextVars are safe across async boundaries (await, create_task) but do NOT
-propagate to new threads or new event loops (asyncio.run). For those cases,
-use capture_request_context() to snapshot the current values into a
-CapturedContext dataclass, pass it explicitly, and then restore it with
-restore_request_context() on the target side.
+For cross-thread or cross-event-loop propagation, use capture_request_context()
+and restore_request_context() to explicitly pass context snapshots.
 """
 
 from contextvars import ContextVar
@@ -23,12 +17,7 @@ _task_id_var: ContextVar[str | None] = ContextVar("task_id", default=None)
 
 @dataclass(frozen=True)
 class CapturedContext:
-    """Snapshot of request context values for cross-thread/loop propagation.
-
-    ContextVars do not propagate to new threads or new event loops
-    (e.g. asyncio.run()). This dataclass captures the current values so
-    they can be explicitly passed and restored on the target side.
-    """
+    """Snapshot of request context values for cross-thread/loop propagation."""
 
     request_id: str | None
     user_id: int | None
@@ -37,15 +26,7 @@ class CapturedContext:
 
 
 def capture_request_context() -> CapturedContext:
-    """Capture the current request context into a snapshot.
-
-    Call this on the request thread/loop before handing off work to a
-    background thread or a new event loop, then pass the snapshot
-    explicitly to the target.
-
-    Returns:
-        CapturedContext with the current ContextVar values.
-    """
+    """Capture the current request context into a snapshot."""
     return CapturedContext(
         request_id=_request_id_var.get(),
         user_id=_user_id_var.get(),
@@ -60,13 +41,9 @@ def restore_request_context(
 ) -> None:
     """Restore request context from a captured snapshot.
 
-    Call this on the target thread/loop after receiving a CapturedContext
-    that was captured on the originating request thread.
-
     Args:
         captured: The captured context snapshot.
-        override_task_id: If provided, override the task_id from the
-            snapshot (useful when the task ID changes during handoff).
+        override_task_id: If provided, override the task_id from the snapshot.
     """
     _request_id_var.set(captured.request_id)
     _user_id_var.set(captured.user_id)
@@ -75,103 +52,47 @@ def restore_request_context(
 
 
 class RequestContext:
-    """Request context for storing request-specific data.
-
-    This class provides a unified interface for accessing request context
-    data using async-safe ContextVars.
-    """
-
-    def __init__(self) -> None:
-        # Initialize from current ContextVar values
-        pass
+    """Request context for storing request-specific data via ContextVars."""
 
     @property
     def request_id(self) -> str | None:
-        """Get the request ID.
-
-        Returns:
-            The request ID if set, None otherwise.
-        """
         return _request_id_var.get()
 
     @request_id.setter
     def request_id(self, value: str | None) -> None:
-        """Set the request ID.
-
-        Args:
-            value: The request ID to set.
-        """
         _request_id_var.set(value)
 
     @property
     def user_id(self) -> int | None:
-        """Get the user ID.
-
-        Returns:
-            The user ID if set, None otherwise.
-        """
         return _user_id_var.get()
 
     @user_id.setter
     def user_id(self, value: int | None) -> None:
-        """Set the user ID.
-
-        Args:
-            value: The user ID to set.
-        """
         _user_id_var.set(value)
 
     @property
     def username(self) -> str | None:
-        """Get the username.
-
-        Returns:
-            The username if set, None otherwise.
-        """
         return _username_var.get()
 
     @username.setter
     def username(self, value: str | None) -> None:
-        """Set the username.
-
-        Args:
-            value: The username to set.
-        """
         _username_var.set(value)
 
     @property
     def task_id(self) -> str | None:
-        """Get the task ID (for background tasks).
-
-        Returns:
-            The task ID if set, None otherwise.
-        """
         return _task_id_var.get()
 
     @task_id.setter
     def task_id(self, value: str | None) -> None:
-        """Set the task ID.
-
-        Args:
-            value: The task ID to set.
-        """
         _task_id_var.set(value)
 
 def get_request_context() -> RequestContext:
-    """Get the current request context.
-
-    Returns a new RequestContext instance that reads from the current
-    ContextVar values. Each call creates a fresh view of the context.
-
-    Returns:
-        RequestContext: The current request context instance.
-    """
+    """Get the current request context."""
     return RequestContext()
 
 
-# Sentinel to distinguish "not provided" from "explicitly set to None".
 class _UnsetSentinel:
-    """Sentinel class used as default to detect whether a kwarg was provided."""
+    """Sentinel to distinguish "not provided" from "explicitly set to None"."""
     __slots__ = ()
 
     def __repr__(self) -> str:
@@ -194,11 +115,7 @@ def set_request_context(
         user_id: User ID if authenticated.
         username: Username if authenticated.
         task_id: Task ID for background tasks.
-        clear_unset: If True, first clear all fields to None, then apply
-            only the fields explicitly provided. This preserves any values
-            not overridden (unlike the previous behavior which cleared
-            everything to None). If False (default), only update the fields
-            provided.
+        clear_unset: If True, clear all fields first, then apply only provided values.
     """
     if clear_unset:
         _request_id_var.set(None)
@@ -225,36 +142,16 @@ def clear_request_context() -> None:
 
 
 def get_request_id() -> str | None:
-    """Get the current request ID.
-
-    Returns:
-        The request ID if set, None otherwise.
-    """
     return _request_id_var.get()
 
 
 def get_user_id() -> int | None:
-    """Get the current user ID.
-
-    Returns:
-        The user ID if set, None otherwise.
-    """
     return _user_id_var.get()
 
 
 def get_username() -> str | None:
-    """Get the current username.
-
-    Returns:
-        The username if set, None otherwise.
-    """
     return _username_var.get()
 
 
 def get_task_id() -> str | None:
-    """Get the current task ID.
-
-    Returns:
-        The task ID if set, None otherwise.
-    """
     return _task_id_var.get()

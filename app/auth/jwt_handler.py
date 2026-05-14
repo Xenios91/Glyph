@@ -1,9 +1,4 @@
-"""JWT handler using joserfc for token generation and verification.
-
-Uses joserfc library (recommended replacement for deprecated authlib.jose).
-Claims validation is performed via JWTClaimsRegistry per the official
-joserfc documentation, which validates exp/nbf/iat automatically.
-"""
+"""JWT handler using joserfc for token generation and verification."""
 
 import base64
 from datetime import datetime, timedelta, timezone
@@ -39,43 +34,23 @@ class BadSignatureError(Exception):
 
 
 class JWTHandler:
-    """Handler for JWT token operations using joserfc.
-    
-    Provides methods for creating and verifying access and refresh tokens.
-    Uses joserfc library (recommended replacement for deprecated authlib.jose).
-    """
-    
+    """Handler for JWT token operations using joserfc."""
+
     def __init__(self, secret_key: str, algorithm: str = "HS256") -> None:
-        """Initialize the JWT handler.
-        
-        Args:
-            secret_key: Secret key for signing tokens
-            algorithm: JWT algorithm to use (default: HS256)
-        """
         self.algorithm = algorithm
-        # Convert secret key to base64url encoded string for OctKey
         secret_b64 = base64.urlsafe_b64encode(secret_key.encode("utf-8")).decode("utf-8")
         self._key = OctKey.import_key({"k": secret_b64, "kty": "oct"})
-    
     def create_access_token(
         self,
         subject: str,
         extra_claims: dict[str, Any] | None = None
     ) -> str:
-        """Generate an access token using joserfc.
-        
-        Args:
-            subject: The subject of the token (typically user ID)
-            extra_claims: Additional claims to include in the token
-            
-        Returns:
-            Signed JWT access token string
-        """
+        """Generate an access token."""
         now = datetime.now(timezone.utc)
         payload = {
             "sub": subject,
             "iat": now,
-            "exp": now + timedelta(minutes=15),  # Default 15 minutes
+            "exp": now + timedelta(minutes=15),
             "type": "access"
         }
         
@@ -95,20 +70,12 @@ class JWTHandler:
         subject: str,
         extra_claims: dict[str, Any] | None = None
     ) -> str:
-        """Generate a refresh token using joserfc.
-        
-        Args:
-            subject: The subject of the token (typically user ID)
-            extra_claims: Additional claims to include in the token
-            
-        Returns:
-            Signed JWT refresh token string
-        """
+        """Generate a refresh token."""
         now = datetime.now(timezone.utc)
         payload = {
             "sub": subject,
             "iat": now,
-            "exp": now + timedelta(days=7),  # Default 7 days
+            "exp": now + timedelta(days=7),
             "type": "refresh"
         }
         
@@ -124,23 +91,7 @@ class JWTHandler:
         return token
     
     def _validate_claims(self, claims: dict[str, Any]) -> None:
-        """Validate JWT claims using JWTClaimsRegistry.
-
-        Uses the official joserfc JWTClaimsRegistry which provides built-in
-        validation for exp (expiration), nbf (not before), and iat (issued at)
-        claims per RFC 7519.
-
-        Per the joserfc documentation:
-        - jwt.decode() only verifies the signature, NOT claims
-        - JWTClaimsRegistry must be used separately to validate claims
-        - It raises ExpiredTokenError, InvalidClaimError, etc.
-
-        Args:
-            claims: The decoded token claims dictionary.
-
-        Raises:
-            InvalidTokenError: If any claim validation fails.
-        """
+        """Validate JWT claims using JWTClaimsRegistry."""
         registry = JWTClaimsRegistry()
         try:
             registry.validate(claims)
@@ -148,26 +99,13 @@ class JWTHandler:
             raise InvalidTokenError(str(e)) from e
 
     def verify_access_token(self, token: str) -> dict[str, Any]:
-        """Verify and decode an access token.
-
-        Args:
-            token: The JWT access token to verify.
-
-        Returns:
-            Decoded token payload as a dictionary.
-
-        Raises:
-            InvalidTokenError: If the token is invalid or expired.
-            DecodeError: If the token cannot be decoded.
-        """
+        """Verify and decode an access token."""
         try:
             decoded = jwt.decode(token, self._key, algorithms=[self.algorithm])
 
-            # Verify token type
             if decoded.claims.get("type") != "access":
                 raise InvalidTokenError("Token is not an access token")
 
-            # Validate claims (exp, nbf, iat) via JWTClaimsRegistry
             self._validate_claims(dict(decoded.claims))
 
             logger.debug("Access token verified for subject {}", decoded.claims.get("sub"))
@@ -182,26 +120,13 @@ class JWTHandler:
             raise InvalidTokenError(f"Failed to verify token: {e}") from e
 
     def verify_refresh_token(self, token: str) -> dict[str, Any]:
-        """Verify and decode a refresh token.
-
-        Args:
-            token: The JWT refresh token to verify.
-
-        Returns:
-            Decoded token payload as a dictionary.
-
-        Raises:
-            InvalidTokenError: If the token is invalid or expired.
-            DecodeError: If the token cannot be decoded.
-        """
+        """Verify and decode a refresh token."""
         try:
             decoded = jwt.decode(token, self._key, algorithms=[self.algorithm])
 
-            # Verify token type
             if decoded.claims.get("type") != "refresh":
                 raise InvalidTokenError("Token is not a refresh token")
 
-            # Validate claims (exp, nbf, iat) via JWTClaimsRegistry
             self._validate_claims(dict(decoded.claims))
 
             logger.debug("Refresh token verified for subject {}", decoded.claims.get("sub"))

@@ -1,20 +1,7 @@
-"""Centralized logging configuration for Glyph application using loguru.
+"""Centralized logging configuration using loguru.
 
-This module provides:
-- Centralized logging setup from config.yml using logger.configure()
-- Log rotation with size and time-based policies
-- Request context support for tracing via ContextVars (async-safe)
-- Sensitive data redaction via patcher
-- Per-module log level overrides
-- Native JSON serialization using loguru's serialize=True parameter
-- Enqueued file handler for thread safety
-
-Key design decisions:
-- Uses a patcher (not logger.contextualize()) for request context because
-  contextualize() relies on thread-local storage which doesn't work with
-  async/await. The patcher reads from ContextVars which are async-safe.
-- Uses enqueue=True for the file handler to avoid concurrent write issues
-  when background threads log simultaneously with request handlers.
+Uses a patcher for request context (async-safe via ContextVars) and
+enqueue=True for the file handler (thread-safe for background tasks).
 """
 
 import os
@@ -29,16 +16,8 @@ from app.config.settings import get_settings
 from app.utils.request_context import get_request_context
 
 
-# =============================================================================
-# Sensitive Data Redaction Patcher
-# =============================================================================
-
 class SensitiveDataPatcher:
-    """Redacts sensitive data from log messages (passwords, tokens, API keys).
-
-    Used as a loguru patcher that mutates the record's message field to remove
-    sensitive patterns before the message is written to any handler.
-    """
+    """Redacts sensitive data (passwords, tokens, API keys) from log messages."""
 
     SENSITIVE_PATTERNS: list[tuple[str, str | Callable[[re.Match[str]], str]]] = [
         (r'(?i)bearer\s+[A-Za-z0-9\-\._~\+\/]+=*', 'Bearer [REDACTED]'),
@@ -65,19 +44,8 @@ class SensitiveDataPatcher:
         return msg
 
 
-# =============================================================================
-# Module Level Filter
-# =============================================================================
-
 def create_module_level_filter(module_levels: dict[str, str]) -> Callable[[dict[str, Any]], bool]:
-    """Create a filter function for per-module log level overrides.
-
-    Args:
-        module_levels: Dict mapping module name prefixes to minimum log levels.
-
-    Returns:
-        Filter function that returns False for records below the module minimum.
-    """
+    """Create a filter for per-module log level overrides."""
     level_map: dict[str, int] = {}
     for module_name, level_name in module_levels.items():
         try:
@@ -96,25 +64,8 @@ def create_module_level_filter(module_levels: dict[str, str]) -> Callable[[dict[
     return filter_func
 
 
-# =============================================================================
-# Loguru Patcher (Sensitive Data + Request Context)
-# =============================================================================
-
 def _loguru_patcher(sensitive: SensitiveDataPatcher) -> Callable[[dict[str, Any]], None]:
-    """Create the loguru patcher for sensitive data redaction and request context.
-
-    This patcher is applied to every log record before it reaches any handler.
-    It performs two tasks:
-    1. Redacts sensitive data (passwords, tokens, API keys) from the message.
-    2. Injects request context (request_id, user_id, username, task_id) from
-       ContextVars into the record's extra dict for async-safe tracing.
-
-    Args:
-        sensitive: The sensitive data patcher instance.
-
-    Returns:
-        Patcher function that applies both redaction and context injection.
-    """
+    """Create the loguru patcher for sensitive data redaction and request context."""
     def patcher(record: dict[str, Any]) -> None:
         sensitive(record)
         ctx = get_request_context()
@@ -131,10 +82,6 @@ def _loguru_patcher(sensitive: SensitiveDataPatcher) -> Callable[[dict[str, Any]
     return patcher
 
 
-# =============================================================================
-# Main Setup
-# =============================================================================
-
 def setup_logging(
     level: str = "INFO",
     format: str = "json",
@@ -147,41 +94,23 @@ def setup_logging(
     module_levels: dict[str, str] | None = None,
     diagnose: bool = False,
     enqueue: bool = True) -> None:
-    """Set up logging using loguru's configure() method.
-
-    Args:
-        level: Log level for file handler.
-        format: Log format ("json" or "text").
-        log_file: Path to log file. None disables file logging.
-        rotation: Loguru rotation string (e.g., "50 MB", "00:00", "1 week").
-        retention: Loguru retention string (e.g., "10 days", "1 month").
-        console_enabled: Whether to enable console logging.
-        console_level: Log level for console handler.
-        colorize: Whether to colorize console output.
-        module_levels: Dict mapping module names to log level overrides.
-        diagnose: Whether to enable variable diagnosis in exceptions.
-        enqueue: Whether to use enqueued logging for file handler (thread-safe).
-    """
+    """Set up logging using loguru's configure() method."""
     valid_levels = {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'TRACE'}
     if level.upper() not in valid_levels:
         raise ValueError(f"Invalid log level: '{level}'. Must be one of: {', '.join(sorted(valid_levels))}")
     if console_level.upper() not in valid_levels:
         raise ValueError(f"Invalid console log level: '{console_level}'. Must be one of: {', '.join(sorted(valid_levels))}")
 
-    # Build filter (module levels only)
     combined_filter = create_module_level_filter(module_levels) if module_levels else None
 
-    # Create patcher for sensitive data redaction + request context injection
     sensitive_patcher = SensitiveDataPatcher()
     patcher: Callable[[dict[str, Any]], None] = _loguru_patcher(sensitive_patcher)
 
-    # File opener for secure permissions (owner rw only - logs may contain sensitive data)
     def file_opener(file: str, flags: int) -> int:
         return os.open(file, flags, 0o600)
 
     handlers: list[dict[str, Any]] = []
 
-    # File handler with rotation and compression
     if log_file:
         log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -210,7 +139,6 @@ def setup_logging(
 
         handlers.append(file_handler_config)
 
-    # Console handler (uses sys.stderr per loguru convention for log aggregation)
     if console_enabled:
         handlers.append({
             "sink": sys.stderr,
@@ -227,13 +155,9 @@ def setup_logging_from_config() -> None:
     settings = get_settings()
     log_config = settings.logging
 
-    # LOGURU_DIAGNOSE: Enable/disable variable diagnosis in exceptions.
-    # Default to False in production for security (prevents credentials in logs).
     diagnose_env = os.environ.get("LOGURU_DIAGNOSE")
     diagnose = diagnose_env.upper() != "NO" if diagnose_env is not None else False
 
-    # LOGURU_ENQUEUE: Enable/disable enqueued logging for file handler.
-    # Default to True for thread safety with background tasks.
     enqueue_env = os.environ.get("LOGURU_ENQUEUE")
     enqueue = enqueue_env.upper() != "NO" if enqueue_env is not None else True
 

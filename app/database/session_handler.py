@@ -9,7 +9,6 @@ from sqlalchemy.pool import StaticPool
 from app.database.models import Base, Model, Prediction, Function, User, APIKey
 from loguru import logger
 
-# Default database URLs - can be overridden via set_database_urls()
 _DEFAULT_ASYNC_DATABASE_URLS: dict[str, str] = {
     "models": "sqlite+aiosqlite:///data/models.db",
     "predictions": "sqlite+aiosqlite:///data/predictions.db",
@@ -17,16 +16,11 @@ _DEFAULT_ASYNC_DATABASE_URLS: dict[str, str] = {
     "auth": "sqlite+aiosqlite:///data/auth.db",  # New database for auth
 }
 
-# Async engines and sessions (for auth module)
 ASYNC_DATABASE_URLS: dict[str, str] = _DEFAULT_ASYNC_DATABASE_URLS.copy()
 
 
 def set_database_urls(urls: dict[str, str]) -> None:
-    """Override database URLs (primarily for testing with in-memory databases).
-
-    Args:
-        urls: Dictionary mapping database names to connection URLs.
-    """
+    """Override database URLs (primarily for testing)."""
     ASYNC_DATABASE_URLS.clear()
     ASYNC_DATABASE_URLS.update(urls)
 
@@ -36,9 +30,6 @@ def reset_database_urls() -> None:
     ASYNC_DATABASE_URLS.clear()
     ASYNC_DATABASE_URLS.update(_DEFAULT_ASYNC_DATABASE_URLS)
 
-# Map each database to the tables it should contain.
-# This prevents Base.metadata.create_all from creating every table
-# in every database file, which would waste space and cause confusion.
 DB_TABLE_MAP: dict[str, list[Any]] = {
     "models": [Model.__table__],
     "predictions": [Prediction.__table__],
@@ -51,87 +42,38 @@ async_session_factories: dict[str, async_sessionmaker[AsyncSession]] = {}
 
 
 def _configure_sqlite(dbapi_connection: Any, connection_record: Any) -> None:
-    """Configure SQLite PRAGMA settings for better performance and reliability.
-
-    Applied via SQLAlchemy's pool "connect" event to ensure all connections
-    from the pool receive these settings. The callback receives the raw
-    DBAPI connection and the connection record.
-
-    Args:
-        dbapi_connection: Raw DBAPI connection (sqlite3.Connection).
-        connection_record: ConnectionPool_record (unused here).
-    """
-    # Execute PRAGMAs directly on the DBAPI connection cursor.
-    # This is the standard SQLAlchemy pattern for SQLite PRAGMA setup.
+    """Configure SQLite PRAGMA settings."""
     cursor = dbapi_connection.cursor()
-    # Enable WAL mode for better concurrent read/write performance
     cursor.execute("PRAGMA journal_mode=WAL")
-    # Enable foreign key support
     cursor.execute("PRAGMA foreign_keys=ON")
-    # Set busy timeout to handle concurrent access (5 seconds)
     cursor.execute("PRAGMA busy_timeout=5000")
-    # Enable synchronous mode for better performance while maintaining safety
     cursor.execute("PRAGMA synchronous=NORMAL")
     cursor.close()
 
 
 def _create_engine(url: str) -> AsyncEngine:
-    """Create an async engine optimized for SQLite with aiosqlite.
-
-    Uses StaticPool to prevent connection multiplication issues with SQLite,
-    and configures appropriate PRAGMA settings for better performance via
-    SQLAlchemy's pool_connect event listener.
-
-    Args:
-        url: The database URL.
-
-    Returns:
-        Configured AsyncEngine instance.
-    """
+    """Create an async engine for SQLite with aiosqlite."""
     engine = create_async_engine(
         url,
         echo=False,
-        # StaticPool is recommended for SQLite to avoid connection multiplication
         poolclass=StaticPool,
-        # connect_args are passed to aiosqlite.connect()
-        connect_args={
-            "check_same_thread": False,
-        },
+        connect_args={"check_same_thread": False},
     )
-    # Register PRAGMA configuration as a pool event listener so that
-    # every new connection from the pool is properly configured.
-    # This is the recommended SQLAlchemy 2.x pattern for SQLite setup.
-    # Note: AsyncEngine requires listeners on engine.sync_engine since
-    # asynchronous events are not yet supported by SQLAlchemy.
     event.listen(engine.sync_engine, "connect", _configure_sqlite)
     return engine
 
 
 async def init_async_databases() -> None:
-    """Initialize all async database tables.
-
-    Creates only the tables relevant to each database file, preventing
-    unnecessary tables from being created in databases that don't need them.
-    For example, the 'models' database only contains the Model table,
-    while the 'auth' database contains User and APIKey tables.
-    """
+    """Initialize all async database tables."""
     for name, url in ASYNC_DATABASE_URLS.items():
         if name not in async_engines:
             async_engines[name] = _create_engine(url)
-            # expire_on_commit=False prevents attributes from being expired
-            # after commit, which is important for async patterns where
-            # objects may be accessed after the transaction completes.
-            # autoflush=False is recommended for explicit flush control.
-            # autocommit=False is the default in SQLAlchemy 2.0 and redundant.
             async_session_factories[name] = async_sessionmaker(
                 bind=async_engines[name],
                 autoflush=False,
                 expire_on_commit=False,
             )
 
-        # Create only the tables relevant to this database.
-        # Using tables=parameter prevents Base.metadata.create_all from
-        # creating every table in every database file.
         target_tables = DB_TABLE_MAP.get(name)
         if target_tables:
             async with async_engines[name].begin() as conn:
@@ -140,17 +82,7 @@ async def init_async_databases() -> None:
 
 
 async def get_async_session(database: str = "auth") -> AsyncSession:
-    """Get an async database session.
-
-    Args:
-        database: The database name ('auth', 'models', 'predictions', or 'functions').
-
-    Returns:
-        An AsyncSession object.
-
-    Raises:
-        ValueError: If the database name is invalid.
-    """
+    """Get an async database session."""
     if database not in async_session_factories:
         raise ValueError(f"Invalid database name: {database}. Must be one of: {list(async_session_factories.keys())}")
 
@@ -158,19 +90,12 @@ async def get_async_session(database: str = "auth") -> AsyncSession:
 
 
 async def close_async_session(session: AsyncSession) -> None:
-    """Close an async database session.
-
-    Args:
-        session: The AsyncSession to close.
-    """
+    """Close an async database session."""
     await session.close()
 
 
 async def dispose_async_engines() -> None:
-    """Dispose all async database engines, releasing connections.
-
-    Should be called during application shutdown to properly clean up resources.
-    """
+    """Dispose all async database engines."""
     for name, engine in async_engines.items():
         await engine.dispose()
         logger.info("Async database '{}' engine disposed", name)
