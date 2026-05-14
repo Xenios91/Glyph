@@ -56,6 +56,12 @@ def _run_prediction_task(
 ) -> None:
     """Background task for running predictions.
 
+    This task handles token-based predictions where the client sends
+    pre-extracted function tokens directly (no binary file involved).
+    The pipeline skips ValidationStep and DecompileStep since there is
+    no binary to validate or decompile, and instead uses the functions
+    already provided in the PredictionRequest.
+
     Args:
         prediction_request: The prediction request containing data.
         captured_ctx: Captured request context from the originating request
@@ -67,28 +73,38 @@ def _run_prediction_task(
 
         # Use the pipeline framework for predictions
         from app.processing.steps import (
-            ValidationStep,
-            DecompileStep,
             TokenizeStep,
             FilterStep,
             FeatureExtractStep,
             PredictStep)
         from app.processing.pipeline import ProcessingPipeline, PipelineContext
 
+        # Pre-populate context with functions from the prediction request.
+        # PredictionRequest._load_data() already processes the functions,
+        # extracting tokenList and joining tokens. These functions are
+        # available via get_functions() which returns the cleaned/deduplicated
+        # list from json_dict["functionsMap"]["functions"].
+        functions = prediction_request.get_functions()
+
         context = PipelineContext(
             uuid=prediction_request.uuid,
-            binary_path="",  # Will be set by the pipeline
+            binary_path="",  # Not used for token-based predictions
             pipeline_type="ml_prediction",
             metadata={
                 "model_name": prediction_request.model_name,
                 "task_name": prediction_request.task_name,
             })
 
+        # Seed the context with functions so TokenizeStep can process them.
+        # This replaces the role of DecompileStep which would normally
+        # populate context["functions"] from Ghidra output.
+        context.set("functions", functions)
+
+        # Token-based prediction pipeline skips ValidationStep and
+        # DecompileStep since there is no binary file to process.
         pipeline = ProcessingPipeline(
             "ML Prediction Pipeline",
             [
-                ValidationStep(),
-                DecompileStep(),
                 TokenizeStep(),
                 FilterStep(),
                 FeatureExtractStep(),
