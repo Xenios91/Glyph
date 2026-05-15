@@ -95,7 +95,11 @@ class PredictionRequest(DataHandler):
 
     def __init__(self, req_uuid: str, model_name: str, data: dict[str, Any]) -> None:
         super().__init__(req_uuid, data, model_name)
-        self.task_name = data["taskName"]
+        self.task_name = data.get("taskName") or data.get("task_name", "")
+        if not self.task_name:
+            raise ValueError(
+                "Data must contain 'taskName' or 'task_name' key"
+            )
         self._load_data()
 
     def _load_data(self) -> None:

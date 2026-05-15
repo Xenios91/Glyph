@@ -213,27 +213,27 @@ async def get_prediction(
                 error_message="Prediction not found").model_dump())
 
     accept = request.headers.get("Accept", "")
-    if ACCEPT_TYPE not in accept:
-        return create_success_response(
-            data={
-                "prediction": {
-                    "task_name": prediction.task_name,
-                    "model_name": prediction.model_name,
-                    "predictions": prediction.predictions
-                }
-            },
-            message="Prediction retrieved successfully")
+    if ACCEPT_TYPE in accept:
+        return templates.TemplateResponse(
+            request,
+            "get_prediction.html",
+            {
+                "title": "Prediction",
+                "model_name": prediction.model_name,
+                "task_name": prediction.task_name,
+                "prediction": prediction,
+                "user": current_user,
+            })
 
-    return templates.TemplateResponse(
-        request,
-        "get_prediction.html",
-        {
-            "title": "Prediction",
-            "model_name": prediction.model_name,
-            "task_name": prediction.task_name,
-            "prediction": prediction,
-            "user": current_user,
-        })
+    return create_success_response(
+        data={
+            "prediction": {
+                "task_name": prediction.task_name,
+                "model_name": prediction.model_name,
+                "predictions": prediction.predictions
+            }
+        },
+        message="Prediction retrieved successfully")
 
 
 @router.delete("/deletePrediction")

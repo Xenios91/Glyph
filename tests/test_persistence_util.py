@@ -55,11 +55,11 @@ class TestPredictionPersistanceUtil:
 
     @patch("app.utils.persistence_util.SQLUtil")
     async def test_get_predictions_not_found(self, mock_sql_util: Any) -> None:
-        """Test retrieving non-existent prediction raises ValueError."""
+        """Test retrieving non-existent prediction returns None."""
         mock_sql_util.get_predictions = AsyncMock(return_value=None)
 
-        with pytest.raises(ValueError, match="not found"):
-            await PredictionPersistanceUtil.get_predictions("test_task", "test_model")
+        result = await PredictionPersistanceUtil.get_predictions("test_task", "test_model")
+        assert result is None
 
     @patch("app.utils.persistence_util.SQLUtil")
     async def test_get_predictions_empty_task_name(self, mock_sql_util: Any) -> None:
@@ -180,12 +180,13 @@ class TestMLPersistanceUtil:
 
     @patch("app.utils.persistence_util.SQLUtil")
     async def test_get_models_list(self, mock_sql_util: Any) -> None:
-        """Test retrieving list of model names."""
+        """Test retrieving list of model names returns a list."""
         mock_sql_util.get_models_list = AsyncMock(return_value={"model1", "model2"})
 
         result = await MLPersistanceUtil.get_models_list()
 
-        assert result == {"model1", "model2"}
+        assert isinstance(result, list)
+        assert set(result) == {"model1", "model2"}
         mock_sql_util.get_models_list.assert_awaited_once()
 
     @patch("app.utils.persistence_util.SQLUtil")

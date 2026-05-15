@@ -48,7 +48,7 @@ class PredictionPersistanceUtil:
         return await SQLUtil.get_predictions_list()
 
     @staticmethod
-    async def get_predictions(task_name: str, model_name: str) -> Prediction:
+    async def get_predictions(task_name: str, model_name: str) -> Prediction | None:
         """Get a prediction by task and model name.
 
         Args:
@@ -56,21 +56,16 @@ class PredictionPersistanceUtil:
             model_name: The model name.
 
         Returns:
-            The Prediction object.
+            The Prediction object, or None if not found.
 
         Raises:
-            ValueError: If task_name or model_name is empty, or prediction not found.
+            ValueError: If task_name or model_name is empty.
         """
         if not task_name.strip() or not model_name.strip():
             raise ValueError("task_name and model_name must be non-empty strings")
-        prediction: Prediction | None = await SQLUtil.get_predictions(
+        return await SQLUtil.get_predictions(
             task_name.strip(), model_name.strip()
         )
-        if prediction is None:
-            raise ValueError(
-                f"Prediction for task '{task_name}' with model '{model_name}' not found."
-            )
-        return prediction
 
     @staticmethod
     async def delete_prediction(task_name: str) -> None:
@@ -197,13 +192,14 @@ class MLPersistanceUtil:
             ) from error
 
     @staticmethod
-    async def get_models_list() -> set[str]:
+    async def get_models_list() -> list[str]:
         """Get a list of all model names.
 
         Returns:
-            A set of model names.
+            A list of model names.
         """
-        return await SQLUtil.get_models_list()
+        models = await SQLUtil.get_models_list()
+        return list(models)
 
     @staticmethod
     async def check_name(model_name: str) -> bool:

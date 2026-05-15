@@ -36,10 +36,19 @@ class BadSignatureError(Exception):
 class JWTHandler:
     """Handler for JWT token operations using joserfc."""
 
-    def __init__(self, secret_key: str, algorithm: str = "HS256") -> None:
+    def __init__(
+        self,
+        secret_key: str,
+        algorithm: str = "HS256",
+        access_token_expire_minutes: int = 15,
+        refresh_token_expire_days: int = 7,
+    ) -> None:
         self.algorithm = algorithm
+        self.access_token_expire_minutes = access_token_expire_minutes
+        self.refresh_token_expire_days = refresh_token_expire_days
         secret_b64 = base64.urlsafe_b64encode(secret_key.encode("utf-8")).decode("utf-8")
         self._key = OctKey.import_key({"k": secret_b64, "kty": "oct"})
+
     def create_access_token(
         self,
         subject: str,
@@ -50,7 +59,7 @@ class JWTHandler:
         payload = {
             "sub": subject,
             "iat": now,
-            "exp": now + timedelta(minutes=15),
+            "exp": now + timedelta(minutes=self.access_token_expire_minutes),
             "type": "access"
         }
         
@@ -75,7 +84,7 @@ class JWTHandler:
         payload = {
             "sub": subject,
             "iat": now,
-            "exp": now + timedelta(days=7),
+            "exp": now + timedelta(days=self.refresh_token_expire_days),
             "type": "refresh"
         }
         

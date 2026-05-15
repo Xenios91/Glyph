@@ -145,27 +145,27 @@ async def get_function(
     f_tokens = format_code(function_information.tokens)
 
     accept = request.headers.get("Accept", "")
-    if ACCEPT_TYPE not in accept:
-        return create_success_response(
-            data={
-                "id": function_information.id,
+    if ACCEPT_TYPE in accept:
+        return templates.TemplateResponse(
+            request,
+            "get_function.html",
+            {
+                "title": f"Glyph - Function: {f_name}",
+                "model_name": model_name,
                 "function_name": f_name,
-                "entrypoint": f_entry,
-                "tokens": function_information.tokens,
-            },
-            message="Function retrieved successfully")
+                "function_entry": f_entry,
+                "tokens": f_tokens,
+                "user": current_user,
+            })
 
-    return templates.TemplateResponse(
-        request,
-        "get_function.html",
-        {
-            "title": f"Glyph - Function: {f_name}",
-            "model_name": model_name,
+    return create_success_response(
+        data={
+            "id": function_information.id,
             "function_name": f_name,
-            "function_entry": f_entry,
-            "tokens": f_tokens,
-            "user": current_user,
-        })
+            "entrypoint": f_entry,
+            "tokens": function_information.tokens,
+        },
+        message="Function retrieved successfully")
 
 
 @router.get("/getFunctions", response_model=None)
@@ -187,31 +187,31 @@ async def get_functions(
     functions = await FunctionPersistanceUtil.get_functions(model_name)
 
     accept = request.headers.get("Accept", "")
-    if ACCEPT_TYPE not in accept:
-        return create_success_response(
-            data={
-                "functions": [
-                    {
-                        "id": f.id,
-                        "function_name": f.function_name,
-                        "entrypoint": f.entrypoint,
-                        "tokens": f.tokens,
-                    }
-                    for f in functions
-                ]
-            },
-            message="Functions retrieved successfully")
+    if ACCEPT_TYPE in accept:
+        return templates.TemplateResponse(
+            request,
+            "get_symbols.html",
+            {
+                "title": f"Glyph - Model: {model_name}",
+                "bin_name": "test",
+                "model_name": model_name,
+                "functions": functions,
+                "user": current_user,
+            })
 
-    return templates.TemplateResponse(
-        request,
-        "get_symbols.html",
-        {
-            "title": f"Glyph - Model: {model_name}",
-            "bin_name": "test",
-            "model_name": model_name,
-            "functions": functions,
-            "user": current_user,
-        })
+    return create_success_response(
+        data={
+            "functions": [
+                {
+                    "id": f.id,
+                    "function_name": f.function_name,
+                    "entrypoint": f.entrypoint,
+                    "tokens": f.tokens,
+                }
+                for f in functions
+            ]
+        },
+        message="Functions retrieved successfully")
 
 
 @router.get("/getPredictionDetails", response_model=None)
