@@ -209,7 +209,10 @@ async def get_prediction(
 ) -> Union[dict[str, Any], HTMLResponse]:
     """Obtain predictions for a specific task and model"""
     prediction = await PredictionPersistanceUtil.get_predictions(task_name, model_name)
-    
+
+    if prediction is None:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+
     accept = request.headers.get("Accept", "")
 
     if ACCEPT_TYPE not in accept:

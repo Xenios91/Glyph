@@ -9,7 +9,6 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import Response
-from markupsafe import escape
 
 from asgi_correlation_id import CorrelationIdMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -216,7 +215,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
             request,
             "error.html",
             {
-                "message": f"Error {exc.status_code}: {escape(str(exc.detail))}"
+                "message": f"Error {exc.status_code}: {exc.detail}"
             },
             status_code=exc.status_code,
         )
