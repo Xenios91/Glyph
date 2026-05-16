@@ -53,18 +53,11 @@ function changeMlType() {
  */
 function setUploadLoading(isLoading) {
     const uploadBox = document.getElementById('upload-box');
-    const uploadBtn = document.querySelector('#upload-box .cyber-btn');
     const dropZone = document.getElementById('drop-zone');
     
     if (isLoading) {
         if (uploadBox) {
             uploadBox.classList.add('is-disabled');
-        }
-        if (uploadBtn) {
-            uploadBtn.classList.add('is-disabled');
-            const originalText = uploadBtn.querySelector('span').textContent;
-            uploadBtn.dataset.originalText = originalText;
-            uploadBtn.querySelector('span').textContent = 'UPLOADING...';
         }
         if (dropZone) {
             dropZone.style.pointerEvents = 'none';
@@ -73,11 +66,6 @@ function setUploadLoading(isLoading) {
     } else {
         if (uploadBox) {
             uploadBox.classList.remove('is-disabled');
-        }
-        if (uploadBtn && uploadBtn.dataset.originalText) {
-            uploadBtn.classList.remove('is-disabled');
-            uploadBtn.querySelector('span').textContent = uploadBtn.dataset.originalText;
-            delete uploadBtn.dataset.originalText;
         }
         if (dropZone) {
             dropZone.style.pointerEvents = '';
@@ -150,7 +138,6 @@ function showUploadProcessing() {
         if (uploadBox) {
             uploadBox.style.display = 'block';
         }
-        setUploadLoading(false);
         resetUploadForm();
     }, 5000); // 5-second fallback
 }
@@ -164,7 +151,6 @@ function showUploadStatus(message, isSuccess = true) {
     // If the fallback timer already dismissed the message, don't re-show it
     if (uploadMessageDismissed) {
         uploadMessageDismissed = false;
-        setUploadLoading(false);
         if (isSuccess) {
             Toast.success(message || 'Binary uploaded successfully');
         } else {
