@@ -17,7 +17,7 @@ from app.core.rate_limiter import (
     PASSWORD_CHANGE_LIMIT,
     REFRESH_LIMIT,
     rate_limit_key_func,
-    _build_rate_limit,
+    _build_rate_limit,  # pyright: ignore[reportPrivateUsage]
 )
 
 
@@ -125,10 +125,10 @@ class TestRateLimitingIntegration:
 
         test_app = FastAPI()
         test_app.state.limiter = limiter
-        test_app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+        test_app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # pyright: ignore[reportArgumentType]
 
         @test_app.get("/test")
-        @limiter.limit("3/minute")
+        @limiter.limit("3/minute")  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
         async def test_endpoint(request: Request):  # pyright: ignore[reportUnusedFunction]
             return {"message": "ok"}
 

@@ -137,8 +137,11 @@ class TestCorrelationIdMiddleware:
 
     def test_custom_header_name(self) -> None:
         """Test using a custom header name."""
+        async def dummy_app(scope: Any, receive: Any, send: Any) -> None:
+            pass
+
         middleware = CorrelationIdMiddleware(
-            lambda s, r, s2: None,
+            dummy_app,
             header_name="X-Custom-Request-ID"
         )
         # Library keeps the header name as-is (not lowercased)

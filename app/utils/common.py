@@ -92,10 +92,17 @@ def format_code(code: str) -> str:
     # Append any remaining content
     if current_line.strip() and current_line.strip() != "}":
         final_output.append(current_line.rstrip())
-    
-    # Ensure the very last closing brace is there if not already
-    if not final_output[-1].strip() == "}":
+
+    # Ensure braces are balanced. The function adds one opening brace on line 66
+    # ("{" for the function body). Count all braces in the output and append
+    # closing braces until they match. This fixes the case where the innermost
+    # block ends with "}" and the guard on the previous iteration incorrectly
+    # skipped adding the outer function's closing brace.
+    open_braces = sum(line.count("{") for line in final_output)
+    close_braces = sum(line.count("}") for line in final_output)
+    while close_braces < open_braces:
         final_output.append("}")
+        close_braces += 1
 
     # Final cleanup of empty lines
     result = "\n".join(line for line in final_output if line.strip())

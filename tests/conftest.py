@@ -55,10 +55,10 @@ def reset_rate_limiters() -> Any:
     from limits.storage import MemoryStorage
     # Always replace with fresh storage to clear all rate limit state.
     # This handles both pre-initialized and lazily-initialized storage.
-    limiter._storage = MemoryStorage()  # pyright: ignore[reportAttributeAccessIssue]
+    limiter._storage = MemoryStorage()  # pyright: ignore[reportPrivateUsage]
     yield
     # Reset again after the test to ensure clean state for the next test.
-    limiter._storage = MemoryStorage()  # pyright: ignore[reportAttributeAccessIssue]
+    limiter._storage = MemoryStorage()  # pyright: ignore[reportPrivateUsage]
 
 
 def set_dependency_override(client: Any, dependency: Any, override: Any) -> None:

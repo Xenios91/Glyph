@@ -95,7 +95,7 @@ async def get_upload_binary(
             content={"error": "API calls can only be POST"}, status_code=200
         )
 
-    models: set[str] = await MLPersistanceUtil.get_models_list()
+    models: list[str] = await MLPersistanceUtil.get_models_list()
     allow_prediction = len(models) > 0
     return templates.TemplateResponse(
         request,
@@ -111,7 +111,7 @@ async def get_list_models(
     """
     Handles a GET request to obtain all models available
     """
-    models: set[str] = await MLPersistanceUtil.get_models_list()
+    models: list[str] = await MLPersistanceUtil.get_models_list()
     accept = request.headers.get("Accept", "")
 
     if ACCEPT_TYPE not in accept:
@@ -334,7 +334,7 @@ async def register_page(
 
 
 @router.post("/register", response_model=None)
-@limiter.limit(REGISTER_LIMIT)
+@limiter.limit(REGISTER_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def register_submit(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)]

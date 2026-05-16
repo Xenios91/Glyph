@@ -50,7 +50,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit(REGISTER_LIMIT)
+@limiter.limit(REGISTER_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def register(
     request: Request,
     user_data: UserRegister,
@@ -107,7 +107,7 @@ async def register(
 
 
 @router.post("/token")
-@limiter.limit(LOGIN_LIMIT)
+@limiter.limit(LOGIN_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def login(
     request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
@@ -219,7 +219,7 @@ async def login(
 
 
 @router.post("/refresh")
-@limiter.limit(REFRESH_LIMIT)
+@limiter.limit(REFRESH_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def refresh_token(
     request: Request,
     token_request: RefreshTokenRequest,
@@ -350,7 +350,7 @@ async def get_current_user_info(
 
 
 @router.post("/change-password")
-@limiter.limit(PASSWORD_CHANGE_LIMIT)
+@limiter.limit(PASSWORD_CHANGE_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def change_password(
     request: Request,
     password_data: ChangePassword,

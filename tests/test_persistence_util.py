@@ -78,7 +78,14 @@ class TestPredictionPersistanceUtil:
         """Test deleting a prediction by task name."""
         mock_sql_util.delete_prediction = AsyncMock()
         await PredictionPersistanceUtil.delete_prediction("test_task")
-        mock_sql_util.delete_prediction.assert_awaited_once_with("test_task")
+        mock_sql_util.delete_prediction.assert_awaited_once_with("test_task", model_name=None)
+
+    @patch("app.utils.persistence_util.SQLUtil")
+    async def test_delete_prediction_with_model_name(self, mock_sql_util: Any) -> None:
+        """Test deleting a prediction by task name and model name."""
+        mock_sql_util.delete_prediction = AsyncMock()
+        await PredictionPersistanceUtil.delete_prediction("test_task", model_name="test_model")
+        mock_sql_util.delete_prediction.assert_awaited_once_with("test_task", model_name="test_model")
 
     @patch("app.utils.persistence_util.SQLUtil")
     async def test_delete_prediction_empty_task_name(self, mock_sql_util: Any) -> None:

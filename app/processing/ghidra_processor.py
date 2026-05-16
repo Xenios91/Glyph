@@ -165,7 +165,7 @@ def analyze_binary_and_decompile(binary_path: str) -> dict[str, list[Any]]:
         # with the context manager exit (ClosedException: File is closed).
         try:
             from ghidra.program.util import GhidraProgramUtilities  # type: ignore[import-not-found]
-            if GhidraProgramUtilities.shouldAskToAnalyze(program):
+            if GhidraProgramUtilities.shouldAskToAnalyze(program):  # type: ignore[reportUnknownMemberType]
                 flat_api.analyzeAll(program)
         except ImportError:
             # Fallback: if GhidraProgramUtilities is unavailable,

@@ -68,18 +68,19 @@ class PredictionPersistanceUtil:
         )
 
     @staticmethod
-    async def delete_prediction(task_name: str) -> None:
-        """Delete a prediction by task name.
+    async def delete_prediction(task_name: str, model_name: str | None = None) -> None:
+        """Delete a prediction by task name and optionally model name.
 
         Args:
             task_name: The task name to delete.
+            model_name: Optional model name to narrow the delete scope.
 
         Raises:
             ValueError: If task_name is empty.
         """
         if not task_name:
             raise ValueError("task_name must be a non-empty string")
-        await SQLUtil.delete_prediction(task_name)
+        await SQLUtil.delete_prediction(task_name, model_name=model_name)
 
     @staticmethod
     async def delete_model_predictions(model_name: str) -> None:

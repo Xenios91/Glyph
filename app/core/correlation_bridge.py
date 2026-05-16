@@ -28,12 +28,13 @@ class CorrelationIdBridgeMiddleware:
             clear_request_context()
 
     def _get_correlation_id_from_scope(self, scope: Scope) -> str | None:
-        """Extract correlation ID from scope headers."""
-        headers = dict(scope.get("headers", []))
-        for key in ("x-request-id", b"x-request-id"):
-            value = headers.get(key)
-            if value:
-                if isinstance(value, bytes):
-                    return value.decode("utf-8")
-                return value
+        """Extract correlation ID from scope headers.
+
+        ASGI scope headers are always bytes keys with bytes values.
+        Iterating the header list directly avoids creating an intermediate dict.
+        """
+        header_name = b"x-request-id"
+        for name, value in scope.get("headers", []):
+            if name == header_name:
+                return value.decode("utf-8") if isinstance(value, bytes) else value
         return None

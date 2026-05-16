@@ -49,6 +49,6 @@ PASSWORD_CHANGE_LIMIT = _build_rate_limit(5, 300, "PASSWORD_CHANGE")
 REFRESH_LIMIT = _build_rate_limit(10, 60, "REFRESH")
 
 
-def get_rate_limit_exceeded_handler() -> RateLimitExceeded:
+def get_rate_limit_exceeded_handler() -> type[RateLimitExceeded]:
     """Return the RateLimitExceeded class for handler registration."""
     return RateLimitExceeded

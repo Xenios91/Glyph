@@ -503,21 +503,34 @@ class SQLUtil:
             await close_async_session(session)
 
     @staticmethod
-    async def delete_prediction(task_name: str) -> None:
+    async def delete_prediction(task_name: str, model_name: str | None = None) -> None:
         """Delete a prediction from the database.
 
         Uses bulk DELETE statement for better performance.
 
         Args:
             task_name: Name of the task to delete.
+            model_name: Optional model name to narrow the delete scope.
+                When provided, only predictions matching both task_name and
+                model_name are deleted. When None, all predictions for the
+                task_name are deleted (legacy behavior).
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
-            await session.execute(
-                delete(Prediction).where(Prediction.task_name == task_name)
-            )
+            if model_name is not None:
+                await session.execute(
+                    delete(Prediction).where(
+                        Prediction.task_name == task_name,
+                        Prediction.model_name == model_name,
+                    )
+                )
+                logger.info("Prediction for task '{}' model '{}' deleted", task_name, model_name)
+            else:
+                await session.execute(
+                    delete(Prediction).where(Prediction.task_name == task_name)
+                )
+                logger.info("Prediction for task '{}' deleted", task_name)
             await session.commit()
-            logger.info("Prediction for task '{}' deleted", task_name)
         except Exception:
             await session.rollback()
             logger.exception("Failed to delete prediction for task '{}'", task_name)
