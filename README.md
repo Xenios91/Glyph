@@ -2,17 +2,19 @@
 
 ## An architecture independent binary analysis tool for fingerprinting functions through NLP
 
-## Upcoming Release V0.1.0
+## Version 0.1.0
 
-- Implementing Pyghidra to reduce setup requirements
-- Changing underlying server to fastapi
+### Features
+
+- PyGhidra integration to reduce setup requirements
+- FastAPI-based server
 - New UI theme
-- More configuration
-- Bug fixes and better dockerization.
-- Better test
+- Extended configuration options
+- Bug fixes and improved Dockerization
+- Improved test coverage
 - Pydantic implementation
-- Anti-XSS
-- Anti-CSRF
+- Anti-XSS protection
+- Anti-CSRF protection
 - User accounts
 
 
@@ -25,7 +27,7 @@
 
 Glyph Wiki: https://github.com/Xenios91/Glyph/wiki
 
-Glyph API Documentation: http://localhost:8080/docs
+Glyph API Documentation: http://localhost:8000/docs
 
 ## Requirements
 
