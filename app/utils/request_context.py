@@ -8,7 +8,6 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 
 
-# Async-compatible context variables
 _request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 _user_id_var: ContextVar[int | None] = ContextVar("user_id", default=None)
 _username_var: ContextVar[str | None] = ContextVar("username", default=None)

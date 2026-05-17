@@ -13,7 +13,7 @@ _DEFAULT_ASYNC_DATABASE_URLS: dict[str, str] = {
     "models": "sqlite+aiosqlite:///data/models.db",
     "predictions": "sqlite+aiosqlite:///data/predictions.db",
     "functions": "sqlite+aiosqlite:///data/functions.db",
-    "auth": "sqlite+aiosqlite:///data/auth.db",  # New database for auth
+    "auth": "sqlite+aiosqlite:///data/auth.db",
 }
 
 ASYNC_DATABASE_URLS: dict[str, str] = _DEFAULT_ASYNC_DATABASE_URLS.copy()

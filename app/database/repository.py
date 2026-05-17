@@ -44,12 +44,6 @@ class PasswordHasherService:
         Returns:
             True if password matches, False otherwise
         """
-        # argon2-cffi exception hierarchy (v25.1.0):
-        #   VerifyMismatchError -> VerificationError -> Argon2Error -> Exception
-        #   InvalidHashError -> ValueError -> Exception
-        # InvalidHashError is NOT a subclass of VerificationError, so both
-        # must be caught separately. Catching only VerificationError would
-        # miss InvalidHashError and allow it to propagate.
         try:
             self.ph.verify(hashed_password, password)
             return True

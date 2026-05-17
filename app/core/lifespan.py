@@ -50,11 +50,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     finally:
         logger.info("Shutting down Glyph service")
         event_watcher.stop_watching()
-        # Dispose async database engines to release connections
         try:
             await dispose_async_engines()
             logger.info("Async database engines disposed")
         except Exception:
             logger.exception("Failed to dispose async database engines")
-        # Drain the log queue before process exit (required when enqueue=True)
         logger.complete()

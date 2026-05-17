@@ -10,7 +10,7 @@ from app.utils.helpers import ACCEPT_TYPE
 from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
 from app.processing.task_management import TaskManager
 from app.utils.common import format_code, build_prediction_details_response
-from app.templates import templates  # Shared Jinja2Templates instance
+from app.templates import templates
 from loguru import logger
 from app.auth.dependencies import get_current_active_user, get_optional_user, get_db, get_jwt_handler
 from app.core.rate_limiter import limiter, REGISTER_LIMIT
@@ -170,7 +170,6 @@ async def get_prediction_details(
         if not prediction_data:
             raise HTTPException(status_code=404, detail="Prediction not found")
 
-        # model_info is a Function ORM object with attributes: model_name, function_name, entrypoint, tokens
         model_tokens = format_code(getattr(model_info, "tokens", ""))
         prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
@@ -242,7 +241,6 @@ async def login_page(
     """
     Loads the login page
     """
-    # Redirect to home if already logged in
     if current_user:
         return RedirectResponse(url="/")
     
@@ -261,7 +259,6 @@ async def login_submit(
     """
     Handles login form submission (POST).
     """
-    # Handle both JSON and form-urlencoded submissions
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
         body = await request.json()
@@ -288,11 +285,9 @@ async def login_submit(
             {"title": "Glyph - Login", "user": None, "login_error": "User account is disabled"}
         )
 
-    # Generate tokens using existing JWT handler dependency
     access_token = jwt_handler.create_access_token(str(user.id))
     refresh_token = jwt_handler.create_refresh_token(str(user.id))
 
-    # Use same cookie names as /auth/token endpoint so auth dependency can find them
     settings = get_settings()
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
@@ -323,7 +318,6 @@ async def register_page(
     """
     Loads the registration page
     """
-    # Redirect to home if already logged in
     if current_user:
         return RedirectResponse(url="/")
     
@@ -344,7 +338,6 @@ async def register_submit(
     """
     from app.auth.security_logger import log_user_registration
 
-    # Handle both JSON and form-urlencoded submissions
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
         body = await request.json()
@@ -358,7 +351,6 @@ async def register_submit(
 
     user_repo = UserRepository(db)
 
-    # Check if username exists
     existing_user = await user_repo.get_by_username(username)
     if existing_user:
         return templates.TemplateResponse(
@@ -367,7 +359,6 @@ async def register_submit(
             {"title": "Glyph - Register", "user": None, "register_error": "Username already registered"}
         )
 
-    # Check if email exists
     existing_email = await user_repo.get_by_email(email)
     if existing_email:
         return templates.TemplateResponse(
@@ -376,7 +367,6 @@ async def register_submit(
             {"title": "Glyph - Register", "user": None, "register_error": "Email already registered"}
         )
 
-    # Create user with default permissions
     user = await user_repo.create_user(
         username=username,
         email=email,
@@ -385,7 +375,6 @@ async def register_submit(
         permissions=["read"]
     )
 
-    # Log user registration
     ip_address = request.client.host if request.client else None
     log_user_registration(
         user_id=user.id,

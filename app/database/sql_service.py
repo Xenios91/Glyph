@@ -22,7 +22,6 @@ class SQLUtil:
     based on the entity type (models, predictions, or functions).
     """
 
-    # Database name mapping for each entity type
     _DB_MAP = {
         "models": "models",
         "predictions": "predictions",
@@ -37,7 +36,6 @@ class SQLUtil:
         in session_handler.py which uses Base.metadata.create_all.
         Kept for API compatibility with existing callers.
         """
-        # Tables are created by init_async_databases() in session_handler.py
         logger.debug("Database tables managed by async session handler")
 
     @staticmethod
@@ -124,10 +122,6 @@ class SQLUtil:
             if model is None:
                 logger.warning("Model '{}' not found", model_name)
             else:
-                # Expunge the object to detach it from the session while
-                # preserving its loaded attribute values. This allows the
-                # caller to access scalar attributes without the session
-                # being open, avoiding DetachedInstanceError with AsyncAttrs.
                 session.expunge(model)
             return model
         except Exception:
@@ -147,10 +141,7 @@ class SQLUtil:
         Args:
             model_name: Name of the model to delete.
         """
-        # Delete associated predictions first using bulk delete
         await SQLUtil.delete_model_predictions(model_name)
-
-        # Delete associated functions using bulk delete
         await SQLUtil.delete_functions(model_name)
 
         session: AsyncSession = await get_async_session("models")
@@ -429,8 +420,6 @@ class SQLUtil:
                 select(Function).where(Function.model_name == model_name)
             )
             functions = list(result.scalars().all())
-            # Expunge all loaded objects to detach them from the session
-            # while preserving their loaded attribute values.
             session.expunge_all()
             return functions
         except Exception:
@@ -463,7 +452,6 @@ class SQLUtil:
             )
             function = result.scalar_one_or_none()
             if function is not None:
-                # Expunge to detach from session while preserving attributes.
                 session.expunge(function)
             return function
         except Exception:

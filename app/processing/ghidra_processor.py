@@ -161,15 +161,11 @@ def analyze_binary_and_decompile(binary_path: str) -> dict[str, list[Any]]:
     with pyghidra.open_program(binary_path, project_location="/tmp/", analyze=False) as flat_api:
         program = flat_api.getCurrentProgram()
 
-        # Run analysis synchronously to avoid background threads racing
-        # with the context manager exit (ClosedException: File is closed).
         try:
             from ghidra.program.util import GhidraProgramUtilities  # type: ignore[import-not-found]
             if GhidraProgramUtilities.shouldAskToAnalyze(program):  # type: ignore[reportUnknownMemberType]
                 flat_api.analyzeAll(program)
         except ImportError:
-            # Fallback: if GhidraProgramUtilities is unavailable,
-            # analyze anyway to ensure functions are detected.
             flat_api.analyzeAll(program)
 
         return decompile_all_functions(None, program)

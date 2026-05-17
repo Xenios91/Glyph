@@ -16,7 +16,6 @@ from loguru import logger
 
 from app.utils.responses import create_error_response
 
-# Type variables for preserving function signatures through the decorator
 _R = TypeVar("_R")
 _P = ParamSpec("_P")
 
@@ -39,7 +38,6 @@ def catch_http_exception(
     Usage:
         @catch_http_exception(status_code=400, error_code="PREDICTION_ERROR")
         async def predict(request: Request):
-            # No try/except needed - exceptions are caught, logged, and converted
             result = do_prediction()
             return result
 

@@ -102,10 +102,7 @@ async def save_config(
                     error_code="INVALID_CPU_CORES",
                     error_message=f"CPU cores must be between 1 and {MAX_CPU_CORES}").model_dump())
 
-    # Persist changes to config.yml so they survive a restart
     _persist_config_changes(settings)
-
-    # Reload the singleton so subsequent calls see the new values
     reload_settings()
 
     logger.info("Configuration saved")

@@ -168,7 +168,6 @@ class ProcessingPipeline:
                 logger.debug("Executing step {}", step.get_name())
                 context = await step.execute(context)
 
-                # Check if step set an error
                 if context.error is not None:
                     context.status = "error"
                     logger.error(

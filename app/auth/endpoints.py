@@ -71,7 +71,6 @@ async def register(
     """
     user_repo = UserRepository(db)
 
-    # Check if username exists
     existing_user = await user_repo.get_by_username(user_data.username)
     if existing_user:
         raise HTTPException(
@@ -79,7 +78,6 @@ async def register(
             detail="Username already registered"
         )
 
-    # Check if email exists
     existing_email = await user_repo.get_by_email(user_data.email)
     if existing_email:
         raise HTTPException(
@@ -87,7 +85,6 @@ async def register(
             detail="Email already registered"
         )
 
-    # Create user with default permissions
     user = await user_repo.create_user(
         username=user_data.username,
         email=user_data.email,
@@ -96,7 +93,6 @@ async def register(
         permissions=["read"]
     )
 
-    # Log user registration (normal event, not suspicious)
     ip_address = request.client.host if request.client else None
     log_user_registration(
         user_id=user.id,
@@ -131,11 +127,9 @@ async def login(
     Raises:
         HTTPException: If credentials are invalid
     """
-    # Get client info for logging
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
 
-    # Check if username or IP is blocked due to excessive failures
     if is_blocked(form_data.username, ip_address):
         log_suspicious_activity(
             user_id=None,
@@ -146,7 +140,6 @@ async def login(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many failed login attempts. Please try again later.")
 
-    # Log the login attempt before processing
     log_login_attempt(
         username=form_data.username,
         ip_address=ip_address,
@@ -177,18 +170,15 @@ async def login(
             detail="User account is disabled"
         )
 
-    # Generate tokens
     access_token = jwt_handler.create_access_token(str(user.id))
     refresh_token = jwt_handler.create_refresh_token(str(user.id))
 
-    # Log successful login
     log_login_success(
         user_id=user.id,
         username=user.username,
         ip_address=ip_address
     )
 
-    # Create response with cookies
     settings = get_settings()
     response = Response(
         content=TokenResponse(
@@ -275,11 +265,9 @@ async def refresh_token(
             detail="User not found or inactive"
         )
 
-    # Generate new tokens
     new_access_token = jwt_handler.create_access_token(str(user.id))
     new_refresh_token = jwt_handler.create_refresh_token(str(user.id))
 
-    # Log token refresh with IP address
     log_token_refresh(
         user_id=user.id,
         token_type="access_and_refresh",
@@ -310,24 +298,20 @@ async def logout(
     Returns:
         Redirect to home for web requests, JSON for API requests
     """
-    # Log logout with IP address
     ip_address = request.client.host if request.client else None
     log_logout(
         user_id=current_user.id,
         username=current_user.username,
         ip_address=ip_address)
-    
-    # Check if this is a web request (HTML) or API request
+
     accept = request.headers.get("Accept", "")
     if "text/html" in accept:
-        # Redirect to home page for web requests
         from fastapi.responses import RedirectResponse
         redirect = RedirectResponse(url="/", status_code=303)
         redirect.delete_cookie("access_token_cookie")
         redirect.delete_cookie("refresh_token_cookie")
         return redirect
 
-    # Return JSON for API requests with cookies deleted
     from fastapi.responses import JSONResponse
     json_response = JSONResponse(content={"message": "Logged out successfully"})
     json_response.delete_cookie("access_token_cookie")
@@ -374,7 +358,6 @@ async def change_password(
     ip_address = request.client.host if request.client else None
     user_repo = UserRepository(db)
 
-    # Verify current password
     if not user_repo.password_hasher.verify_password(
         password_data.current_password,
         current_user.hashed_password
@@ -389,10 +372,8 @@ async def change_password(
             detail="Current password is incorrect"
         )
 
-    # Change password
     await user_repo.change_password(current_user.id, password_data.new_password)
 
-    # Log password change with IP address
     log_password_change(
         user_id=current_user.id,
         username=current_user.username,
@@ -477,7 +458,6 @@ async def create_api_key(
         expires_days=key_data.expires_days
     )
 
-    # Log API key creation for security audit
     ip_address = request.client.host if request.client else None
     log_api_key_created(
         user_id=current_user.id,
@@ -530,7 +510,6 @@ async def delete_api_key(
 
     await api_key_repo.delete_api_key(key_id)
 
-    # Log API key deletion for security audit
     ip_address = request.client.host if request.client else None
     log_api_key_deleted(
         user_id=current_user.id,

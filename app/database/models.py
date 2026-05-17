@@ -93,9 +93,6 @@ class Prediction(Base):
         nullable=False,
     )
 
-    # Unique constraint prevents duplicate predictions for the same task/model combination.
-    # This is required by the upsert logic in SQLUtil.save_predictions() which uses
-    # on_conflict_do_update with index_elements=[task_name, model_name].
     __table_args__ = (
         UniqueConstraint("task_name", "model_name", name="uq_predictions_task_model"),
     )
@@ -135,9 +132,6 @@ class Function(Base):
         nullable=False,
     )
 
-    # Unique constraint prevents duplicate functions for the same model.
-    # The unique constraint already creates a unique index on (model_name, function_name)
-    # which covers all query patterns, so no separate Index is needed.
     __table_args__ = (
         UniqueConstraint("model_name", "function_name", name="uq_functions_model_function"),
     )
@@ -181,12 +175,6 @@ class User(Base):
         nullable=False,
     )
     
-    # Relationship to API keys.
-    # Using cascade="save-update, merge, delete, delete-orphan" instead of "all"
-    # to exclude "refresh-expire" and "expunge" which can trigger implicit lazy
-    # loads in asyncio contexts. Per SQLAlchemy docs, cascade="all" with asyncio
-    # "will expire related objects more aggressively than is typically appropriate
-    # in an explicit IO context."
     api_keys: Mapped[list["APIKey"]] = relationship(
         back_populates="user",
         cascade="save-update, merge, delete, delete-orphan",
@@ -234,5 +222,4 @@ class APIKey(Base):
         nullable=False,
     )
     
-    # Relationship to user
     user: Mapped["User"] = relationship(back_populates="api_keys")

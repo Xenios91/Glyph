@@ -52,14 +52,12 @@ class LoginFailureTracker:
             now: Current timestamp.
         """
         cutoff = now - self.window
-        # Clean old timestamps and remove empty buckets
         for key in list(self._failures):
             self._failures[key] = [t for t in self._failures[key] if t > cutoff]
             if not self._failures[key]:
                 del self._failures[key]
                 self._alerted.pop(key, None)
 
-        # Evict oldest keys if over limit
         if len(self._failures) > self.max_keys:
             keys_by_activity = sorted(
                 self._failures.keys(),
@@ -79,12 +77,10 @@ class LoginFailureTracker:
             Current number of failures in the window.
         """
         now = time.monotonic()
-        # Periodic cleanup of stale keys
         if now - self._last_cleanup > self._cleanup_interval:
             self._cleanup_stale_keys(now)
             self._last_cleanup = now
 
-        # Clean old entries for this key
         cutoff = now - self.window
         self._failures[key] = [t for t in self._failures[key] if t > cutoff]
         self._failures[key].append(now)
@@ -130,7 +126,6 @@ class LoginFailureTracker:
         self._failures.pop(key, None)
         self._alerted.pop(key, None)
 
-# Global failure tracker instance
 _login_failure_tracker = LoginFailureTracker()
 
 
@@ -192,7 +187,6 @@ def log_login_success(
                 session_id=session_id, ip_address=ip_address).info(
         "Login successful")
 
-    # Reset failure tracker on successful login
     _login_failure_tracker.reset(username)
     if ip_address:
         _login_failure_tracker.reset(ip_address)
@@ -222,7 +216,6 @@ def log_login_failure(
 
     logger.bind(**bind_kwargs).warning("Login failed")
 
-    # Track for brute-force detection - record first, then check thresholds
     _login_failure_tracker.record_failure(username)
     if ip_address:
         _login_failure_tracker.record_failure(ip_address)

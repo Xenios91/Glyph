@@ -50,14 +50,10 @@ class RequestIDMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Extract or generate request ID
         request_id = self._get_or_create_request_id(scope)
-
-        # Set request context - clear any leftover state from previous request
         set_request_context(request_id=request_id, clear_unset=True)
 
         try:
-            # Wrap send to add request ID to response headers
             wrapped_send = self._create_wrapped_send(send, request_id)
             await self.app(scope, receive, wrapped_send)
         except Exception:
@@ -65,7 +61,6 @@ class RequestIDMiddleware:
                 "Request tracing middleware error for request_id={}", request_id)
             raise
         finally:
-            # Clear request context after request is complete
             clear_request_context()
 
     def _get_or_create_request_id(self, scope: Scope) -> str:
@@ -79,16 +74,13 @@ class RequestIDMiddleware:
         """
         headers = dict(scope.get("headers", []))
         
-        # Try to get request ID from headers
         request_id = headers.get(self.header_name)
         
         if request_id:
-            # Decode bytes to string if necessary
             if isinstance(request_id, bytes):
                 request_id = request_id.decode("utf-8")
             return request_id
         
-        # Generate new request ID
         return str(uuid.uuid4())
 
     def _create_wrapped_send(
@@ -107,16 +99,13 @@ class RequestIDMiddleware:
         """
         async def wrapped_send(message: Message) -> None:
             if message["type"] == "http.response.start":
-                # Add request ID to response headers
                 raw_headers = message.get("headers", [])
-                # Convert to list of lists if needed
                 if isinstance(raw_headers, dict):
                     headers_dict: Dict[str, Any] = cast(Dict[str, Any], raw_headers)
                     headers: List[List[Any]] = [[k, v] for k, v in headers_dict.items()]
                 else:
                     headers = list(raw_headers) if raw_headers else []
                 
-                # Add request ID header
                 headers.append([self.header_name.encode(), request_id.encode()])
                 message["headers"] = headers
             await send(message)

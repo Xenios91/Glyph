@@ -165,7 +165,6 @@ class JWTHandler:
         try:
             decoded = jwt.decode(token, self._key, algorithms=[self.algorithm])
 
-            # Validate claims (exp, nbf, iat) via JWTClaimsRegistry
             self._validate_claims(dict(decoded.claims))
 
             logger.debug("Token verified for subject {} type {}", decoded.claims.get("sub"), decoded.claims.get("type"))

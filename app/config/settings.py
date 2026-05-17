@@ -19,7 +19,6 @@ import yaml
 MAX_CPU_CORES = os.cpu_count() or 1
 
 
-# Logging configuration models
 class LoggingFileConfig(BaseModel):
     """File logging configuration."""
     path: str = "logs/glyph.log"
@@ -71,7 +70,6 @@ class GlyphSettings(BaseSettings):
         default=Path("./binaries"), description="Upload directory"
     )
 
-    # JWT Settings
     jwt_secret_key: str = Field(
         default="change-me-in-production",
         description="Secret key for JWT signing"
@@ -80,11 +78,9 @@ class GlyphSettings(BaseSettings):
     access_token_expire_minutes: int = Field(default=15)
     refresh_token_expire_days: int = Field(default=7)
     
-    # OAuth2 Settings
     oauth2_enabled: bool = Field(default=False)
     oauth2_session_secret: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     
-    # Security Settings
     use_https: bool = Field(
         default=False,
         description="Whether the application is deployed behind HTTPS/TLS"
@@ -94,10 +90,8 @@ class GlyphSettings(BaseSettings):
         description="List of trusted proxy IPs/CIDRs for X-Forwarded-For"
     )
     
-    # Authentication Settings
     auth_enabled: bool = Field(default=True, description="Whether authentication is enabled")
     
-    # Logging Settings
     logging: LoggingConfig = LoggingConfig()
 
     model_config = {"env_prefix": "GLYPH_", "extra": "ignore"}
@@ -137,9 +131,6 @@ def get_settings() -> GlyphSettings:
     if _settings is None:
         try:
             _settings = GlyphSettings()
-            # Warn if using the default JWT secret key.
-            # The default is a known placeholder in config.yml; if unchanged,
-            # warn the user but do not block startup.
             _DEFAULT_JWT_SECRET = "change-me-in-production"
             if _settings.jwt_secret_key == _DEFAULT_JWT_SECRET:
                 logger.warning(
