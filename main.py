@@ -33,6 +33,9 @@ class CSPMiddleware:
     Uses pure ASGI interface to avoid threading issues with Starlette's
     app.middleware("http") decorator that runs call_next in a thread pool,
     which blocks responses when background tasks are used.
+
+    For /docs and /docs/oauth2-redirect routes, relaxes script-src and
+    style-src to allow Swagger UI assets from cdn.jsdelivr.net.
     """
 
     CSP_HEADER = (
@@ -40,6 +43,18 @@ class CSPMiddleware:
         "script-src 'self'; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "img-src 'self' data:; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "object-src 'none'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    )
+
+    CSP_HEADER_DOCS = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+        "img-src 'self' data: https://fastapi.tiangolo.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "object-src 'none'; "
         "frame-ancestors 'none'; "
@@ -70,10 +85,15 @@ class CSPMiddleware:
             await self.app(scope, receive, send)
             return
 
+        path = scope.get("path", "")
+        is_docs_route = path.startswith("/docs")
+
+        csp_header = self.CSP_HEADER_DOCS if is_docs_route else self.CSP_HEADER
+
         async def send_wrapper(message: dict[str, Any]) -> None:
             if message["type"] == "http.response.start":
                 headers: list[tuple[bytes, bytes]] = list(message.get("headers", []))
-                headers.append((b"content-security-policy", self.CSP_HEADER.encode("utf-8")))
+                headers.append((b"content-security-policy", csp_header.encode("utf-8")))
                 headers.extend(self.SECURITY_HEADERS)
                 message["headers"] = headers
             await send(message)
