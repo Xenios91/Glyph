@@ -41,6 +41,7 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions._run_prediction_task")
     @patch("app.api.v1.endpoints.predictions.PredictionPersistanceUtil")
     @patch("app.api.v1.endpoints.predictions.TaskManager")
+    @patch("app.api.v1.endpoints.predictions.TaskManager")
     @patch("app.api.v1.endpoints.predictions.PredictionRequest")
     def test_predict_tokens_success(
         self,

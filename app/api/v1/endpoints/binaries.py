@@ -382,8 +382,9 @@ async def post_upload_binary(
         form_data.name,
         form_data.ml_class_type)
 
-    # Register the task in TaskManager so status polling can find it
-    TaskManager.register_task(ghidra_task.uuid, "starting")
+    # Register the task in TaskManager so status polling can find it.
+    # Pass owner_id to enforce ownership checks on status updates.
+    TaskManager.register_task(ghidra_task.uuid, "starting", owner_id=current_user.id)
 
     # Capture request context before handing off to background task
     captured_ctx = capture_request_context()

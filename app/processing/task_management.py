@@ -191,6 +191,9 @@ class TaskManager:
     # Registry of active task UUIDs → status strings that persists beyond the queue.
     # Populated when tasks are queued and updated via set_status().
     _active_tasks: dict[str, str] = {}
+    # Registry of task UUIDs → owner user IDs for access control.
+    # Ensures only the user who created a task can modify its status.
+    _task_owners: dict[str, int] = {}
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Initialize the process pool executor for subclasses."""
@@ -260,7 +263,12 @@ class TaskManager:
         return str(uuid.uuid4())
 
     @classmethod
-    def register_task(cls, job_uuid: str, initial_status: str = "starting") -> None:
+    def register_task(
+        cls,
+        job_uuid: str,
+        initial_status: str = "starting",
+        owner_id: int | None = None,
+    ) -> None:
         """Register a new task in the active tasks registry.
 
         Call this when a task is queued so that get_status() can find it
@@ -269,9 +277,14 @@ class TaskManager:
         Args:
             job_uuid: The UUID of the job.
             initial_status: Initial status string (default "starting").
+            owner_id: The user ID that owns this task (for access control).
         """
         cls._active_tasks[job_uuid] = initial_status
-        logger.debug("Registered task {} with status '{}'", job_uuid, initial_status)
+        if owner_id is not None:
+            cls._task_owners[job_uuid] = owner_id
+        logger.debug(
+            "Registered task {} with status '{}' owner={}",
+            job_uuid, initial_status, owner_id)
 
     @classmethod
     def get_status(cls, job_uuid: str) -> str:
@@ -325,7 +338,25 @@ class TaskManager:
         return status_list
 
     @classmethod
-    def set_status(cls, job_uuid: str, status: str) -> bool:
+    def verify_task_owner(cls, job_uuid: str, user_id: int) -> bool:
+        """Verify that the given user owns the specified task.
+
+        Args:
+            job_uuid: The UUID of the job.
+            user_id: The user ID to check ownership for.
+
+        Returns:
+            True if the user owns the task or no owner is registered,
+            False otherwise.
+        """
+        owner = cls._task_owners.get(job_uuid)
+        if owner is None:
+            # No owner registered (backwards compatibility) - allow access
+            return True
+        return owner == user_id
+
+    @classmethod
+    def set_status(cls, job_uuid: str, status: str, owner_id: int | None = None) -> bool:
         """Set the status of a job by its UUID.
 
         Updates both the active tasks registry and the service queue
@@ -334,10 +365,18 @@ class TaskManager:
         Args:
             job_uuid: The UUID of the job.
             status: The new status to set.
+            owner_id: Optional user ID to verify ownership before updating.
 
         Returns:
-            True if the status was set, False if the UUID was not found.
+            True if the status was set, False if the UUID was not found
+            or ownership verification failed.
         """
+        # Verify ownership if owner_id provided
+        if owner_id is not None and not cls.verify_task_owner(job_uuid, owner_id):
+            logger.warning(
+                "Ownership check failed for task {} by user {}", job_uuid, owner_id)
+            return False
+
         # Update active tasks registry
         if job_uuid in cls._active_tasks:
             cls._active_tasks[job_uuid] = status
@@ -364,7 +403,9 @@ class TaskManager:
         """
         if job_uuid in cls._active_tasks:
             del cls._active_tasks[job_uuid]
-            logger.debug("Removed task {} from active registry", job_uuid)
+        # Clean up ownership tracking as well
+        cls._task_owners.pop(job_uuid, None)
+        logger.debug("Removed task {} from active registry", job_uuid)
 
 
 class Ghidra(TaskManager):

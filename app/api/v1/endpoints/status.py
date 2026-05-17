@@ -83,14 +83,16 @@ async def update_status(
         Success response when status is updated.
 
     Raises:
-        HTTPException: If UUID is not found.
+        HTTPException: If UUID is not found or user doesn't own the task.
     """
     # Validation is handled by Pydantic - status and uuid are already stripped and validated
-    updated: bool = TaskManager().set_status(payload.uuid, payload.status)
+    updated: bool = TaskManager().set_status(
+        payload.uuid, payload.status, owner_id=current_user.id)
 
     if not updated:
         logger.warning(
-            "Status update failed: UUID {} not found", payload.uuid)
+            "Status update failed: UUID {} not found or ownership denied",
+            payload.uuid)
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
@@ -98,7 +100,8 @@ async def update_status(
                 error_message="UUID not found").model_dump())
 
     logger.info(
-        "Status updated for UUID {} to '{}'", payload.uuid, payload.status)
+        "Status updated for UUID {} to '{}' by user {}",
+        payload.uuid, payload.status, current_user.id)
 
     return create_success_response(
         data={"success": True},
