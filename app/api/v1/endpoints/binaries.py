@@ -1,14 +1,9 @@
-"""Binary upload and management endpoints for Glyph API.
-
-This module provides endpoints for uploading binary files and managing
-binary-related operations.
-"""
-
 import os
 import shutil
 import stat
-from pathlib import Path
 import uuid
+from pathlib import Path
+
 import magic
 from typing import Annotated, Any, Union
 
@@ -32,7 +27,7 @@ from app.utils.responses import (
     create_success_response,
     create_error_response,
     SuccessResponse)
-from app.templates import templates  # Shared Jinja2Templates instance
+from app.templates import templates
 from loguru import logger
 from app.utils.request_context import (
     CapturedContext,
@@ -44,37 +39,15 @@ from app.auth.dependencies import get_current_active_user
 from app.database.models import User
 
 
-
 class BinaryUploadForm(BaseModel):
-    """Pydantic model for binary upload form validation.
-
-    Attributes:
-        training_data: Whether this is training data ("true" or "false").
-        model_name: Name of the model to use (required, non-empty).
-        ml_class_type: Type of ML classification (required, non-empty).
-        name: Required name for both training and prediction modes.
-    """
-
-    training_data: str = Field(
-        default="false",
-        description="Whether this is training data")
-    model_name: str = Field(
-        ...,
-        min_length=1,
-        description="Name of the model to use")
-    ml_class_type: str = Field(
-        ...,
-        min_length=1,
-        description="Type of ML classification")
-    name: str = Field(
-        ...,
-        min_length=1,
-        description="Required name for the task or model")
+    training_data: str = Field(default="false")
+    model_name: str = Field(..., min_length=1)
+    ml_class_type: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
 
     @field_validator("training_data", mode="before")
     @classmethod
     def validate_training_data(cls, v: str | None) -> str:
-        """Validate training_data is 'true' or 'false'."""
         if v is None:
             return "false"
         v_lower = v.lower().strip()
@@ -85,44 +58,28 @@ class BinaryUploadForm(BaseModel):
     @field_validator("model_name", "ml_class_type", "name", mode="before")
     @classmethod
     def strip_strings(cls, v: str | None) -> str:
-        """Strip whitespace from string fields."""
         if v is None:
             raise ValueError("Field cannot be empty")
         return v.strip()
 
 
 class BinaryUploadResponse(BaseModel):
-    """Response model for binary upload.
-
-    Attributes:
-        uuid: The unique identifier for the uploaded binary.
-    """
-
-    uuid: str = Field(..., description="Unique identifier for the uploaded binary")
+    uuid: str = Field(...)
 
 
 router = APIRouter()
 
-# Allowed MIME types for binary files
 ALLOWED_MIME_TYPES = {
     "application/x-executable",
     "application/x-object",
     "application/octet-stream",
     "application/x-elf",
-    "application/x-dosexec",  # Windows PE/EXE files
-    "application/x-sharedlib",  # Shared libraries (.so, .dll)
+    "application/x-dosexec",
+    "application/x-sharedlib",
 }
 
 
 def validate_binary_mime_type(file_content: bytes) -> None:
-    """Validate uploaded file is a legitimate binary using MIME type detection.
-
-    Args:
-        file_content: The file content bytes for MIME type detection.
-
-    Raises:
-        HTTPException: If MIME type validation fails.
-    """
     try:
         mime_type = magic.from_buffer(file_content[:1024], mime=True)
     except Exception:
@@ -136,32 +93,16 @@ def validate_binary_mime_type(file_content: bytes) -> None:
 
 
 def sanitize_filename(filename: str) -> str:
-    """Sanitize filename to prevent path traversal attacks.
-
-    Args:
-        filename: The original filename.
-
-    Returns:
-        A sanitized filename with only the base name.
-
-    Raises:
-        HTTPException: If filename is invalid.
-    """
     if not filename:
         raise HTTPException(status_code=400, detail="Empty filename")
 
-    # Check for path traversal attempts BEFORE stripping components
     if ".." in filename:
         raise HTTPException(status_code=400, detail="Invalid filename characters")
 
-    # Check for null bytes
     if "\x00" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename characters")
 
-    # Get just the filename without any directory components
-    base_name = Path(filename).name
-
-    return base_name
+    return Path(filename).name
 
 
 async def _run_pipeline_analysis(
@@ -169,35 +110,14 @@ async def _run_pipeline_analysis(
     file_path: str,
     captured_ctx: CapturedContext | None = None,
 ) -> None:
-    """Background task for running the full analysis pipeline on a binary.
-
-    This function uses the pluggable pipeline framework to process the binary:
-    1. Validation - Binary file validation
-    2. Decompile - Ghidra decompilation
-    3. Tokenize - Token extraction
-    4. Filter - Token filtering/normalization
-    5. FeatureExtract - TF-IDF feature extraction
-    6. Train/Predict - Model training or prediction
-
-    Args:
-        ghidra_request: The Ghidra request containing analysis parameters.
-        file_path: Path to the uploaded binary file.
-        captured_ctx: Captured request context from the originating request
-            thread. Restored before awaiting to preserve tracing.
-    """
     task_uuid = ghidra_request.uuid
     try:
-        # Restore request context from the snapshot captured on the request thread
         if captured_ctx is not None:
             restore_request_context(captured_ctx, override_task_id=task_uuid)
 
-        # Update status to processing
         TaskManager.set_status(task_uuid, "processing")
-
-        # Run the full pipeline
         result = await Ghidra.run_full_pipeline(ghidra_request, file_path)
 
-        # Update final status
         if result.error:
             TaskManager.set_status(task_uuid, "error")
             logger.opt(exception=result.exc_info).error(
@@ -205,11 +125,9 @@ async def _run_pipeline_analysis(
         else:
             logger.info("Pipeline execution completed")
 
-            # For training, save functions to database
             if ghidra_request.is_training:
                 filtered_functions = result.get("filtered_functions")
                 if filtered_functions:
-                    # Create a mock training request for persistence
                     from app.services.request_handler import TrainingRequest
 
                     training_data = {
@@ -224,11 +142,7 @@ async def _run_pipeline_analysis(
                         model_name=ghidra_request.model_name,
                         data=training_data)
                     await FunctionPersistanceUtil.add_model_functions(training_request)
-                    logger.debug(
-                        "Functions saved for model {}",
-                        ghidra_request.model_name)
-
-            # For prediction, save predictions to database
+                    logger.debug("Functions saved for model {}", ghidra_request.model_name)
             else:
                 predictions = result.get("predictions")
                 filtered_functions = result.get("filtered_functions")
@@ -248,24 +162,15 @@ async def _run_pipeline_analysis(
                             "erroredFunctions": result.get("errored_functions", []),
                         },
                     }
-                    logger.debug(
-                        "Creating PredictionRequest for task '{}' uuid {}",
-                        ghidra_request.name,
-                        task_uuid)
                     try:
                         prediction_request = PredictionRequest(
                             req_uuid=task_uuid,
                             model_name=ghidra_request.model_name,
                             data=prediction_data)
-                        logger.debug(
-                            "PredictionRequest created for task '{}'",
-                            prediction_request.task_name)
                         await FunctionPersistanceUtil.add_prediction_functions(
                             prediction_request, predictions
                         )
-                        logger.debug(
-                            "Predictions saved for task {}",
-                            ghidra_request.name)
+                        logger.debug("Predictions saved for task {}", ghidra_request.name)
                     except Exception:
                         logger.exception("Failed to create PredictionRequest")
                         raise
@@ -277,8 +182,6 @@ async def _run_pipeline_analysis(
         logger.exception("Pipeline task failed")
         raise
     finally:
-        # Clean up the task from the active registry after a delay
-        # so the final status is still available for a brief window.
         import asyncio
         asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
         clear_request_context()
@@ -295,24 +198,6 @@ async def post_upload_binary(
     ml_class_type: str = Form(...),
     name: str = Form(...)
 ) -> Union[SuccessResponse[BinaryUploadResponse], HTMLResponse]:
-    """Handle POST request for binary file uploads.
-
-    Args:
-        background_tasks: FastAPI BackgroundTasks for async task execution.
-        request: The FastAPI request object.
-        binary_file: The binary file to upload.
-        training_data: Whether this is training data ("true" or "false").
-        model_name: Name of the model to use.
-        ml_class_type: Type of ML classification.
-        name: Required name for the task or model.
-
-    Returns:
-        JSONResponse with upload result or HTML template.
-
-    Raises:
-        HTTPException: If validation fails or file is too large.
-    """
-    # Validate form data using Pydantic model
     form_data = BinaryUploadForm(
         training_data=training_data,
         model_name=model_name,
@@ -336,7 +221,7 @@ async def post_upload_binary(
         "Binary upload started: {} ({} bytes)",
         binary_file.filename,
         len(file_content))
-    
+
     if len(file_content) > max_file_size_bytes:
         actual_size_mb = len(file_content) / (1024 * 1024)
         raise HTTPException(
@@ -345,21 +230,16 @@ async def post_upload_binary(
                 error_code="FILE_TOO_LARGE",
                 error_message=f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)").model_dump())
 
-    # Validate MIME type to ensure file is a legitimate binary
     validate_binary_mime_type(file_content)
-    # Sanitize filename to prevent path traversal attacks
     sanitize_filename(binary_file.filename)
-    # Generate unique filename using UUID (no extension from user input)
     unique_filename = f"{uuid.uuid4()}"
     upload_folder = settings.upload_folder
 
     os.makedirs(upload_folder, exist_ok=True)
-    # Set restrictive directory permissions (owner only)
     os.chmod(upload_folder, stat.S_IRWXU)
 
-    # Check available disk space before writing
     disk_usage = shutil.disk_usage(upload_folder)
-    if disk_usage.free < len(file_content) * 1.1:  # 10% buffer
+    if disk_usage.free < len(file_content) * 1.1:
         raise HTTPException(
             status_code=507,
             detail=create_error_response(
@@ -368,10 +248,8 @@ async def post_upload_binary(
 
     file_path = os.path.join(upload_folder, unique_filename)
 
-    # Write file with secure permissions (owner read/write only)
     with open(file_path, "wb") as f:
         f.write(file_content)
-    # Set restrictive file permissions (0o600 = owner read/write only)
     os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
     is_training_data = form_data.training_data == "true"
 
@@ -382,18 +260,13 @@ async def post_upload_binary(
         form_data.name,
         form_data.ml_class_type)
 
-    # Register the task in TaskManager so status polling can find it.
-    # Pass owner_id to enforce ownership checks on status updates.
     TaskManager.register_task(ghidra_task.uuid, "starting", owner_id=current_user.id)
 
-    # Capture request context before handing off to background task
     captured_ctx = capture_request_context()
     background_tasks.add_task(
         _run_pipeline_analysis, ghidra_task, file_path, captured_ctx)
     logger.info("Binary uploaded to: {}, background task queued (uuid={}), returning response now", file_path, ghidra_task.uuid)
 
-    # Return HTML only for browser navigation requests (Accept contains text/html)
-    # API requests (Accept: application/json) should get JSON responses
     if "text/html" in accept and "application/json" not in accept:
         return templates.TemplateResponse(request, "upload.html", {"user": current_user})
 
@@ -408,9 +281,6 @@ async def post_upload_binary(
 async def list_bins(
     current_user: Annotated[User, Depends(get_current_active_user)]
 ) -> SuccessResponse[dict[str, Any]]:
-    """
-    Handles a GET request to retrieve all available binaries
-    """
     files: list[str] = []
     settings = get_settings()
     directory_path = settings.upload_folder

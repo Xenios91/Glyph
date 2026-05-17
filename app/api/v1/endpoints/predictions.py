@@ -1,9 +1,3 @@
-"""Prediction endpoints for Glyph API.
-
-This module provides endpoints for making predictions and retrieving
-prediction results.
-"""
-
 import asyncio
 import contextvars
 from typing import Annotated, Any, cast
@@ -21,7 +15,7 @@ from app.processing.task_management import TaskManager
 from app.utils.common import format_code
 from loguru import logger
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
-from app.templates import templates  # Shared Jinja2Templates instance
+from app.templates import templates
 from app.utils.logging_utils import catch_http_exception
 from app.utils.request_context import (
     CapturedContext,
@@ -37,13 +31,6 @@ router = APIRouter()
 
 
 class PredictTokensRequest(BaseModel):
-    """Request model for token prediction.
-
-    Attributes:
-        modelName: Name of the model to use for prediction.
-        uuid: Optional UUID for the prediction task.
-    """
-
     modelName: str
     uuid: str | None = None
 
@@ -54,24 +41,10 @@ def _run_prediction_task(
     prediction_request: PredictionRequest,
     captured_ctx: CapturedContext | None = None,
 ) -> None:
-    """Background task for running predictions.
-
-    This task handles token-based predictions where the client sends
-    pre-extracted function tokens directly (no binary file involved).
-    The pipeline skips ValidationStep and DecompileStep since there is
-    no binary to validate or decompile, and instead uses the functions
-    already provided in the PredictionRequest.
-
-    Args:
-        prediction_request: The prediction request containing data.
-        captured_ctx: Captured request context from the originating request
-            thread. Restored before asyncio.run() to preserve tracing.
-    """
     try:
         if captured_ctx is not None:
             restore_request_context(captured_ctx, override_task_id=prediction_request.uuid)
 
-        # Use the pipeline framework for predictions
         from app.processing.steps import (
             TokenizeStep,
             FilterStep,
@@ -79,29 +52,19 @@ def _run_prediction_task(
             PredictStep)
         from app.processing.pipeline import ProcessingPipeline, PipelineContext
 
-        # Pre-populate context with functions from the prediction request.
-        # PredictionRequest._load_data() already processes the functions,
-        # extracting tokenList and joining tokens. These functions are
-        # available via get_functions() which returns the cleaned/deduplicated
-        # list from json_dict["functionsMap"]["functions"].
         functions = prediction_request.get_functions()
 
         context = PipelineContext(
             uuid=prediction_request.uuid,
-            binary_path="",  # Not used for token-based predictions
+            binary_path="",
             pipeline_type="ml_prediction",
             metadata={
                 "model_name": prediction_request.model_name,
                 "task_name": prediction_request.task_name,
             })
 
-        # Seed the context with functions so TokenizeStep can process them.
-        # This replaces the role of DecompileStep which would normally
-        # populate context["functions"] from Ghidra output.
         context.set("functions", functions)
 
-        # Token-based prediction pipeline skips ValidationStep and
-        # DecompileStep since there is no binary file to process.
         pipeline = ProcessingPipeline(
             "ML Prediction Pipeline",
             [
@@ -136,24 +99,11 @@ async def predict_tokens(
     request_values: PredictTokensRequest,
     current_user: Annotated[User, Depends(get_current_active_user)]
 ) -> SuccessResponse[dict[str, Any]]:
-    """Creates a job to predict a function name based on the tokens supplied.
-    
-    Args:
-        background_tasks: FastAPI BackgroundTasks for async task execution.
-        request_values: The prediction request containing model name and data.
-        
-    Returns:
-        Success response with task UUID.
-        
-    Raises:
-        HTTPException: If task name already exists or prediction fails.
-    """
     model_name = request_values.modelName
     uuid = request_values.uuid or TaskManager().get_uuid()
     data = request_values.model_dump()
     task_name = data.get("taskName", "")
 
-    # Validate task name is provided and non-empty before checking uniqueness
     if not task_name or not task_name.strip():
         raise HTTPException(
             status_code=400,
@@ -162,7 +112,6 @@ async def predict_tokens(
                 error_message="taskName is required for predictions").model_dump())
     task_name = task_name.strip()
 
-    # Validate that task name is unique
     if not await PredictionPersistanceUtil.is_task_name_unique(task_name):
         raise HTTPException(
             status_code=409,
@@ -171,11 +120,7 @@ async def predict_tokens(
                 error_message=f"Task name '{task_name}' already exists. Task names must be unique.").model_dump())
 
     prediction_request = PredictionRequest(uuid, model_name, data)
-
-    # Capture request context before handing off to background task
     captured_ctx = capture_request_context()
-
-    # Add prediction as a background task
     background_tasks.add_task(_run_prediction_task, prediction_request, captured_ctx)
 
     return create_success_response(
@@ -190,19 +135,6 @@ async def get_prediction(
     model_name: ModelName = Query(...),
     task_name: TaskName = Query(...)
 ) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
-    """Obtain all predictions from one task.
-    
-    Args:
-        request: The FastAPI request object.
-        model_name: The name of the model (automatically validated and stripped).
-        task_name: The name of the task (automatically validated and stripped).
-        
-    Returns:
-        Prediction data or HTML template response.
-        
-    Raises:
-        HTTPException: If prediction is not found.
-    """
     prediction = await PredictionPersistanceUtil.get_predictions(task_name, model_name)
 
     if not prediction:
@@ -242,15 +174,6 @@ async def delete_prediction(
     current_user: Annotated[User, Depends(get_current_active_user)],
     task_name: TaskName = Query(...)
 ) -> SuccessResponse[dict[str, Any]]:
-    """Deletes a prediction by task name.
-
-    Args:
-        task_name: The name of the task to delete (automatically validated and stripped).
-
-    Returns:
-        Success response when prediction is deleted.
-    """
-    # Validation is handled by Pydantic - task_name is already stripped and validated
     await PredictionPersistanceUtil.delete_prediction(task_name)
 
     return create_success_response(
@@ -264,14 +187,6 @@ async def delete_predictions(
     current_user: Annotated[User, Depends(get_current_active_user)],
     task_names: str = Query(...)
 ) -> SuccessResponse[dict[str, Any]]:
-    """Handles a DELETE request to delete multiple predictions by task name.
-
-    Args:
-        task_names: Comma-separated list of task names to delete.
-
-    Returns:
-        Success response when predictions are deleted.
-    """
     names = [name.strip() for name in task_names.split(",") if name.strip()]
     if not names:
         raise HTTPException(
@@ -306,20 +221,6 @@ async def get_prediction_details(
     function_name: FunctionName = Query(...),
     task_name: TaskName = Query(...)
 ) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
-    """Displays specific details of a prediction.
-    
-    Args:
-        request: The FastAPI request object.
-        model_name: The name of the model (automatically validated and stripped).
-        function_name: The name of the function (automatically validated and stripped).
-        task_name: The name of the task (automatically validated and stripped).
-        
-    Returns:
-        Prediction details or HTML template response.
-        
-    Raises:
-        HTTPException: If retrieval fails.
-    """
     try:
         model_info = await FunctionPersistanceUtil.get_function(model_name, function_name)
         prediction_data = await FunctionPersistanceUtil.get_prediction_function(

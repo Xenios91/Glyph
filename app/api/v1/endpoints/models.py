@@ -1,9 +1,3 @@
-"""Model management endpoints for Glyph API.
-
-This module provides endpoints for managing machine learning models,
-including retrieving model information and function predictions.
-"""
-
 from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -23,7 +17,7 @@ from app.utils.responses import (
     create_success_response,
     create_error_response,
     SuccessResponse)
-from app.templates import templates  # Shared Jinja2Templates instance
+from app.templates import templates
 from app.utils.logging_utils import catch_http_exception
 
 
@@ -36,15 +30,6 @@ async def delete_model(
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...)
 ) -> SuccessResponse[dict[str, Any]]:
-    """
-    Handles a DELETE request to delete a supplied model by name.
-
-    Args:
-        model_name: The name of the model to delete (automatically validated and stripped).
-
-    Returns:
-        Success response when model is deleted.
-    """
     await MLPersistanceUtil.delete_model(model_name)
     await PredictionPersistanceUtil.delete_model_predictions(model_name)
     return create_success_response(
@@ -58,15 +43,6 @@ async def delete_models(
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_names: str = Query(...)
 ) -> SuccessResponse[dict[str, Any]]:
-    """
-    Handles a DELETE request to delete multiple models by name.
-
-    Args:
-        model_names: Comma-separated list of model names to delete.
-
-    Returns:
-        Success response when models are deleted.
-    """
     names = [name.strip() for name in model_names.split(",") if name.strip()]
     if not names:
         raise HTTPException(
@@ -74,7 +50,7 @@ async def delete_models(
             detail=create_error_response(
                 error_code="INVALID_MODEL_NAMES",
                 error_message="At least one model name must be provided").model_dump())
-    
+
     deleted: list[str] = []
     failed: list[str] = []
     for name in names:
@@ -85,12 +61,12 @@ async def delete_models(
         except Exception as exc:
             logger.warning("Failed to delete model '%s': %s", name, exc)
             failed.append(name)
-    
+
     data = {"deleted": deleted, "failed": failed}
     message = f"Deleted {len(deleted)} model(s)"
     if failed:
         message += f"; failed to delete {len(failed)}: {', '.join(failed)}"
-    
+
     return create_success_response(data=data, message=message)
 
 
@@ -101,21 +77,6 @@ async def get_function(
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...)
 ) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
-    """
-    Handles a GET request to return a specific function associated with a model.
-
-    Args:
-        request: The FastAPI request object.
-        model_name: The name of the model (automatically validated and stripped).
-        function_name: The name of the function (automatically validated and stripped).
-
-    Returns:
-        Function information or HTML template response.
-
-    Raises:
-        HTTPException: If function is not found or inputs are invalid.
-    """
-    # Validate inputs before persistence layer call
     if not model_name or not model_name.strip():
         raise HTTPException(
             status_code=400,
@@ -174,16 +135,6 @@ async def get_functions(
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...)
 ) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
-    """
-    Handles a GET request to return all identified functions associated with a model.
-
-    Args:
-        request: The FastAPI request object.
-        model_name: The name of the model (automatically validated and stripped).
-
-    Returns:
-        List of functions or HTML template response.
-    """
     functions = await FunctionPersistanceUtil.get_functions(model_name)
 
     accept = request.headers.get("Accept", "")
@@ -222,20 +173,6 @@ async def get_prediction_details(
     function_name: FunctionName = Query(...),
     task_name: TaskName = Query(...)
 ) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
-    """Displays specific details of a prediction.
-
-    Args:
-        request: The FastAPI request object.
-        model_name: The name of the model (automatically validated and stripped).
-        function_name: The name of the function (automatically validated and stripped).
-        task_name: The name of the task (automatically validated and stripped).
-
-    Returns:
-        Prediction details or HTML template response.
-
-    Raises:
-        HTTPException: If function or prediction is not found.
-    """
     try:
         model_info = await FunctionPersistanceUtil.get_function(model_name, function_name)
         prediction_data = await FunctionPersistanceUtil.get_prediction_function(
