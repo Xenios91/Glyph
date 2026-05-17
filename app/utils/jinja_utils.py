@@ -16,8 +16,4 @@ def configure_jinja2_templates(templates: Jinja2Templates) -> None:
     Args:
         templates: The Jinja2Templates instance to configure.
     """
-    # Enable auto-escaping for HTML templates to prevent XSS.
-    # This ensures user-controlled content (e.g., binary analysis tokens)
-    # is properly escaped when rendered in templates, replacing the previous
-    # manual html_escape() calls in format_code().
     templates.env.autoescape = True  # type: ignore[union-attr]

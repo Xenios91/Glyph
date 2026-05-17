@@ -105,7 +105,7 @@ class TestBug4_Fixed_PredictionRequestSnakeCase:
         """PredictionRequest now accepts 'task_name' (snake_case)."""
         from app.services.request_handler import PredictionRequest
 
-        data = {
+        data: dict[str, str | dict[str, list[str]]] = {
             "task_name": "test_task",
             "functionsMap": {"functions": []},
         }
@@ -118,7 +118,7 @@ class TestBug4_Fixed_PredictionRequestSnakeCase:
         """PredictionRequest still accepts 'taskName' (camelCase)."""
         from app.services.request_handler import PredictionRequest
 
-        data = {
+        data: dict[str, str | dict[str, list[str]]] = {
             "taskName": "test_task",
             "functionsMap": {"functions": []},
         }
@@ -130,7 +130,7 @@ class TestBug4_Fixed_PredictionRequestSnakeCase:
         """PredictionRequest raises ValueError when neither key is present."""
         from app.services.request_handler import PredictionRequest
 
-        data = {
+        data: dict[str, dict[str, list[str]]] = {
             "functionsMap": {"functions": []},
         }
 

@@ -12,27 +12,20 @@ def format_code(code: str) -> str:
     when rendered in templates, and JSON responses remain clean for API consumers.
     """
     
-    # 1. Remove Comments (Both /* */ and //)
-    # This regex handles multi-line comments and single-line comments
     code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)
     code = re.sub(r'//.*', '', code)
 
-    # 2. Split into signature and body
     parts = code.split("{", 1)
     if len(parts) != 2:
         return code.strip()
 
-    function_signature = parts[0].strip()
-    # Ensure the signature doesn't have internal double-spaces from removed comments
-    function_signature = " ".join(function_signature.split())
+    function_signature = " ".join(parts[0].strip().split())
     
-    function_body = parts[1].rsplit("}", 1)[0] # Extract only what's inside the braces
+    function_body = parts[1].rsplit("}", 1)[0]
 
-    # 3. Clean up whitespace and unnecessary Ghidra-isms
     function_body = function_body.replace(" ( ", "(").replace(" ) ", ")")
     function_body = function_body.replace(" ;", ";")
 
-    # 4. Tokenization (Handles strings and control characters)
     tokens: list[str] = []
     current_token = ""
     i = 0
@@ -44,11 +37,10 @@ def format_code(code: str) -> str:
             tokens.append(char)
             current_token = ""
         elif char == '"':
-            # Handle string literals (prevent breaking on ';' inside strings)
             start = i
             i += 1
             while i < len(function_body) and function_body[i] != '"':
-                if function_body[i] == '\\': i += 1 # Skip escaped quotes
+                if function_body[i] == '\\': i += 1
                 i += 1
             tokens.append(function_body[start:i+1])
             current_token = ""
@@ -59,10 +51,8 @@ def format_code(code: str) -> str:
     if current_token.strip():
         tokens.append(current_token.strip())
 
-    # 5. Rebuild with Indentation Logic
     indent_level = 1
     
-    # Start with signature and opening brace
     final_output = [function_signature, "{"]
     
     current_line = "    " * indent_level
@@ -89,22 +79,15 @@ def format_code(code: str) -> str:
         else:
             current_line += token + " "
 
-    # Append any remaining content
     if current_line.strip() and current_line.strip() != "}":
         final_output.append(current_line.rstrip())
 
-    # Ensure braces are balanced. The function adds one opening brace on line 66
-    # ("{" for the function body). Count all braces in the output and append
-    # closing braces until they match. This fixes the case where the innermost
-    # block ends with "}" and the guard on the previous iteration incorrectly
-    # skipped adding the outer function's closing brace.
     open_braces = sum(line.count("{") for line in final_output)
     close_braces = sum(line.count("}") for line in final_output)
     while close_braces < open_braces:
         final_output.append("}")
         close_braces += 1
 
-    # Final cleanup of empty lines
     result = "\n".join(line for line in final_output if line.strip())
     return result
 

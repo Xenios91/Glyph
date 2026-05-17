@@ -17,23 +17,18 @@ from joblib.numpy_pickle import NumpyUnpickler
 
 from loguru import logger
 
-# Whitelist of allowed classes for deserialization
-# These are the only classes that are safe to deserialize in our application
 ALLOWED_CLASSES: Set[str] = {
-    # sklearn classes
     "sklearn.pipeline.Pipeline",
     "sklearn.feature_extraction.text.TfidfVectorizer",
     "sklearn.feature_extraction.text.TfidfTransformer",
     "sklearn.naive_bayes.MultinomialNB",
     "sklearn.preprocessing._label.LabelEncoder",
-    # numpy classes
     "numpy.ndarray",
     "numpy.dtype",
     "numpy.float64",
     "numpy.int64",
     "numpy.float32",
     "numpy.int32",
-    # standard Python types (SAFE ones only)
     "builtins.list",
     "builtins.dict",
     "builtins.str",
@@ -44,12 +39,10 @@ ALLOWED_CLASSES: Set[str] = {
     "builtins.bool",
     "builtins.set",
     "builtins.frozenset",
-    # joblib specific
     "joblib.numpy_pickle.NumpyPickler",
     "joblib.numpy_pickle.NumpyArrayWrapper",
 }
 
-# Explicitly blocked dangerous builtins and functions
 BLOCKED_BUILTINS: Set[str] = {
     "builtins.eval",
     "builtins.exec",
@@ -129,8 +122,6 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
     """
     
     def __init__(self, file: Any, allowed_classes: Set[str] | None = None):
-        # NumpyUnpickler requires: filename, file_handle, ensure_native_byte_order
-        # Use empty string for filename when loading from BytesIO
         super().__init__(  # type: ignore[call-arg]
             filename="",
             file_handle=file,
@@ -151,10 +142,8 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
         Raises:
             SecureDeserializationError: If the class is not in the whitelist.
         """
-        # Construct the fully qualified class name
         class_name = f"{module}.{name}"
-        
-        # First check if it's explicitly blocked
+
         if class_name in BLOCKED_BUILTINS:
             logger.warning(
                 "Blocked deserialization of explicitly dangerous class: {}",
@@ -164,10 +153,6 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
                 f"Deserialization of '{class_name}' is explicitly blocked for security reasons."
             )
         
-        # Check against whitelist - strict exact match required.
-        # Previously this allowed any class from trusted modules via prefix matching,
-        # which could be exploited by crafted pickles using dangerous subclasses.
-        # Now requires explicit whitelist membership for all classes.
         if class_name not in self.allowed_classes:
             logger.warning(
                 "Blocked deserialization of class not in whitelist: {}",
@@ -199,7 +184,6 @@ def secure_load(file_like: io.BytesIO, allowed_classes: Set[str] | None = None) 
         joblib.NumpyUnpicklingError: If the data is not valid joblib format.
     """
     try:
-        # Use our restricted unpickler
         unpickler = RestrictedNumpyUnpickler(file_like, allowed_classes)
         result = unpickler.load()
         

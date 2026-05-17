@@ -109,11 +109,8 @@ class EventWatcher:
         """Background loop that watches for completed futures."""
 
         logger.debug("EventWatcher watch loop started")
-        # Type guard: _stop_event is set in start_watching before this loop runs
         assert self._stop_event is not None
         while self._watching and not self._stop_event.is_set():
-            # Snapshot watched futures under lock to avoid race conditions
-            # with register_callback() calling from the main thread.
             futures_only: list[Future[None]] = []
             with self._data_lock:
                 if self._watched_futures:
@@ -122,17 +119,12 @@ class EventWatcher:
                     ]
 
             if not futures_only:
-                # No futures to watch - sleep outside the lock to avoid
-                # blocking register_callback().
                 time.sleep(2.5)
                 continue
 
-            # Wait for any future to complete (outside the lock to avoid
-            # blocking register_callback while waiting for I/O).
             done, _ = wait(futures_only, timeout=2.5, return_when=FIRST_COMPLETED)
 
             for future in done:
-                # Lookup job_uuid, callback, and task data under lock.
                 with self._data_lock:
                     target_uuid: str | None = None
                     target_task: tuple[Any, Future[None], CapturedContext | None] | None = None
@@ -148,7 +140,6 @@ class EventWatcher:
                     if target_uuid is None or target_task is None:
                         continue
 
-                # Invoke callback outside the lock to prevent deadlocks.
                 if target_callback is not None:
                     request = target_task[0]
                     captured_ctx = target_task[2]
@@ -164,7 +155,6 @@ class EventWatcher:
                     finally:
                         clear_request_context()
 
-                # Clean up or keep alive under lock.
                 with self._data_lock:
                     if (
                         self._watched_futures.get(target_uuid)
@@ -188,11 +178,7 @@ class TaskManager:
     exec_pool: ProcessPoolExecutor | None = None
     _executor_shutdown: bool = False
     __instance: "TaskManager | None" = None
-    # Registry of active task UUIDs → status strings that persists beyond the queue.
-    # Populated when tasks are queued and updated via set_status().
     _active_tasks: dict[str, str] = {}
-    # Registry of task UUIDs → owner user IDs for access control.
-    # Ensures only the user who created a task can modify its status.
     _task_owners: dict[str, int] = {}
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -200,11 +186,7 @@ class TaskManager:
         super().__init_subclass__(**kwargs)
         if cls.exec_pool is None:
             cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
-            # Register cleanup handlers
             atexit.register(cls._shutdown_executor)
-            # Register signal handlers for graceful shutdown (only from main thread).
-            # signal.signal() raises ValueError when called from a non-main thread,
-            # which can happen during testing or certain deployment scenarios.
             if threading.current_thread() is threading.main_thread():
                 signal.signal(signal.SIGTERM, cls._signal_handler)
                 signal.signal(signal.SIGINT, cls._signal_handler)
@@ -299,17 +281,14 @@ class TaskManager:
         Returns:
             The status of the job or "UUID Not Found".
         """
-        # Check active tasks registry first
         if job_uuid in cls._active_tasks:
             return cls._active_tasks[job_uuid]
 
-        # Fallback: check service queue (backwards compatibility)
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
                 status: str = task[0].status
-                # Also register in active tasks so future lookups are fast
                 cls._active_tasks[job_uuid] = status
                 return status
         return "UUID Not Found"
@@ -325,11 +304,8 @@ class TaskManager:
         Returns:
             A dictionary mapping model names / UUIDs to their statuses.
         """
-        # Start with active tasks registry
         status_list: dict[str, str] = dict(cls._active_tasks)
 
-        # Also include anything still in the service queue (keyed by model_name
-        # for backwards compatibility with existing callers).
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             status: str = task[0].status
@@ -351,7 +327,6 @@ class TaskManager:
         """
         owner = cls._task_owners.get(job_uuid)
         if owner is None:
-            # No owner registered (backwards compatibility) - allow access
             return True
         return owner == user_id
 
@@ -371,25 +346,21 @@ class TaskManager:
             True if the status was set, False if the UUID was not found
             or ownership verification failed.
         """
-        # Verify ownership if owner_id provided
         if owner_id is not None and not cls.verify_task_owner(job_uuid, owner_id):
             logger.warning(
                 "Ownership check failed for task {} by user {}", job_uuid, owner_id)
             return False
 
-        # Update active tasks registry
         if job_uuid in cls._active_tasks:
             cls._active_tasks[job_uuid] = status
             logger.debug("Updated task {} status to '{}'", job_uuid, status)
             return True
 
-        # Fallback: update service queue entry (backwards compatibility)
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
                 task[0].status = status
-                # Also register in active tasks
                 cls._active_tasks[job_uuid] = status
                 return True
         return False
@@ -403,7 +374,6 @@ class TaskManager:
         """
         if job_uuid in cls._active_tasks:
             del cls._active_tasks[job_uuid]
-        # Clean up ownership tracking as well
         cls._task_owners.pop(job_uuid, None)
         logger.debug("Removed task {} from active registry", job_uuid)
 

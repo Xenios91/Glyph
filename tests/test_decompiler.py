@@ -1,10 +1,5 @@
 """Unit tests for Ghidra decompiler processing and token manipulation."""
-import pytest
 from unittest import mock
-
-from app.processing.ghidra_processor import (
-    analyze_binary_and_decompile,
-)
 
 
 class TestDecompilerConfig:

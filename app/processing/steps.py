@@ -24,11 +24,6 @@ from app.config.settings import get_settings
 
 
 
-# ============================================================================
-# Token Filtering Utilities
-# ============================================================================
-
-# Patterns for detecting Ghidra auto-named variables
 _VARIABLE_PATTERNS = [
     r"^var\d+$",
     r"^local_[0-9a-fA-F]+$",
@@ -66,17 +61,13 @@ def _remove_comments(tokens_list: list[str]) -> list[str]:
     i = 0
     while i < len(tokens_string):
         if tokens_string[i : i + 2] == "/*":
-            # Found start of comment, look for closing */
             close_idx = tokens_string.find("*/", i + 2)
             if close_idx == -1:
-                # Unclosed comment - stop processing
                 break
-            # Skip past the closed comment
             i = close_idx + 2
         else:
             result += tokens_string[i]
             i += 1
-    # Clean up whitespace
     result = " ".join(result.split())
     return result.split() if result else []
 
@@ -107,11 +98,6 @@ def _filter_tokens(tokens_list: list[str]) -> list[str]:
             filtered.append(token)
 
     return _remove_comments(filtered)
-
-
-# ============================================================================
-# Pipeline Step Implementations
-# ============================================================================
 
 
 class ValidationStep(PipelineStep):
@@ -146,17 +132,14 @@ class ValidationStep(PipelineStep):
         """
         binary_path = context.binary_path
 
-        # Check file exists
         if not os.path.exists(binary_path):
             context.error = f"Binary file not found: {binary_path}"
             return context
 
-        # Check file is readable
         if not os.access(binary_path, os.R_OK):
             context.error = f"Binary file not readable: {binary_path}"
             return context
 
-        # Check file size
         file_size = os.path.getsize(binary_path)
         if file_size > self._max_size_bytes:
             context.error = (
@@ -165,7 +148,6 @@ class ValidationStep(PipelineStep):
             )
             return context
 
-        # Check file is not empty
         if file_size == 0:
             context.error = f"Binary file is empty: {binary_path}"
             return context
@@ -201,7 +183,6 @@ class DecompileStep(PipelineStep):
         binary_path = context.binary_path
 
         try:
-            # Offload blocking Ghidra JVM call to thread pool to avoid blocking event loop
             results = await asyncio.to_thread(
                 ghidra_processor.analyze_binary_and_decompile, binary_path
             )
@@ -348,16 +329,12 @@ class FeatureExtractStep(PipelineStep):
             context.error = "No filtered functions found in context"
             return context
 
-        # Extract tokens from functions
         tokens = [f.get("tokens", "") for f in filtered_functions if f.get("tokens")]
 
         if not tokens:
             context.error = "No tokens found for feature extraction"
             return context
 
-        # Store tokens for the ML pipeline to transform
-        # The ML pipeline includes its own TfidfVectorizer which will handle
-        # the fit_transform operation during training
         context.set("tokens", tokens)
 
         logger.debug(
@@ -392,7 +369,6 @@ class TrainStep(PipelineStep):
         import numpy as np
         from sklearn import preprocessing
 
-        # Get required data
         filtered_functions = context.get("filtered_functions")
         tokens = context.get("tokens")
 
@@ -409,10 +385,8 @@ class TrainStep(PipelineStep):
             context.error = "model_name not found in context metadata"
             return context
 
-        # Extract labels (function names)
         labels = [f.get("functionName", "Unknown") for f in filtered_functions]
 
-        # Encode labels
         label_encoder = preprocessing.LabelEncoder()
         y: NDArray[int64] = cast(
             NDArray[int64], label_encoder.fit_transform(labels)  # type: ignore[call-arg]
@@ -420,21 +394,15 @@ class TrainStep(PipelineStep):
         
 
 
-        # Get ML pipeline
         ml_pipeline: SklearnPipeline = MLTask.get_multi_class_pipeline()
 
         try:
-            # Validate data before training
             logger.debug("Training data: {} tokens, {} labels", len(tokens), len(y))
-            # Guard expensive debug logging to avoid computation when disabled
-            # Using opt(lazy=True) defers evaluation until the log level is confirmed
             logger.opt(lazy=True).debug("Token sample: {}", lambda: tokens[0][:100] if tokens else "empty")
             logger.opt(lazy=True).debug("Label distribution: {}", lambda: np.bincount(y).tolist())
             
-            # Train the model - offload blocking sklearn fit to thread pool
             await asyncio.to_thread(ml_pipeline.fit, tokens, y)  # type: ignore[misc]
 
-            # Save the model
             await MLPersistanceUtil.save_model(model_name, label_encoder, ml_pipeline)
 
             context.set("label_encoder", label_encoder)
@@ -475,7 +443,6 @@ class PredictStep(PipelineStep):
         Returns:
             Updated context with predictions.
         """
-        # Get required data
         filtered_functions = context.get("filtered_functions")
         tokens = context.get("tokens")
         model_name = context.metadata.get("model_name")
@@ -493,16 +460,13 @@ class PredictStep(PipelineStep):
             return context
 
         try:
-            # Load the model
             model, label_encoder = await MLPersistanceUtil.load_model(model_name)
 
-            # Run predictions - offload blocking sklearn calls to thread pool
             predictions = await asyncio.to_thread(model.predict, tokens)
             prediction_probability = await asyncio.to_thread(model.predict_proba, tokens)
             prediction_probability = prediction_probability * 100
             predicted_labels = label_encoder.inverse_transform(predictions)
 
-            # Apply probability threshold
             settings = get_settings()
             threshold = settings.prediction_probability_threshold
             for ctr, probability in enumerate(prediction_probability):
