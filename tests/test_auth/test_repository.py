@@ -1,24 +1,49 @@
 """Tests for authentication repository."""
 
+from typing import Any
+
 import pytest
 import pytest_asyncio
-from datetime import datetime, timezone, timedelta
-from sqlalchemy import select
 
-from app.auth.repository import UserRepository, APIKeyRepository, PasswordHasherService
-from app.database.models import User, APIKey
-from app.database.session_handler import get_async_session, init_async_databases
+from app.database.models import Base
+from app.database.repository import UserRepository, APIKeyRepository, PasswordHasherService
+from app.database.session_handler import (
+    get_async_session,
+    init_async_databases,
+    dispose_async_engines,
+    async_engines,
+    DB_TABLE_MAP,
+)  # pyright: ignore[reportPrivateUsage]
 
 
-@pytest_asyncio.fixture(scope="session")
-async def init_db():
-    """Initialize async databases before tests."""
+@pytest_asyncio.fixture(scope="module", autouse=True)
+async def auth_db_lifecycle():
+    """Initialize and cleanup in-memory databases for this test module."""
     await init_async_databases()
+    # Ensure auth tables are fresh
+    target_tables = DB_TABLE_MAP.get("auth")
+    if target_tables and "auth" in async_engines:
+        async with async_engines["auth"].begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all, tables=target_tables)
+            await conn.run_sync(Base.metadata.create_all, tables=target_tables)
+    yield
+    await dispose_async_engines()
 
 
 @pytest_asyncio.fixture
-async def db(init_db):
-    """Create a test database session."""
+async def db() -> Any:
+    """Create a test database session for the auth database.
+
+    Drops and recreates auth tables before each test for isolation,
+    then yields a fresh AsyncSession. Session is closed after each test.
+    """
+    # Reset auth tables for test isolation
+    target_tables = DB_TABLE_MAP.get("auth")
+    if target_tables and "auth" in async_engines:
+        async with async_engines["auth"].begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all, tables=target_tables)
+            await conn.run_sync(Base.metadata.create_all, tables=target_tables)
+
     session = await get_async_session("auth")
     try:
         yield session
@@ -27,7 +52,7 @@ async def db(init_db):
 
 
 @pytest.fixture
-def password_hasher():
+def password_hasher() -> PasswordHasherService:
     """Create a password hasher for testing."""
     return PasswordHasherService()
 
@@ -35,7 +60,7 @@ def password_hasher():
 class TestPasswordHasherService:
     """Test cases for PasswordHasherService."""
 
-    def test_hash_password(self, password_hasher):
+    def test_hash_password(self, password_hasher: PasswordHasherService) -> None:
         """Test password hashing."""
         password = "test_password_123"
         hashed = password_hasher.hash_password(password)
@@ -44,25 +69,25 @@ class TestPasswordHasherService:
         assert len(hashed) > 0
         assert hashed != password
 
-    def test_verify_password_correct(self, password_hasher):
+    def test_verify_password_correct(self, password_hasher: PasswordHasherService) -> None:
         """Test password verification with correct password."""
         password = "test_password_123"
         hashed = password_hasher.hash_password(password)
         
         assert password_hasher.verify_password(password, hashed) is True
 
-    def test_verify_password_incorrect(self, password_hasher):
+    def test_verify_password_incorrect(self, password_hasher: PasswordHasherService) -> None:
         """Test password verification with incorrect password."""
         password = "test_password_123"
         hashed = password_hasher.hash_password(password)
         
         assert password_hasher.verify_password("wrong_password", hashed) is False
 
-    def test_verify_password_invalid_hash(self, password_hasher):
+    def test_verify_password_invalid_hash(self, password_hasher: PasswordHasherService) -> None:
         """Test password verification with invalid hash."""
         assert password_hasher.verify_password("any_password", "invalid_hash") is False
 
-    def test_needs_rehash(self, password_hasher):
+    def test_needs_rehash(self, password_hasher: PasswordHasherService) -> None:
         """Test checking if hash needs rehashing."""
         password = "test_password_123"
         hashed = password_hasher.hash_password(password)
@@ -74,8 +99,7 @@ class TestPasswordHasherService:
 class TestUserRepository:
     """Test cases for UserRepository."""
 
-    @pytest.mark.asyncio
-    async def test_create_user(self, db):
+    async def test_create_user(self, db: Any) -> None:
         """Test creating a user."""
         repo = UserRepository(db)
         
@@ -94,82 +118,76 @@ class TestUserRepository:
         assert user.is_active is True
         assert user.hashed_password != "test_password_123"
 
-    @pytest.mark.asyncio
-    async def test_get_by_id(self, db):
+    async def test_get_by_id(self, db: Any) -> None:
         """Test getting user by ID."""
         repo = UserRepository(db)
         
-        user = await repo.create_user(
+        created_user = await repo.create_user(
             username="testuser",
             email="test@example.com",
             password="test_password_123"
         )
         
-        retrieved = await repo.get_by_id(user.id)
+        retrieved = await repo.get_by_id(created_user.id)
         assert retrieved is not None
-        assert retrieved.id == user.id
+        assert retrieved.id == created_user.id
 
-    @pytest.mark.asyncio
-    async def test_get_by_username(self, db):
+    async def test_get_by_username(self, db: Any) -> None:
         """Test getting user by username."""
         repo = UserRepository(db)
         
-        user = await repo.create_user(
-            username="testuser",
-            email="test@example.com",
+        await repo.create_user(
+            username="testuser_username",
+            email="test_username@example.com",
             password="test_password_123"
         )
         
-        retrieved = await repo.get_by_username("testuser")
+        retrieved = await repo.get_by_username("testuser_username")
         assert retrieved is not None
-        assert retrieved.username == "testuser"
+        assert retrieved.username == "testuser_username"
 
-    @pytest.mark.asyncio
-    async def test_get_by_email(self, db):
+    async def test_get_by_email(self, db: Any) -> None:
         """Test getting user by email."""
         repo = UserRepository(db)
         
-        user = await repo.create_user(
-            username="testuser",
-            email="test@example.com",
+        await repo.create_user(
+            username="testuser_email",
+            email="test_email@example.com",
             password="test_password_123"
         )
         
-        retrieved = await repo.get_by_email("test@example.com")
+        retrieved = await repo.get_by_email("test_email@example.com")
         assert retrieved is not None
-        assert retrieved.email == "test@example.com"
+        assert retrieved.email == "test_email@example.com"
 
-    @pytest.mark.asyncio
-    async def test_verify_credentials_correct(self, db):
+    async def test_verify_credentials_correct(self, db: Any) -> None:
         """Test verifying correct credentials."""
         repo = UserRepository(db)
         
         await repo.create_user(
-            username="testuser",
-            email="test@example.com",
+            username="testuser_verify_correct",
+            email="test_verify_correct@example.com",
             password="test_password_123"
         )
         
-        user = await repo.verify_credentials("testuser", "test_password_123")
+        user = await repo.verify_credentials("testuser_verify_correct", "test_password_123")
         assert user is not None
-        assert user.username == "testuser"
+        assert user.username == "testuser_verify_correct"
 
-    @pytest.mark.asyncio
-    async def test_verify_credentials_incorrect(self, db):
+    async def test_verify_credentials_incorrect(self, db: Any) -> None:
         """Test verifying incorrect credentials."""
         repo = UserRepository(db)
         
         await repo.create_user(
-            username="testuser",
-            email="test@example.com",
+            username="testuser_verify_incorrect",
+            email="test_verify_incorrect@example.com",
             password="test_password_123"
         )
         
-        user = await repo.verify_credentials("testuser", "wrong_password")
+        user = await repo.verify_credentials("testuser_verify_incorrect", "wrong_password")
         assert user is None
 
-    @pytest.mark.asyncio
-    async def test_update_user(self, db):
+    async def test_update_user(self, db: Any) -> None:
         """Test updating user."""
         repo = UserRepository(db)
         
@@ -184,14 +202,13 @@ class TestUserRepository:
         assert updated.full_name == "Updated Name"
         assert updated.email == "updated@example.com"
 
-    @pytest.mark.asyncio
-    async def test_change_password(self, db):
+    async def test_change_password(self, db: Any) -> None:
         """Test changing password."""
         repo = UserRepository(db)
         
         user = await repo.create_user(
-            username="testuser",
-            email="test@example.com",
+            username="testuser_change_password",
+            email="test_change_password@example.com",
             password="old_password"
         )
         
@@ -199,14 +216,13 @@ class TestUserRepository:
         assert success is True
         
         # Verify old password doesn't work
-        assert await repo.verify_credentials("testuser", "old_password") is None
+        assert await repo.verify_credentials("testuser_change_password", "old_password") is None
         
         # Verify new password works
-        user = await repo.verify_credentials("testuser", "new_password_123")
+        user = await repo.verify_credentials("testuser_change_password", "new_password_123")
         assert user is not None
 
-    @pytest.mark.asyncio
-    async def test_delete_user(self, db):
+    async def test_delete_user(self, db: Any) -> None:
         """Test deleting user."""
         repo = UserRepository(db)
         
@@ -227,8 +243,7 @@ class TestUserRepository:
 class TestAPIKeyRepository:
     """Test cases for APIKeyRepository."""
 
-    @pytest.mark.asyncio
-    async def test_create_api_key(self, db):
+    async def test_create_api_key(self, db: Any) -> None:
         """Test creating an API key."""
         user_repo = UserRepository(db)
         api_key_repo = APIKeyRepository(db)
@@ -253,8 +268,7 @@ class TestAPIKeyRepository:
         assert secret.startswith("glp_")
         assert api_key_record.hashed_key != secret
 
-    @pytest.mark.asyncio
-    async def test_verify_and_get(self, db):
+    async def test_verify_and_get(self, db: Any) -> None:
         """Test verifying and getting API key."""
         user_repo = UserRepository(db)
         api_key_repo = APIKeyRepository(db)
@@ -276,16 +290,14 @@ class TestAPIKeyRepository:
         # Check that last_used_at was updated
         assert verified.last_used_at is not None
 
-    @pytest.mark.asyncio
-    async def test_verify_and_get_invalid_key(self, db):
+    async def test_verify_and_get_invalid_key(self, db: Any) -> None:
         """Test verifying invalid API key."""
         api_key_repo = APIKeyRepository(db)
         
         verified = await api_key_repo.verify_and_get("glp_invalid_key_here")
         assert verified is None
 
-    @pytest.mark.asyncio
-    async def test_get_user_api_keys(self, db):
+    async def test_get_user_api_keys(self, db: Any) -> None:
         """Test getting user's API keys."""
         user_repo = UserRepository(db)
         api_key_repo = APIKeyRepository(db)
@@ -302,8 +314,7 @@ class TestAPIKeyRepository:
         keys = await api_key_repo.get_user_api_keys(user.id)
         assert len(keys) == 2
 
-    @pytest.mark.asyncio
-    async def test_delete_api_key(self, db):
+    async def test_delete_api_key(self, db: Any) -> None:
         """Test deleting API key."""
         user_repo = UserRepository(db)
         api_key_repo = APIKeyRepository(db)
@@ -326,8 +337,7 @@ class TestAPIKeyRepository:
         deleted = await api_key_repo.get_by_id(api_key_record.id)
         assert deleted is None
 
-    @pytest.mark.asyncio
-    async def test_deactivate_api_key(self, db):
+    async def test_deactivate_api_key(self, db: Any) -> None:
         """Test deactivating API key."""
         user_repo = UserRepository(db)
         api_key_repo = APIKeyRepository(db)
@@ -347,8 +357,9 @@ class TestAPIKeyRepository:
         assert success is True
         
         # Verify key is deactivated
-        api_key_record = await api_key_repo.get_by_id(api_key_record.id)
-        assert api_key_record.is_active is False
+        deactivated_key = await api_key_repo.get_by_id(api_key_record.id)
+        assert deactivated_key is not None
+        assert deactivated_key.is_active is False
         
         # Verify deactivated key cannot be used
         verified = await api_key_repo.verify_and_get(secret)

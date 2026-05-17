@@ -4,33 +4,48 @@
 <link rel="stylesheet" href="{{ url_for('static', path='css/auth_style.css') }}">
 {% endblock %}
 
+{% block common_scripts %}
+<script src="{{ url_for('static', path='js/common.js') }}" defer></script>
+<script src="{{ url_for('static', path='js/toast.js') }}" defer></script>
+{% endblock %}
+
 {% block content %}
 <div class="auth-content">
-    <div class="auth-card nes-container with-title">
-        <h2 class="auth-title">LOGIN</h2>
+    <div class="auth-card cyber-container with-title" role="region" aria-labelledby="login-title">
+        <h2 class="auth-title" id="login-title">LOGIN</h2>
         
-        {% if error %}
-        <div class="auth-error">{{ error }}</div>
+        {% if login_error %}
+        <div id="login-error" class="auth-error" role="alert" aria-live="assertive">{{ login_error }}</div>
+        {% else %}
+        <div id="login-error" class="auth-error" role="alert" aria-live="assertive" style="display: none;"></div>
         {% endif %}
         
-        {% if success %}
-        <div class="auth-success">{{ success }}</div>
-        {% endif %}
-        
-        <form id="loginForm" method="POST">
-            <input type="hidden" name="csrf_token" value="{{ get_csrf_token(request) }}">
-            
+        <form id="loginForm" method="POST" novalidate>
             <div class="auth-form-group">
                 <label for="username" class="auth-form-label">USERNAME</label>
-                <input type="text" id="username" name="username" class="auth-form-input" required minlength="3" maxlength="64" placeholder="Enter username">
+                <input type="text" id="username" name="username" class="auth-form-input" required minlength="3" maxlength="64" placeholder="Enter username" aria-required="true">
             </div>
             
             <div class="auth-form-group">
                 <label for="password" class="auth-form-label">PASSWORD</label>
-                <input type="password" id="password" name="password" class="auth-form-input" required minlength="8" placeholder="Enter password">
+                <div class="password-input-wrapper">
+                    <input type="password" id="password" name="password" class="auth-form-input password-field" required minlength="8" placeholder="Enter password" aria-required="true">
+                    <button type="button" class="password-toggle-btn" aria-label="Show password" tabindex="-1">
+                        <svg class="icon-eye" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <svg class="icon-eye-off" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.77 18.77 0 0 1-2.16 3.16"/>
+                            <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
             
-            <button type="submit" class="auth-btn">
+            <button type="submit" class="auth-btn" id="login-submit-btn">
                 [ LOGIN ]
             </button>
         </form>
@@ -41,41 +56,8 @@
     </div>
 </div>
 
-<script>
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    const data = {
-        username: formData.get('username'),
-        password: formData.get('password')
-    };
-    
-    try {
-        const response = await fetch('/auth/token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': formData.get('csrf_token')
-            },
-            body: JSON.stringify(data)
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            // Redirect to home page
-            window.location.href = '/';
-        } else {
-            const error = await response.json();
-            document.querySelector('.auth-error')?.remove();
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'auth-error';
-            errorDiv.textContent = error.detail || 'Login failed';
-            e.target.insertBefore(errorDiv, e.target.firstChild);
-        }
-    } catch (err) {
-        console.error('Login error:', err);
-    }
-});
-</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/login.js') }}" defer></script>
 {% endblock %}

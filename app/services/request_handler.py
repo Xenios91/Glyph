@@ -1,11 +1,13 @@
 """Request handler module for processing training and prediction requests."""
 
 import json
-import logging
 from uuid import uuid4
 from typing import Any, cast
 from pathlib import Path
 import pandas as pd
+
+from loguru import logger
+
 
 
 class DataHandler:
@@ -18,7 +20,7 @@ class DataHandler:
     data: pd.DataFrame | None = None
     status: str = "starting"
 
-    def __init__(self, req_uuid: str, data: dict[str, Any], model_name: str):
+    def __init__(self, req_uuid: str, data: dict[str, Any], model_name: str) -> None:
         self.uuid = req_uuid
         self.model_name = model_name
         self.json_dict = data
@@ -26,12 +28,16 @@ class DataHandler:
         self._clean_dict()
 
     def _clean_dict(self) -> None:
-        """Remove duplicate functions from the request data."""
+        """Remove duplicate functions from the request data while preserving order."""
         functions_temp = list(self.get_functions())
-        unique_functions = [
-            json.loads(t)
-            for t in {json.dumps(d, sort_keys=True) for d in functions_temp}
-        ]
+
+        seen: set[str] = set()
+        unique_functions: list[dict[str, Any]] = []
+        for func in functions_temp:
+            func_key = json.dumps(func, sort_keys=True)
+            if func_key not in seen:
+                seen.add(func_key)
+                unique_functions.append(func)
         self.json_dict["functionsMap"]["functions"] = unique_functions
 
     def _load_data(self) -> None:
@@ -76,6 +82,7 @@ class TrainingRequest(DataHandler):
 
             self.data = pd.DataFrame(unique_functions)
         except Exception as tr_exception:
+            logger.exception("Failed to process training data")
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing training data for UUID: {self.uuid}")
             raise exc from tr_exception
@@ -88,7 +95,11 @@ class PredictionRequest(DataHandler):
 
     def __init__(self, req_uuid: str, model_name: str, data: dict[str, Any]) -> None:
         super().__init__(req_uuid, data, model_name)
-        self.task_name = data["taskName"]
+        self.task_name = data.get("taskName") or data.get("task_name", "")
+        if not self.task_name:
+            raise ValueError(
+                "Data must contain 'taskName' or 'task_name' key"
+            )
         self._load_data()
 
     def _load_data(self) -> None:
@@ -111,7 +122,7 @@ class PredictionRequest(DataHandler):
 
             self.data = pd.DataFrame(unique_functions)
         except Exception as unknown_exception:
-            logging.error("Error processing prediction data: %s", unknown_exception)
+            logger.exception("Failed to process prediction data")
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing prediction data for UUID: {self.uuid}")
             raise exc from unknown_exception
@@ -123,7 +134,7 @@ class GhidraRequest:
     file_name: str
     is_training: bool
     model_name: str
-    task_name: str
+    name: str
     ml_class_type: str
     uuid: str
 
@@ -132,13 +143,12 @@ class GhidraRequest:
         filename: str,
         is_training: bool,
         model_name: str,
-        task_name: str,
-        ml_class_type: str,
-    ) -> None:
+        name: str,
+        ml_class_type: str) -> None:
         self.file_name = Path(filename).as_posix()
         self.is_training = is_training
         self.model_name = model_name
-        self.task_name = task_name
+        self.name = name
         self.ml_class_type = ml_class_type
         self.uuid = str(uuid4())
 

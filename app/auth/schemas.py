@@ -1,9 +1,10 @@
 """Pydantic schemas for authentication."""
 
 from datetime import datetime
-from typing import Any
+import json
+from typing import Any, cast
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserCreate(BaseModel):
@@ -37,6 +38,7 @@ class TokenResponse(BaseModel):
     access_token: str = Field(..., description="Access token")
     refresh_token: str = Field(..., description="Refresh token")
     token_type: str = Field(default="bearer", description="Token type")
+    expires_in: int = Field(default=900, description="Token expiration time in seconds")
 
 
 class UserResponse(BaseModel):
@@ -49,8 +51,7 @@ class UserResponse(BaseModel):
     is_active: bool = Field(..., description="Whether user is active")
     created_at: datetime = Field(..., description="Creation timestamp")
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class UserUpdate(BaseModel):
@@ -87,8 +88,23 @@ class APIKeyResponse(BaseModel):
     last_used_at: datetime | None = Field(None, description="Last used timestamp")
     created_at: datetime = Field(..., description="Creation timestamp")
     
-    class Config:
-        from_attributes = True
+    @field_validator("permissions", mode="before")
+    @classmethod
+    def parse_permissions(cls, v: Any) -> list[str]:
+        """Parse permissions from JSON string to list."""
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return [str(item) for item in cast(list[Any], parsed)]
+                return []
+            except (json.JSONDecodeError, TypeError):
+                return []
+        if isinstance(v, list):
+            return [str(item) for item in cast(list[Any], v)]
+        return []
+    
+    model_config = {"from_attributes": True}
 
 
 class APIKeyWithSecret(APIKeyResponse):

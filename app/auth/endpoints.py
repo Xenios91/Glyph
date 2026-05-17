@@ -2,16 +2,29 @@
 
 from typing import Annotated
 
+from app.auth.jwt_handler import InvalidTokenError, DecodeError
+from app.auth.security_logger import (
+    is_blocked,
+    log_login_attempt,
+    log_login_success,
+    log_login_failure,
+    log_logout,
+    log_token_refresh,
+    log_password_change,
+    log_suspicious_activity,
+    log_user_registration,
+    log_api_key_created,
+    log_api_key_deleted)
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import (
     get_current_active_user,
     get_db,
-    get_jwt_handler,
-)
+    get_jwt_handler)
 from app.auth.jwt_handler import JWTHandler
-from app.auth.repository import APIKeyRepository, UserRepository
+from app.database.repository import APIKeyRepository, UserRepository
 from app.auth.schemas import (
     APIKeyCreate,
     APIKeyResponse,
@@ -19,36 +32,45 @@ from app.auth.schemas import (
     ChangePassword,
     RefreshTokenRequest,
     TokenResponse,
-    UserLogin,
     UserRegister,
     UserResponse,
-    UserUpdate,
-)
+    UserUpdate)
 from app.config.settings import get_settings
 from app.database.models import User
+from app.core.rate_limiter import (
+    limiter,
+    LOGIN_LIMIT,
+    REGISTER_LIMIT,
+    PASSWORD_CHANGE_LIMIT,
+    REFRESH_LIMIT,
+)
+
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(REGISTER_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def register(
+    request: Request,
     user_data: UserRegister,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)]
 ) -> UserResponse:
     """Register a new user.
-    
+
     Args:
+        request: FastAPI request object
         user_data: User registration data
         db: Database session
-        
+
     Returns:
         Created user information
-        
+
     Raises:
         HTTPException: If username or email already exists
     """
     user_repo = UserRepository(db)
-    
+
     # Check if username exists
     existing_user = await user_repo.get_by_username(user_data.username)
     if existing_user:
@@ -56,7 +78,7 @@ async def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already registered"
         )
-    
+
     # Check if email exists
     existing_email = await user_repo.get_by_email(user_data.email)
     if existing_email:
@@ -64,7 +86,7 @@ async def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
         )
-    
+
     # Create user with default permissions
     user = await user_repo.create_user(
         username=user_data.username,
@@ -73,103 +95,154 @@ async def register(
         full_name=user_data.full_name,
         permissions=["read"]
     )
-    
+
+    # Log user registration (normal event, not suspicious)
+    ip_address = request.client.host if request.client else None
+    log_user_registration(
+        user_id=user.id,
+        username=user_data.username,
+        ip_address=ip_address)
+
     return UserResponse.model_validate(user)
 
 
 @router.post("/token")
+@limiter.limit(LOGIN_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def login(
     request: Request,
-    credentials: UserLogin,
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[AsyncSession, Depends(get_db)],
-    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)],
+    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]
 ) -> Response:
     """Authenticate user and return tokens.
-    
+
+    Uses OAuth2PasswordRequestForm per the OAuth2 RFC 6749 password grant
+    specification, which expects form-encoded credentials rather than JSON.
+
     Args:
         request: FastAPI request object
-        credentials: Login credentials
+        form_data: OAuth2 form data containing username and password
         db: Database session
         jwt_handler: JWT handler instance
-        
+
     Returns:
         Response with access and refresh tokens and cookies
-        
+
     Raises:
         HTTPException: If credentials are invalid
     """
+    # Get client info for logging
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    # Check if username or IP is blocked due to excessive failures
+    if is_blocked(form_data.username, ip_address):
+        log_suspicious_activity(
+            user_id=None,
+            activity_type="login_blocked",
+            details={"username": form_data.username, "reason": "Excessive failures"},
+            ip_address=ip_address)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed login attempts. Please try again later.")
+
+    # Log the login attempt before processing
+    log_login_attempt(
+        username=form_data.username,
+        ip_address=ip_address,
+        user_agent=user_agent)
+
     user_repo = UserRepository(db)
-    user = await user_repo.verify_credentials(credentials.username, credentials.password)
-    
+    user = await user_repo.verify_credentials(form_data.username, form_data.password)
+
     if not user:
+        log_login_failure(
+            username=form_data.username,
+            reason="Invalid credentials",
+            ip_address=ip_address
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
+            headers={"WWW-Authenticate": "Bearer"})
+
     if not user.is_active:
+        log_login_failure(
+            username=form_data.username,
+            reason="Account disabled",
+            ip_address=ip_address
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is disabled"
         )
-    
+
     # Generate tokens
     access_token = jwt_handler.create_access_token(str(user.id))
     refresh_token = jwt_handler.create_refresh_token(str(user.id))
-    
+
+    # Log successful login
+    log_login_success(
+        user_id=user.id,
+        username=user.username,
+        ip_address=ip_address
+    )
+
     # Create response with cookies
     settings = get_settings()
     response = Response(
         content=TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
-            token_type="bearer"
+            token_type="bearer",
+            expires_in=settings.access_token_expire_minutes * 60
         ).model_dump_json(),
         media_type="application/json"
     )
-    
+
     response.set_cookie(
         key="access_token_cookie",
         value=access_token,
         httponly=True,
-        secure=settings.oauth2_enabled,
-        samesite="strict",
-        max_age=settings.access_token_expire_minutes * 60,
-    )
+        secure=settings.use_https,
+        samesite="lax",
+        max_age=settings.access_token_expire_minutes * 60)
     response.set_cookie(
         key="refresh_token_cookie",
         value=refresh_token,
         httponly=True,
-        secure=settings.oauth2_enabled,
-        samesite="strict",
-        max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
-    )
-    
+        secure=settings.use_https,
+        samesite="lax",
+        max_age=settings.refresh_token_expire_days * 24 * 60 * 60)
+
     return response
 
 
 @router.post("/refresh")
+@limiter.limit(REFRESH_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def refresh_token(
-    request: RefreshTokenRequest,
+    request: Request,
+    token_request: RefreshTokenRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)],
+    jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]
 ) -> Response:
     """Refresh access token using refresh token.
-    
+
     Args:
-        request: Refresh token request
+        request: FastAPI request object
+        token_request: Refresh token request
         db: Database session
         jwt_handler: JWT handler instance
-        
+
     Returns:
         New access and refresh tokens
-        
+
     Raises:
         HTTPException: If refresh token is invalid
     """
+    ip_address = request.client.host if request.client else None
     try:
-        payload = jwt_handler.verify_refresh_token(request.refresh_token)
+        payload = jwt_handler.verify_refresh_token(token_request.refresh_token)
         user_id = payload.get("sub")
         if user_id is None:
             raise HTTPException(
@@ -177,25 +250,41 @@ async def refresh_token(
                 detail="Invalid refresh token"
             )
         user_id = int(user_id)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, DecodeError, InvalidTokenError):
+        log_suspicious_activity(
+            user_id=None,
+            activity_type="invalid_refresh_token",
+            details={"error": "Token verification failed"},
+            ip_address=ip_address)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token"
         )
-    
+
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id(user_id)
-    
+
     if not user or not user.is_active:
+        log_suspicious_activity(
+            user_id=user_id,
+            activity_type="refresh_token_inactive_user",
+            details={"reason": "User not found or inactive"},
+            ip_address=ip_address)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive"
         )
-    
+
     # Generate new tokens
     new_access_token = jwt_handler.create_access_token(str(user.id))
     new_refresh_token = jwt_handler.create_refresh_token(str(user.id))
-    
+
+    # Log token refresh with IP address
+    log_token_refresh(
+        user_id=user.id,
+        token_type="access_and_refresh",
+        ip_address=ip_address)
+
     return Response(
         content=TokenResponse(
             access_token=new_access_token,
@@ -206,20 +295,27 @@ async def refresh_token(
     )
 
 
-@router.post("/logout")
 @router.get("/logout")
-async def logout(request: Request) -> Response:
+@router.post("/logout")
+async def logout(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> Response:
     """Logout user by clearing cookies.
-    
+
     Args:
         request: FastAPI request object
-        
+        current_user: Current authenticated user
+
     Returns:
         Redirect to home for web requests, JSON for API requests
     """
-    response = Response()
-    response.delete_cookie("access_token_cookie")
-    response.delete_cookie("refresh_token_cookie")
+    # Log logout with IP address
+    ip_address = request.client.host if request.client else None
+    log_logout(
+        user_id=current_user.id,
+        username=current_user.username,
+        ip_address=ip_address)
     
     # Check if this is a web request (HTML) or API request
     accept = request.headers.get("Accept", "")
@@ -230,18 +326,18 @@ async def logout(request: Request) -> Response:
         redirect.delete_cookie("access_token_cookie")
         redirect.delete_cookie("refresh_token_cookie")
         return redirect
-    
-    # Return JSON for API requests
-    return Response(
-        content='{"message": "Logged out successfully"}',
-        media_type="application/json"
-    )
+
+    # Return JSON for API requests with cookies deleted
+    from fastapi.responses import JSONResponse
+    json_response = JSONResponse(content={"message": "Logged out successfully"})
+    json_response.delete_cookie("access_token_cookie")
+    json_response.delete_cookie("refresh_token_cookie")
+    return json_response
 
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> UserResponse:
+    current_user: Annotated[User, Depends(get_current_active_user)]) -> UserResponse:
     """Get current user information.
     
     Args:
@@ -254,39 +350,54 @@ async def get_current_user_info(
 
 
 @router.post("/change-password")
+@limiter.limit(PASSWORD_CHANGE_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def change_password(
+    request: Request,
     password_data: ChangePassword,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> dict:
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> dict[str, str]:
     """Change user password.
-    
+
     Args:
+        request: FastAPI request object
         password_data: Password change data
         db: Database session
         current_user: Current authenticated user
-        
+
     Returns:
         Success message
-        
+
     Raises:
         HTTPException: If current password is incorrect
     """
+    ip_address = request.client.host if request.client else None
     user_repo = UserRepository(db)
-    
+
     # Verify current password
     if not user_repo.password_hasher.verify_password(
         password_data.current_password,
         current_user.hashed_password
     ):
+        log_suspicious_activity(
+            user_id=current_user.id,
+            activity_type="password_change_failed",
+            details={"reason": "Current password incorrect"},
+            ip_address=ip_address)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect"
         )
-    
+
     # Change password
     await user_repo.change_password(current_user.id, password_data.new_password)
-    
+
+    # Log password change with IP address
+    log_password_change(
+        user_id=current_user.id,
+        username=current_user.username,
+        ip_address=ip_address)
+
     return {"message": "Password changed successfully"}
 
 
@@ -294,8 +405,7 @@ async def change_password(
 async def update_profile(
     update_data: UserUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> UserResponse:
+    current_user: Annotated[User, Depends(get_current_active_user)]) -> UserResponse:
     """Update user profile.
     
     Args:
@@ -325,8 +435,7 @@ async def update_profile(
 @router.get("/api-keys", response_model=list[APIKeyResponse])
 async def list_api_keys(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> list[APIKeyResponse]:
+    db: Annotated[AsyncSession, Depends(get_db)]) -> list[APIKeyResponse]:
     """List all API keys for current user.
     
     Args:
@@ -344,17 +453,19 @@ async def list_api_keys(
 
 @router.post("/api-keys", response_model=APIKeyWithSecret, status_code=status.HTTP_201_CREATED)
 async def create_api_key(
+    request: Request,
     key_data: APIKeyCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(get_current_active_user)]
 ) -> APIKeyWithSecret:
     """Create a new API key.
-    
+
     Args:
+        request: FastAPI request object
         key_data: API key creation data
         db: Database session
         current_user: Current authenticated user
-        
+
     Returns:
         Created API key with secret (only shown once)
     """
@@ -365,7 +476,16 @@ async def create_api_key(
         permissions=key_data.permissions,
         expires_days=key_data.expires_days
     )
-    
+
+    # Log API key creation for security audit
+    ip_address = request.client.host if request.client else None
+    log_api_key_created(
+        user_id=current_user.id,
+        key_id=api_key_record.id,
+        key_prefix=api_key_record.key_prefix,
+        name=key_data.name,
+        ip_address=ip_address)
+
     return APIKeyWithSecret(
         **APIKeyResponse.model_validate(api_key_record).model_dump(),
         secret=secret
@@ -374,38 +494,48 @@ async def create_api_key(
 
 @router.delete("/api-keys/{key_id}")
 async def delete_api_key(
+    request: Request,
     key_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> dict:
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> dict[str, str]:
     """Delete an API key.
-    
+
     Args:
+        request: FastAPI request object
         key_id: API key ID
         db: Database session
         current_user: Current authenticated user
-        
+
     Returns:
         Success message
-        
+
     Raises:
         HTTPException: If API key not found or doesn't belong to user
     """
     api_key_repo = APIKeyRepository(db)
     api_key_record = await api_key_repo.get_by_id(key_id)
-    
+
     if not api_key_record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="API key not found"
         )
-    
+
     if api_key_record.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this API key"
         )
-    
+
     await api_key_repo.delete_api_key(key_id)
-    
+
+    # Log API key deletion for security audit
+    ip_address = request.client.host if request.client else None
+    log_api_key_deleted(
+        user_id=current_user.id,
+        key_id=key_id,
+        name=api_key_record.name,
+        ip_address=ip_address)
+
     return {"message": "API key deleted successfully"}

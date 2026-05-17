@@ -10,11 +10,12 @@ Security measures:
 3. Sandbox execution environment
 """
 
-import logging
 import io
 from typing import Any, Set, Type
 
 from joblib.numpy_pickle import NumpyUnpickler
+
+from loguru import logger
 
 # Whitelist of allowed classes for deserialization
 # These are the only classes that are safe to deserialize in our application
@@ -22,6 +23,7 @@ ALLOWED_CLASSES: Set[str] = {
     # sklearn classes
     "sklearn.pipeline.Pipeline",
     "sklearn.feature_extraction.text.TfidfVectorizer",
+    "sklearn.feature_extraction.text.TfidfTransformer",
     "sklearn.naive_bayes.MultinomialNB",
     "sklearn.preprocessing._label.LabelEncoder",
     # numpy classes
@@ -44,6 +46,7 @@ ALLOWED_CLASSES: Set[str] = {
     "builtins.frozenset",
     # joblib specific
     "joblib.numpy_pickle.NumpyPickler",
+    "joblib.numpy_pickle.NumpyArrayWrapper",
 }
 
 # Explicitly blocked dangerous builtins and functions
@@ -61,7 +64,7 @@ BLOCKED_BUILTINS: Set[str] = {
     "builtins.map",
     "builtins.reduce",
     "builtins.getattr",
-    "builtins setattr",
+    "builtins.setattr",
     "builtins.delattr",
     "builtins.hasattr",
     "builtins.isinstance",
@@ -97,7 +100,6 @@ BLOCKED_BUILTINS: Set[str] = {
     "builtins.zip",
     "builtins.iter",
     "builtins.next",
-    "builtins.next",
     "builtins.dir",
     "builtins.locals",
     "builtins.globals",
@@ -110,10 +112,8 @@ BLOCKED_BUILTINS: Set[str] = {
     "builtins.__loader__",
     "builtins.__spec__",
     "builtins.__annotations__",
-    "builtins.__import__",
 }
 
-logger = logging.getLogger(__name__)
 
 
 class SecureDeserializationError(Exception):
@@ -131,14 +131,14 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
     def __init__(self, file: Any, allowed_classes: Set[str] | None = None):
         # NumpyUnpickler requires: filename, file_handle, ensure_native_byte_order
         # Use empty string for filename when loading from BytesIO
-        super().__init__(
+        super().__init__(  # type: ignore[call-arg]
             filename="",
             file_handle=file,
             ensure_native_byte_order=False
         )
         self.allowed_classes = allowed_classes or ALLOWED_CLASSES
     
-    def find_class(self, module: str, name: str) -> Type:
+    def find_class(self, module: str, name: str) -> Type[Any]:
         """Override find_class to restrict which classes can be unpickled.
         
         Args:
@@ -157,54 +157,26 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
         # First check if it's explicitly blocked
         if class_name in BLOCKED_BUILTINS:
             logger.warning(
-                "Blocked deserialization of explicitly dangerous class: %s",
+                "Blocked deserialization of explicitly dangerous class: {}",
                 class_name
             )
             raise SecureDeserializationError(
                 f"Deserialization of '{class_name}' is explicitly blocked for security reasons."
             )
         
-        # Check against whitelist
+        # Check against whitelist - strict exact match required.
+        # Previously this allowed any class from trusted modules via prefix matching,
+        # which could be exploited by crafted pickles using dangerous subclasses.
+        # Now requires explicit whitelist membership for all classes.
         if class_name not in self.allowed_classes:
-            # For custom whitelists, be strict - only allow exact matches
-            if self.allowed_classes is not ALLOWED_CLASSES:
-                logger.warning(
-                    "Blocked deserialization of class not in custom whitelist: %s",
-                    class_name
-                )
-                raise SecureDeserializationError(
-                    f"Deserialization of '{class_name}' is not allowed. "
-                    "Only whitelisted classes can be deserialized."
-                )
-            
-            # For default whitelist, check if it's from a trusted module
-            # but NOT a dangerous builtin
-            is_allowed = False
-            trusted_modules = {
-                'sklearn',
-                'numpy',
-                'joblib',
-            }
-            
-            # Check sklearn, numpy, joblib subclasses
-            for trusted_module in trusted_modules:
-                if class_name.startswith(trusted_module + '.'):
-                    is_allowed = True
-                    break
-            
-            # For builtins, only allow exact matches from whitelist
-            if module == 'builtins' and class_name in self.allowed_classes:
-                is_allowed = True
-            
-            if not is_allowed:
-                logger.warning(
-                    "Blocked deserialization of potentially dangerous class: %s",
-                    class_name
-                )
-                raise SecureDeserializationError(
-                    f"Deserialization of '{class_name}' is not allowed. "
-                    "Only whitelisted classes can be deserialized."
-                )
+            logger.warning(
+                "Blocked deserialization of class not in whitelist: {}",
+                class_name
+            )
+            raise SecureDeserializationError(
+                f"Deserialization of '{class_name}' is not allowed. "
+                "Only whitelisted classes can be deserialized."
+            )
         
         return super().find_class(module, name)
 
@@ -235,7 +207,7 @@ def secure_load(file_like: io.BytesIO, allowed_classes: Set[str] | None = None) 
     except SecureDeserializationError:
         raise
     except Exception as e:
-        logger.error("Unexpected error during deserialization: %s", e)
+        logger.exception("Unexpected error during deserialization")
         raise SecureDeserializationError(f"Deserialization failed: {e}") from e
 
 

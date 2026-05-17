@@ -1,173 +1,229 @@
-"""Tests for the pipeline framework.
+"""Tests for pipeline orchestration."""
 
-This module contains tests for the ProcessingPipeline class and PipelineContext.
-"""
+from typing import Any, Optional
 
 import pytest
-from unittest.mock import MagicMock, patch
 
-from app.processing.pipeline import (
-    PipelineContext,
-    PipelineStep,
-    ProcessingPipeline,
-)
-
-
-class MockStep(PipelineStep):
-    """Mock step for testing."""
-
-    def __init__(
-        self,
-        name: str,
-        set_key: str | None = None,
-        set_value: str | None = None,
-        fail: bool = False,
-    ) -> None:
-        self._name = name
-        self._set_key = set_key
-        self._set_value = set_value
-        self._fail = fail
-
-    def get_name(self) -> str:
-        return self._name
-
-    def execute(self, context: PipelineContext) -> PipelineContext:
-        if self._fail:
-            context.error = f"Step {self._name} failed"
-            return context
-        if self._set_key is not None:
-            context.set(self._set_key, self._set_value)
-        return context
+from app.processing.pipeline import PipelineContext, PipelineStep, ProcessingPipeline
 
 
 class TestPipelineContext:
-    """Tests for PipelineContext."""
+    """Tests for PipelineContext dataclass."""
 
-    def test_create_context(self):
-        """Test creating a basic context."""
-        context = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
-        assert context.uuid == "test-uuid"
-        assert context.binary_path == "/test/binary"
-        assert context.pipeline_type == "generic"
-        assert context.status == "starting"
-        assert context.error is None
+    def test_init_minimal(self) -> None:
+        """Test minimal initialization."""
+        ctx = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
+        assert ctx.uuid == "test-uuid"
+        assert ctx.binary_path == "/test/binary"
+        assert ctx.pipeline_type == "generic"
+        assert ctx.metadata == {}
+        assert ctx.data == {}
+        assert ctx.status == "starting"
+        assert ctx.error is None
 
-    def test_context_set_and_get(self):
-        """Test setting and getting values in context."""
-        context = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
-        context.set("key1", "value1")
-        context.set("key2", 123)
-        assert context.get("key1") == "value1"
-        assert context.get("key2") == 123
-
-    def test_context_get_default(self):
-        """Test getting a value with default."""
-        context = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
-        assert context.get("nonexistent", "default") == "default"
-        assert context.get("nonexistent") is None
-
-    def test_context_metadata(self):
-        """Test metadata dictionary."""
-        context = PipelineContext(
+    def test_init_full(self) -> None:
+        """Test full initialization."""
+        ctx = PipelineContext(
             uuid="test-uuid",
             binary_path="/test/binary",
-            metadata={"model_name": "test_model"}
+            pipeline_type="ml_training",
+            metadata={"model_name": "test_model"},
+            data={"key": "value"},
+            status="running",
+            error="test error",
         )
-        assert context.metadata["model_name"] == "test_model"
+        assert ctx.pipeline_type == "ml_training"
+        assert ctx.metadata == {"model_name": "test_model"}
+        assert ctx.data == {"key": "value"}
+        assert ctx.status == "running"
+        assert ctx.error == "test error"
+
+    def test_get_existing_key(self) -> None:
+        """Test getting an existing key."""
+        ctx = PipelineContext(
+            uuid="test-uuid",
+            binary_path="/test/binary",
+            data={"key": "value"},
+        )
+        assert ctx.get("key") == "value"
+
+    def test_get_missing_key_default(self) -> None:
+        """Test getting a missing key returns default."""
+        ctx = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
+        assert ctx.get("missing") is None
+        assert ctx.get("missing", "fallback") == "fallback"
+
+    def test_set_key(self) -> None:
+        """Test setting a key."""
+        ctx = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
+        ctx.set("key", "value")
+        assert ctx.data["key"] == "value"
+
+    def test_get_and_set_roundtrip(self) -> None:
+        """Test get/set roundtrip."""
+        ctx = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
+        ctx.set("test_key", {"nested": "value"})
+        result = ctx.get("test_key")
+        assert result == {"nested": "value"}
+
+
+class _MockStep(PipelineStep):
+    """A mock pipeline step for testing."""
+
+    def __init__(self, name: str, set_error: bool = False, raise_error: bool = False, data_to_set: Optional[dict[str, Any]] = None) -> None:
+        self._name = name
+        self._set_error = set_error
+        self._raise_error = raise_error
+        self._data_to_set = data_to_set or {}
+        self._executed = False
+
+    async def execute(self, context: PipelineContext) -> PipelineContext:
+        self._executed = True
+        if self._raise_error:
+            raise RuntimeError(f"Step {self._name} failed")
+        if self._set_error:
+            context.error = f"Error in {self._name}"
+            context.status = "error"
+        for key, value in self._data_to_set.items():
+            context.set(key, value)
+        return context
+
+    def get_name(self) -> str:
+        return self._name
 
 
 class TestPipelineStep:
     """Tests for PipelineStep abstract base class."""
 
-    def test_step_must_implement_execute(self):
-        """Test that PipelineStep requires execute method."""
-        # PipelineStep is abstract and cannot be instantiated directly
-        # This is verified by the ABC mechanism
-        assert hasattr(PipelineStep, '__abstractmethods__')
-        assert 'execute' in PipelineStep.__abstractmethods__
+    def test_cannot_instantiate_abstract(self) -> None:
+        """Test that PipelineStep cannot be instantiated directly."""
+        with pytest.raises(TypeError):
+            PipelineStep()  # pyright: ignore[reportAbstractUsage]
 
-    def test_step_must_implement_get_name(self):
-        """Test that PipelineStep requires get_name method."""
-        # PipelineStep is abstract and cannot be instantiated directly
-        assert hasattr(PipelineStep, '__abstractmethods__')
-        assert 'get_name' in PipelineStep.__abstractmethods__
+    def test_mock_step_name(self) -> None:
+        """Test that mock step returns correct name."""
+        step = _MockStep("TestStep")
+        assert step.get_name() == "TestStep"
+
+    def test_mock_step_description(self) -> None:
+        """Test default description."""
+        step = _MockStep("TestStep")
+        assert step.get_description() == "TestStep step"
 
 
 class TestProcessingPipeline:
-    """Tests for ProcessingPipeline class."""
+    """Tests for ProcessingPipeline orchestration."""
 
-    def test_create_pipeline(self):
-        """Test creating a pipeline with steps."""
-        steps = [MockStep("Step1"), MockStep("Step2")]
-        pipeline = ProcessingPipeline("Test Pipeline", steps)
-        assert pipeline.name == "Test Pipeline"
+    def test_init(self) -> None:
+        """Test pipeline initialization."""
+        steps = [_MockStep("Step1"), _MockStep("Step2")]
+        pipeline = ProcessingPipeline("test_pipeline", steps)  # pyright: ignore[reportArgumentType]
+        assert pipeline.name == "test_pipeline"
         assert len(pipeline.steps) == 2
 
-    def test_execute_pipeline(self):
-        """Test executing a pipeline."""
+    @pytest.mark.asyncio
+    async def test_execute_empty_pipeline(self) -> None:
+        """Test executing a pipeline with no steps."""
+        pipeline = ProcessingPipeline("empty", [])
+        ctx = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
+        result = await pipeline.execute(ctx)
+        assert result.status == "complete"
+        assert result.error is None
+
+    @pytest.mark.asyncio
+    async def test_execute_single_step_success(self) -> None:
+        """Test executing a pipeline with a single successful step."""
+        step = _MockStep("Step1", data_to_set={"result": "success"})
+        pipeline = ProcessingPipeline("single", [step])  # pyright: ignore[reportArgumentType]
+        ctx = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
+        result = await pipeline.execute(ctx)
+        assert result.status == "complete"
+        assert result.get("result") == "success"
+        assert step._executed is True  # pyright: ignore[reportPrivateUsage]
+
+    @pytest.mark.asyncio
+    async def test_execute_multiple_steps_success(self) -> None:
+        """Test executing a pipeline with multiple successful steps."""
         steps = [
-            MockStep("Step1", set_key="key1", set_value="value1"),
-            MockStep("Step2", set_key="key2", set_value="value2"),
+            _MockStep("Step1", data_to_set={"step1": True}),
+            _MockStep("Step2", data_to_set={"step2": True}),
+            _MockStep("Step3", data_to_set={"step3": True}),
         ]
-        pipeline = ProcessingPipeline("Test Pipeline", steps)
-        context = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
-        result = pipeline.execute(context)
+        pipeline = ProcessingPipeline("multi", steps)  # pyright: ignore[reportArgumentType]
+        ctx = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
+        result = await pipeline.execute(ctx)
 
         assert result.status == "complete"
-        assert result.get("key1") == "value1"
-        assert result.get("key2") == "value2"
+        assert result.get("step1") is True
+        assert result.get("step2") is True
+        assert result.get("step3") is True
+        for step in steps:
+            assert step._executed is True  # pyright: ignore[reportPrivateUsage]
 
-    def test_execute_pipeline_with_error(self):
-        """Test pipeline execution with a failing step."""
+    @pytest.mark.asyncio
+    async def test_execute_step_sets_error(self) -> None:
+        """Test that pipeline stops when a step sets an error."""
         steps = [
-            MockStep("Step1", set_key="key1", set_value="value1"),
-            MockStep("Step2", fail=True),
-            MockStep("Step3", set_key="key3", set_value="value3"),
+            _MockStep("Step1", data_to_set={"step1": True}),
+            _MockStep("Step2", set_error=True),
+            _MockStep("Step3", data_to_set={"step3": True}),
         ]
-        pipeline = ProcessingPipeline("Test Pipeline", steps)
-        context = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
-        result = pipeline.execute(context)
+        pipeline = ProcessingPipeline("error", steps)  # pyright: ignore[reportArgumentType]
+        ctx = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
+        result = await pipeline.execute(ctx)
 
         assert result.status == "error"
         assert result.error is not None
-        assert result.get("key1") == "value1"
-        assert result.get("key3") is None  # Step3 should not have run
+        assert result.get("step1") is True
+        # Step3 should not have been executed
+        assert steps[2]._executed is False  # pyright: ignore[reportPrivateUsage]
 
-
-class TestPipelineIntegration:
-    """Integration tests for the pipeline framework."""
-
-    def test_empty_pipeline(self):
-        """Test executing an empty pipeline."""
-        pipeline = ProcessingPipeline("Empty Pipeline", [])
-        context = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
-        result = pipeline.execute(context)
-        assert result.status == "complete"
-
-    def test_single_step_pipeline(self):
-        """Test executing a single-step pipeline."""
-        pipeline = ProcessingPipeline("Single Step", [
-            MockStep("Step1", set_key="result", set_value="done")
-        ])
-        context = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
-        result = pipeline.execute(context)
-        assert result.status == "complete"
-        assert result.get("result") == "done"
-
-    def test_pipeline_with_exception(self):
-        """Test pipeline handling of exceptions."""
-
-        class FailingStep(PipelineStep):
-            def get_name(self) -> str:
-                return "FailingStep"
-
-            def execute(self, context: PipelineContext) -> PipelineContext:
-                raise ValueError("Test exception")
-
-        pipeline = ProcessingPipeline("Failing Pipeline", [FailingStep()])
-        context = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
-        result = pipeline.execute(context)
+    @pytest.mark.asyncio
+    async def test_execute_step_raises_exception(self) -> None:
+        """Test that pipeline stops when a step raises an exception."""
+        steps = [
+            _MockStep("Step1", data_to_set={"step1": True}),
+            _MockStep("Step2", raise_error=True),
+            _MockStep("Step3", data_to_set={"step3": True}),
+        ]
+        pipeline = ProcessingPipeline("exception", steps)  # pyright: ignore[reportArgumentType]
+        ctx = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
+        result = await pipeline.execute(ctx)
 
         assert result.status == "error"
         assert result.error is not None
-        assert "Test exception" in str(result.error)
+        assert "Step2 failed" in result.error
+        assert result.get("step1") is True
+        # Step3 should not have been executed
+        assert steps[2]._executed is False  # pyright: ignore[reportPrivateUsage]
+
+    @pytest.mark.asyncio
+    async def test_execute_preserves_context_uuid(self) -> None:
+        """Test that context UUID is preserved through pipeline."""
+        steps = [_MockStep("Step1"), _MockStep("Step2")]
+        pipeline = ProcessingPipeline("preserve", steps)  # pyright: ignore[reportArgumentType]
+        ctx = PipelineContext(uuid="my-uuid-123", binary_path="/test/binary")
+        result = await pipeline.execute(ctx)
+        assert result.uuid == "my-uuid-123"
+
+    @pytest.mark.asyncio
+    async def test_execute_data_flows_between_steps(self) -> None:
+        """Test that data set by one step is available to the next."""
+        steps = [
+            _MockStep("Step1", data_to_set={"shared": "value"}),
+            _MockStep("Step2"),
+        ]
+        pipeline = ProcessingPipeline("flow", steps)  # pyright: ignore[reportArgumentType]
+        ctx = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
+        result = await pipeline.execute(ctx)
+        assert result.get("shared") == "value"
+
+    @pytest.mark.asyncio
+    async def test_execute_sets_exc_info_on_exception(self) -> None:
+        """Test that exc_info is set when a step raises."""
+        steps = [_MockStep("Step1", raise_error=True)]
+        pipeline = ProcessingPipeline("exc_info", steps)  # pyright: ignore[reportArgumentType]
+        ctx = PipelineContext(uuid="test-uuid", binary_path="/test/binary")
+        result = await pipeline.execute(ctx)
+        assert result.exc_info is not False
+        assert result.status == "error"

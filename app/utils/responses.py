@@ -1,6 +1,6 @@
 """Unified response format for Glyph API."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_serializer
@@ -12,13 +12,11 @@ class Metadata(BaseModel):
     """Response metadata."""
 
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Response timestamp in UTC",
-    )
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Response timestamp in UTC")
     request_id: str | None = Field(
         default=None,
-        description="Unique request identifier for tracing",
-    )
+        description="Unique request identifier for tracing")
 
     @field_serializer("timestamp")
     def serialize_timestamp(self, value: datetime) -> str:
@@ -70,8 +68,7 @@ class ErrorDetails(BaseModel):
 def create_success_response(
     data: T | None = None,
     message: str | None = None,
-    request_id: str | None = None,
-) -> SuccessResponse[T]:
+    request_id: str | None = None) -> SuccessResponse[T]:
     """Factory function to create a success response.
 
     Args:
@@ -86,16 +83,14 @@ def create_success_response(
         success=True,
         data=data,
         message=message,
-        metadata=Metadata(request_id=request_id) if request_id else Metadata(),
-    )
+        metadata=Metadata(request_id=request_id) if request_id else Metadata())
 
 
 def create_error_response(
     error_code: str,
     error_message: str,
     details: dict[str, Any] | None = None,
-    request_id: str | None = None,
-) -> ErrorResponse:
+    request_id: str | None = None) -> ErrorResponse:
     """Factory function to create an error response.
 
     Args:
@@ -111,5 +106,4 @@ def create_error_response(
     return ErrorResponse(
         success=False,
         error=error_details.model_dump(),
-        metadata=Metadata(request_id=request_id) if request_id else Metadata(),
-    )
+        metadata=Metadata(request_id=request_id) if request_id else Metadata())

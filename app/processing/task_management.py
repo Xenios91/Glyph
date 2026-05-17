@@ -7,7 +7,6 @@ framework for processing binary analysis workflows.
 """
 
 import atexit
-import logging
 import signal
 import threading
 import time
@@ -19,6 +18,12 @@ from app.config.settings import MAX_CPU_CORES
 from app.services.request_handler import GhidraRequest
 from app.services.task_service import TaskService
 from app.processing.pipeline import PipelineContext
+from loguru import logger
+from app.utils.request_context import (
+    CapturedContext,
+    restore_request_context,
+    clear_request_context,
+)
 
 
 class EventWatcher:
@@ -41,8 +46,9 @@ class EventWatcher:
         if self._initialized:
             return
         self._initialized = True
+        self._data_lock = threading.Lock()
         self._callbacks: dict[str, Callable[[Any, Any], None]] = {}
-        self._watched_futures: dict[str, tuple[Any, Future]] = {}
+        self._watched_futures: dict[str, tuple[Any, Future[None], CapturedContext | None]] = {}
         self._watching: bool = False
         self._watch_thread: threading.Thread | None = None
         self._stop_event: threading.Event | None = None
@@ -52,7 +58,8 @@ class EventWatcher:
         job_uuid: str,
         callback: Callable[[Any, Any], None],
         request: Any,
-        future: Future,
+        future: Future[None],
+        captured_ctx: CapturedContext | None = None,
     ) -> None:
         """Register a callback for a specific job UUID and track the future.
 
@@ -62,15 +69,17 @@ class EventWatcher:
                       Receives (request, future) as arguments.
             request: The request object associated with this job.
             future: The Future object to monitor for completion.
+            captured_ctx: Captured request context from the originating thread.
         """
-        self._callbacks[job_uuid] = callback
-        self._watched_futures[job_uuid] = (request, future)
-        logging.info("Registered callback for job: job_uuid=%s", job_uuid)
+        with self._data_lock:
+            self._callbacks[job_uuid] = callback
+            self._watched_futures[job_uuid] = (request, future, captured_ctx)
+        logger.debug("Registered callback for job {}", job_uuid)
 
     def start_watching(self) -> None:
         """Start watching for completed futures in a background thread."""
         if self._watching:
-            logging.warning("EventWatcher is already watching")
+            logger.warning("EventWatcher is already running")
             return
 
         self._watching = True
@@ -79,83 +88,98 @@ class EventWatcher:
             target=self._watch_loop, name="EventWatcher", daemon=True
         )
         self._watch_thread.start()
-        logging.info("EventWatcher started")
+        logger.info("EventWatcher started")
 
     def stop_watching(self) -> None:
         """Stop watching for completed futures."""
         if not self._watching:
             return
 
-        logging.info("Stopping EventWatcher...")
+        logger.info("Stopping EventWatcher")
         self._watching = False
         if self._stop_event is not None:
             self._stop_event.set()
         if self._watch_thread is not None:
             self._watch_thread.join(timeout=5.0)
             self._watch_thread = None
-        logging.info("EventWatcher stopped")
+        logger.info("EventWatcher stopped")
 
+    @logger.catch(reraise=False, message="Error in EventWatcher loop")
     def _watch_loop(self) -> None:
         """Background loop that watches for completed futures."""
 
-        logging.info("EventWatcher loop started")
+        logger.debug("EventWatcher watch loop started")
         # Type guard: _stop_event is set in start_watching before this loop runs
         assert self._stop_event is not None
         while self._watching and not self._stop_event.is_set():
-            try:
-                # Get all futures we're watching
-                if not self._watched_futures:
-                    # No futures to watch, wait before checking again
-                    time.sleep(2.5)
-                    continue
+            # Snapshot watched futures under lock to avoid race conditions
+            # with register_callback() calling from the main thread.
+            futures_only: list[Future[None]] = []
+            with self._data_lock:
+                if self._watched_futures:
+                    futures_only = [
+                        task[1] for task in self._watched_futures.values()
+                    ]
 
-                # Extract futures for waiting
-                futures_only: list[Future] = [
-                    task[1] for task in self._watched_futures.values()
-                ]
+            if not futures_only:
+                # No futures to watch - sleep outside the lock to avoid
+                # blocking register_callback().
+                time.sleep(2.5)
+                continue
 
-                # Wait for any future to complete
-                done, _ = wait(futures_only, timeout=2.5, return_when=FIRST_COMPLETED)
+            # Wait for any future to complete (outside the lock to avoid
+            # blocking register_callback while waiting for I/O).
+            done, _ = wait(futures_only, timeout=2.5, return_when=FIRST_COMPLETED)
 
-                for future in done:
-                    # Find the corresponding job_uuid and request
+            for future in done:
+                # Lookup job_uuid, callback, and task data under lock.
+                with self._data_lock:
+                    target_uuid: str | None = None
+                    target_task: tuple[Any, Future[None], CapturedContext | None] | None = None
+                    target_callback: Callable[[Any, Any], None] | None = None
+
                     for job_uuid, task in self._watched_futures.items():
                         if task[1] is future:
-                            request = task[0]
-                            # Invoke registered callback
-                            if job_uuid in self._callbacks:
-                                try:
-                                    self._callbacks[job_uuid](request, future)
-                                    logging.info(
-                                        "Callback invoked for job: job_uuid=%s",
-                                        job_uuid,
-                                    )
-                                except Exception as callback_error:
-                                    logging.error(
-                                        "Callback error for job_uuid=%s: %s",
-                                        job_uuid,
-                                        callback_error,
-                                    )
-                            if (
-                                self._watched_futures.get(job_uuid)
-                                and self._watched_futures[job_uuid][1] is future
-                            ):
-                                del self._watched_futures[job_uuid]
-                                logging.info("Cleaned up job: %s", job_uuid)
-                            else:
-                                logging.info(
-                                    "Job %s was re-registered by callback, keeping alive.",
-                                    job_uuid,
-                                )
-
+                            target_uuid = job_uuid
+                            target_task = task
+                            target_callback = self._callbacks.get(job_uuid)
                             break
 
-            except Exception as loop_error:
-                logging.error("Error in EventWatcher loop: %s", loop_error)
-                # Wait before retrying
-                time.sleep(1.0)
+                    if target_uuid is None or target_task is None:
+                        continue
 
-        logging.info("EventWatcher loop stopped")
+                # Invoke callback outside the lock to prevent deadlocks.
+                if target_callback is not None:
+                    request = target_task[0]
+                    captured_ctx = target_task[2]
+                    try:
+                        if captured_ctx is not None:
+                            restore_request_context(
+                                captured_ctx, override_task_id=target_uuid)
+                        target_callback(request, future)
+                        logger.debug("Callback invoked for job {}", target_uuid)
+                    except Exception:
+                        logger.exception(
+                            "Callback failed for job {}", target_uuid)
+                    finally:
+                        clear_request_context()
+
+                # Clean up or keep alive under lock.
+                with self._data_lock:
+                    if (
+                        self._watched_futures.get(target_uuid)
+                        and self._watched_futures[target_uuid][1] is future
+                    ):
+                        del self._watched_futures[target_uuid]
+                        logger.debug("Cleaned up job {}", target_uuid)
+                    else:
+                        logger.debug(
+                            "Job {} re-registered by callback, keeping alive",
+                            target_uuid)
+
+            time.sleep(0.5)
+
+        logger.info("EventWatcher watch loop stopped")
 
 
 class TaskManager:
@@ -164,17 +188,26 @@ class TaskManager:
     exec_pool: ProcessPoolExecutor | None = None
     _executor_shutdown: bool = False
     __instance: "TaskManager | None" = None
+    # Registry of active task UUIDs → status strings that persists beyond the queue.
+    # Populated when tasks are queued and updated via set_status().
+    _active_tasks: dict[str, str] = {}
+    # Registry of task UUIDs → owner user IDs for access control.
+    # Ensures only the user who created a task can modify its status.
+    _task_owners: dict[str, int] = {}
 
-    def __init_subclass__(cls, **kwargs) -> None:
+    def __init_subclass__(cls, **kwargs: Any) -> None:
         """Initialize the process pool executor for subclasses."""
         super().__init_subclass__(**kwargs)
         if cls.exec_pool is None:
             cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
             # Register cleanup handlers
             atexit.register(cls._shutdown_executor)
-            # Register signal handlers for graceful shutdown
-            signal.signal(signal.SIGTERM, cls._signal_handler)
-            signal.signal(signal.SIGINT, cls._signal_handler)
+            # Register signal handlers for graceful shutdown (only from main thread).
+            # signal.signal() raises ValueError when called from a non-main thread,
+            # which can happen during testing or certain deployment scenarios.
+            if threading.current_thread() is threading.main_thread():
+                signal.signal(signal.SIGTERM, cls._signal_handler)
+                signal.signal(signal.SIGINT, cls._signal_handler)
 
     def __new__(cls) -> "TaskManager":
         """Create or return the singleton instance of TaskManager."""
@@ -204,7 +237,7 @@ class TaskManager:
             cls.exec_pool.shutdown(wait=False, cancel_futures=True)
             cls.exec_pool = None
             cls._executor_shutdown = True
-            logging.info("ProcessPoolExecutor shut down successfully")
+            logger.info("ProcessPoolExecutor shut down")
 
     @classmethod
     def _signal_handler(cls, signum: int, _frame: Any) -> None:
@@ -214,7 +247,7 @@ class TaskManager:
             signum: The signal number received.
             _frame: The current stack frame (unused).
         """
-        logging.info("Received signal %d, shutting down executor...", signum)
+        logger.info("Received signal {}, shutting down executor", signum)
         cls._shutdown_executor()
 
     @classmethod
@@ -230,8 +263,35 @@ class TaskManager:
         return str(uuid.uuid4())
 
     @classmethod
+    def register_task(
+        cls,
+        job_uuid: str,
+        initial_status: str = "starting",
+        owner_id: int | None = None,
+    ) -> None:
+        """Register a new task in the active tasks registry.
+
+        Call this when a task is queued so that get_status() can find it
+        even after it leaves the service queue.
+
+        Args:
+            job_uuid: The UUID of the job.
+            initial_status: Initial status string (default "starting").
+            owner_id: The user ID that owns this task (for access control).
+        """
+        cls._active_tasks[job_uuid] = initial_status
+        if owner_id is not None:
+            cls._task_owners[job_uuid] = owner_id
+        logger.debug(
+            "Registered task {} with status '{}' owner={}",
+            job_uuid, initial_status, owner_id)
+
+    @classmethod
     def get_status(cls, job_uuid: str) -> str:
         """Get the status of a job by its UUID.
+
+        Checks the active tasks registry first, then falls back to the
+        service queue for backwards compatibility.
 
         Args:
             job_uuid: The UUID of the job.
@@ -239,23 +299,37 @@ class TaskManager:
         Returns:
             The status of the job or "UUID Not Found".
         """
-        status: str = "UUID Not Found"
+        # Check active tasks registry first
+        if job_uuid in cls._active_tasks:
+            return cls._active_tasks[job_uuid]
+
+        # Fallback: check service queue (backwards compatibility)
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
-                status = task[0].status
-                break
-        return status
+                status: str = task[0].status
+                # Also register in active tasks so future lookups are fast
+                cls._active_tasks[job_uuid] = status
+                return status
+        return "UUID Not Found"
 
     @classmethod
     def get_all_status(cls) -> dict[str, str]:
-        """Get the status of all jobs in the queue.
+        """Get the status of all jobs.
+
+        Returns statuses from both the active tasks registry and the
+        service queue.  For backwards compatibility, queue entries are
+        keyed by model_name while registry entries are keyed by UUID.
 
         Returns:
-            A dictionary mapping model names to their statuses.
+            A dictionary mapping model names / UUIDs to their statuses.
         """
-        status_list: dict[str, str] = {}
+        # Start with active tasks registry
+        status_list: dict[str, str] = dict(cls._active_tasks)
+
+        # Also include anything still in the service queue (keyed by model_name
+        # for backwards compatibility with existing callers).
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             status: str = task[0].status
@@ -264,23 +338,74 @@ class TaskManager:
         return status_list
 
     @classmethod
-    def set_status(cls, job_uuid: str, status: str) -> bool:
+    def verify_task_owner(cls, job_uuid: str, user_id: int) -> bool:
+        """Verify that the given user owns the specified task.
+
+        Args:
+            job_uuid: The UUID of the job.
+            user_id: The user ID to check ownership for.
+
+        Returns:
+            True if the user owns the task or no owner is registered,
+            False otherwise.
+        """
+        owner = cls._task_owners.get(job_uuid)
+        if owner is None:
+            # No owner registered (backwards compatibility) - allow access
+            return True
+        return owner == user_id
+
+    @classmethod
+    def set_status(cls, job_uuid: str, status: str, owner_id: int | None = None) -> bool:
         """Set the status of a job by its UUID.
+
+        Updates both the active tasks registry and the service queue
+        entry (if still queued).
 
         Args:
             job_uuid: The UUID of the job.
             status: The new status to set.
+            owner_id: Optional user ID to verify ownership before updating.
 
         Returns:
-            True if the status was set, False if the UUID was not found.
+            True if the status was set, False if the UUID was not found
+            or ownership verification failed.
         """
+        # Verify ownership if owner_id provided
+        if owner_id is not None and not cls.verify_task_owner(job_uuid, owner_id):
+            logger.warning(
+                "Ownership check failed for task {} by user {}", job_uuid, owner_id)
+            return False
+
+        # Update active tasks registry
+        if job_uuid in cls._active_tasks:
+            cls._active_tasks[job_uuid] = status
+            logger.debug("Updated task {} status to '{}'", job_uuid, status)
+            return True
+
+        # Fallback: update service queue entry (backwards compatibility)
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
                 task[0].status = status
+                # Also register in active tasks
+                cls._active_tasks[job_uuid] = status
                 return True
         return False
+
+    @classmethod
+    def remove_task(cls, job_uuid: str) -> None:
+        """Remove a completed or failed task from the active registry.
+
+        Args:
+            job_uuid: The UUID of the job to remove.
+        """
+        if job_uuid in cls._active_tasks:
+            del cls._active_tasks[job_uuid]
+        # Clean up ownership tracking as well
+        cls._task_owners.pop(job_uuid, None)
+        logger.debug("Removed task {} from active registry", job_uuid)
 
 
 class Ghidra(TaskManager):
@@ -291,7 +416,7 @@ class Ghidra(TaskManager):
     """
 
     @classmethod
-    def run_full_pipeline(
+    async def run_full_pipeline(
         cls,
         ghidra_request: GhidraRequest,
         file_path: str,
@@ -315,8 +440,7 @@ class Ghidra(TaskManager):
             FilterStep,
             FeatureExtractStep,
             TrainStep,
-            PredictStep,
-        )
+            PredictStep)
         from app.processing.pipeline import ProcessingPipeline
 
         context = PipelineContext(
@@ -327,10 +451,9 @@ class Ghidra(TaskManager):
             else "ml_prediction",
             metadata={
                 "model_name": ghidra_request.model_name,
-                "task_name": ghidra_request.task_name,
+                "name": ghidra_request.name,
                 "ml_class_type": ghidra_request.ml_class_type,
-            },
-        )
+            })
 
         if ghidra_request.is_training:
             pipeline = ProcessingPipeline(
@@ -342,8 +465,7 @@ class Ghidra(TaskManager):
                     FilterStep(),
                     FeatureExtractStep(),
                     TrainStep(),
-                ],
-            )
+                ])
         else:
             pipeline = ProcessingPipeline(
                 "ML Prediction Pipeline",
@@ -354,6 +476,5 @@ class Ghidra(TaskManager):
                     FilterStep(),
                     FeatureExtractStep(),
                     PredictStep(),
-                ],
-            )
-        return pipeline.execute(context)
+                ])
+        return await pipeline.execute(context)

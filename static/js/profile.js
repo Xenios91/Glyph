@@ -1,7 +1,99 @@
 /**
  * GLYPH — PROFILE PAGE (profile.js)
- * Handles user profile updates, password changes, and API key management
+ * Handles user profile updates, password changes, API key management, and tab navigation
+ * Uses native fetch API and event listeners
  */
+'use strict';
+
+// ── Tab Navigation ──────────────────────────────────────────
+
+/**
+ * Switch to a specific tab
+ */
+function switchTab(tabId, panelId) {
+    // Deactivate all tabs
+    document.querySelectorAll('.profile-tab').forEach(tab => {
+        tab.setAttribute('aria-selected', 'false');
+        tab.setAttribute('tabindex', '-1');
+    });
+    
+    // Hide all panels
+    document.querySelectorAll('.tab-content').forEach(panel => {
+        panel.setAttribute('aria-hidden', 'true');
+    });
+    
+    // Activate selected tab
+    const selectedTab = document.getElementById(tabId);
+    const selectedPanel = document.getElementById(panelId);
+    
+    if (selectedTab && selectedPanel) {
+        selectedTab.setAttribute('aria-selected', 'true');
+        selectedTab.setAttribute('tabindex', '0');
+        selectedPanel.setAttribute('aria-hidden', 'false');
+        
+        // Load API keys if switching to API keys tab
+        if (panelId === 'panel-apikeys') {
+            loadApiKeys();
+        }
+    }
+}
+
+/**
+ * Initialize tab navigation
+ */
+function initTabNavigation() {
+    const tabs = document.querySelectorAll('.profile-tab');
+    
+    tabs.forEach(tab => {
+        // Click handler
+        tab.addEventListener('click', () => {
+            const panelId = tab.getAttribute('aria-controls');
+            const tabId = tab.id;
+            switchTab(tabId, panelId);
+        });
+        
+        // Keyboard handler
+        tab.addEventListener('keydown', (e) => {
+            const tabList = Array.from(document.querySelectorAll('.profile-tab'));
+            const currentIndex = tabList.indexOf(tab);
+            let newIndex;
+            
+            switch (e.key) {
+                case 'ArrowDown':
+                case 'ArrowRight':
+                    e.preventDefault();
+                    newIndex = (currentIndex + 1) % tabList.length;
+                    tabList[newIndex].focus();
+                    break;
+                    
+                case 'ArrowUp':
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    newIndex = (currentIndex - 1 + tabList.length) % tabList.length;
+                    tabList[newIndex].focus();
+                    break;
+                    
+                case 'Home':
+                    e.preventDefault();
+                    tabList[0].focus();
+                    break;
+                    
+                case 'End':
+                    e.preventDefault();
+                    tabList[tabList.length - 1].focus();
+                    break;
+                    
+                case 'Enter':
+                case ' ':
+                    e.preventDefault();
+                    const panelId = tab.getAttribute('aria-controls');
+                    const tabId = tab.id;
+                    switchTab(tabId, panelId);
+                    break;
+            }
+        });
+    });
+}
 
 // ── API Keys Management ──────────────────────────────────────────
 
@@ -9,42 +101,77 @@
  * Load API keys from the server and display them
  */
 async function loadApiKeys() {
+    const container = document.getElementById('apiKeysList');
+    if (!container) return;
+    
+    container.setAttribute('aria-busy', 'true');
+    
     try {
-        const response = await fetch('/auth/api-keys', {
-            headers: {
-                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
-            }
-        });
+        const response = await fetch('/auth/api-keys', {});
 
         if (response.ok) {
             const keys = await response.json();
-            const container = document.getElementById('apiKeysList');
             container.innerHTML = '';
 
             if (keys.length === 0) {
-                container.innerHTML = '<p class="no-api-keys">No API keys created yet.</p>';
-                return;
-            }
+                const p = document.createElement('p');
+                p.className = 'no-api-keys';
+                p.textContent = 'No API keys created yet.';
+                container.appendChild(p);
+            } else {
+                keys.forEach(key => {
+                    const item = document.createElement('div');
+                    item.className = 'api-key-item';
 
-            keys.forEach(key => {
-                const div = document.createElement('div');
-                div.className = 'api-key-item';
-                div.innerHTML = `
-                    <div class="api-key-info">
-                        <strong>${escapeHtml(key.name)}</strong><br>
-                        <span class="api-key-prefix">${escapeHtml(key.key_prefix)}...</span><br>
-                        <small>Created: ${formatDate(key.created_at)}</small>
-                        ${key.expires_at ? `<br><small>Expires: ${formatDate(key.expires_at)}</small>` : ''}
-                    </div>
-                    <div class="api-key-actions">
-                        <button class="nes-btn is-error is-small" onclick="deleteApiKey(${key.id})">Delete</button>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
+                    // Info section
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'api-key-info';
+
+                    const nameStrong = document.createElement('strong');
+                    nameStrong.textContent = key.name;
+                    infoDiv.appendChild(nameStrong);
+
+                    const prefixSpan = document.createElement('span');
+                    prefixSpan.className = 'api-key-prefix';
+                    prefixSpan.textContent = key.key_prefix + '...';
+                    infoDiv.appendChild(prefixSpan);
+
+                    const createdSmall = document.createElement('small');
+                    createdSmall.textContent = 'Created: ' + formatDate(key.created_at);
+                    infoDiv.appendChild(createdSmall);
+
+                    if (key.expires_at) {
+                        const br = document.createElement('br');
+                        infoDiv.appendChild(br);
+
+                        const expiresSmall = document.createElement('small');
+                        expiresSmall.textContent = 'Expires: ' + formatDate(key.expires_at);
+                        infoDiv.appendChild(expiresSmall);
+                    }
+
+                    item.appendChild(infoDiv);
+
+                    // Actions section
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'api-key-actions';
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'cyber-btn is-error is-small delete-api-key-btn';
+                    deleteBtn.dataset.keyId = key.id;
+                    deleteBtn.setAttribute('aria-label', 'Delete API key: ' + key.name);
+                    deleteBtn.textContent = 'Delete';
+                    actionsDiv.appendChild(deleteBtn);
+
+                    item.appendChild(actionsDiv);
+                    container.appendChild(item);
+                });
+            }
         }
     } catch (err) {
         console.error('Error loading API keys:', err);
+        Toast.error('Failed to load API keys');
+    } finally {
+        container.setAttribute('aria-busy', 'false');
     }
 }
 
@@ -52,23 +179,44 @@ async function loadApiKeys() {
  * Show the create API key modal
  */
 function showCreateApiKeyModal() {
-    document.getElementById('createApiKeyModal').style.display = 'block';
-    document.getElementById('apiKeySecret').style.display = 'none';
-    document.getElementById('createApiKeyForm').style.display = 'block';
+    const modal = document.getElementById('createApiKeyModal');
+    const secretDiv = document.getElementById('apiKeySecret');
+    const form = document.getElementById('createApiKeyForm');
+    
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+    if (secretDiv) {
+        secretDiv.style.display = 'none';
+        secretDiv.innerHTML = '';
+    }
+    if (form) {
+        form.style.display = 'block';
+        form.reset();
+    }
 }
 
 /**
  * Close the create API key modal
  */
 function closeCreateApiKeyModal() {
-    document.getElementById('createApiKeyModal').style.display = 'none';
+    const modal = document.getElementById('createApiKeyModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    // Check if we're on the API keys tab and refresh the list
+    const apiKeysPanel = document.getElementById('panel-apikeys');
+    if (apiKeysPanel && apiKeysPanel.getAttribute('aria-hidden') === 'false') {
+        loadApiKeys();
+    }
 }
 
 /**
  * Create a new API key
  */
 async function createApiKey(formData) {
-    const permissions = Array.from(document.getElementById('key_permissions').selectedOptions).map(o => o.value);
+    const permissionsSelect = document.getElementById('key_permissions');
+    const permissions = Array.from(permissionsSelect.selectedOptions).map(o => o.value);
 
     const data = {
         name: formData.get('name'),
@@ -80,28 +228,34 @@ async function createApiKey(formData) {
         const response = await fetch('/auth/api-keys', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
         });
 
         if (response.ok) {
             const result = await response.json();
-            // Show the secret
+            // Hide form and show the secret
             document.getElementById('createApiKeyForm').style.display = 'none';
             const secretDiv = document.getElementById('apiKeySecret');
             secretDiv.style.display = 'block';
-            secretDiv.innerHTML = `
-                <p class="api-key-secret-alert">⚠️ Copy this key now - it won't be shown again!</p>
-                <code class="api-key-secret-code">${escapeHtml(result.secret)}</code>
-            `;
+            secretDiv.innerHTML = '';
+            const alertP = document.createElement('p');
+            alertP.className = 'api-key-secret-alert';
+            alertP.textContent = '\u26A0\uFE0F Copy this key now - it won\'t be shown again!';
+            secretDiv.appendChild(alertP);
+            const codeEl = document.createElement('code');
+            codeEl.className = 'api-key-secret-code';
+            codeEl.textContent = result.secret;
+            secretDiv.appendChild(codeEl);
+            Toast.success('API key created successfully!');
         } else {
             const error = await response.json();
-            alert(error.detail || 'Failed to create API key');
+            Toast.error(error.detail || 'Failed to create API key');
         }
     } catch (err) {
         console.error('Error creating API key:', err);
+        Toast.error('Network error. Please try again.');
     }
 }
 
@@ -115,20 +269,19 @@ async function deleteApiKey(keyId) {
 
     try {
         const response = await fetch(`/auth/api-keys/${keyId}`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
-            }
+            method: 'DELETE'
         });
 
         if (response.ok) {
+            Toast.success('API key deleted successfully');
             loadApiKeys();
         } else {
             const error = await response.json();
-            alert(error.detail || 'Failed to delete API key');
+            Toast.error(error.detail || 'Failed to delete API key');
         }
     } catch (err) {
         console.error('Error deleting API key:', err);
+        Toast.error('Network error. Please try again.');
     }
 }
 
@@ -147,20 +300,23 @@ async function updateProfile(formData) {
         const response = await fetch('/auth/update-profile', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': formData.get('csrf_token')
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
         });
 
         if (response.ok) {
+            Toast.success('Profile updated successfully');
             location.reload();
         } else {
             const error = await response.json();
-            alert(error.detail || 'Failed to update profile');
+            showError('profile-error', error.detail || 'Failed to update profile');
+            Toast.error(error.detail || 'Failed to update profile');
         }
     } catch (err) {
         console.error('Error updating profile:', err);
+        showError('profile-error', 'Network error. Please try again.');
+        Toast.error('Network error. Please try again.');
     }
 }
 
@@ -174,7 +330,8 @@ async function changePassword(formData) {
     const confirmPassword = formData.get('confirm_password');
 
     if (newPassword !== confirmPassword) {
-        alert('Passwords do not match');
+        showError('password-error', 'Passwords do not match');
+        Toast.error('Passwords do not match');
         return;
     }
 
@@ -187,34 +344,28 @@ async function changePassword(formData) {
         const response = await fetch('/auth/change-password', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': formData.get('csrf_token')
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
         });
 
         if (response.ok) {
-            alert('Password changed successfully');
+            Toast.success('Password changed successfully');
             formData.reset();
+            hideError('password-error');
         } else {
             const error = await response.json();
-            alert(error.detail || 'Failed to change password');
+            showError('password-error', error.detail || 'Failed to change password');
+            Toast.error(error.detail || 'Failed to change password');
         }
     } catch (err) {
         console.error('Error changing password:', err);
+        showError('password-error', 'Network error. Please try again.');
+        Toast.error('Network error. Please try again.');
     }
 }
 
 // ── Utility Functions ──────────────────────────────────────────
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
 
 /**
  * Format a date string
@@ -223,11 +374,15 @@ function formatDate(dateString) {
     return new Date(dateString).toLocaleDateString();
 }
 
+
 // ── Event Listeners ──────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Load API keys on page load
-    loadApiKeys();
+/**
+ * Initialize profile page event listeners
+ */
+function initProfilePage() {
+    // Initialize tab navigation
+    initTabNavigation();
 
     // Profile form submission
     const profileForm = document.getElementById('profileForm');
@@ -235,7 +390,21 @@ document.addEventListener('DOMContentLoaded', function() {
         profileForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
-            await updateProfile(formData);
+            const submitBtn = document.getElementById('profile-submit-btn');
+            
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Updating...';
+            }
+            
+            try {
+                await updateProfile(formData);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Update Profile';
+                }
+            }
         });
     }
 
@@ -245,8 +414,34 @@ document.addEventListener('DOMContentLoaded', function() {
         passwordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
-            await changePassword(formData);
+            const submitBtn = document.getElementById('password-submit-btn');
+            
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Changing...';
+            }
+            
+            try {
+                await changePassword(formData);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Change Password';
+                }
+            }
         });
+    }
+
+    // Create API key button
+    const createApiKeyBtn = document.getElementById('create-api-key-btn');
+    if (createApiKeyBtn) {
+        createApiKeyBtn.addEventListener('click', showCreateApiKeyModal);
+    }
+
+    // Cancel create API key button
+    const cancelCreateKeyBtn = document.getElementById('cancel-create-key-btn');
+    if (cancelCreateKeyBtn) {
+        cancelCreateKeyBtn.addEventListener('click', closeCreateApiKeyModal);
     }
 
     // Create API key form submission
@@ -255,7 +450,32 @@ document.addEventListener('DOMContentLoaded', function() {
         createApiKeyForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
-            await createApiKey(formData);
+            const submitBtn = document.getElementById('create-key-submit-btn');
+            
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Creating...';
+            }
+            
+            try {
+                await createApiKey(formData);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Create Key';
+                }
+            }
+        });
+    }
+
+    // Delete API key buttons (event delegation)
+    const apiKeysList = document.getElementById('apiKeysList');
+    if (apiKeysList) {
+        apiKeysList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-api-key-btn')) {
+                const keyId = parseInt(e.target.dataset.keyId);
+                deleteApiKey(keyId);
+            }
         });
     }
 
@@ -275,4 +495,36 @@ document.addEventListener('DOMContentLoaded', function() {
             closeCreateApiKeyModal();
         }
     });
-});
+
+    // ── Accessibility: Dyslexia Font Toggle ──────────────────────────────────────────
+    const dyslexiaToggle = document.getElementById('dyslexia-font-toggle');
+    if (dyslexiaToggle) {
+        // Check localStorage on load
+        const savedPreference = localStorage.getItem('dyslexia_font');
+        if (savedPreference === 'true') {
+            dyslexiaToggle.checked = true;
+            document.body.classList.add('font-dyslexia');
+        }
+
+        // Handle toggle change
+        dyslexiaToggle.addEventListener('change', function() {
+            const enabled = this.checked;
+            
+            // Apply font class to body
+            if (enabled) {
+                document.body.classList.add('font-dyslexia');
+            } else {
+                document.body.classList.remove('font-dyslexia');
+            }
+            
+            // Save preference to localStorage
+            localStorage.setItem('dyslexia_font', enabled);
+            
+            // Show toast notification
+            Toast.info(enabled ? 'Dyslexia-friendly font enabled' : 'Dyslexia-friendly font disabled');
+        });
+    }
+}
+
+// Initialize when DOM is ready using shared utility
+onDomReady(initProfilePage);

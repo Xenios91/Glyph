@@ -4,51 +4,54 @@
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
+    {% if predictions and predictions|length > 0 %}
     <div class="center-contents">
         <h2>Predictions List</h2>
     </div>
-
-    <div class="nes-table-responsive content m-table center-contents overflow">
-        <blockquote>
-            <table class="nes-table is-bordered is-centered">
-                <thead>
-                    <tr>
-                        <th scope="col">Task Name</th>
-                        <th scope="col">Model Name</th>
-                        <th scope="col">Function Count</th>
-                        <th scope="col">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for prediction in predictions %}
-                    <tr id="prediction-{{ loop.index }}"
-                        data-task-name="{{ prediction.task_name | e }}"
-                        data-model-name="{{ prediction.model_name | e }}"
-                        onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
-                        onmouseout="changeBackground(this.id, '#000000');">
-                        <td>{{ prediction.task_name | e }}</td>
-                        <td>{{ prediction.model_name | e }}</td>
-                        <td>{{ prediction.predictions | length }}</td>
-                        <td>
-                            <button type="button" class="nes-btn is-primary view-prediction-btn"
-                                data-task-name="{{ prediction.task_name | e }}"
-                                data-model-name="{{ prediction.model_name | e }}">
-                                View
-                            </button>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="4" style="text-align: center;">No predictions available</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </blockquote>
-        <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+    
+    <div class="cyber-table-responsive">
+        <table class="cyber-table is-bordered is-centered prediction-table" data-click-handler="">
+            <thead>
+                <tr>
+                    <th scope="col" class="checkbox-column">
+                        <input type="checkbox" id="select-all-predictions" class="prediction-select-all" aria-label="Select all predictions">
+                    </th>
+                    <th scope="col">Task Name</th>
+                    <th scope="col">Model Name</th>
+                    <th scope="col">Function Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prediction in predictions %}
+                <tr id="prediction-{{ loop.index }}"
+                    data-task-name="{{ prediction.task_name | e }}"
+                    data-model-name="{{ prediction.model_name | e }}"
+                    class="hover-row clickable-row"
+                    tabindex="0"
+                    role="row"
+                    aria-label="Prediction: {{ prediction.task_name | e }}">
+                    <td class="checkbox-cell">
+                        <input type="checkbox" class="prediction-select-checkbox" data-task-name="{{ prediction.task_name | e }}" aria-label="Select {{ prediction.task_name | e }}">
+                    </td>
+                    <td>{{ prediction.task_name | e }}</td>
+                    <td>{{ prediction.model_name | e }}</td>
+                    <td>{{ prediction.predictions | length }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    <div class="btn-group" style="margin-top: 1.5rem;">
+        <button type="button" id="delete-selected-predictions-btn" class="cyber-btn is-danger delete-selected-btn" disabled aria-label="Delete selected predictions">Delete Selected</button>
+        <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
+    </div>
+    {% else %}
+    {% include 'components/no_predictions_empty_state.html' %}
+    {% endif %}
 </div>
 
-<script src="{{ url_for('static', path='js/common.js') }}"></script>
-<script src="{{ url_for('static', path='js/predictions.js') }}"></script>
 {% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/predictions.js') }}" defer></script>
+{% endblock scripts %}

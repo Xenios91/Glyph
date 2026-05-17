@@ -1,14 +1,9 @@
-"""Prediction endpoints for Glyph API.
-
-This module provides endpoints for making predictions and retrieving
-prediction results.
-"""
-
-import logging
-from typing import Annotated
+import asyncio
+import contextvars
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from fastapi.templating import Jinja2Templates
+from starlette.responses import HTMLResponse
 from markupsafe import escape
 from pydantic import BaseModel
 
@@ -18,262 +13,252 @@ from app.utils.persistence_util import FunctionPersistanceUtil, PredictionPersis
 from app.services.request_handler import PredictionRequest
 from app.processing.task_management import TaskManager
 from app.utils.common import format_code
+from loguru import logger
 from app.utils.responses import create_success_response, create_error_response, SuccessResponse
-from app.utils.jinja_utils import configure_jinja2_templates
-from app.auth.dependencies import get_current_active_user, get_optional_user
+from app.templates import templates
+from app.utils.logging_utils import catch_http_exception
+from app.utils.request_context import (
+    CapturedContext,
+    capture_request_context,
+    restore_request_context,
+    clear_request_context,
+)
+from app.auth.dependencies import get_current_active_user
 from app.database.models import User
 
+
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
-configure_jinja2_templates(templates)
 
 
 class PredictTokensRequest(BaseModel):
-    """Request model for token prediction.
-
-    Attributes:
-        modelName: Name of the model to use for prediction.
-        uuid: Optional UUID for the prediction task.
-    """
-
     modelName: str
     uuid: str | None = None
 
     model_config = {"extra": "allow"}
 
 
-def _run_prediction_task(prediction_request: PredictionRequest) -> None:
-    """Background task for running predictions.
-    
-    Args:
-        prediction_request: The prediction request containing data.
-    """
+def _run_prediction_task(
+    prediction_request: PredictionRequest,
+    captured_ctx: CapturedContext | None = None,
+) -> None:
     try:
-        # Use the pipeline framework for predictions
+        if captured_ctx is not None:
+            restore_request_context(captured_ctx, override_task_id=prediction_request.uuid)
+
         from app.processing.steps import (
-            ValidationStep,
-            DecompileStep,
             TokenizeStep,
             FilterStep,
             FeatureExtractStep,
-            PredictStep,
-        )
+            PredictStep)
         from app.processing.pipeline import ProcessingPipeline, PipelineContext
-        
+
+        functions = prediction_request.get_functions()
+
         context = PipelineContext(
             uuid=prediction_request.uuid,
-            binary_path="",  # Will be set by the pipeline
+            binary_path="",
             pipeline_type="ml_prediction",
             metadata={
                 "model_name": prediction_request.model_name,
                 "task_name": prediction_request.task_name,
-            },
-        )
-        
+            })
+
+        context.set("functions", functions)
+
         pipeline = ProcessingPipeline(
             "ML Prediction Pipeline",
             [
-                ValidationStep(),
-                DecompileStep(),
                 TokenizeStep(),
                 FilterStep(),
                 FeatureExtractStep(),
                 PredictStep(),
-            ],
+            ])
+        result = cast(
+            PipelineContext,
+            asyncio.run(
+                pipeline.execute(context),
+                context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
+            ),
         )
-        result = pipeline.execute(context)
-        
+
         if result.error:
-            raise Exception(result.error)
-            
-        logging.info("Prediction task completed successfully: %s", prediction_request.uuid)
-    except Exception as exc:
-        logging.error("Prediction task failed: %s - %s", prediction_request.uuid, exc)
+            raise RuntimeError(result.error)
+
+        logger.info("Prediction task completed: {}", prediction_request.uuid)
+    except Exception:
+        logger.exception("Prediction task failed: {}", prediction_request.uuid)
         raise
+    finally:
+        clear_request_context()
 
 
-@router.post("/predict", status_code=201, response_model=SuccessResponse[dict])
+@router.post("/predict", status_code=201, response_model=SuccessResponse[dict[str, Any]])
+@catch_http_exception(status_code=400, error_code="PREDICTION_ERROR")
 async def predict_tokens(
     background_tasks: BackgroundTasks,
     request_values: PredictTokensRequest,
-    current_user: Annotated[User, Depends(get_current_active_user)],
-):
-    """Creates a job to predict a function name based on the tokens supplied.
-    
-    Args:
-        background_tasks: FastAPI BackgroundTasks for async task execution.
-        request_values: The prediction request containing model name and data.
-        
-    Returns:
-        Success response with task UUID.
-        
-    Raises:
-        HTTPException: If task name already exists or prediction fails.
-    """
-    try:
-        model_name = request_values.modelName
-        uuid = request_values.uuid or TaskManager().get_uuid()
-        data = request_values.model_dump()
-        task_name = data.get("taskName", "")
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> SuccessResponse[dict[str, Any]]:
+    model_name = request_values.modelName
+    uuid = request_values.uuid or TaskManager().get_uuid()
+    data = request_values.model_dump()
+    task_name = data.get("taskName", "")
 
-        # Validate that task name is unique
-        if not PredictionPersistanceUtil.is_task_name_unique(task_name):
-            raise HTTPException(
-                status_code=409,
-                detail=create_error_response(
-                    error_code="TASK_NAME_EXISTS",
-                    error_message=f"Task name '{task_name}' already exists. Task names must be unique.",
-                ).model_dump(),
-            )
-
-        prediction_request = PredictionRequest(uuid, model_name, data)
-        
-        # Add prediction as a background task
-        background_tasks.add_task(_run_prediction_task, prediction_request)
-
-        return create_success_response(
-            data={"uuid": prediction_request.uuid},
-            message="Prediction task created successfully",
-        )
-
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logging.error("Prediction error: %s", exc)
+    if not task_name or not task_name.strip():
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="PREDICTION_ERROR",
-                error_message=str(exc),
-            ).model_dump(),
-        )
+                error_code="TASK_NAME_REQUIRED",
+                error_message="taskName is required for predictions").model_dump())
+    task_name = task_name.strip()
+
+    if not await PredictionPersistanceUtil.is_task_name_unique(task_name):
+        raise HTTPException(
+            status_code=409,
+            detail=create_error_response(
+                error_code="TASK_NAME_EXISTS",
+                error_message=f"Task name '{task_name}' already exists. Task names must be unique.").model_dump())
+
+    prediction_request = PredictionRequest(uuid, model_name, data)
+    captured_ctx = capture_request_context()
+    background_tasks.add_task(_run_prediction_task, prediction_request, captured_ctx)
+
+    return create_success_response(
+        data={"uuid": prediction_request.uuid},
+        message="Prediction task created successfully")
 
 
-@router.get("/getPrediction")
+@router.get("/getPrediction", response_model=None)
 async def get_prediction(
     request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
-    task_name: TaskName = Query(...),
-    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
-):
-    """Obtain all predictions from one task.
-    
-    Args:
-        request: The FastAPI request object.
-        model_name: The name of the model (automatically validated and stripped).
-        task_name: The name of the task (automatically validated and stripped).
-        
-    Returns:
-        Prediction data or HTML template response.
-        
-    Raises:
-        HTTPException: If prediction is not found.
-    """
-    prediction = PredictionPersistanceUtil.get_predictions(task_name, model_name)
+    task_name: TaskName = Query(...)
+) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
+    prediction = await PredictionPersistanceUtil.get_predictions(task_name, model_name)
 
     if not prediction:
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
                 error_code="PREDICTION_NOT_FOUND",
-                error_message="Prediction not found",
-            ).model_dump(),
-        )
-
-    accept = request.headers.get("Accept", "")
-    if ACCEPT_TYPE not in accept:
-        return create_success_response(
-            data={"prediction": prediction.__dict__},
-            message="Prediction retrieved successfully",
-        )
-
-    return templates.TemplateResponse(
-        "get_prediction.html",
-        {
-            "request": request,
-            "title": "Prediction",
-            "model_name": prediction.model_name,
-            "task_name": prediction.task_name,
-            "prediction": prediction,
-        },
-    )
-
-
-@router.delete("/deletePrediction")
-async def delete_prediction(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-    task_name: TaskName = Query(...),
-):
-    """Deletes a prediction by task name.
-    
-    Args:
-        task_name: The name of the task to delete (automatically validated and stripped).
-        
-    Returns:
-        Success response when prediction is deleted.
-    """
-    # Validation is handled by Pydantic - task_name is already stripped and validated
-    PredictionPersistanceUtil.delete_prediction(task_name)
-    return create_success_response(
-        data={},
-        message="Prediction deleted successfully",
-    )
-
-
-@router.get("/getPredictionDetails")
-async def get_prediction_details(
-    request: Request,
-    model_name: ModelName = Query(...),
-    function_name: FunctionName = Query(...),
-    task_name: TaskName = Query(...),
-    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
-):
-    """Displays specific details of a prediction.
-    
-    Args:
-        request: The FastAPI request object.
-        model_name: The name of the model (automatically validated and stripped).
-        function_name: The name of the function (automatically validated and stripped).
-        task_name: The name of the task (automatically validated and stripped).
-        
-    Returns:
-        Prediction details or HTML template response.
-        
-    Raises:
-        HTTPException: If retrieval fails.
-    """
-    try:
-        model_info = FunctionPersistanceUtil.get_function(model_name, function_name)
-        prediction_data = FunctionPersistanceUtil.get_prediction_function(
-            task_name, model_name, function_name
-        )
-
-        model_tokens = format_code(model_info[3])
-        prediction_tokens = format_code(prediction_data["tokens"])
-
-    except (TypeError, IndexError) as e:
-        logging.error(e)
-        raise HTTPException(
-            status_code=400,
-            detail=create_error_response(
-                error_code="RETRIEVAL_ERROR",
-                error_message="Could not retrieve details",
-            ).model_dump(),
-        )
+                error_message="Prediction not found").model_dump())
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
         return templates.TemplateResponse(
+            request,
+            "get_prediction.html",
+            {
+                "title": "Prediction",
+                "model_name": prediction.model_name,
+                "task_name": prediction.task_name,
+                "prediction": prediction,
+                "user": current_user,
+            })
+
+    return create_success_response(
+        data={
+            "prediction": {
+                "task_name": prediction.task_name,
+                "model_name": prediction.model_name,
+                "predictions": prediction.predictions
+            }
+        },
+        message="Prediction retrieved successfully")
+
+
+@router.delete("/deletePrediction")
+@catch_http_exception(status_code=500, error_code="DELETE_ERROR", message="Failed to delete prediction")
+async def delete_prediction(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    task_name: TaskName = Query(...)
+) -> SuccessResponse[dict[str, Any]]:
+    await PredictionPersistanceUtil.delete_prediction(task_name)
+
+    return create_success_response(
+        data={},
+        message="Prediction deleted successfully")
+
+
+@router.delete("/deletePredictions", response_model=SuccessResponse[dict[str, Any]])
+@catch_http_exception(status_code=500, error_code="DELETE_PREDICTIONS_ERROR", message="Failed to delete predictions")
+async def delete_predictions(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    task_names: str = Query(...)
+) -> SuccessResponse[dict[str, Any]]:
+    names = [name.strip() for name in task_names.split(",") if name.strip()]
+    if not names:
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="INVALID_TASK_NAMES",
+                error_message="At least one task name must be provided").model_dump())
+
+    deleted: list[str] = []
+    failed: list[str] = []
+    for name in names:
+        try:
+            await PredictionPersistanceUtil.delete_prediction(name)
+            deleted.append(name)
+        except Exception as exc:
+            logger.warning("Failed to delete prediction '%s': %s", name, exc)
+            failed.append(name)
+
+    data = {"deleted": deleted, "failed": failed}
+    message = f"Deleted {len(deleted)} prediction(s)"
+    if failed:
+        message += f"; failed to delete {len(failed)}: {', '.join(failed)}"
+
+    return create_success_response(data=data, message=message)
+
+
+@router.get("/getPredictionDetails", response_model=None)
+async def get_prediction_details(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    model_name: ModelName = Query(...),
+    function_name: FunctionName = Query(...),
+    task_name: TaskName = Query(...)
+) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
+    try:
+        model_info = await FunctionPersistanceUtil.get_function(model_name, function_name)
+        prediction_data = await FunctionPersistanceUtil.get_prediction_function(
+            task_name, model_name, function_name
+        )
+
+        if model_info is None:
+            raise HTTPException(
+                status_code=404,
+                detail=create_error_response(
+                    error_code="FUNCTION_NOT_FOUND",
+                    error_message="Function not found").model_dump())
+
+        model_tokens = format_code(model_info.tokens)
+        prediction_tokens = format_code(prediction_data.get("tokens", ""))
+
+    except (TypeError, IndexError):
+        logger.exception(
+            "Failed to retrieve prediction details for task={}, model={}, function={}",
+            task_name, model_name, function_name)
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="RETRIEVAL_ERROR",
+                error_message="Could not retrieve details").model_dump())
+
+    accept = request.headers.get("Accept", "")
+    if ACCEPT_TYPE in accept:
+        return templates.TemplateResponse(
+            request,
             "prediction_function_details.html",
             {
-                "request": request,
                 "task_name": task_name,
                 "model_name": model_name,
                 "function_name": function_name,
                 "model_tokens": model_tokens,
                 "prediction_tokens": prediction_tokens,
-            },
-        )
+            })
 
     return create_success_response(
         data={
@@ -283,5 +268,4 @@ async def get_prediction_details(
             "model_tokens": model_tokens,
             "prediction_tokens": prediction_tokens,
         },
-        message="Prediction details retrieved successfully",
-    )
+        message="Prediction details retrieved successfully")

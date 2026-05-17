@@ -1,0 +1,40 @@
+{# No Models Empty State Component
+# Displays when no models exist, guiding user to create one
+# Usage:
+#   {% include 'components/no_models_empty_state.html' %}
+#}
+<div class="no-models-empty-state">
+    <div class="empty-state-card">
+        <div class="empty-state-header">
+            <h2 class="empty-state-title">// NO MODELS AVAILABLE //</h2>
+        </div>
+
+        <div class="empty-state-icon-wrapper">
+            <div class="empty-box-icon" aria-hidden="true">
+                <div class="box-body">
+                    <span class="question-mark">?</span>
+                </div>
+                <div class="box-lid"></div>
+            </div>
+        </div>
+
+        <div class="empty-state-message">
+            <p class="empty-state-description">
+                No models have been created yet.
+            </p>
+            <p class="empty-state-description">
+                Models are required for binary analysis<br>
+                and prediction tasks.
+            </p>
+        </div>
+
+        <div class="empty-state-actions">
+            <a href="/uploadBinary"
+               class="cyber-btn is-primary empty-state-cta"
+               role="button"
+               aria-label="Create your first model">
+                [ CREATE YOUR FIRST MODEL ]
+            </a>
+        </div>
+    </div>
+</div>

@@ -9,36 +9,39 @@
         {'label': 'Model Name', 'value': model_name, 'id': 'model-name'}
     ] %}
     {% include 'components/page_header.html' %}
-
-    <div class="table-container">
-        <div class="nes-table-responsive">
-            <blockquote>
-                <table class="nes-table is-bordered is-centered">
-                    <thead>
-                        <tr>
-                            <th scope="col">Function Name</th>
-                            <th scope="col">EntryPoint</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for functionInfo in functions %}
-                        <tr id="{{ functionInfo[1] }}-id" onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
-                            onmouseout="changeBackground(this.id, '#000000');" onclick="goToFunctionURL(this.id)">
-                            <td>{{ functionInfo[1] }}</td>
-                            <td>0x{{ functionInfo[2] }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </blockquote>
+    
+    <div class="table-wrapper">
+        <div class="cyber-table-responsive">
+            <table class="cyber-table is-bordered is-centered symbols-table" data-click-handler="goToFunctionURL">
+                <thead>
+                    <tr>
+                        <th scope="col">Function Name</th>
+                        <th scope="col">EntryPoint</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for functionInfo in functions %}
+                    <tr id="{{ functionInfo.function_name }}-id"
+                        class="hover-row"
+                        tabindex="0"
+                        role="row"
+                        aria-label="Function: {{ functionInfo.function_name | e }}">
+                        <td>{{ functionInfo.function_name }}</td>
+                        <td>0x{{ functionInfo.entrypoint }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
         <div class="button-group">
-            <button type="button" class="nes-btn is-primary" onclick="deleteModel()">Delete</button>
-            <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+            <button type="button" class="cyber-btn is-primary is-delete" id="delete-model-btn" aria-label="Delete this model">Delete</button>
+            <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
         </div>
     </div>
 </div>
 
-<script src="{{ url_for('static', path='js/common.js') }}"></script>
-<script src="{{ url_for('static', path='js/symbols.js') }}"></script>
 {% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/symbols.js') }}" defer></script>
+{% endblock scripts %}

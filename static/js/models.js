@@ -1,56 +1,115 @@
 /**
  * Glyph - Models Page JavaScript
- * Handles model viewing and deletion
+ * Handles model viewing, multi-selection, and bulk deletion
+ * Uses native fetch API and event delegation
  */
+'use strict';
 
 /**
  * Navigate to model functions page
- * @param {string} id - Model ID element
+ * @param {HTMLElement} rowElement - Model row element
  */
-function goToModelURL(id) {
-    const model_name = id.slice(0, -3);
-    const status = document.getElementById(model_name + '-status');
-    
-    if (!status) {
-        console.error('Status element not found for model:', model_name);
+function goToModelURL(rowElement) {
+    const modelName = rowElement.dataset.modelName;
+    const statusCell = rowElement.querySelector('.model-status-cell');
+
+    if (!statusCell) {
+        console.error('Status cell not found for model:', modelName);
+        Toast.error('Model status not found');
         return;
     }
-    
-    const statusText = status.innerText.trim();
-    
+
+    const statusText = statusCell.dataset.status;
+
     if (statusText === 'complete') {
-        const currentURL = window.location.href;
-        const splitIndex = currentURL.lastIndexOf('/');
-        const url = currentURL.substring(0, splitIndex) + 
-            '/api/v1/models/getFunctions?model_name=' + encodeURIComponent(model_name);
-        
+        const url = getBaseUrl() +
+            '/api/v1/models/getFunctions?model_name=' + encodeURIComponent(modelName);
+
         if (url) {
             window.location = url;
         }
-    } else if (statusText === 'N/A') {
-        alert('No analysis has been performed yet!');
+    } else if (statusText === 'na') {
+        Toast.warning('No analysis has been performed yet!');
     } else {
-        alert('Binary Analysis is not complete!');
+        Toast.warning('Binary Analysis is not complete!');
     }
 }
 
 /**
- * Delete a model entry
+ * Delete multiple selected models via API
  */
-async function deleteModelEntry() {
-    const fileNameElement = document.getElementById('file-name');
-    if (!fileNameElement) {
-        console.error('File name element not found');
+async function deleteSelectedModels() {
+    const modelNames = selectionManager.getSelected();
+
+    if (modelNames.length === 0) {
+        Toast.warning('No models selected');
         return;
     }
-    
-    const selection = fileNameElement.innerText;
-    const binToDelete = selection.split(':')[1].replace(/\s+/, '');
-    
-    const currentURL = window.location.href;
-    const url = '/models/getSymbols?binaryDel=' + encodeURIComponent(binToDelete);
-    
-    if (url) {
-        window.location = url;
+
+    const confirmed = confirm(
+        `Are you sure you want to delete ${modelNames.length} model(s)?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+        const queryString = modelNames.map(encodeURIComponent).join(',');
+        const response = await authenticatedFetch(
+            `/api/v1/models/deleteModels?model_names=${queryString}`, {
+            method: 'DELETE',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            Toast.success(data.message || 'Models deleted successfully');
+            // Signal to clear selections on reload (browser may restore checkbox state)
+            sessionStorage.setItem('glyph_models_clear_selection', '1');
+            // Reload the page to reflect changes
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            Toast.error(data.detail?.error_message || 'Failed to delete models');
+        }
+    } catch (error) {
+        console.error('Error deleting models:', error);
+        Toast.error('Network error while deleting models');
     }
 }
+
+// Create selection manager instance
+const selectionManager = new SelectionManager({
+    checkboxClass: '.model-select-checkbox',
+    selectAllId: 'select-all-models',
+    selectAllClass: '.model-select-all',
+    deleteBtnId: 'delete-selected-btn',
+    deleteBtnText: 'Delete Selected',
+    storageKey: 'glyph_models_clear_selection',
+    dataAttribute: 'modelName'
+});
+
+// Initialize when DOM is ready using utility
+onDomReady(function() {
+    selectionManager.clearSelectionsIfFlagged();
+
+    // Initialize table with event delegation
+    initTableDelegation(
+        '.model-table',
+        ['goToModelURL'],
+        null,
+        {
+            checkboxSelector: selectionManager.getCheckboxSelector(),
+            checkboxHandler: selectionManager.getCheckboxHandler()
+        }
+    );
+
+    // Attach delete button listener (avoids inline onclick which violates CSP)
+    const deleteBtn = document.getElementById('delete-selected-btn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', deleteSelectedModels);
+    }
+});

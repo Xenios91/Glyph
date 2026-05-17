@@ -7,16 +7,21 @@ filtering, feature extraction, training, and prediction.
 Python 3.11+
 """
 
-import logging
+import asyncio
 import os
 import re
-from typing import Any
+import sys
+from typing import Any, cast
 
+from numpy.typing import NDArray
+from numpy import int64
 from sklearn.pipeline import Pipeline as SklearnPipeline
 
 from app.processing.pipeline import PipelineContext, PipelineStep
 from app.utils.persistence_util import MLPersistanceUtil, MLTask
+from loguru import logger
 from app.config.settings import get_settings
+
 
 
 # ============================================================================
@@ -125,13 +130,12 @@ class ValidationStep(PipelineStep):
             max_size_mb: Maximum allowed file size in megabytes.
         """
         self._max_size_bytes = int(max_size_mb * 1024 * 1024)
-        self._logger = logging.getLogger(self.__class__.__name__)
 
     def get_name(self) -> str:
         """Return the name of this step."""
         return "ValidationStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Validate the binary file.
 
         Args:
@@ -166,7 +170,7 @@ class ValidationStep(PipelineStep):
             context.error = f"Binary file is empty: {binary_path}"
             return context
 
-        self._logger.info("Validation passed for %s (%d bytes)", binary_path, file_size)
+        logger.debug("Validation passed for {} ({} bytes)", binary_path, file_size)
         return context
 
 
@@ -177,11 +181,13 @@ class DecompileStep(PipelineStep):
     the binary, extracting function information.
     """
 
+    def __init__(self) -> None:
+        """Initialize the decompile step."""
     def get_name(self) -> str:
         """Return the name of this step."""
         return "DecompileStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Decompile the binary using Ghidra.
 
         Args:
@@ -193,10 +199,12 @@ class DecompileStep(PipelineStep):
         from app.processing import ghidra_processor
 
         binary_path = context.binary_path
-        self._logger = logging.getLogger(self.__class__.__name__)
 
         try:
-            results = ghidra_processor.analyze_binary_and_decompile(binary_path)
+            # Offload blocking Ghidra JVM call to thread pool to avoid blocking event loop
+            results = await asyncio.to_thread(
+                ghidra_processor.analyze_binary_and_decompile, binary_path
+            )
 
             functions = results.get("functions", [])
             errored_functions = results.get("erroredFunctions", [])
@@ -204,17 +212,15 @@ class DecompileStep(PipelineStep):
             context.set("functions", functions)
             context.set("errored_functions", errored_functions)
 
-            self._logger.info(
-                "Decompilation completed: %d functions, %d errors",
+            logger.info(
+                "Decompilation completed: {} functions, {} errors",
                 len(functions),
-                len(errored_functions),
-            )
+                len(errored_functions))
 
         except Exception as decompile_error:
             context.error = f"Decompilation failed: {decompile_error}"
-            self._logger.error(
-                "Decompilation error: %s", decompile_error, exc_info=True
-            )
+            context.exc_info = sys.exc_info()
+            logger.exception("Decompilation error")
 
         return context
 
@@ -226,11 +232,13 @@ class TokenizeStep(PipelineStep):
     joining them into strings for further processing.
     """
 
+    def __init__(self) -> None:
+        """Initialize the tokenize step."""
     def get_name(self) -> str:
         """Return the name of this step."""
         return "TokenizeStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Extract tokens from decompiled functions.
 
         Args:
@@ -239,8 +247,6 @@ class TokenizeStep(PipelineStep):
         Returns:
             Updated context with tokenized functions.
         """
-        self._logger = logging.getLogger(self.__class__.__name__)
-
         functions = context.get("functions")
         if functions is None:
             context.error = (
@@ -259,8 +265,8 @@ class TokenizeStep(PipelineStep):
 
         context.set("tokenized_functions", tokenized_functions)
 
-        self._logger.info(
-            "Tokenization completed: %d functions tokenized", len(tokenized_functions)
+        logger.debug(
+            "Tokenization completed: {} functions tokenized", len(tokenized_functions)
         )
 
         return context
@@ -273,11 +279,13 @@ class FilterStep(PipelineStep):
     variable names, and remove comments.
     """
 
+    def __init__(self) -> None:
+        """Initialize the filter step."""
     def get_name(self) -> str:
         """Return the name of this step."""
         return "FilterStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Filter and normalize tokens.
 
         Args:
@@ -286,8 +294,6 @@ class FilterStep(PipelineStep):
         Returns:
             Updated context with filtered tokens.
         """
-        self._logger = logging.getLogger(self.__class__.__name__)
-
         tokenized_functions = context.get("tokenized_functions")
         if tokenized_functions is None:
             context.error = "No tokenized functions found in context"
@@ -306,8 +312,8 @@ class FilterStep(PipelineStep):
 
         context.set("filtered_functions", filtered_functions)
 
-        self._logger.info(
-            "Filtering completed: %d functions filtered", len(filtered_functions)
+        logger.debug(
+            "Filtering completed: {} functions filtered", len(filtered_functions)
         )
 
         return context
@@ -324,13 +330,11 @@ class FeatureExtractStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the feature extraction step."""
-        self._logger = logging.getLogger(self.__class__.__name__)
-
     def get_name(self) -> str:
         """Return the name of this step."""
         return "FeatureExtractStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Extract tokens from filtered functions.
 
         Args:
@@ -356,10 +360,9 @@ class FeatureExtractStep(PipelineStep):
         # the fit_transform operation during training
         context.set("tokens", tokens)
 
-        self._logger.info(
-            "Feature extraction completed: %d samples",
-            len(tokens),
-        )
+        logger.debug(
+            "Feature extraction completed: {} samples",
+            len(tokens))
 
         return context
 
@@ -371,11 +374,13 @@ class TrainStep(PipelineStep):
     the trained model to persistence.
     """
 
+    def __init__(self) -> None:
+        """Initialize the train step."""
     def get_name(self) -> str:
         """Return the name of this step."""
         return "TrainStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Train the ML model.
 
         Args:
@@ -387,14 +392,12 @@ class TrainStep(PipelineStep):
         import numpy as np
         from sklearn import preprocessing
 
-        self._logger = logging.getLogger(self.__class__.__name__)
-
         # Get required data
         filtered_functions = context.get("filtered_functions")
         tokens = context.get("tokens")
 
-        if filtered_functions is None:
-            context.error = "No filtered functions found in context"
+        if not filtered_functions:
+            context.error = "No filtered functions available for training"
             return context
 
         if tokens is None:
@@ -411,32 +414,42 @@ class TrainStep(PipelineStep):
 
         # Encode labels
         label_encoder = preprocessing.LabelEncoder()
-        label_encoder.fit(labels)
-        y = np.array(label_encoder.transform(labels))
+        y: NDArray[int64] = cast(
+            NDArray[int64], label_encoder.fit_transform(labels)  # type: ignore[call-arg]
+        )
+        
+
 
         # Get ML pipeline
         ml_pipeline: SklearnPipeline = MLTask.get_multi_class_pipeline()
 
         try:
-            # Train the model - ML pipeline handles vectorization internally
-            ml_pipeline.fit(tokens, y)
+            # Validate data before training
+            logger.debug("Training data: {} tokens, {} labels", len(tokens), len(y))
+            # Guard expensive debug logging to avoid computation when disabled
+            # Using opt(lazy=True) defers evaluation until the log level is confirmed
+            logger.opt(lazy=True).debug("Token sample: {}", lambda: tokens[0][:100] if tokens else "empty")
+            logger.opt(lazy=True).debug("Label distribution: {}", lambda: np.bincount(y).tolist())
+            
+            # Train the model - offload blocking sklearn fit to thread pool
+            await asyncio.to_thread(ml_pipeline.fit, tokens, y)  # type: ignore[misc]
 
             # Save the model
-            MLPersistanceUtil.save_model(model_name, label_encoder, ml_pipeline)
+            await MLPersistanceUtil.save_model(model_name, label_encoder, ml_pipeline)
 
             context.set("label_encoder", label_encoder)
             context.set("model", ml_pipeline)
 
-            self._logger.info(
-                "Training completed for model '%s': %d classes",
+            logger.info(
+                "Training completed for model '{}': {} classes",
                 model_name,
-                len(label_encoder.classes_),
+                len(label_encoder.classes_),  # type: ignore[arg-type]
             )
 
         except Exception as train_error:
             context.error = f"Training failed: {train_error}"
-            self._logger.error("Training error: %s", train_error, exc_info=True)
-
+            context.exc_info = sys.exc_info()
+            logger.exception("Training error")
         return context
 
 
@@ -447,11 +460,13 @@ class PredictStep(PipelineStep):
     features, applying a probability threshold to filter uncertain predictions.
     """
 
+    def __init__(self) -> None:
+        """Initialize the predict step."""
     def get_name(self) -> str:
         """Return the name of this step."""
         return "PredictStep"
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Run predictions on the features.
 
         Args:
@@ -460,8 +475,6 @@ class PredictStep(PipelineStep):
         Returns:
             Updated context with predictions.
         """
-        self._logger = logging.getLogger(self.__class__.__name__)
-
         # Get required data
         filtered_functions = context.get("filtered_functions")
         tokens = context.get("tokens")
@@ -481,11 +494,12 @@ class PredictStep(PipelineStep):
 
         try:
             # Load the model
-            model, label_encoder = MLPersistanceUtil.load_model(model_name)
+            model, label_encoder = await MLPersistanceUtil.load_model(model_name)
 
-            # Run predictions - ML pipeline handles vectorization internally
-            predictions = model.predict(tokens)
-            prediction_probability = model.predict_proba(tokens) * 100
+            # Run predictions - offload blocking sklearn calls to thread pool
+            predictions = await asyncio.to_thread(model.predict, tokens)
+            prediction_probability = await asyncio.to_thread(model.predict_proba, tokens)
+            prediction_probability = prediction_probability * 100
             predicted_labels = label_encoder.inverse_transform(predictions)
 
             # Apply probability threshold
@@ -498,14 +512,14 @@ class PredictStep(PipelineStep):
             context.set("predictions", predicted_labels.tolist())
             context.set("prediction_probabilities", prediction_probability.tolist())
 
-            self._logger.info(
-                "Prediction completed: %d predictions for model '%s'",
+            logger.info(
+                "Prediction completed: {} predictions for model '{}'",
                 len(predicted_labels),
-                model_name,
-            )
+                model_name)
 
         except Exception as predict_error:
             context.error = f"Prediction failed: {predict_error}"
-            self._logger.error("Prediction error: %s", predict_error, exc_info=True)
+            context.exc_info = sys.exc_info()
+            logger.exception("Prediction error")
 
         return context

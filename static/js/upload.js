@@ -1,127 +1,447 @@
 /**
  * Glyph - Upload Page JavaScript
  * Handles binary upload and ML type switching
+ * Uses native fetch API instead of jQuery
  */
+'use strict';
 
 /**
  * Change ML type between training and prediction modes
  */
 function changeMlType() {
-    const generate_model_box = document.getElementById('generate-model-checkbox');
-    const prediction_div = document.getElementById('prediction-config');
-    const training_div = document.getElementById('training-config');
+    const generateModelBox = document.getElementById('generate-model-checkbox');
+    const predictionDiv = document.getElementById('prediction-config');
+    const trainingDiv = document.getElementById('training-config');
     
-    if (!prediction_div) {
-        if (generate_model_box) generate_model_box.checked = true;
-        if (training_div) training_div.style.display = 'block';
-        if (training_div) training_div.classList.remove('hidden');
+    if (!predictionDiv) {
+        if (generateModelBox) generateModelBox.checked = true;
+        if (trainingDiv) {
+            trainingDiv.style.display = 'block';
+            trainingDiv.classList.remove('hidden');
+        }
         return;
     }
     
-    if (generate_model_box.checked) {
+    if (generateModelBox.checked) {
         // Fade out prediction, fade in training
-        prediction_div.classList.add('hidden');
+        predictionDiv.classList.add('hidden');
         setTimeout(() => {
-            prediction_div.style.display = 'none';
-            training_div.style.display = 'block';
+            predictionDiv.style.display = 'none';
+            trainingDiv.style.display = 'block';
             // Small delay to allow display:block to apply before removing hidden
             setTimeout(() => {
-                training_div.classList.remove('hidden');
+                trainingDiv.classList.remove('hidden');
             }, 10);
         }, 300);
     } else {
         // Fade out training, fade in prediction
-        training_div.classList.add('hidden');
+        trainingDiv.classList.add('hidden');
         setTimeout(() => {
-            training_div.style.display = 'none';
-            prediction_div.style.display = 'block';
+            trainingDiv.style.display = 'none';
+            predictionDiv.style.display = 'block';
             // Small delay to allow display:block to apply before removing hidden
             setTimeout(() => {
-                prediction_div.classList.remove('hidden');
+                predictionDiv.classList.remove('hidden');
             }, 10);
         }, 300);
     }
 }
 
 /**
- * Upload binary file
+ * Show loading state for upload
+ * @param {boolean} isLoading - Whether upload is in progress
  */
-function uploadBinary() {
-    var formData = new FormData();
-    const selectedFile = document.getElementById('upload-binary').files[0];
-    const trainingData = document.getElementById('generate-model-checkbox').checked;
-    var modelName;
+function setUploadLoading(isLoading) {
+    const uploadBox = document.getElementById('upload-box');
+    const dropZone = document.getElementById('drop-zone');
     
-    if (trainingData) {
-        modelName = document.getElementById('model_name').value;
-    } else {
-        modelName = document.getElementById('prediction_model_selection').value;
-    }
-    
-    const taskElement = document.getElementById('task_name');
-    if (taskElement != null && taskElement.value.trim() !== '') {
-        const taskName = taskElement.value;
-        formData.append('task_name', taskName);
-    }
-    const mlClassType = document.getElementById('ml_class_type').value;
-    
-    const url = '/api/v1/binaries/uploadBinary';
-    
-    formData.append('binary_file', selectedFile);
-    formData.append('training_data', trainingData);
-    formData.append('model_name', modelName);
-    formData.append('ml_class_type', mlClassType);
-    
-    const csrfToken = getCsrfToken();
-    
-    $.ajax({
-        type: 'POST',
-        url: url,
-        data: formData,
-        processData: false,
-        contentType: false,
-        headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
-        success: function (data, status, xhr) {
-            var uploadMessage = document.getElementById('upload-message');
-            var uploadBox = document.getElementById('upload-box');
-            uploadMessage.style.display = 'block';
-            uploadBox.style.display = 'none';
-            setTimeout(function () {
-                uploadMessage.style.display = 'none';
-                uploadBox.style.display = 'block';
-                document.getElementById('generate-model-checkbox').checked = false;
-                document.getElementById('model_name').value = '';
-                document.getElementById('ml_class_type').value = '';
-                changeMlType();
-            }, 5000);
-        },
-        error: function (xhr, status, error) {
-            if (xhr.status == 400) {
-                window.location.href = '/error?type=uploadError';
-            } else {
-                window.location.href = '/error';
-            }
-        },
-        complete: function (xhr, textStatus) {
-            console.log('upload complete');
+    if (isLoading) {
+        if (uploadBox) {
+            uploadBox.classList.add('is-disabled');
         }
-    });
+        if (dropZone) {
+            dropZone.style.pointerEvents = 'none';
+            dropZone.style.opacity = '0.5';
+        }
+    } else {
+        if (uploadBox) {
+            uploadBox.classList.remove('is-disabled');
+        }
+        if (dropZone) {
+            dropZone.style.pointerEvents = '';
+            dropZone.style.opacity = '';
+        }
+    }
 }
 
 /**
- * Initialize upload page
+ * Timer reference for auto-hiding the upload message
+ * @type {number|undefined}
+ */
+let uploadMessageTimer = undefined;
+
+/**
+ * Flag to track if the processing message was already dismissed by the fallback timer.
+ * Prevents showUploadStatus() from re-showing the message after a slow server response.
+ * @type {boolean}
+ */
+let uploadMessageDismissed = false;
+
+/**
+ * Flag to track if an upload is currently in progress.
+ * Used to prevent page navigation during active uploads.
+ * @type {boolean}
+ */
+let isUploadInProgress = false;
+
+/**
+ * Handle beforeunload event to prevent navigation during active upload
+ * @param {BeforeUnloadEvent} e - The beforeunload event
+ */
+function handleBeforeUnload(e) {
+    console.log('[UPLOAD] beforeunload fired, isUploadInProgress:', isUploadInProgress);
+    if (isUploadInProgress) {
+        e.preventDefault();
+        e.returnValue = 'Upload is in progress. Are you sure you want to leave?';
+        return e.returnValue;
+    }
+}
+
+/**
+ * Show the processing/uploading state immediately when upload starts
+ */
+function showUploadProcessing() {
+    const uploadMessage = document.getElementById('upload-message');
+    const uploadBox = document.getElementById('upload-box');
+    
+    if (!uploadMessage) return;
+    
+    const statusText = uploadMessage.querySelector('p:last-child');
+    if (statusText) {
+        statusText.textContent = '[ PROCESSING... YOUR BINARY IS BEING ANALYZED ]';
+        statusText.style.color = 'var(--cyan)';
+    }
+    
+    uploadMessage.style.display = 'block';
+    if (uploadBox) {
+        uploadBox.style.display = 'none';
+    }
+    
+    // Set a fallback timer so the message auto-hides even if showUploadStatus is never called
+    // (e.g., network hang, server never responds)
+    if (uploadMessageTimer !== undefined) {
+        clearTimeout(uploadMessageTimer);
+    }
+    uploadMessageTimer = setTimeout(() => {
+        uploadMessageDismissed = true;
+        uploadMessage.style.display = 'none';
+        if (uploadBox) {
+            uploadBox.style.display = 'block';
+        }
+        resetUploadForm();
+    }, 5000); // 5-second fallback
+}
+
+/**
+ * Show upload status message
+ * @param {string} message - The message to display
+ * @param {boolean} isSuccess - Whether the upload was successful
+ */
+function showUploadStatus(message, isSuccess = true) {
+    // If the fallback timer already dismissed the message, don't re-show it
+    if (uploadMessageDismissed) {
+        uploadMessageDismissed = false;
+        if (isSuccess) {
+            Toast.success(message || 'Binary uploaded successfully');
+        } else {
+            Toast.error(message || 'Upload failed');
+        }
+        resetUploadForm();
+        return;
+    }
+    
+    const uploadMessage = document.getElementById('upload-message');
+    const uploadBox = document.getElementById('upload-box');
+    
+    if (!uploadMessage) {
+        return;
+    }
+    
+    // Clear any existing auto-hide timer (e.g., from processing state)
+    if (uploadMessageTimer !== undefined) {
+        clearTimeout(uploadMessageTimer);
+        uploadMessageTimer = undefined;
+    }
+    
+    const statusText = uploadMessage.querySelector('p:last-child');
+    if (statusText) {
+        statusText.textContent = isSuccess
+            ? `[ SUCCESS: ${message} ]`
+            : `[ ERROR: ${message} ]`;
+        statusText.style.color = isSuccess ? 'var(--green)' : 'var(--red)';
+    }
+    
+    uploadMessage.style.display = 'block';
+    if (uploadBox) {
+        uploadBox.style.display = 'none';
+    }
+    
+    // Auto-hide after 5 seconds
+    uploadMessageTimer = setTimeout(() => {
+        uploadMessage.style.display = 'none';
+        if (uploadBox) {
+            uploadBox.style.display = 'block';
+        }
+        resetUploadForm();
+    }, 5000);
+}
+
+/**
+ * Reset the upload form to initial state
+ */
+function resetUploadForm() {
+    const generateModelCheckbox = document.getElementById('generate-model-checkbox');
+    const trainingNameInput = document.getElementById('training-name');
+    const predictionNameInput = document.getElementById('prediction-name');
+    const mlClassTypeSelect = document.getElementById('ml_class_type');
+    const fileInput = document.getElementById('upload-binary');
+    
+    if (generateModelCheckbox) generateModelCheckbox.checked = false;
+    if (trainingNameInput) trainingNameInput.value = '';
+    if (predictionNameInput) predictionNameInput.value = '';
+    if (mlClassTypeSelect) mlClassTypeSelect.selectedIndex = 0;
+    if (fileInput) fileInput.value = '';
+    
+    changeMlType();
+}
+
+/**
+ * Validate upload form before submission
+ * @returns {boolean} True if valid, false otherwise
+ */
+function validateUploadForm() {
+    const selectedFile = document.getElementById('upload-binary').files[0];
+    const generateModelCheckbox = document.getElementById('generate-model-checkbox');
+    const predictionModelSelect = document.getElementById('prediction_model_selection');
+    const mlClassTypeSelect = document.getElementById('ml_class_type');
+    
+    // Check if file is selected
+    if (!selectedFile) {
+        Toast.error('Please select a binary file to upload');
+        return false;
+    }
+    
+    // Validate file size (max 100MB)
+    const maxSize = 100 * 1024 * 1024;
+    if (selectedFile.size > maxSize) {
+        Toast.error('File size exceeds 100MB limit');
+        return false;
+    }
+    
+    // Validate name field based on mode (training or prediction)
+    const isTraining = generateModelCheckbox.checked;
+    const nameInput = isTraining
+        ? document.getElementById('training-name')
+        : document.getElementById('prediction-name');
+    if (!nameInput || !nameInput.value.trim()) {
+        Toast.error('Please enter a name');
+        nameInput?.focus();
+        return false;
+    }
+    
+    // Validate model selection for prediction
+    if (!isTraining) {
+        if (!predictionModelSelect || !predictionModelSelect.value) {
+            Toast.error('Please select a model for prediction');
+            predictionModelSelect?.focus();
+            return false;
+        }
+    }
+    
+    // Validate ML class type
+    if (!mlClassTypeSelect || !mlClassTypeSelect.value) {
+        Toast.error('Please select an ML class type');
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Upload binary file using XMLHttpRequest for progress tracking
+ */
+function uploadBinary() {
+    // Validate form before upload
+    if (!validateUploadForm()) {
+        return;
+    }
+
+    const formData = new FormData();
+    const selectedFile = document.getElementById('upload-binary').files[0];
+    const trainingData = document.getElementById('generate-model-checkbox').checked;
+    const nameInput = trainingData
+        ? document.getElementById('training-name')
+        : document.getElementById('prediction-name');
+    const nameValue = nameInput ? nameInput.value.trim() : '';
+
+    let modelName;
+    if (trainingData) {
+        modelName = nameValue;
+    } else {
+        modelName = document.getElementById('prediction_model_selection').value;
+    }
+
+    const mlClassType = document.getElementById('ml_class_type').value;
+
+    formData.append('binary_file', selectedFile);
+    formData.append('training_data', trainingData);
+    formData.append('model_name', modelName);
+    formData.append('name', nameValue);
+    formData.append('ml_class_type', mlClassType);
+
+    // Set loading state
+    setUploadLoading(true);
+
+    // Mark upload as in progress to block page navigation
+    isUploadInProgress = true;
+    let transferComplete = false;
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Register with status bar for upload progress tracking
+    let statusBarClientId = null;
+    if (typeof StatusBar !== 'undefined') {
+        statusBarClientId = StatusBar.registerUpload(selectedFile.name);
+    }
+
+    // Show upload message immediately so user sees feedback during upload
+    showUploadProcessing();
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/v1/binaries/uploadBinary', true);
+
+    // Set headers
+    xhr.setRequestHeader('Accept', 'application/json');
+
+    // Track upload progress and unlock navigation when transfer completes
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            const percent = (e.loaded / e.total) * 100;
+            if (statusBarClientId && typeof StatusBar !== 'undefined') {
+                StatusBar.updateUploadProgress(statusBarClientId, percent);
+            }
+            // Unlock navigation once the file is fully sent to the server
+            if (percent >= 100 && isUploadInProgress) {
+                transferComplete = true;
+                console.log('[UPLOAD] File transfer complete, navigation unlocked');
+                isUploadInProgress = false;
+                window.removeEventListener('beforeunload', handleBeforeUnload);
+            }
+        }
+    };
+
+    // Handle completion
+    xhr.onload = function() {
+        // Also unlock navigation on response (in case upload.onload already fired but handler lingered)
+        isUploadInProgress = false;
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+            let data;
+            try {
+                data = JSON.parse(xhr.responseText);
+            } catch (parseError) {
+                console.error('[UPLOAD] Failed to parse response as JSON:', parseError);
+                console.error('[UPLOAD] Raw response:', xhr.responseText.substring(0, 500));
+                // If JSON parsing fails but response is ok, treat as success
+                showUploadStatus('Binary uploaded successfully');
+                return;
+            }
+
+            // Get the server-side task UUID from response
+            const taskUuid = data.data && data.data.uuid;
+
+            // Transition status bar from upload to processing state
+            if (statusBarClientId && taskUuid && typeof StatusBar !== 'undefined') {
+                StatusBar.uploadComplete(statusBarClientId, taskUuid);
+            }
+
+            showUploadStatus(data.message || 'Binary uploaded successfully');
+        } else {
+            // Handle specific error responses
+            let errorMessage;
+            try {
+                const errData = JSON.parse(xhr.responseText);
+                errorMessage = errData.detail || `Upload failed (${xhr.status})`;
+            } catch {
+                errorMessage = `Upload failed (${xhr.status})`;
+            }
+
+            console.error('[UPLOAD] Server error:', xhr.status, errorMessage);
+            Toast.error(errorMessage);
+            showUploadStatus(errorMessage, false);
+        }
+    };
+
+    // Handle network errors
+    xhr.onerror = function() {
+        isUploadInProgress = false;
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        console.error('[UPLOAD] Network error during upload');
+        Toast.error('Network error. Please try again.');
+        showUploadStatus('Network error', false);
+    };
+
+    xhr.onabort = function() {
+        isUploadInProgress = false;
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        if (transferComplete) {
+            // File was already sent to server, just the response was pending
+            console.log('[UPLOAD] Navigation away after transfer complete - server still processing');
+        } else {
+            console.log('[UPLOAD] Upload aborted before transfer complete');
+            showUploadStatus('Upload cancelled', false);
+        }
+    };
+
+    // Send the request
+    xhr.send(formData);
+}
+
+/**
+ * Initialize upload page event listeners
  */
 function initUploadPage() {
-    const generate_model_box = document.getElementById('generate-model-checkbox');
-    if (generate_model_box) {
-        generate_model_box.checked = true;
+    const generateModelBox = document.getElementById('generate-model-checkbox');
+    if (generateModelBox) {
+        generateModelBox.checked = true;
         changeMlType();
+        
+        // Add event listener for checkbox change (replaces inline onclick)
+        generateModelBox.addEventListener('change', changeMlType);
+    }
+    
+    // Add event listener for file input change (replaces inline onchange)
+    const fileInput = document.getElementById('upload-binary');
+    if (fileInput) {
+        fileInput.addEventListener('change', () => {
+            // Validate file type
+            const file = fileInput.files[0];
+            if (file) {
+                // Check if file is a valid binary type
+                const validTypes = ['application/x-executable', 'application/octet-stream', 'application/x-sharedlib'];
+                const fileType = file.type || 'application/octet-stream';
+                
+                if (!validTypes.includes(fileType) && !file.name.match(/\.(exe|dll|so|bin|elf)$/i)) {
+                    Toast.warning('File may not be a valid binary. Upload will continue but analysis may fail.');
+                }
+                // Trigger upload when file is selected
+                uploadBinary();
+            }
+        });
     }
     
     // Drag and drop functionality
     const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('upload-binary');
-    
     if (!dropZone || !fileInput) return;
     
     dropZone.addEventListener('dragover', (e) => {
@@ -145,9 +465,5 @@ function initUploadPage() {
     });
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initUploadPage);
-} else {
-    initUploadPage();
-}
+// Initialize when DOM is ready using shared utility
+onDomReady(initUploadPage);

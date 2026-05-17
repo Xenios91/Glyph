@@ -9,10 +9,10 @@
         {'label': 'Model Name', 'value': model_name, 'id': 'model-name'}
     ] %}
     {% include 'components/page_header.html' %}
-
-    <div class="nes-table-responsive content m-table center-contents overflow">
-        <blockquote>
-            <table class="nes-table is-bordered is-centered">
+    
+    <div class="table-wrapper">
+        <div class="cyber-table-responsive">
+            <table class="cyber-table is-bordered is-centered prediction-table" data-click-handler="goToPredictionDetailsURL">
                 <thead>
                     <tr>
                         <th scope="col">Predicted Function</th>
@@ -22,24 +22,30 @@
                 <tbody>
                     {% for functionInfo in prediction["predictions"] %}
                     {% set functionName = functionInfo["functionName"] %}
-                    <tr id="prediction-func-{{ loop.index }}"
+                    <tr id="{{ functionName }}-id"
                         data-function-name="{{ functionName | e }}"
                         data-model-name="{{ model_name | e }}"
                         data-task-name="{{ task_name | e }}"
-                        onmouseover="changeBackground(this.id, 'rgba(0,255,255,0.07)');"
-                        onmouseout="changeBackground(this.id, '#000000');">
+                        class="hover-row"
+                        tabindex="0"
+                        role="row"
+                        aria-label="Function: {{ functionName | e }}">
                         <td>{{ functionName | e }}</td>
                         <td>0x{{ functionInfo["lowAddress"] }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-        </blockquote>
-        <button type="button" class="nes-btn is-primary mr-25 delete-prediction-btn" onclick="deletePrediction()">Delete</button>
-        <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+        </div>
+        <div class="button-group">
+            <button type="button" class="cyber-btn is-primary is-delete" id="delete-prediction-btn" aria-label="Delete this prediction">Delete</button>
+            <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
+        </div>
     </div>
 </div>
 
-<script src="{{ url_for('static', path='js/common.js') }}"></script>
-<script src="{{ url_for('static', path='js/predictions.js') }}"></script>
 {% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/predictions.js') }}" defer></script>
+{% endblock scripts %}

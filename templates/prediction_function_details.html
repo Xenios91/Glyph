@@ -1,4 +1,7 @@
 {% extends "layout.html" %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/predictions_style.css') }}">
+{% endblock head %}
 {% block content %}
 <div class="blue-bg" style="padding: 2%;">
     {% set items = [
@@ -8,28 +11,33 @@
     ] %}
     {% include 'components/page_header.html' %}
 
-    <div class="mt-2" style="display: flex">
-        <div style="width: 50%;">
-            <div class="center-text">
-                <span class="center-text">Model Function: </span>
+<div class="mt-2" style="display: flex; flex-wrap: wrap; gap: 2%; justify-content: center;">
+            <div style="flex: 1; min-width: 300px; max-width: 500px;">
+                <div class="center-text">
+                    <span class="center-text">Predicted Function: </span>
+                </div>
+                <div id="prediction_tokens_div" class="cyber-container is-rounded white-bg token-scroll" style="margin: 2%;">
+                    <pre style="font-family: 'Source Code Pro', monospace;">{{ prediction_tokens }}</pre>
+                </div>
             </div>
-            <div id="model_tokens_div" class="nes-container is-rounded white-bg token-scroll" style="margin: 2%; width: auto;">
-                <pre style="font-family: 'Source Code Pro', monospace;">{{ model_tokens }}</pre>
+            <div style="flex: 1; min-width: 300px; max-width: 500px;">
+                <div class="center-text">
+                    <span>Original Function: </span>
+                </div>
+                <div id="model_tokens_div" class="cyber-container is-rounded white-bg token-scroll" style="margin: 2%;">
+                    <pre style="font-family: 'Source Code Pro', monospace;">{{ model_tokens }}</pre>
+                </div>
             </div>
         </div>
-        <div style="width: 50%;">
-            <div class="center-text">
-                <span>Predicted Function: </span>
-            </div>
-            <div id="prediction_tokens_div" class="nes-container is-rounded white-bg token-scroll" style="margin: 2%; width: auto;">
-                <pre style="font-family: 'Source Code Pro', monospace;">{{ prediction_tokens }}</pre>
-            </div>
-        </div>
-    </div>
 
-    <div class="center-contents" style="margin-top: 2%;">
-        <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+    <div class="btn-group" style="margin-top: 1.5rem;">
+        <button type="button" class="cyber-btn is-primary back-btn">Go Back</button>
     </div>
 </div>
 
 {% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/predictions.js') }}" defer></script>
+{% endblock scripts %}
+

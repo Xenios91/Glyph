@@ -1,19 +1,79 @@
-{# Navbar component #}
-<nav class="navbar">
+{# Navbar component with dropdown menus and mobile responsive support #}
+<nav class="navbar" role="navigation" aria-label="Main navigation">
     <a href="/" class="nav-logo" aria-label="Glyph home">
         <h1>GLYPH</h1>
     </a>
-    <div class="nav-links">
-        <a href="/getModels">VIEW MODELS</a>
-        <a href="/getPredictions">PREDICTIONS</a>
-        <a href="/uploadBinary">UPLOAD</a>
-        <a href="/config">CONFIG</a>
-        {% if user %}
-        <a href="/profile">{{ user.username }}</a>
-        <a href="/auth/logout">Logout</a>
+    
+    <!-- Mobile hamburger menu toggle -->
+    <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+    
+    <div class="nav-links" id="nav-links">
+        {% if user and user.username %}
+        <!-- Authenticated user menu with dropdowns -->
+        
+        <!-- HOME link -->
+        <a href="/" aria-label="Home">HOME</a>
+        
+        <!-- ANALYSIS Dropdown -->
+        <div class="nav-dropdown">
+            <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="analysis-menu">
+                ANALYSIS
+                <svg class="dropdown-arrow" aria-hidden="true" viewBox="0 0 10 6">
+                    <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+            </button>
+            <ul class="nav-dropdown-menu" id="analysis-menu" role="menu">
+                <li role="none" class="nav-dropdown-sub">
+                    <span class="nav-dropdown-sub-toggle" aria-haspopup="true" aria-controls="code-reuse-menu">
+                        CODE REUSE
+                        <svg class="dropdown-arrow" aria-hidden="true" viewBox="0 0 10 6">
+                            <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                    </span>
+                    <ul class="nav-dropdown-sub-menu" id="code-reuse-menu" role="menu">
+                        <li role="none"><a href="/uploadBinary" role="menuitem" aria-label="Upload Binary">UPLOAD</a></li>
+                        <li role="none"><a href="/getModels" role="menuitem" aria-label="Models">MODELS</a></li>
+                        <li role="none"><a href="/getPredictions" role="menuitem" aria-label="View Predictions">PREDICTIONS</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- SYSTEM Dropdown -->
+        <div class="nav-dropdown">
+            <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="system-menu">
+                SYSTEM
+                <svg class="dropdown-arrow" aria-hidden="true" viewBox="0 0 10 6">
+                    <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+            </button>
+            <ul class="nav-dropdown-menu" id="system-menu" role="menu">
+                <li role="none"><a href="/config" role="menuitem" aria-label="Configuration">CONFIG</a></li>
+            </ul>
+        </div>
+        
+        <!-- USER Dropdown -->
+        <div class="nav-dropdown">
+            <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="user-menu">
+                {{ user.username | upper }}
+                <svg class="dropdown-arrow" aria-hidden="true" viewBox="0 0 10 6">
+                    <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+            </button>
+            <ul class="nav-dropdown-menu" id="user-menu" role="menu">
+                <li role="none"><a href="/profile" role="menuitem" aria-label="View Profile">PROFILE</a></li>
+                <li role="none"><a href="/auth/logout" role="menuitem" aria-label="Logout">LOGOUT</a></li>
+            </ul>
+        </div>
+        
         {% else %}
-        <a href="/login">Login</a>
-        <a href="/register">Register</a>
+        <!-- Unauthenticated user menu -->
+        <a href="/login" aria-label="Login">LOGIN</a>
+        <a href="/register" aria-label="Register">REGISTER</a>
         {% endif %}
     </div>
 </nav>

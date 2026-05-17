@@ -11,7 +11,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-import logging
+from loguru import logger
+
+import sys
+
 
 
 @dataclass
@@ -35,10 +38,11 @@ class PipelineContext:
     uuid: str
     binary_path: str
     pipeline_type: str = "generic"
-    metadata: dict[str, Any] = field(default_factory=dict)
-    data: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=lambda: {})
+    data: dict[str, Any] = field(default_factory=lambda: {})
     status: str = "starting"
     error: str | None = None
+    exc_info: tuple[Any, Any, Any] | bool = False
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a value from the data payload.
@@ -75,7 +79,7 @@ class PipelineStep(ABC):
     """
 
     @abstractmethod
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Execute this step and return updated context.
 
         Args:
@@ -125,7 +129,6 @@ class ProcessingPipeline:
         """
         self._name = name
         self._steps = steps
-        self._logger = logging.getLogger(self.__class__.__name__)
 
     @property
     def name(self) -> str:
@@ -145,7 +148,7 @@ class ProcessingPipeline:
         """
         return self._steps
 
-    def execute(self, context: PipelineContext) -> PipelineContext:
+    async def execute(self, context: PipelineContext) -> PipelineContext:
         """Execute all steps in the pipeline.
 
         Args:
@@ -154,43 +157,39 @@ class ProcessingPipeline:
         Returns:
             The final pipeline context after all steps complete.
         """
-        self._logger.info(
-            "Starting pipeline '%s' execution for UUID: %s, steps: %d",
+        logger.info(
+            "Starting pipeline '{}' execution for UUID {} with {} steps",
             self._name,
             context.uuid,
-            len(self._steps),
-        )
+            len(self._steps))
 
         for step in self._steps:
             try:
-                self._logger.info("Executing step: %s", step.get_name())
-                context = step.execute(context)
+                logger.debug("Executing step {}", step.get_name())
+                context = await step.execute(context)
 
                 # Check if step set an error
                 if context.error is not None:
                     context.status = "error"
-                    self._logger.error(
-                        "Step %s failed: %s", step.get_name(), context.error
-                    )
+                    logger.error(
+                        "Step {} failed: {}", step.get_name(), context.error)
                     break
 
-                self._logger.info(
-                    "Step %s completed successfully", step.get_name()
+                logger.debug(
+                    "Step {} completed", step.get_name()
                 )
 
             except Exception as step_error:
                 context.status = "error"
                 context.error = str(step_error)
-                self._logger.error(
-                    "Step %s raised exception: %s",
-                    step.get_name(),
-                    step_error,
-                    exc_info=True,
-                )
+                context.exc_info = sys.exc_info()
+                logger.exception(
+                    "Step {} raised exception", step.get_name())
                 break
 
         if context.status != "error":
             context.status = "complete"
-            self._logger.info("Pipeline '%s' execution completed successfully", self._name)
+            logger.info(
+                "Pipeline '{}' execution completed", self._name)
 
         return context

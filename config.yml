@@ -1,4 +1,23 @@
-prediction_probability_threshold: 50.0 # must be a value between 0-100
-
-max_file_size_mb: 512 # maximum file size in MB for uploaded binaries
-cpu_cores: 2 # number of CPU cores to use for processing (must be between 1 and 32)
+cpu_cores: 4
+jwt_secret_key: change-me-in-production
+logging:
+  console:
+    colorize: true
+    enabled: true
+    level: INFO
+  file:
+    path: logs/glyph.log
+    retention: 10 days
+    rotation: 50 MB
+  format: json
+  level: INFO
+  module_levels:
+    app.auth: INFO
+    app.database: WARNING
+    app.processing: DEBUG
+    uvicorn: INFO
+  request_tracing:
+    enabled: true
+    header_name: X-Request-ID
+max_file_size_mb: 100
+prediction_probability_threshold: 50.0

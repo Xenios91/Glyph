@@ -2,10 +2,21 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, BLOB, DateTime, ForeignKey, Integer, String, Text, Boolean
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column, relationship
 
-Base = declarative_base()
+Base = declarative_base(cls=AsyncAttrs)
 
 
 def get_utc_now() -> datetime:
@@ -31,12 +42,23 @@ class Model(Base):
     
     __tablename__ = "models"
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    model_name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
-    model_data: Mapped[bytes] = mapped_column(BLOB, nullable=False)
-    label_encoder_data: Mapped[bytes] = mapped_column(BLOB, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
-    modified_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    model_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    label_encoder_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
 
 
 class Prediction(Base):
@@ -53,12 +75,30 @@ class Prediction(Base):
     
     __tablename__ = "predictions"
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    task_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    model_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    functions_data: Mapped[bytes] = mapped_column(BLOB, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
-    modified_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    task_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    functions_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
+
+    # Unique constraint prevents duplicate predictions for the same task/model combination.
+    # This is required by the upsert logic in SQLUtil.save_predictions() which uses
+    # on_conflict_do_update with index_elements=[task_name, model_name].
+    __table_args__ = (
+        UniqueConstraint("task_name", "model_name", name="uq_predictions_task_model"),
+    )
 
 
 class Function(Base):
@@ -76,13 +116,31 @@ class Function(Base):
     
     __tablename__ = "functions"
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    model_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    function_name: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    function_name: Mapped[str] = mapped_column(String(256), nullable=False)
     entrypoint: Mapped[str] = mapped_column(String(16), nullable=False)
     tokens: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
-    modified_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
+
+    # Unique constraint prevents duplicate functions for the same model.
+    # The unique constraint already creates a unique index on (model_name, function_name)
+    # which covers all query patterns, so no separate Index is needed.
+    __table_args__ = (
+        UniqueConstraint("model_name", "function_name", name="uq_functions_model_function"),
+    )
 
 
 class User(Base):
@@ -103,17 +161,36 @@ class User(Base):
     __tablename__ = "users"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
-    email: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
-    hashed_password: Mapped[str] = mapped_column(String(256), nullable=False)
+    username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(512), nullable=False)
     full_name: Mapped[str] = mapped_column(String(128), nullable=True)
     permissions: Mapped[str] = mapped_column(String(512), default="[]", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
-    modified_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
     
-    # Relationship to API keys
-    api_keys: Mapped[list["APIKey"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    # Relationship to API keys.
+    # Using cascade="save-update, merge, delete, delete-orphan" instead of "all"
+    # to exclude "refresh-expire" and "expunge" which can trigger implicit lazy
+    # loads in asyncio contexts. Per SQLAlchemy docs, cascade="all" with asyncio
+    # "will expire related objects more aggressively than is typically appropriate
+    # in an explicit IO context."
+    api_keys: Mapped[list["APIKey"]] = relationship(
+        back_populates="user",
+        cascade="save-update, merge, delete, delete-orphan",
+    )
 
 
 class APIKey(Base):
@@ -134,8 +211,8 @@ class APIKey(Base):
     
     __tablename__ = "api_keys"
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     hashed_key: Mapped[str] = mapped_column(String(256), nullable=False)
     key_prefix: Mapped[str] = mapped_column(String(8), nullable=False, index=True)
@@ -143,7 +220,19 @@ class APIKey(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_utc_now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
     
     # Relationship to user
     user: Mapped["User"] = relationship(back_populates="api_keys")

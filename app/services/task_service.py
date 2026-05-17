@@ -1,12 +1,19 @@
 """Service module for Glyph application background tasks."""
 
-import logging
 import queue
 from typing import Any
 
+from loguru import logger
+from app.utils.request_context import restore_request_context, clear_request_context
+
 
 class TaskService:
-    """Singleton service for managing background task queue."""
+    """Singleton service for managing background task queue.
+
+    Queue items should be tuples of (request, captured_context) where
+    captured_context is a CapturedContext snapshot taken on the request
+    thread before queuing.
+    """
 
     service_queue: queue.Queue[tuple[Any, Any]] = queue.Queue()
     __instance: Any = None
@@ -26,6 +33,17 @@ class TaskService:
         This method simply manages the queue lifecycle.
         """
         while True:
-            task: tuple[Any, Any] = cls.service_queue.get(block=True)
-            job_uuid: str = task[0].uuid
-            logging.info("Job queued: job_uuid=%s", job_uuid)
+            try:
+                item: tuple[Any, Any] = cls.service_queue.get(block=True)
+                task = item[0]
+                captured_ctx = item[1]
+                job_uuid: str = task.uuid
+                # Restore request context from the snapshot captured on the request thread
+                restore_request_context(captured_ctx, override_task_id=job_uuid)
+                logger.debug(
+                    "Job queued: {}", job_uuid)
+                clear_request_context()
+            finally:
+                # Always mark the task as done to prevent queue.join() from
+                # blocking forever and to keep the unfinished_task count accurate.
+                cls.service_queue.task_done()

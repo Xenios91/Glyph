@@ -1,17 +1,53 @@
 """Configuration module for Glyph application settings."""
 
-import logging
 import os
 import secrets
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, YamlConfigSettingsSource
+from loguru import logger
+
+from pydantic import Field, BaseModel
+from pydantic_settings import (
+    BaseSettings,
+    YamlConfigSettingsSource,
+    PydanticBaseSettingsSource,
+)
 
 import yaml
 
 MAX_CPU_CORES = os.cpu_count() or 1
+
+
+# Logging configuration models
+class LoggingFileConfig(BaseModel):
+    """File logging configuration."""
+    path: str = "logs/glyph.log"
+    rotation: str = Field(default="50 MB", description="Loguru rotation string (e.g., '50 MB', '00:00', '1 week')")
+    retention: str = Field(default="10 days", description="Loguru retention string (e.g., '10 days', '1 month')")
+
+
+class LoggingConsoleConfig(BaseModel):
+    """Console logging configuration."""
+    enabled: bool = True
+    level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
+    colorize: bool = True
+
+
+class LoggingRequestTracingConfig(BaseModel):
+    """Request tracing configuration."""
+    enabled: bool = True
+    header_name: str = "X-Request-ID"
+
+
+class LoggingConfig(BaseModel):
+    """Logging configuration."""
+    level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
+    format: str = Field(default="json", pattern="^(json|text)$")
+    file: LoggingFileConfig = Field(default_factory=LoggingFileConfig)
+    console: LoggingConsoleConfig = Field(default_factory=LoggingConsoleConfig)
+    request_tracing: LoggingRequestTracingConfig = Field(default_factory=LoggingRequestTracingConfig)
+    module_levels: dict[str, str] = Field(default_factory=dict)
 
 
 class GlyphSettings(BaseSettings):
@@ -21,8 +57,7 @@ class GlyphSettings(BaseSettings):
         default=50.0,
         ge=0,
         le=100,
-        description="Minimum probability threshold for predictions (0-100)",
-    )
+        description="Minimum probability threshold for predictions (0-100)")
 
     max_file_size_mb: int = Field(
         default=512, ge=1, le=2048, description="Maximum file size for uploads in MB"
@@ -38,7 +73,7 @@ class GlyphSettings(BaseSettings):
 
     # JWT Settings
     jwt_secret_key: str = Field(
-        default_factory=lambda: secrets.token_urlsafe(32),
+        default="change-me-in-production",
         description="Secret key for JWT signing"
     )
     jwt_algorithm: str = Field(default="HS256")
@@ -49,15 +84,41 @@ class GlyphSettings(BaseSettings):
     oauth2_enabled: bool = Field(default=False)
     oauth2_session_secret: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     
+    # Security Settings
+    use_https: bool = Field(
+        default=False,
+        description="Whether the application is deployed behind HTTPS/TLS"
+    )
+    trusted_proxies: list[str] = Field(
+        default_factory=list,
+        description="List of trusted proxy IPs/CIDRs for X-Forwarded-For"
+    )
+    
     # Authentication Settings
     auth_enabled: bool = Field(default=True, description="Whether authentication is enabled")
+    
+    # Logging Settings
+    logging: LoggingConfig = LoggingConfig()
 
     model_config = {"env_prefix": "GLYPH_", "extra": "ignore"}
 
     @classmethod
-    def settings_customise_sources(cls, *args, **kwargs):
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
         """Customize settings sources to prioritize YAML file."""
-        return (YamlConfigSettingsSource(cls, "config.yml"),)
+        return (
+            init_settings,
+            YamlConfigSettingsSource(settings_cls, "config.yml"),
+            env_settings,
+            dotenv_settings,
+            file_secret_settings,
+        )
 
 
 _settings: GlyphSettings | None = None
@@ -76,6 +137,17 @@ def get_settings() -> GlyphSettings:
     if _settings is None:
         try:
             _settings = GlyphSettings()
+            # Warn if using the default JWT secret key.
+            # The default is a known placeholder in config.yml; if unchanged,
+            # warn the user but do not block startup.
+            _DEFAULT_JWT_SECRET = "change-me-in-production"
+            if _settings.jwt_secret_key == _DEFAULT_JWT_SECRET:
+                logger.warning(
+                    "Using default JWT secret key. "
+                    "Set GLYPH_JWT_SECRET_KEY environment variable or "
+                    "jwt_secret_key in config.yml for production use. "
+                    "Tokens will be invalidated on application restart."
+                )
         except Exception as e:
             raise RuntimeError(f"Failed to load configuration: {e}") from e
     return _settings
@@ -106,23 +178,20 @@ class GlyphConfig:
             bool: True if configuration loaded successfully, False otherwise.
         """
         if not GlyphConfig._initialized:
-            logging.basicConfig(
-                filename="glyph_log.log", encoding="utf-8", level=logging.INFO
-            )
+            try:
+                with open("config.yml", "r", encoding="utf-8") as config_file:
+                    GlyphConfig._config = yaml.safe_load(config_file) or {}
 
-        try:
-            with open("config.yml", "r", encoding="utf-8") as config_file:
-                GlyphConfig._config = yaml.safe_load(config_file) or {}
-
-            GlyphConfig._config["UPLOAD_FOLDER"] = "./binaries"
-            GlyphConfig._initialized = True
-            return True
-        except FileNotFoundError:
-            logging.error("config.yml not found.")
-            return False
-        except yaml.YAMLError as yaml_error:
-            logging.error("Failed to parse config.yml: %s", yaml_error)
-            return False
+                GlyphConfig._config["UPLOAD_FOLDER"] = "./binaries"
+                GlyphConfig._initialized = True
+                return True
+            except FileNotFoundError:
+                logger.error("config.yml not found")
+                return False
+            except yaml.YAMLError:
+                logger.exception("Failed to parse config.yml")
+                return False
+        return GlyphConfig._initialized
 
     @staticmethod
     def get_config_value(value: str) -> Any | None:
@@ -148,18 +217,13 @@ class GlyphConfig:
 
         Raises:
             ValueError: If the maximum file size is negative.
-            TypeError: If the maximum file size is not an integer.
         """
-        if not isinstance(size, int):
-            logging.error("Maximum file size must be an integer.")
-            return False
-
         if size < 1:
-            logging.error("Attempted to set a file size of 0 MB or smaller.")
+            logger.warning("Invalid file size: {} MB (must be at least 1 MB)", size)
             return False
 
         if size > 2048:
-            logging.error("Attempted to set a maximum file size greater than 2048 MB.")
+            logger.warning("Invalid file size: {} MB (maximum is {} MB)", size, 2048)
             return False
 
         GlyphConfig._config["max_file_size_mb"] = size
@@ -177,18 +241,17 @@ class GlyphConfig:
 
         Raises:
             ValueError: If the number of CPU cores is negative.
-            TypeError: If the number of cores is not an integer.
         """
-        if not isinstance(cores, int):
-            logging.error("Number of CPU cores must be an integer.")
+        if isinstance(cores, bool) or not isinstance(cores, int):  # pyright: ignore[reportUnnecessaryIsInstance]
+            logger.warning("Invalid CPU cores: {} (must be an integer)", cores)
             return False
 
         if cores <= 0:
-            logging.error("Attempted to set a non-positive or 0 number of CPU cores.")
+            logger.warning("Invalid CPU cores: {} (must be positive)", cores)
             return False
 
         if cores > MAX_CPU_CORES:
-            logging.error("Attempted to set more than %d CPU cores.", MAX_CPU_CORES)
+            logger.warning("Invalid CPU cores: {} (maximum is {})", cores, MAX_CPU_CORES)
             return False
 
         GlyphConfig._config["cpu_cores"] = cores

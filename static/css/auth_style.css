@@ -1,5 +1,5 @@
 /* =============================================================
-   GLYPH — AUTH PAGES (auth_style.css)  NES Cyberpunk Theme
+   GLYPH — AUTH PAGES (auth_style.css)  Cyberpunk Theme
    ============================================================= */
 
 /* ── Auth container ──────────────────────────────────────────── */
@@ -8,7 +8,7 @@
     align-items: center;
     justify-content: center;
     min-height: calc(100vh - 56px - 48px);
-    padding: 2rem 1rem;
+    padding: 2.5rem 1.5rem;
     position: relative;
     z-index: 10;
 }
@@ -21,9 +21,9 @@
         0 0 20px rgba(125, 216, 216, 0.12),
         0 0 60px rgba(125, 216, 216, 0.05),
         inset 0 0 24px rgba(125, 216, 216, 0.03);
-    max-width: 440px;
+    max-width: 380px !important;
     width: 100%;
-    padding: 2rem 1.75rem;
+    padding: 2.25rem 2rem;
     position: relative;
 }
 
@@ -51,12 +51,12 @@
 
 /* ── Auth title ──────────────────────────────────────────────── */
 .auth-title {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 1.25rem;
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
     color: #a8ecec;
     text-align: center;
-    margin-bottom: 1.75rem;
-    letter-spacing: 0.15em;
+    margin-bottom: 2rem;
+    letter-spacing: 0.05em;  /* Reduced from 0.1em for better readability */
     text-shadow:
         0 0 10px rgba(168, 236, 236, 0.30),
         2px 2px 0 #4a2244;
@@ -66,7 +66,7 @@
 .auth-title::after {
     content: '';
     display: block;
-    margin: 0.75rem auto 0;
+    margin: 1rem auto 0;
     width: 60%;
     height: 1px;
     background: linear-gradient(90deg,
@@ -75,23 +75,23 @@
 
 /* ── Form groups ────────────────────────────────────────────── */
 .auth-form-group {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
 }
 
 .auth-form-label {
     display: block;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
-    color: #7880a8;
-    margin-bottom: 0.5rem;
-    letter-spacing: 0.08em;
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.05em;  /* Reduced from 0.06em for better readability */
 }
 
 .auth-form-input {
     width: 100%;
-    padding: 0.6rem 0.75rem;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.6rem;
+    padding: 0.75rem 1rem;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
     color: #cdd0e8;
     background: #0d0d1a;
     border: 2px solid #2a5a5a;
@@ -115,66 +115,58 @@
     border-color: #4a7a7a;
 }
 
-/* ── Auth button ────────────────────────────────────────────── */
-.auth-btn {
-    font-family: 'Press Start 2P', monospace !important;
-    font-size: 0.65rem !important;
-    letter-spacing: 0.12em !important;
-    background: #0d0d1a !important;
-    color: #d4c87a !important;
-    border: 2px solid #d4c87a !important;
-    box-shadow: 0 0 10px rgba(212, 200, 122, 0.20) !important;
-    padding: 0.6rem 1.5rem !important;
-    cursor: pointer;
+/* ── Password input wrapper ─────────────────────────────────── */
+.password-input-wrapper {
     position: relative;
-    overflow: hidden;
-    width: 100%;
-    margin-top: 0.5rem;
-    transition: none;
+    display: flex;
+    align-items: center;
 }
 
-.auth-btn:hover {
-    background: #d4c87a !important;
-    color: #0d0d1a !important;
-    box-shadow: 0 0 18px rgba(212, 200, 122, 0.40) !important;
-    transform: translate(-1px, -1px);
+.password-input-wrapper .password-field {
+    padding-right: 3rem;
 }
 
-.auth-btn:active {
-    transform: translate(1px, 1px);
-    box-shadow: none !important;
-}
-
-.auth-btn::after {
-    content: '';
+/* ── Password toggle button ─────────────────────────────────── */
+.password-toggle-btn {
     position: absolute;
-    top: -40%;
-    left: 0;
-    right: 0;
-    height: 40%;
-    background: rgba(255, 255, 255, 0.03);
-    animation: auth-btn-sweep 3s linear infinite;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #5a6080;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s ease;
+    z-index: 5;
+}
+
+.password-toggle-btn:hover {
+    color: #7dd8d8;
+}
+
+.password-toggle-btn:focus {
+    outline: none;
+}
+
+.password-toggle-btn svg {
     pointer-events: none;
 }
 
-@keyframes auth-btn-sweep {
-    from {
-        top: -40%;
-    }
-    to {
-        top: 120%;
-    }
-}
+/* ── Auth button ────────────────────────────────────────────── */
+/* Note: .auth-btn styles now defined in style.css for consistency */
+/* This file only contains auth-specific overrides if needed */
 
 /* ── Error message ──────────────────────────────────────────── */
 .auth-error {
     background: rgba(201, 84, 106, 0.15);
     border: 2px solid #c9546a;
     color: #c9546a;
-    padding: 0.75rem;
-    margin-bottom: 1.25rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+    font-size: var(--text-xs);
     letter-spacing: 0.06em;
     box-shadow:
         0 0 10px rgba(201, 84, 106, 0.20),
@@ -208,10 +200,10 @@
     background: rgba(110, 201, 122, 0.15);
     border: 2px solid #6ec97a;
     color: #6ec97a;
-    padding: 0.75rem;
-    margin-bottom: 1.25rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+    font-size: var(--text-xs);
     letter-spacing: 0.06em;
     box-shadow:
         0 0 10px rgba(110, 201, 122, 0.20),
@@ -243,25 +235,25 @@
 /* ── Auth links ─────────────────────────────────────────────── */
 .auth-links {
     text-align: center;
-    margin-top: 1.5rem;
-    padding-top: 1.25rem;
+    margin-top: 1.75rem;
+    padding-top: 1.5rem;
     border-top: 1px solid rgba(125, 216, 216, 0.12);
 }
 
 .auth-links p {
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+    font-size: var(--text-xs);
     color: #7880a8;
     letter-spacing: 0.06em;
 }
 
 .auth-links a {
     font-family: 'Press Start 2P', monospace;
-    font-size: 0.55rem;
+    font-size: var(--text-xs);
     color: #7dd8d8;
     text-decoration: none;
     position: relative;
-    padding: 2px 0;
+    padding: 0.25rem 0.5rem;
     transition: color 0.1s;
     letter-spacing: 0.06em;
 }
@@ -300,7 +292,7 @@
 .auth-divider {
     border: none;
     height: 1px;
-    margin: 0.5rem 0 0;
+    margin: 0.75rem 0 0;
     background: linear-gradient(90deg,
             transparent 0%, #2a5a5a 25%, #4a2244 50%, #2a5a5a 75%, transparent 100%);
 }

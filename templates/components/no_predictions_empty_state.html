@@ -1,0 +1,40 @@
+{# No Predictions Empty State Component
+# Displays when no predictions exist, guiding user to create one
+# Usage:
+#   {% include 'components/no_predictions_empty_state.html' %}
+#}
+<div class="no-predictions-empty-state">
+    <div class="empty-state-card">
+        <div class="empty-state-header">
+            <h2 class="empty-state-title">// NO PREDICTIONS AVAILABLE //</h2>
+        </div>
+
+        <div class="empty-state-icon-wrapper">
+            <div class="empty-box-icon" aria-hidden="true">
+                <div class="box-body">
+                    <span class="question-mark">?</span>
+                </div>
+                <div class="box-lid"></div>
+            </div>
+        </div>
+
+        <div class="empty-state-message">
+            <p class="empty-state-description">
+                No predictions have been made yet.
+            </p>
+            <p class="empty-state-description">
+                Upload a binary to analyze it against<br>
+                your existing models.
+            </p>
+        </div>
+
+        <div class="empty-state-actions">
+            <a href="/uploadBinary"
+               class="cyber-btn is-primary empty-state-cta"
+               role="button"
+               aria-label="Make your first prediction">
+                [ MAKE A PREDICTION ]
+            </a>
+        </div>
+    </div>
+</div>

@@ -1,14 +1,15 @@
 """Tests for JWT handler."""
 
+from typing import Any
+
 import pytest
 from datetime import datetime, timezone, timedelta
-from authlib.jose.errors import InvalidTokenError, DecodeError
 
-from app.auth.jwt_handler import JWTHandler
+from app.auth.jwt_handler import JWTHandler, InvalidTokenError, DecodeError
 
 
 @pytest.fixture
-def jwt_handler():
+def jwt_handler() -> JWTHandler:
     """Create a JWT handler for testing."""
     return JWTHandler(secret_key="test_secret_key", algorithm="HS256")
 
@@ -16,7 +17,7 @@ def jwt_handler():
 class TestJWTHandler:
     """Test cases for JWTHandler."""
 
-    def test_create_access_token(self, jwt_handler):
+    def test_create_access_token(self, jwt_handler: JWTHandler) -> None:
         """Test creating an access token."""
         token = jwt_handler.create_access_token("123")
         assert isinstance(token, str)
@@ -25,7 +26,7 @@ class TestJWTHandler:
         parts = token.split(".")
         assert len(parts) == 3
 
-    def test_create_refresh_token(self, jwt_handler):
+    def test_create_refresh_token(self, jwt_handler: JWTHandler) -> None:
         """Test creating a refresh token."""
         token = jwt_handler.create_refresh_token("123")
         assert isinstance(token, str)
@@ -33,7 +34,7 @@ class TestJWTHandler:
         parts = token.split(".")
         assert len(parts) == 3
 
-    def test_verify_access_token(self, jwt_handler):
+    def test_verify_access_token(self, jwt_handler: JWTHandler) -> None:
         """Test verifying an access token."""
         token = jwt_handler.create_access_token("123")
         payload = jwt_handler.verify_access_token(token)
@@ -43,7 +44,7 @@ class TestJWTHandler:
         assert "exp" in payload
         assert "iat" in payload
 
-    def test_verify_refresh_token(self, jwt_handler):
+    def test_verify_refresh_token(self, jwt_handler: JWTHandler) -> None:
         """Test verifying a refresh token."""
         token = jwt_handler.create_refresh_token("123")
         payload = jwt_handler.verify_refresh_token(token)
@@ -53,9 +54,9 @@ class TestJWTHandler:
         assert "exp" in payload
         assert "iat" in payload
 
-    def test_verify_access_token_with_extra_claims(self, jwt_handler):
+    def test_verify_access_token_with_extra_claims(self, jwt_handler: JWTHandler) -> None:
         """Test creating and verifying token with extra claims."""
-        extra_claims = {"permissions": ["read", "write"], "role": "admin"}
+        extra_claims: dict[str, Any] = {"permissions": ["read", "write"], "role": "admin"}
         token = jwt_handler.create_access_token("123", extra_claims=extra_claims)
         payload = jwt_handler.verify_access_token(token)
         
@@ -63,7 +64,7 @@ class TestJWTHandler:
         assert payload["permissions"] == ["read", "write"]
         assert payload["role"] == "admin"
 
-    def test_verify_wrong_token_type(self, jwt_handler):
+    def test_verify_wrong_token_type(self, jwt_handler: JWTHandler) -> None:
         """Test that wrong token type is rejected."""
         # Try to verify refresh token as access token
         token = jwt_handler.create_refresh_token("123")
@@ -75,28 +76,35 @@ class TestJWTHandler:
         with pytest.raises(InvalidTokenError):
             jwt_handler.verify_refresh_token(token)
 
-    def test_verify_invalid_token(self, jwt_handler):
+    def test_verify_invalid_token(self, jwt_handler: JWTHandler) -> None:
         """Test that invalid tokens are rejected."""
         with pytest.raises((InvalidTokenError, DecodeError)):
             jwt_handler.verify_access_token("invalid.token.here")
 
-    def test_verify_expired_token(self, jwt_handler):
+    def test_verify_expired_token(self, jwt_handler: JWTHandler) -> None:
         """Test that expired tokens are rejected."""
-        # Create a token with immediate expiration
+        # Create a token with immediate expiration using joserfc
+        from joserfc import jwt as joserfc_jwt
+        from joserfc.jwk import OctKey
+        import base64
+        
         now = datetime.now(timezone.utc)
-        payload = {
+        payload: dict[str, Any] = {
             "sub": "123",
             "iat": now - timedelta(minutes=30),
             "exp": now - timedelta(minutes=15),
             "type": "access"
         }
-        header = {"alg": "HS256", "typ": "JWT"}
-        token = jwt_handler.jwt.encode(header, payload, jwt_handler.secret_key).decode("utf-8")
+        # Create key from secret
+        secret_b64 = base64.urlsafe_b64encode(b"test_secret_key").decode("utf-8")
+        key = OctKey.import_key({"k": secret_b64, "kty": "oct"})
+        token = joserfc_jwt.encode({"alg": "HS256"}, payload, key)
         
+        # joserfc automatically validates expiration, so this should raise InvalidTokenError
         with pytest.raises(InvalidTokenError):
             jwt_handler.verify_access_token(token)
 
-    def test_verify_token(self, jwt_handler):
+    def test_verify_token(self, jwt_handler: JWTHandler) -> None:
         """Test the generic verify_token method."""
         # Should work for both access and refresh tokens
         access_token = jwt_handler.create_access_token("123")

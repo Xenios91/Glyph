@@ -1,27 +1,31 @@
 {% extends "layout.html" %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/predictions_style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/models_style.css') }}">
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
-    <div class="overflow">
+    <div class="overflow" style="display: flex; flex-direction: column; align-items: center;">
         <div class="center-contents">
             <span>Model: {{ model_name }}</span>
         </div>
         <div class="center-contents">
             <span id="function-name">Function: {{ function_name }}</span>
         </div>
-
-        {% set title = 'Function Tokens' %}
+        
+        <p class="token-title" style="font-family: 'Press Start 2P', monospace; font-size: 0.85rem; color: var(--cyan-bright); letter-spacing: 0.12em; text-shadow: 0 0 10px rgba(168, 236, 236, 0.30); margin-bottom: 1rem; text-align: center; margin-top: 2%;">Function Tokens</p>
+        
+        {% set title = None %}
         {% set id = 'tokens-display' %}
         {% include 'components/token_display.html' %}
-
-        <div class="center-contents" style="margin-top: 2%;">
-            <button type="button" class="nes-btn is-primary" onclick="history.back()">Go Back</button>
+        
+        <div class="btn-group" style="margin-top: 1.5rem;">
+            <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
         </div>
     </div>
 </div>
 
-<script src="{{ url_for('static', path='js/common.js') }}"></script>
-<script src="{{ url_for('static', path='js/functions.js') }}"></script>
 {% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/functions.js') }}" defer></script>
+{% endblock scripts %}

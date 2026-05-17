@@ -6,28 +6,21 @@
 
 {% block content %}
 <div class="auth-content">
-    <div class="auth-card nes-container with-title">
-        <h2 class="auth-title">REGISTER</h2>
+    <div class="auth-card cyber-container with-title" role="region" aria-labelledby="register-title">
+        <h2 class="auth-title" id="register-title">REGISTER</h2>
         
-        {% if error %}
-        <div class="auth-error">{{ error }}</div>
-        {% endif %}
+        <div id="register-error" class="auth-error" role="alert" aria-live="assertive" style="display: none;"></div>
         
-        {% if success %}
-        <div class="auth-success">{{ success }}</div>
-        {% endif %}
-        
-        <form id="registerForm" method="POST">
-            <input type="hidden" name="csrf_token" value="{{ get_csrf_token(request) }}">
-            
+        <form id="registerForm" method="POST" novalidate>
             <div class="auth-form-group">
                 <label for="username" class="auth-form-label">USERNAME</label>
-                <input type="text" id="username" name="username" class="auth-form-input" required minlength="3" maxlength="64" placeholder="Enter username">
+                <input type="text" id="username" name="username" class="auth-form-input" required minlength="3" maxlength="64" placeholder="Enter username" aria-required="true">
+                <span class="field-hint">3-64 characters</span>
             </div>
             
             <div class="auth-form-group">
                 <label for="email" class="auth-form-label">EMAIL</label>
-                <input type="email" id="email" name="email" class="auth-form-input" required placeholder="Enter email">
+                <input type="email" id="email" name="email" class="auth-form-input" required placeholder="Enter email" aria-required="true">
             </div>
             
             <div class="auth-form-group">
@@ -37,15 +30,16 @@
             
             <div class="auth-form-group">
                 <label for="password" class="auth-form-label">PASSWORD</label>
-                <input type="password" id="password" name="password" class="auth-form-input" required minlength="8" placeholder="Enter password">
+                <input type="password" id="password" name="password" class="auth-form-input" required minlength="8" placeholder="Enter password" aria-required="true">
+                <span class="field-hint">Minimum 8 characters</span>
             </div>
             
             <div class="auth-form-group">
                 <label for="confirm_password" class="auth-form-label">CONFIRM PASSWORD</label>
-                <input type="password" id="confirm_password" name="confirm_password" class="auth-form-input" required minlength="8" placeholder="Confirm password">
+                <input type="password" id="confirm_password" name="confirm_password" class="auth-form-input" required minlength="8" placeholder="Confirm password" aria-required="true">
             </div>
             
-            <button type="submit" class="auth-btn">
+            <button type="submit" class="auth-btn" id="register-submit-btn">
                 [ REGISTER ]
             </button>
         </form>
@@ -55,55 +49,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
-<script>
-document.getElementById('registerForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    const password = formData.get('password');
-    const confirmPassword = formData.get('confirm_password');
-    
-    if (password !== confirmPassword) {
-        document.querySelector('.auth-error')?.remove();
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'auth-error';
-        errorDiv.textContent = 'Passwords do not match';
-        e.target.insertBefore(errorDiv, e.target.firstChild);
-        return;
-    }
-    
-    const data = {
-        username: formData.get('username'),
-        email: formData.get('email'),
-        full_name: formData.get('full_name') || null,
-        password: password
-    };
-    
-    try {
-        const response = await fetch('/auth/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': formData.get('csrf_token')
-            },
-            body: JSON.stringify(data)
-        });
-        
-        if (response.ok) {
-            // Redirect to login page
-            window.location.href = '/login';
-        } else {
-            const error = await response.json();
-            document.querySelector('.auth-error')?.remove();
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'auth-error';
-            errorDiv.textContent = error.detail || 'Registration failed';
-            e.target.insertBefore(errorDiv, e.target.firstChild);
-        }
-    } catch (err) {
-        console.error('Registration error:', err);
-    }
-});
-</script>
+{% block scripts %}
+<script src="{{ url_for('static', path='js/register.js') }}" defer></script>
 {% endblock %}

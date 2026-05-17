@@ -5,19 +5,23 @@
 {% block content %}
 <div class="content blue-bg">
     {% if models is defined and models|length > 0 %}
-    <div>
-        <span>AVAILABLE MODELS</span>
+    <div class="center-contents">
+        <h2>Available Models</h2>
     </div>
     {% set click_handler = 'goToModelURL' %}
     {% include 'components/model_table.html' %}
     {% else %}
-    {% set message = 'Uh oh! it looks like no models have been generated! Try going to upload to start!' %}
-    {% set error = true %}
-    {% set icon = 'nes-octocat' %}
-    {% set animate = true %}
-    {% include 'components/empty_state.html' %}
+    {% include 'components/no_models_empty_state.html' %}
     {% endif %}
-    <script src="{{ url_for('static', path='js/common.js') }}"></script>
-    <script src="{{ url_for('static', path='js/models.js') }}"></script>
+    {% if models is defined and models|length > 0 %}
+    <div class="btn-group" style="margin-top: 1.5rem;">
+        <button type="button" id="delete-selected-btn" class="cyber-btn is-danger delete-selected-btn" disabled aria-label="Delete selected models">Delete Selected</button>
+        <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
+    </div>
+    {% endif %}
 </div>
 {% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/models.js') }}" defer></script>
+{% endblock scripts %}

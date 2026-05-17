@@ -3,18 +3,18 @@
 #   {% include 'components/empty_state.html' with {
 #     'message': 'No models available',
 #     'error': true,
-#     'icon': 'nes-octocat'
+#     'icon': 'cyber-octocat'
 #   } %}
 #}
 <div class="blue-bg" style="margin: auto;">
     <section class="message-list">
         <section class="message -left">
-            <div class="nes-balloon from-left">
-                <p class="nes-text {% if error %}is-error{% elif success %}is-success{% elif warning %}is-warning{% else %}is-primary{% endif %}">
+            <div class="cyber-balloon from-left">
+                <p class="cyber-text {% if error %}is-error{% elif success %}is-success{% elif warning %}is-warning{% else %}is-primary{% endif %}">
                     {{ message }}
                 </p>
             </div>
         </section>
-        <i style="float: left;" class="{{ icon | default('nes-octocat') }} {% if animate %}animate{% endif %}"></i>
+        <i style="float: left;" class="{{ icon | default('cyber-octocat') }} {% if animate %}animate{% endif %}"></i>
     </section>
 </div>
