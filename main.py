@@ -1,3 +1,15 @@
+"""Main application entry point for Glyph.
+
+This module creates and configures the FastAPI application instance,
+registering middleware, routers, and exception handlers. It serves as
+the central bootstrap for the entire Glyph binary analysis service.
+
+Components:
+    CSPMiddleware: Content Security Policy middleware for HTTP responses.
+    CachedStaticFiles: Static file server with caching headers.
+    create_app: Factory function that builds the FastAPI application.
+"""
+
 from typing import Any, Awaitable, Callable, cast
 
 from loguru import logger
@@ -26,6 +38,19 @@ setup_logging_from_config()
 
 
 class CSPMiddleware:
+    """ASGI middleware that injects Content Security Policy and security headers.
+
+    Applies strict CSP policies to all HTTP responses, with a relaxed policy
+    for documentation routes (/docs, /redoc, /openapi.json) to allow external
+    CDN resources needed for API documentation rendering.
+
+    Security headers applied:
+        - Content-Security-Policy: Restricts resource loading sources.
+        - X-Content-Type-Options: Prevents MIME-type sniffing.
+        - X-Frame-Options: Prevents clickjacking via iframes.
+        - Referrer-Policy: Controls referrer information.
+        - Permissions-Policy: Restricts browser features.
+    """
 
     CSP_HEADER = (
         "default-src 'self'; "
@@ -62,6 +87,11 @@ class CSPMiddleware:
         self,
         app: Callable[[Any, Any, Any], Awaitable[None]],
     ) -> None:
+        """Initialize the CSP middleware.
+
+        Args:
+            app: The downstream ASGI application.
+        """
         self.app = app
 
     async def __call__(
@@ -70,6 +100,13 @@ class CSPMiddleware:
         receive: Callable[[], Awaitable[dict[str, Any]]],
         send: Callable[[dict[str, Any]], Awaitable[None]],
     ) -> None:
+        """Process the ASGI request, injecting security headers into the response.
+
+        Args:
+            scope: The ASGI connection scope.
+            receive: Awaitable callable for receiving events.
+            send: Awaitable callable for sending events.
+        """
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
@@ -90,12 +127,32 @@ class CSPMiddleware:
 
 
 class CachedStaticFiles(StaticFiles):
+    """Static file server with long-term caching headers.
+
+    Extends FastAPI's StaticFiles to add Cache-Control and Immutable headers
+    for optimized browser caching of static assets.
+    """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Initialize the cached static files server.
+
+        Args:
+            *args: Positional arguments passed to StaticFiles.
+            **kwargs: Keyword arguments passed to StaticFiles.
+        """
         super().__init__(*args, **kwargs)
         self.cache_control_max_age = 86400
 
     async def get_response(self, path: str, scope: Any) -> Response:
+        """Generate a response for the given path with caching headers.
+
+        Args:
+            path: The requested file path.
+            scope: The ASGI scope.
+
+        Returns:
+            The response with caching headers applied.
+        """
         response = await super().get_response(path, scope)
         if isinstance(response, FileResponse):
             response.headers["Cache-Control"] = f"public, max-age={self.cache_control_max_age}"
@@ -104,6 +161,14 @@ class CachedStaticFiles(StaticFiles):
 
 
 def create_app() -> FastAPI:
+    """Factory function that creates and configures the FastAPI application.
+
+    Registers middleware (GZip, CORS, CSP, rate limiting, correlation ID),
+    mounts static files, and includes all API and web routers.
+
+    Returns:
+        Configured FastAPI application instance.
+    """
     app = FastAPI(
         title="Glyph API",
         description="Binary analysis powered by machine learning",
@@ -167,11 +232,28 @@ app = create_app()
 
 @app.get("/favicon.ico")
 async def favicon() -> FileResponse:
+    """Serve the site favicon.
+
+    Returns:
+        FileResponse pointing to the favicon file.
+    """
     return FileResponse("static/favicon.ico")
 
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLResponse | JSONResponse | RedirectResponse:
+    """Handle HTTP exceptions with appropriate response format.
+
+    Routes 401 errors to the login page for HTML requests, returns styled
+    error pages for HTML clients, and JSON error responses for API clients.
+
+    Args:
+        request: The incoming FastAPI request.
+        exc: The HTTPException raised by the application.
+
+    Returns:
+        HTML error page, JSON error response, or redirect to login.
+    """
     level = "WARNING" if exc.status_code >= 500 else "DEBUG"
     logger.log(level, "HTTP error {}: {}", exc.status_code, exc.detail)
 
@@ -206,6 +288,18 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception) -> HTMLResponse | JSONResponse:
+    """Handle unexpected exceptions with appropriate response format.
+
+    Catches any unhandled exceptions and returns a generic error response
+    to prevent leaking internal details to clients.
+
+    Args:
+        request: The incoming FastAPI request.
+        exc: The unexpected exception.
+
+    Returns:
+        HTML error page for browser clients or JSON error for API clients.
+    """
     logger.exception("Unexpected error")
     accept = request.headers.get("Accept", "")
     if "text/html" in accept:

@@ -1,3 +1,9 @@
+"""Task status endpoints for Glyph API v1.
+
+Provides endpoints for checking and updating the status of background
+analysis tasks (training, prediction, Ghidra decompilation).
+"""
+
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,6 +21,13 @@ router = APIRouter()
 
 
 class StatusUpdatePayload(BaseModel):
+    """Payload for updating task status.
+
+    Attributes:
+        status: New status value for the task.
+        uuid: Unique identifier of the task to update.
+    """
+
     status: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
     uuid: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 

@@ -96,13 +96,37 @@ class UserRepository:
         return user
     
     async def get_by_id(self, user_id: int) -> User | None:
+        """Retrieve a user by their ID.
+
+        Args:
+            user_id: The user's primary key.
+
+        Returns:
+            The User object if found, None otherwise.
+        """
         return await self.db.get(User, user_id)
 
     async def get_by_username(self, username: str) -> User | None:
+        """Retrieve a user by their username.
+
+        Args:
+            username: The unique username to search for.
+
+        Returns:
+            The User object if found, None otherwise.
+        """
         result = await self.db.execute(select(User).where(User.username == username))
         return result.scalar_one_or_none()
 
     async def get_by_email(self, email: str) -> User | None:
+        """Retrieve a user by their email address.
+
+        Args:
+            email: The unique email address to search for.
+
+        Returns:
+            The User object if found, None otherwise.
+        """
         result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
@@ -179,13 +203,35 @@ class APIKeyRepository:
         self.token_prefix = "glp_"
 
     def generate_api_key(self) -> str:
+        """Generate a cryptographically secure API key.
+
+        Returns:
+            A random API key prefixed with the token prefix (e.g., "glp_").
+        """
         token = secrets.token_urlsafe(32)
         return f"{self.token_prefix}{token}"
 
     def hash_api_key(self, api_key: str) -> str:
+        """Hash an API key using bcrypt.
+
+        Args:
+            api_key: The plain-text API key to hash.
+
+        Returns:
+            The bcrypt hash of the API key.
+        """
         return bcrypt.hashpw(api_key.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
     def verify_api_key(self, api_key: str, hashed_key: str) -> bool:
+        """Verify a plain-text API key against its bcrypt hash.
+
+        Args:
+            api_key: The plain-text API key to verify.
+            hashed_key: The bcrypt hash to compare against.
+
+        Returns:
+            True if the key matches, False otherwise.
+        """
         return bcrypt.checkpw(api_key.encode('utf-8'), hashed_key.encode('utf-8'))
 
     async def create_api_key(
@@ -219,14 +265,40 @@ class APIKeyRepository:
         return api_key_record, api_key
     
     async def get_by_id(self, key_id: int) -> APIKey | None:
+        """Retrieve an API key by its ID.
+
+        Args:
+            key_id: The API key's primary key.
+
+        Returns:
+            The APIKey object if found, None otherwise.
+        """
         return await self.db.get(APIKey, key_id)
 
     async def get_by_prefix(self, prefix: str) -> APIKey | None:
+        """Retrieve an API key by its prefix.
+
+        Args:
+            prefix: The first 8 characters of the API key.
+
+        Returns:
+            The APIKey object if found, None otherwise.
+        """
         result = await self.db.execute(select(APIKey).where(APIKey.key_prefix == prefix))
         return result.scalar_one_or_none()
 
     async def verify_and_get(self, api_key: str) -> APIKey | None:
-        """Verify an API key and return the record if valid."""
+        """Verify an API key and return the record if valid.
+
+        Checks the key prefix, hash match, active status, and expiration.
+        Updates the last_used_at timestamp on successful verification.
+
+        Args:
+            api_key: The plain-text API key to verify.
+
+        Returns:
+            The APIKey object if valid, None otherwise.
+        """
         if not api_key.startswith(self.token_prefix):
             logger.debug("API key verification failed: invalid prefix")
             return None

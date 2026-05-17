@@ -1,3 +1,9 @@
+"""Model management endpoints for Glyph API v1.
+
+Provides endpoints for retrieving, listing, and deleting ML models,
+as well as accessing function details and prediction information.
+"""
+
 from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request

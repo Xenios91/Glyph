@@ -1,3 +1,9 @@
+"""Prediction endpoints for Glyph API v1.
+
+Provides endpoints for submitting prediction requests, retrieving
+prediction results, and managing prediction tasks.
+"""
+
 import asyncio
 import contextvars
 from typing import Annotated, Any, cast
@@ -31,6 +37,13 @@ router = APIRouter()
 
 
 class PredictTokensRequest(BaseModel):
+    """Request schema for submitting a prediction task.
+
+    Attributes:
+        modelName: Name of the trained model to use for prediction.
+        uuid: Optional custom UUID for the prediction task.
+    """
+
     modelName: str
     uuid: str | None = None
 
@@ -41,6 +54,15 @@ def _run_prediction_task(
     prediction_request: PredictionRequest,
     captured_ctx: CapturedContext | None = None,
 ) -> None:
+    """Execute the prediction pipeline for a given request.
+
+    Runs tokenization, filtering, feature extraction, and prediction
+    steps using the ProcessingPipeline framework.
+
+    Args:
+        prediction_request: The prediction request containing functions to analyze.
+        captured_ctx: Captured request context for logging propagation.
+    """
     try:
         if captured_ctx is not None:
             restore_request_context(captured_ctx, override_task_id=prediction_request.uuid)

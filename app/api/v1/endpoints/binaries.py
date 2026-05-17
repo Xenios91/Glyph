@@ -1,3 +1,10 @@
+"""Binary upload and analysis endpoints for Glyph API v1.
+
+Provides endpoints for uploading binary files, initiating Ghidra analysis,
+and managing the binary processing pipeline. Handles file validation,
+MIME type checking, and background task submission.
+"""
+
 import os
 import shutil
 import stat
@@ -40,6 +47,15 @@ from app.database.models import User
 
 
 class BinaryUploadForm(BaseModel):
+    """Form schema for binary upload requests.
+
+    Attributes:
+        training_data: Whether the binary is for training ("true" or "false").
+        model_name: Name of the ML model to associate with this binary.
+        ml_class_type: Machine learning classification type.
+        name: Human-readable name for this binary analysis task.
+    """
+
     training_data: str = Field(default="false")
     model_name: str = Field(..., min_length=1)
     ml_class_type: str = Field(..., min_length=1)
@@ -48,6 +64,17 @@ class BinaryUploadForm(BaseModel):
     @field_validator("training_data", mode="before")
     @classmethod
     def validate_training_data(cls, v: str | None) -> str:
+        """Normalize training_data to 'true' or 'false'.
+
+        Args:
+            v: Raw form value.
+
+        Returns:
+            Normalized boolean string.
+
+        Raises:
+            ValueError: If value is not 'true' or 'false'.
+        """
         if v is None:
             return "false"
         v_lower = v.lower().strip()
@@ -58,18 +85,35 @@ class BinaryUploadForm(BaseModel):
     @field_validator("model_name", "ml_class_type", "name", mode="before")
     @classmethod
     def strip_strings(cls, v: str | None) -> str:
+        """Strip whitespace from string fields.
+
+        Args:
+            v: Raw form value.
+
+        Returns:
+            Stripped string value.
+
+        Raises:
+            ValueError: If value is empty.
+        """
         if v is None:
             raise ValueError("Field cannot be empty")
         return v.strip()
 
 
 class BinaryUploadResponse(BaseModel):
+    """Response schema for binary upload.
+
+    Attributes:
+        uuid: Unique identifier for the submitted analysis task.
+    """
+
     uuid: str = Field(...)
 
 
 router = APIRouter()
 
-ALLOWED_MIME_TYPES = {
+ALLOWED_MIME_TYPES: set[str] = {
     "application/x-executable",
     "application/x-object",
     "application/octet-stream",
@@ -80,6 +124,14 @@ ALLOWED_MIME_TYPES = {
 
 
 def validate_binary_mime_type(file_content: bytes) -> None:
+    """Validate that uploaded file content is a recognized binary format.
+
+    Args:
+        file_content: Raw bytes from the uploaded file.
+
+    Raises:
+        HTTPException: If MIME type is not in the allowed set.
+    """
     try:
         mime_type = magic.from_buffer(file_content[:1024], mime=True)
     except Exception:
@@ -93,6 +145,19 @@ def validate_binary_mime_type(file_content: bytes) -> None:
 
 
 def sanitize_filename(filename: str) -> str:
+    """Sanitize and validate the uploaded filename.
+
+    Prevents path traversal and null byte injection attacks.
+
+    Args:
+        filename: Raw filename from the upload.
+
+    Returns:
+        Sanitized filename (basename only).
+
+    Raises:
+        HTTPException: If filename contains invalid characters.
+    """
     if not filename:
         raise HTTPException(status_code=400, detail="Empty filename")
 
@@ -110,6 +175,17 @@ async def _run_pipeline_analysis(
     file_path: str,
     captured_ctx: CapturedContext | None = None,
 ) -> None:
+    """Execute the full analysis pipeline for a binary file.
+
+    Runs Ghidra decompilation, tokenization, filtering, and optionally
+    training or prediction depending on the request type. Results are
+    persisted to the database.
+
+    Args:
+        ghidra_request: The Ghidra analysis request containing metadata.
+        file_path: Path to the binary file on disk.
+        captured_ctx: Captured request context for logging propagation.
+    """
     task_uuid = ghidra_request.uuid
     try:
         if captured_ctx is not None:

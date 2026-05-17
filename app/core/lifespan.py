@@ -1,3 +1,9 @@
+"""Application lifespan management for Glyph.
+
+Handles startup and shutdown events including database initialization,
+task service startup, event watcher configuration, and graceful cleanup.
+"""
+
 import threading
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -14,7 +20,28 @@ from app.services.task_service import TaskService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Handle startup/shutdown logic correctly."""
+    """Application lifespan context manager.
+
+    Handles startup sequence:
+        1. Load and validate configuration
+        2. Initialize async database connections
+        3. Start background task service
+        4. Start event watcher for task completion callbacks
+
+    On shutdown:
+        1. Stop event watcher
+        2. Dispose database engines
+        3. Close loguru handlers
+
+    Args:
+        app: The FastAPI application instance.
+
+    Yields:
+        None while the application is running.
+
+    Raises:
+        RuntimeError: If any startup step fails.
+    """
     logger.info("Starting up Glyph service")
 
     try:

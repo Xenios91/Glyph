@@ -21,6 +21,14 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 
 def get_jwt_handler() -> JWTHandler:
+    """Create a JWTHandler instance from application settings.
+
+    FastAPI dependency that provides a configured JWT handler for
+    token generation and verification.
+
+    Returns:
+        Configured JWTHandler instance.
+    """
     settings = get_settings()
     return JWTHandler(
         secret_key=settings.jwt_secret_key,
@@ -128,7 +136,17 @@ async def get_current_user(
 
 async def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)]) -> User:
-    """Get the current active user."""
+    """Get the current authenticated user, ensuring they are active.
+
+    Dependency that wraps get_current_user and additionally checks
+    that the user account is not disabled.
+
+    Returns:
+        The active User object.
+
+    Raises:
+        HTTPException: 403 if the user account is disabled.
+    """
     if not current_user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -141,7 +159,21 @@ async def get_optional_user(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]) -> User | None:
-    """Get the current user if authenticated, otherwise return None."""
+    """Get the current user if authenticated, otherwise return None.
+
+    Unlike get_current_user, this dependency does not raise an exception
+    when no valid credentials are present, making it suitable for optional
+    authentication on endpoints that support both authenticated and
+    anonymous access.
+
+    Args:
+        request: The FastAPI request object.
+        db: Database session.
+        jwt_handler: JWT handler instance.
+
+    Returns:
+        The User object if authenticated, None otherwise.
+    """
     auth_header = request.headers.get("Authorization")
     token = None
 

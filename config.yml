@@ -1,4 +1,4 @@
-cpu_cores: 4
+cpu_cores: 2
 jwt_secret_key: change-me-in-production
 logging:
   console:
@@ -19,5 +19,5 @@ logging:
   request_tracing:
     enabled: true
     header_name: X-Request-ID
-max_file_size_mb: 100
+max_file_size_mb: 512
 prediction_probability_threshold: 50.0

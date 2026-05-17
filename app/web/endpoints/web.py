@@ -1,3 +1,10 @@
+"""Web UI endpoints for Glyph application.
+
+Serves HTML templates for the browser-based interface, including pages
+for model management, predictions, configuration, binary upload, and
+user authentication.
+"""
+
 from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request

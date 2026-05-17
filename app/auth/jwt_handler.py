@@ -19,17 +19,29 @@ from loguru import logger
 
 
 class InvalidTokenError(Exception):
-    """Raised when a token is invalid."""
+    """Raised when a JWT token is invalid, expired, or has invalid claims.
+
+    This exception is raised during token verification when the token
+    fails validation checks such as expiration, audience, or type.
+    """
     pass
 
 
 class DecodeError(Exception):
-    """Raised when a token cannot be decoded."""
+    """Raised when a JWT token cannot be decoded.
+
+    This exception is raised when the token structure is malformed
+    or cannot be parsed as a valid JWT.
+    """
     pass
 
 
 class BadSignatureError(Exception):
-    """Raised when a token signature is invalid."""
+    """Raised when a JWT token has an invalid signature.
+
+    This exception indicates that the token signature does not match
+    the expected signature, suggesting tampering or an incorrect secret.
+    """
     pass
 
 
