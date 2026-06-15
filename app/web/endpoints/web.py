@@ -240,6 +240,19 @@ async def get_prediction(
         })
 
 
+@router.get("/getDangerousFunctions", response_model=None)
+async def get_dangerous_functions_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> HTMLResponse:
+    """Loads the dangerous function scanner page."""
+    return templates.TemplateResponse(
+        request,
+        "get_dangerous_functions.html",
+        {"title": "Glyph - Dangerous Function Scanner", "user": current_user},
+    )
+
+
 @router.get("/login", response_model=None)
 async def login_page(
     request: Request,

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import binaries, config, models, predictions, status
+from app.api.v1.endpoints import binaries, config, dangerous_functions, models, predictions, status
 
 api_v1_router = APIRouter(prefix="/v1", tags=["api-v1"])
 
@@ -11,6 +11,11 @@ api_v1_router.include_router(predictions.router, prefix="/predictions", tags=["p
 api_v1_router.include_router(models.router, prefix="/models", tags=["models"])
 api_v1_router.include_router(status.router, prefix="/status", tags=["status"])
 api_v1_router.include_router(config.router, prefix="/config", tags=["config"])
+api_v1_router.include_router(
+    dangerous_functions.router,
+    prefix="/dangerous-functions",
+    tags=["dangerous-functions"],
+)
 
 api_router = APIRouter()
 api_router.include_router(api_v1_router)
