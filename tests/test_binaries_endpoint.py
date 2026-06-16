@@ -25,86 +25,35 @@ class TestBinaryUploadForm:
     """Tests for BinaryUploadForm model."""
 
     def test_binary_upload_form_minimal(self) -> None:
-        """Test BinaryUploadForm with minimal fields."""
-        request = BinaryUploadForm(
-            model_name="test_model",
-            ml_class_type="test_type",
-            name="test_name",
-        )
-        assert request.model_name == "test_model"
-        assert request.ml_class_type == "test_type"
-        assert request.training_data == "false"
-        assert request.name == "test_name"
-
-    def test_binary_upload_form_full(self) -> None:
-        """Test BinaryUploadForm with all fields."""
-        request = BinaryUploadForm(
-            training_data="true",
-            model_name="test_model",
-            ml_class_type="test_type",
-            name="test_name",
-        )
-        assert request.training_data == "true"
-        assert request.model_name == "test_model"
-        assert request.ml_class_type == "test_type"
-        assert request.name == "test_name"
+        """Test BinaryUploadForm with required name field."""
+        request = BinaryUploadForm(name="test_binary")
+        assert request.name == "test_binary"
 
     def test_binary_upload_form_strips_whitespace(self) -> None:
-        """Test that string fields are stripped of whitespace."""
-        request = BinaryUploadForm(
-            model_name="  test_model  ",
-            ml_class_type="  test_type  ",
-            name="  test_name  ",
-        )
-        assert request.model_name == "test_model"
-        assert request.ml_class_type == "test_type"
-        assert request.name == "test_name"
+        """Test that name field is stripped of whitespace."""
+        request = BinaryUploadForm(name="  test_binary  ")
+        assert request.name == "test_binary"
 
-    def test_binary_upload_form_training_data_validation(self) -> None:
-        """Test that training_data accepts 'true' and 'false' (case-insensitive)."""
-        request = BinaryUploadForm(
-            training_data="TRUE",
-            model_name="test_model",
-            ml_class_type="test_type",
-            name="test_name",
-        )
-        assert request.training_data == "true"
-
-        request = BinaryUploadForm(
-            training_data=" False ",
-            model_name="test_model",
-            ml_class_type="test_type",
-            name="test_name",
-        )
-        assert request.training_data == "false"
-
-    def test_binary_upload_form_invalid_training_data(self) -> None:
-        """Test that training_data rejects invalid values."""
+    def test_binary_upload_form_empty_name_rejected(self) -> None:
+        """Test that empty name is rejected."""
         with pytest.raises(Exception):
-            BinaryUploadForm(
-                training_data="yes",
-                model_name="test_model",
-                ml_class_type="test_type",
-                name="test_name",
-            )
+            BinaryUploadForm(name="")
 
-    def test_binary_upload_form_empty_model_name_rejected(self) -> None:
-        """Test that empty model_name is rejected."""
+    def test_binary_upload_form_whitespace_only_name_rejected(self) -> None:
+        """Test that whitespace-only name is rejected."""
         with pytest.raises(Exception):
-            BinaryUploadForm(
-                model_name="",
-                ml_class_type="test_type",
-                name="test_name",
-            )
+            BinaryUploadForm(name="   ")
 
-    def test_binary_upload_form_whitespace_only_model_name_rejected(self) -> None:
-        """Test that whitespace-only model_name is rejected."""
+    def test_binary_upload_form_long_name_accepted(self) -> None:
+        """Test that name up to 256 chars is accepted."""
+        long_name = "a" * 256
+        request = BinaryUploadForm(name=long_name)
+        assert request.name == long_name
+
+    def test_binary_upload_form_name_too_long_rejected(self) -> None:
+        """Test that name exceeding 256 chars is rejected."""
         with pytest.raises(Exception):
-            BinaryUploadForm(
-                model_name="   ",
-                ml_class_type="test_type",
-                name="test_name",
-            )
+            BinaryUploadForm(name="a" * 257)
 
 
 class TestBinariesRouter:

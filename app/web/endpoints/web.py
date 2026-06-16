@@ -425,3 +425,93 @@ async def profile_page(
                 "created_at": current_user.created_at
             }
         })
+
+
+@router.get("/binary-library")
+async def binary_library_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> HTMLResponse:
+    """
+    Loads the binary library page for managing uploaded binaries.
+    """
+    return templates.TemplateResponse(
+        request,
+        "binary_library.html",
+        {"title": "Glyph - Binary Library", "user": current_user},
+    )
+
+
+@router.get("/binary/{binary_id}")
+async def binary_detail_page(
+    request: Request,
+    binary_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> HTMLResponse:
+    """
+    Loads the binary detail page showing functions and metadata for a specific binary.
+    """
+    return templates.TemplateResponse(
+        request,
+        "binary_detail.html",
+        {
+            "title": "Glyph - Binary Details",
+            "binary_id": binary_id,
+            "user": current_user,
+        },
+    )
+
+
+@router.get("/run-task")
+async def run_task_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    binary_id: int = Query(...),
+    binary_name: str = Query(...),
+) -> HTMLResponse:
+    """
+    Loads the task execution page for a given binary.
+    """
+    models: list[str] = await MLPersistanceUtil.get_models_list()
+    return templates.TemplateResponse(
+        request,
+        "run_task.html",
+        {
+            "title": "Glyph - Run Task",
+            "binary_id": binary_id,
+            "binary_name": binary_name,
+            "models": models,
+            "user": current_user,
+        },
+    )
+
+
+@router.get("/create-model")
+async def create_model_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> HTMLResponse:
+    """
+    Loads the create model page for training ML models from uploaded binaries.
+    """
+    return templates.TemplateResponse(
+        request,
+        "create_model.html",
+        {"title": "Glyph - Create Model", "user": current_user},
+    )
+
+
+@router.get("/task-results")
+async def task_results_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    task_uuid: str = Query(...),
+) -> HTMLResponse:
+    """
+    Loads the task results page for a given task UUID.
+    """
+    return templates.TemplateResponse(
+        request,
+        "task_results.html",
+        {"title": "Glyph - Task Results", "task_uuid": task_uuid, "user": current_user},
+    )

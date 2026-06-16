@@ -487,3 +487,131 @@ class PredictStep(PipelineStep):
             logger.exception("Prediction error")
 
         return context
+
+
+class SaveRawFunctionsStep(PipelineStep):
+    """Save raw decompiled functions to the BinaryFunction database table.
+
+    Called after DecompileStep in the upload pipeline. Stores the raw
+    C code output from Ghidra without any tokenization or filtering.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the save raw functions step."""
+
+    def get_name(self) -> str:
+        """Return the name of this step."""
+        return "SaveRawFunctionsStep"
+
+    async def execute(self, context: PipelineContext) -> PipelineContext:
+        """Save raw decompiled functions to the database.
+
+        Expects the context to have:
+            - binary_id: The parent binary primary key
+            - functions: List of function dicts from DecompileStep
+                       (each must contain functionName, lowAddress, raw_code)
+
+        Args:
+            context: The pipeline context.
+
+        Returns:
+            Updated context with save confirmation.
+        """
+        from app.database.sql_service import SQLUtil
+
+        binary_id = context.get("binary_id")
+        functions = context.get("functions")
+
+        if binary_id is None:
+            context.error = "Missing binary_id in context"
+            return context
+
+        if not functions:
+            logger.warning("No functions to save for binary {}", binary_id)
+            context.set("functions_saved", 0)
+            return context
+
+        db_functions: list[dict[str, Any]] = []
+        for func in functions:
+            raw_code = func.get("raw_code", "")
+            if not raw_code:
+                continue
+            db_functions.append({
+                "function_name": func.get("functionName", "unknown"),
+                "entrypoint": func.get("lowAddress", "0"),
+                "raw_code": raw_code,
+            })
+
+        if db_functions:
+            await SQLUtil.save_binary_functions(binary_id, db_functions)
+            logger.info("Saved {} raw functions for binary {}", len(db_functions), binary_id)
+
+        context.set("functions_saved", len(db_functions))
+        return context
+
+
+class LoadBinaryFunctionsStep(PipelineStep):
+    """Load raw functions from the BinaryFunction table for a given binary.
+
+    Used at the start of task pipelines (ML Training, ML Prediction,
+    Code Reuse) to load stored raw functions instead of re-decompiling.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the load binary functions step."""
+
+    def get_name(self) -> str:
+        """Return the name of this step."""
+        return "LoadBinaryFunctionsStep"
+
+    async def execute(self, context: PipelineContext) -> PipelineContext:
+        """Load raw functions for the binary specified in context.
+
+        Expects the context to have:
+            - binary_id: The parent binary primary key
+
+        Sets in context:
+            - functions: List of function dicts ready for TokenizeStep
+
+        Args:
+            context: The pipeline context.
+
+        Returns:
+            Updated context with loaded functions.
+        """
+        from app.database.sql_service import SQLUtil
+
+        binary_id = context.get("binary_id")
+        if binary_id is None:
+            context.error = "Missing binary_id in context"
+            return context
+
+        try:
+            binary_functions = await SQLUtil.get_binary_functions(binary_id)
+
+            if not binary_functions:
+                context.error = f"No functions found for binary {binary_id}"
+                return context
+
+            # Convert BinaryFunction ORM objects to the dict format
+            # expected by TokenizeStep (matching Ghidra output structure)
+            functions: list[dict[str, Any]] = []
+            for bf in binary_functions:
+                # Split raw_code back into token-like list for TokenizeStep
+                # The TokenizeStep reads func.get("tokenList", [])
+                functions.append({
+                    "functionName": bf.function_name,
+                    "lowAddress": bf.entrypoint,
+                    "tokenList": bf.raw_code.split(),  # Space-separated tokens
+                    "raw_code": bf.raw_code,
+                })
+
+            context.set("functions", functions)
+            logger.info("Loaded {} functions for binary {}", len(functions), binary_id)
+
+        except Exception:
+            context.error = f"Failed to load functions for binary {binary_id}"
+            context.exc_info = sys.exc_info()
+            logger.exception("Error loading binary functions")
+
+        return context

@@ -1,0 +1,65 @@
+{% extends "layout.html" %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/binary_library.css') }}">
+{% endblock head %}
+{% block content %}
+<div class="content blue-bg">
+    <!-- Header -->
+    <div class="page-header">
+        <p class="title">// BINARY DETAILS</p>
+        <p class="subtitle" id="binary-subtitle">Loading binary details...</p>
+    </div>
+
+    <!-- Loading State -->
+    <div id="detail-loading" class="loading-indicator" role="status">
+        <span class="loading-spinner"></span>
+        <span>Loading binary details...</span>
+    </div>
+
+    <!-- Binary Info -->
+    <div id="binary-info" class="cyber-container with-title is-centered" style="display: none;">
+        <p class="title">// BINARY INFORMATION</p>
+        <div class="summary-grid" id="info-grid">
+        </div>
+    </div>
+
+    <!-- Functions List -->
+    <div id="functions-container" class="cyber-container with-title is-centered" style="display: none;">
+        <p class="title">// FUNCTIONS</p>
+
+        <div id="functions-empty" class="empty-state" style="display: none;">
+            <p>No functions found. The binary may still be processing.</p>
+        </div>
+
+        <div id="functions-table-wrapper" class="table-wrapper" style="display: none;">
+            <table class="cyber-table" role="grid" aria-label="Binary functions">
+                <thead>
+                    <tr>
+                        <th scope="col">Function Name</th>
+                        <th scope="col">Entrypoint</th>
+                        <th scope="col">Tokens</th>
+                    </tr>
+                </thead>
+                <tbody id="functions-tbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="detail-error" class="cyber-container with-title is-centered" style="display: none;">
+        <p class="title" style="color: var(--red);">// ERROR</p>
+        <p class="empty-state" id="error-message">Failed to load binary details.</p>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav-section">
+        <a href="/binary-library" class="cyber-btn is-primary">BACK TO LIBRARY</a>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/binary_detail.js') }}" defer></script>
+{% endblock scripts %}

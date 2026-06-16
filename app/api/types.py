@@ -1,8 +1,18 @@
 """Shared type annotations for FastAPI endpoints."""
 
+from enum import Enum
+
 from typing_extensions import Annotated
 
 from pydantic import StringConstraints
+
+
+class TaskType(str, Enum):
+    """Types of analysis tasks that can be performed on a binary."""
+
+    CODE_REUSE = "code_reuse"
+    ML_TRAINING = "ml_training"
+    ML_PREDICTION = "ml_prediction"
 
 
 ModelName = Annotated[

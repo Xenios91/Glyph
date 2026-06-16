@@ -1,0 +1,325 @@
+/* =============================================================
+   GLYPH — Binary Library Styles
+   ============================================================= */
+
+/* ── Page wrapper ───────────────────────────────────────────── */
+.content {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   justify-content: flex-start;
+   min-height: calc(100vh - 56px - 48px);
+   padding: var(--space-xl) var(--space-md);
+   position: relative;
+   z-index: 10;
+   gap: var(--space-lg);
+}
+
+.blue-bg {
+   background: transparent;
+}
+
+/* ── Page Header ────────────────────────────────────────────── */
+.page-header {
+    text-align: center;
+    margin: var(--space-xl) var(--space-md);
+}
+
+.page-header .title {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    color: var(--cyan);
+    margin-bottom: var(--space-sm);
+}
+
+.page-header .subtitle {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-dim);
+}
+
+/* ── Upload Section ─────────────────────────────────────────── */
+#upload-box {
+    max-width: 600px;
+    margin: var(--space-lg) auto;
+}
+
+#upload-box .cyber-field {
+    margin: var(--space-md) var(--space-lg);
+}
+
+/* ── Drop Zone ──────────────────────────────────────────────── */
+.drop-zone {
+    border: 2px dashed var(--cyan-dim);
+    border-radius: var(--space-sm);
+    padding: var(--space-xl);
+    text-align: center;
+    margin: var(--space-md) var(--space-lg);
+    cursor: pointer;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.drop-zone:hover,
+.drop-zone.is-dragover {
+    border-color: var(--cyan);
+    background-color: rgba(125, 216, 216, 0.05);
+}
+
+.drop-zone-text {
+    display: block;
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    color: var(--cyan);
+    margin-bottom: var(--space-xs);
+}
+
+.drop-zone-subtext {
+    display: block;
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    margin: var(--space-xs) 0;
+}
+
+#file-upload-label {
+    margin-top: var(--space-sm);
+}
+
+#upload-binary {
+    display: none;
+}
+
+/* ── Upload Progress ────────────────────────────────────────── */
+.upload-progress {
+    margin: var(--space-md) var(--space-lg);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background-color: var(--bg-surface);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta));
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: var(--space-xs);
+}
+
+/* ── Loading Indicator ─────────────────────────────────────── */
+.loading-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-xl);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-dim);
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--cyan-dim);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Empty State ────────────────────────────────────────────── */
+.empty-state {
+    text-align: center;
+    padding: var(--space-xl);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+/* ── Binaries Table ─────────────────────────────────────────── */
+.table-wrapper {
+    overflow-x: auto;
+    margin: var(--space-md) var(--space-lg);
+}
+
+.cyber-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+}
+
+.cyber-table thead th {
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    color: var(--cyan);
+    text-align: left;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--cyan-dim);
+    white-space: nowrap;
+}
+
+.cyber-table tbody td {
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid rgba(125, 216, 216, 0.1);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.cyber-table tbody tr:hover {
+    background-color: rgba(125, 216, 216, 0.05);
+}
+
+/* ── Binary Name Cell ──────────────────────────────────────── */
+.binary-name {
+    font-weight: var(--font-weight-semibold);
+    color: var(--cyan-bright);
+}
+
+/* ── Function Count Badge ───────────────────────────────────── */
+.function-badge {
+    display: inline-block;
+    background-color: var(--bg-surface);
+    color: var(--text-dim);
+    padding: 2px var(--space-xs);
+    border-radius: 4px;
+    font-size: var(--text-xs);
+    font-family: var(--font-code);
+}
+
+/* ── Action Buttons ─────────────────────────────────────────── */
+.action-group {
+    display: flex;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    font-family: var(--font-display);
+    font-size: 0.6rem;
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--cyan);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.action-btn:hover {
+    background-color: rgba(125, 216, 216, 0.1);
+    border-color: var(--cyan);
+}
+
+.action-btn.is-danger {
+    border-color: var(--red);
+    color: var(--red);
+}
+
+.action-btn.is-danger:hover {
+    background-color: rgba(201, 84, 106, 0.1);
+}
+
+.action-btn.is-success {
+    border-color: var(--green);
+    color: var(--green);
+}
+
+.action-btn.is-success:hover {
+    background-color: rgba(110, 201, 122, 0.1);
+}
+
+/* ── Date Cell ──────────────────────────────────────────────── */
+.date-cell {
+    font-family: var(--font-code);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* ── Summary Grid (Binary Detail Page) ─────────────────────── */
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-md);
+    margin: var(--space-md) var(--space-lg);
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--cyan-dim);
+    border-radius: var(--space-xs);
+    padding: var(--space-md);
+}
+
+.summary-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.summary-value {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--cyan);
+    font-weight: 600;
+}
+
+/* ── Navigation ─────────────────────────────────────────────── */
+.nav-section {
+    text-align: center;
+    margin: var(--space-xl) var(--space-md);
+}
+
+/* ── Container Centering ────────────────────────────────────── */
+#binary-info,
+#functions-container,
+#detail-error {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .cyber-table thead th,
+    .cyber-table tbody td {
+        padding: var(--space-xs) var(--space-sm);
+    }
+
+    .action-group {
+        flex-direction: column;
+    }
+
+    .drop-zone {
+        margin: var(--space-md) var(--space-sm);
+    }
+
+    .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

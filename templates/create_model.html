@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/create_model.css') }}">
+{% endblock head %}
+{% block content %}
+<div class="content blue-bg">
+    <!-- Header -->
+    <div class="page-header">
+        <p class="title">// CREATE MODEL</p>
+        <p class="subtitle">Train a new ML model from an uploaded binary</p>
+    </div>
+
+    <!-- Create Model Form -->
+    <div id="create-model-box" class="cyber-container with-title is-centered" role="region" aria-labelledby="create-model-title">
+        <p class="title" id="create-model-title">// MODEL CONFIGURATION</p>
+
+        <!-- Binary Selection -->
+        <div class="cyber-field">
+            <label for="binary-select">Select Binary</label>
+            <div class="cyber-select">
+                <select id="binary-select" name="binary_select" required aria-required="true" aria-describedby="binary-select-hint">
+                    <option value="" disabled selected hidden>SELECT BINARY</option>
+                </select>
+            </div>
+            <span id="binary-select-hint" class="field-hint">Choose a binary from your library</span>
+        </div>
+
+        <!-- Model Name -->
+        <div class="cyber-field">
+            <label for="model-name">Model Name</label>
+            <input type="text" id="model-name" name="model_name" class="cyber-input" placeholder="ENTER MODEL NAME..." aria-required="true" aria-describedby="model-name-hint">
+            <span id="model-name-hint" class="field-hint">Enter a unique name for this model</span>
+        </div>
+
+        <!-- ML Class Type -->
+        <div class="cyber-field">
+            <label for="ml-class-type">ML Class Type</label>
+            <div class="cyber-select">
+                <select id="ml-class-type" name="ml_class_type" required aria-required="true">
+                    <option value="1" selected>Multi Class</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Error message container -->
+        <div id="create-model-error" class="field-error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+
+        <!-- Submit Button -->
+        <div class="submit-section">
+            <button id="create-model-btn" class="cyber-btn is-primary" type="button" aria-label="Train model">
+                TRAIN MODEL
+            </button>
+        </div>
+    </div>
+
+    <!-- Status Message -->
+    <div id="create-model-status" class="cyber-container with-title is-centered" style="display: none;" role="status" aria-live="polite">
+        <p class="title">// TRAINING STATUS</p>
+        <div id="status-spinner" class="status-spinner" style="display: none;"></div>
+        <p id="create-model-status-text"></p>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/create_model.js') }}" defer></script>
+{% endblock scripts %}

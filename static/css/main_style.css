@@ -13,7 +13,8 @@
 }
 
 /* ── Main card ──────────────────────────────────────────────── */
-.cyber-card {
+.cyber-card,
+.cyber-container {
     background: #11111f !important;
     border: 2px solid #2a5a5a !important;
     box-shadow:
@@ -27,7 +28,9 @@
 }
 
 .cyber-card::before,
-.cyber-card::after {
+.cyber-card::after,
+.cyber-container::before,
+.cyber-container::after {
     content: '';
     position: absolute;
     width: 14px;
@@ -36,13 +39,15 @@
     border-style: solid;
 }
 
-.cyber-card::before {
+.cyber-card::before,
+.cyber-container::before {
     top: -2px;
     left: -2px;
     border-width: 2px 0 0 2px;
 }
 
-.cyber-card::after {
+.cyber-card::after,
+.cyber-container::after {
     bottom: -2px;
     right: -2px;
     border-width: 0 2px 2px 0;

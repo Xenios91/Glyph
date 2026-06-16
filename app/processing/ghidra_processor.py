@@ -1,6 +1,6 @@
 """Ghidra processor module for binary decompilation and tokenization."""
 
-from typing import Any, Iterable, cast
+from typing import Any, Iterable, Tuple, cast
 
 from loguru import logger
 
@@ -44,15 +44,15 @@ def setup_decompiler(
     return decomp_interface
 
 
-def get_function_tokens(function: Any, decomp_interface: Any) -> list[str]:
-    """Decompile a function and extract tokenized C code.
+def get_function_tokens(function: Any, decomp_interface: Any) -> Tuple[list[str], str]:
+    """Decompile a function and extract tokens plus raw C code.
 
     Args:
         function: The Ghidra function to decompile.
         decomp_interface: The decompiler interface to use.
 
     Returns:
-        List of tokens from the decompiled function.
+        Tuple of (token_list, raw_c_code).
     """
     _TaskMonitor: Any
     try:
@@ -72,16 +72,25 @@ def get_function_tokens(function: Any, decomp_interface: Any) -> list[str]:
     try:
         decompiled = decomp_interface.decompileFunction(function, 60, monitor)
         if not decompiled or not decompiled.decompileCompleted():
-            return []
+            return [], ""
 
         ccode_markup = decompiled.getCCodeMarkup()
         token_list: Any = _ArrayList()
         ccode_markup.flatten(token_list)
 
-        return [str(t) for t in cast(Iterable[Any], token_list) if str(t).strip()]
+        tokens = [str(t) for t in cast(Iterable[Any], token_list) if str(t).strip()]
+
+        # Also extract plain C source for raw storage
+        try:
+            plain_c = decompiled.getPlainC()
+            raw_code = str(plain_c) if plain_c else ""
+        except Exception:
+            raw_code = " ".join(tokens)  # Fallback to joined tokens
+
+        return tokens, raw_code
     except Exception:
         logger.exception("Decompilation error for function {}", function.getName())
-        return []
+        return [], ""
 
 
 def decompile_all_functions(state: Any, program: Any) -> dict[str, list[Any]]:
@@ -105,7 +114,7 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list[Any]]:
         if function.isExternal():
             continue
 
-        tokens = get_function_tokens(function, decomp_interface)
+        tokens, raw_code = get_function_tokens(function, decomp_interface)
 
         if not tokens:
             functions_map["erroredFunctions"].append(
@@ -125,6 +134,7 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list[Any]]:
             "returnType": return_type,
             "parameterCount": param_count,
             "tokenList": tokens,
+            "raw_code": raw_code,
         }
 
         functions_map["functions"].append(func_entry)

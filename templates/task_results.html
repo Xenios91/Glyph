@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/task_results.css') }}">
+{% endblock head %}
+{% block content %}
+<div class="content blue-bg">
+    <!-- Header -->
+    <div class="page-header">
+        <p class="title">// TASK RESULTS</p>
+        <p class="subtitle" id="result-subtitle">Loading results...</p>
+    </div>
+
+    <!-- Loading State -->
+    <div id="results-loading" class="loading-indicator" role="status">
+        <span class="loading-spinner"></span>
+        <span>Loading task results...</span>
+    </div>
+
+    <!-- Summary -->
+    <div id="results-summary" class="cyber-container with-title is-centered" style="display: none;">
+        <p class="title">// SUMMARY</p>
+        <div class="summary-grid" id="summary-grid">
+        </div>
+    </div>
+
+    <!-- Comparisons -->
+    <div id="comparisons-container" style="display: none;">
+        <div class="cyber-container with-title is-centered">
+            <p class="title">// COMPARISON DETAILS</p>
+        </div>
+        <div id="comparisons-list">
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="results-empty" class="cyber-container with-title is-centered" style="display: none;">
+        <p class="title">// NO RESULTS</p>
+        <p class="empty-state">No matches found or no other binaries to compare against.</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="results-error" class="cyber-container with-title is-centered" style="display: none;">
+        <p class="title" style="color: var(--red);">// ERROR</p>
+        <p class="empty-state" id="error-message">Failed to load results.</p>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav-section">
+        <a href="/binary-library" class="cyber-btn is-primary">BACK TO LIBRARY</a>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/task_results.js') }}" defer></script>
+{% endblock scripts %}
