@@ -49,10 +49,12 @@ class ScanRequest(BaseModel):
     Attributes:
         modelName: Name of the model to scan (functions stored for this model).
         taskName: Optional name of a prediction task to scan instead.
+        binaryId: Optional binary id to scan directly from the library.
     """
 
     modelName: str | None = None
     taskName: str | None = None
+    binaryId: int | None = None
 
     model_config = {"extra": "allow"}
 
@@ -306,22 +308,22 @@ async def scan_dangerous_functions(
     body: ScanRequest,
     current_user: User = Depends(get_current_active_user),
 ) -> SuccessResponse[Any]:
-    """Scan a model or prediction task for dangerous functions.
+    """Scan a model, prediction task, or binary for dangerous functions.
 
-    Analyzes all functions stored for the specified model or prediction task
-    against the dangerous function catalog and returns a report with matches,
-    severity levels, and usage context.
+    Analyzes all functions stored for the specified model, prediction task,
+    or binary against the dangerous function catalog and returns a report
+    with matches, severity levels, and usage context.
 
     Args:
         request: FastAPI request object.
-        body: Scan request with modelName or taskName.
+        body: Scan request with modelName, taskName, or binaryId.
         current_user: Authenticated user.
 
     Returns:
         Success response with scan report.
 
     Raises:
-        HTTPException: If neither modelName nor taskName is provided,
+        HTTPException: If none of modelName, taskName, or binaryId is provided,
             or if the specified target does not exist.
     """
     target_name: str | None = None
@@ -340,6 +342,37 @@ async def scan_dangerous_functions(
         # Get functions for this model
         functions = await FunctionPersistanceUtil.get_functions(target_name)
         functions_data = _functions_to_dicts(functions)
+
+    elif body.binaryId is not None:
+        from app.database.sql_service import SQLUtil
+
+        # Load binary and check ownership
+        binary = await SQLUtil.get_binary(body.binaryId)
+        if binary is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Binary {body.binaryId} not found",
+            )
+
+        if binary.uploaded_by != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied",
+            )
+
+        target_name = binary.name
+
+        # Load binary functions and convert to dict format
+        binary_functions = await SQLUtil.get_binary_functions(body.binaryId)
+        functions_data = [
+            {
+                "functionName": bf.function_name,
+                "lowAddress": bf.entrypoint,
+                "tokenList": bf.raw_code.split(),
+                "raw_code": bf.raw_code,
+            }
+            for bf in binary_functions
+        ]
 
     elif body.taskName:
         target_name = body.taskName
@@ -378,7 +411,7 @@ async def scan_dangerous_functions(
     else:
         raise HTTPException(
             status_code=400,
-            detail="Either 'modelName' or 'taskName' must be provided",
+            detail="One of 'modelName', 'taskName', or 'binaryId' must be provided",
         )
 
     if not functions_data:

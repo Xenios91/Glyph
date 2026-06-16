@@ -74,15 +74,30 @@
      * @param {Object} result
      */
     function renderResults(result) {
+        // Hide loading
+        var loadingEl = document.getElementById('results-loading');
+        if (loadingEl) loadingEl.style.display = 'none';
+
+        // Detect task type from result structure
+        if (result.total_found !== undefined && result.results) {
+            // Dangerous functions scan result
+            renderDangerousFunctionsResults(result);
+        } else {
+            // Code reuse detection result (default)
+            renderCodeReuseResults(result);
+        }
+    }
+
+    /**
+     * Render code reuse detection results
+     * @param {Object} result
+     */
+    function renderCodeReuseResults(result) {
         var subtitle = document.getElementById('result-subtitle');
         if (subtitle) {
             subtitle.textContent = 'Source: ' + escapeHtml(result.source_binary_name || 'Unknown') +
                 ' | Task: ' + taskUuid;
         }
-
-        // Hide loading
-        var loadingEl = document.getElementById('results-loading');
-        if (loadingEl) loadingEl.style.display = 'none';
 
         // Build summary
         var comparisons = result.comparisons || [];
@@ -132,6 +147,117 @@
         } else {
             showEmpty();
         }
+    }
+
+    /**
+     * Render dangerous functions scan results
+     * @param {Object} result
+     */
+    function renderDangerousFunctionsResults(result) {
+        var subtitle = document.getElementById('result-subtitle');
+        if (subtitle) {
+            subtitle.textContent = 'Binary: ' + escapeHtml(result.binary_name || result.model_name || 'Unknown') +
+                ' | Task: ' + taskUuid;
+        }
+
+        // Build summary with severity breakdown
+        var summaryGrid = document.getElementById('summary-grid');
+        if (summaryGrid) {
+            summaryGrid.innerHTML =
+                '<div class="summary-card">' +
+                    '<span class="card-value">' + (result.total_functions_scanned || 0) + '</span>' +
+                    '<span class="card-label">Functions Scanned</span>' +
+                '</div>' +
+                '<div class="summary-card">' +
+                    '<span class="card-value">' + (result.total_found || 0) + '</span>' +
+                    '<span class="card-label">Dangerous Functions</span>' +
+                '</div>' +
+                '<div class="summary-card is-critical">' +
+                    '<span class="card-value">' + (result.critical_count || 0) + '</span>' +
+                    '<span class="card-label">Critical</span>' +
+                '</div>' +
+                '<div class="summary-card is-high">' +
+                    '<span class="card-value">' + (result.high_count || 0) + '</span>' +
+                    '<span class="card-label">High</span>' +
+                '</div>' +
+                '<div class="summary-card is-medium">' +
+                    '<span class="card-value">' + (result.medium_count || 0) + '</span>' +
+                    '<span class="card-label">Medium</span>' +
+                '</div>' +
+                '<div class="summary-card is-low">' +
+                    '<span class="card-value">' + (result.low_count || 0) + '</span>' +
+                    '<span class="card-label">Low</span>' +
+                '</div>';
+        }
+
+        var summaryEl = document.getElementById('results-summary');
+        if (summaryEl) summaryEl.style.display = 'block';
+
+        // Render scan results
+        var scanResults = result.results || [];
+        if (scanResults.length > 0) {
+            var listEl = document.getElementById('comparisons-list');
+            if (listEl) {
+                listEl.innerHTML = scanResults.map(function (scan, idx) {
+                    return renderScanResultBlock(scan, idx);
+                }).join('');
+            }
+
+            var containerEl = document.getElementById('comparisons-container');
+            if (containerEl) containerEl.style.display = 'block';
+        } else {
+            showEmpty();
+        }
+    }
+
+    /**
+     * Render a single scan result block
+     * @param {Object} scan
+     * @param {number} idx
+     * @returns {string}
+     */
+    function renderScanResultBlock(scan, idx) {
+        var severityClass = getSeverityClass(scan.severity);
+        var contextLines = (scan.usage_context || []).map(function (line) {
+            return '<code class="usage-line">' + escapeHtml(line) + '</code>';
+        }).join('');
+
+        return '<div class="comparison-block">' +
+            '<div class="comparison-header" onclick="toggleComparison(' + idx + ')">' +
+                '<span class="comparison-title">' + escapeHtml(scan.function_name) +
+                    ' <span class="severity-badge ' + severityClass + '">' + escapeHtml(scan.severity) + '</span>' +
+                '</span>' +
+                '<span class="comparison-score">' +
+                    escapeHtml(scan.category) + ' | ' + escapeHtml(scan.cwe) +
+                '</span>' +
+            '</div>' +
+            '<div class="comparison-body" id="comparison-body-' + idx + '">' +
+                '<div class="scan-details">' +
+                    '<div class="detail-row">' +
+                        '<span class="detail-label">Containing Function:</span>' +
+                        '<span class="function-name">' + escapeHtml(scan.containing_function) + '</span>' +
+                    '</div>' +
+                    '<div class="detail-row">' +
+                        '<span class="detail-label">Entrypoint:</span>' +
+                        '<code>' + escapeHtml(scan.entrypoint) + '</code>' +
+                    '</div>' +
+                    '<div class="detail-row">' +
+                        '<span class="detail-label">Description:</span>' +
+                        '<span>' + escapeHtml(scan.description) + '</span>' +
+                    '</div>' +
+                    '<div class="detail-row">' +
+                        '<span class="detail-label">Safe Alternative:</span>' +
+                        '<span class="safe-alternative">' + escapeHtml(scan.safe_alternative) + '</span>' +
+                    '</div>' +
+                    (contextLines ?
+                        '<div class="detail-row">' +
+                            '<span class="detail-label">Usage Context:</span>' +
+                            '<div class="usage-context">' + contextLines + '</div>' +
+                        '</div>' : ''
+                    ) +
+                '</div>' +
+            '</div>' +
+        '</div>';
     }
 
     /**
@@ -265,6 +391,16 @@
         if (score >= 0.8) return 'high';
         if (score >= 0.5) return 'medium';
         return 'low';
+    }
+
+    /**
+     * Get CSS class for severity level
+     * @param {string} severity
+     * @returns {string}
+     */
+    function getSeverityClass(severity) {
+        if (!severity) return '';
+        return severity.toLowerCase();
     }
 
     /**

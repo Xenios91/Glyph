@@ -11,6 +11,7 @@ class TaskType(str, Enum):
     """Types of analysis tasks that can be performed on a binary."""
 
     CODE_REUSE = "code_reuse"
+    DANGEROUS_FUNCTIONS = "dangerous_functions"
     ML_TRAINING = "ml_training"
     ML_PREDICTION = "ml_prediction"
 

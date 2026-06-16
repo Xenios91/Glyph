@@ -32,6 +32,7 @@ const scanTargetNameEl = document.getElementById('scan-target-name');
 
 let availableModels = [];
 let availablePredictions = [];
+let availableBinaries = [];
 
 // ── Initialization ────────────────────────────────────────────
 
@@ -41,23 +42,72 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * Load available models and prediction tasks from the API.
+ * Load available models, prediction tasks, and binaries from the API.
  */
 async function loadAvailableTargets() {
     try {
-        const response = await fetch('/api/v1/dangerous-functions/available-models');
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const [modelsResponse, binariesResponse] = await Promise.all([
+            fetch('/api/v1/dangerous-functions/available-models'),
+            fetch('/api/v1/binaries/list')
+        ]);
+
+        if (!modelsResponse.ok) {
+            throw new Error(`HTTP ${modelsResponse.status}: ${modelsResponse.statusText}`);
         }
-        const result = await response.json();
-        const data = result.data;
-        availableModels = data.models || [];
-        availablePredictions = data.prediction_tasks || [];
+        const modelsResult = await modelsResponse.json();
+        const modelsData = modelsResult.data;
+        availableModels = modelsData.models || [];
+        availablePredictions = modelsData.prediction_tasks || [];
+
+        if (binariesResponse.ok) {
+            const binariesResult = await binariesResponse.json();
+            availableBinaries = binariesResult.data?.binaries || [];
+        }
+
+        // Check for binary_id URL parameter before populating dropdowns
+        const binaryId = getUrlParameter('binary_id');
+        if (binaryId) {
+            const binary = availableBinaries.find(b => String(b.id) === String(binaryId));
+            if (binary) {
+                selectBinaryTarget(binary);
+                return;
+            }
+        }
+
         updateTargetDropdown('model');
     } catch (error) {
         console.error('Failed to load available targets:', error);
         showScanError('Failed to load available targets. Please try again.');
     }
+}
+
+/**
+ * Read a URL query parameter.
+ * @param {string} name - Parameter name.
+ * @returns {string|null} Parameter value or null.
+ */
+function getUrlParameter(name) {
+    const params = new URLSearchParams(window.location.search);
+    return params.get(name);
+}
+
+/**
+ * Pre-select a binary as the scan target.
+ * @param {Object} binary - Binary object with id and name.
+ */
+function selectBinaryTarget(binary) {
+    if (targetTypeSelect) {
+        targetTypeSelect.value = 'binary';
+        targetTypeSelect.dispatchEvent(new Event('change'));
+    }
+
+    // Wait for dropdown to populate, then select
+    setTimeout(() => {
+        if (targetSelect) {
+            targetSelect.value = String(binary.id);
+            updateScanButtonState();
+        }
+    }, 100);
 }
 
 /**
@@ -111,7 +161,7 @@ function setupEventListeners() {
 
 /**
  * Update the target dropdown based on selected target type.
- * @param {string} type - 'model' or 'prediction'
+ * @param {string} type - 'model', 'prediction', or 'binary'
  */
 function updateTargetDropdown(type) {
     if (!targetSelect) return;
@@ -120,7 +170,16 @@ function updateTargetDropdown(type) {
     targetSelect.innerHTML = '<option value="">Loading...</option>';
     scanBtn.disabled = true;
 
-    const targets = type === 'model' ? availableModels : availablePredictions;
+    let targets;
+    if (type === 'model') {
+        targets = availableModels;
+    } else if (type === 'prediction') {
+        targets = availablePredictions;
+    } else if (type === 'binary') {
+        targets = availableBinaries;
+    } else {
+        targets = availableModels;
+    }
 
     if (targets.length === 0) {
         targetSelect.innerHTML = '<option value="">No targets available</option>';
@@ -131,8 +190,14 @@ function updateTargetDropdown(type) {
     targetSelect.innerHTML = '<option value="">Select a target...</option>';
     targets.forEach((target) => {
         const option = document.createElement('option');
-        option.value = target;
-        option.textContent = target;
+        if (type === 'binary') {
+            // For binaries, value is the id and text is the name
+            option.value = target.id;
+            option.textContent = target.name;
+        } else {
+            option.value = target;
+            option.textContent = target;
+        }
         targetSelect.appendChild(option);
     });
 
@@ -156,16 +221,28 @@ async function runScan() {
     if (!targetSelect || !targetSelect.value) return;
 
     const targetType = targetTypeSelect ? targetTypeSelect.value : 'model';
-    const targetName = targetSelect.value;
+    const targetValue = targetSelect.value;
 
     // UI: Show loading state
     setScanLoading(true);
     hideResults();
     hideError();
 
-    const body = targetType === 'model'
-        ? { modelName: targetName }
-        : { taskName: targetName };
+    let body;
+    let targetName;
+
+    if (targetType === 'binary') {
+        body = { binaryId: parseInt(targetValue, 10) };
+        // Find the binary name for display
+        const binary = availableBinaries.find(b => b.id === parseInt(targetValue, 10));
+        targetName = binary ? binary.name : `Binary ${targetValue}`;
+    } else if (targetType === 'model') {
+        body = { modelName: targetValue };
+        targetName = targetValue;
+    } else {
+        body = { taskName: targetValue };
+        targetName = targetValue;
+    }
 
     try {
         const response = await fetch('/api/v1/dangerous-functions/scan', {

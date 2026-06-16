@@ -220,6 +220,131 @@ async def _run_code_reuse_task(
         clear_request_context()
 
 
+async def _run_dangerous_functions_task(
+    binary_id: int,
+    task_uuid: str,
+    task_name: str,
+    captured_ctx: CapturedContext | None = None,
+) -> None:
+    """Execute dangerous function scanning pipeline.
+
+    Loads raw functions from the binary, applies in-memory tokenization
+    and filtering, then scans against the dangerous function catalog.
+
+    Args:
+        binary_id: Binary id to scan.
+        task_uuid: Task UUID for progress tracking.
+        task_name: Human-readable task name.
+        captured_ctx: Captured request context.
+    """
+    from app.processing.steps import TokenizeStep, FilterStep
+    from app.processing.pipeline import ProcessingPipeline, PipelineContext
+    from app.database.sql_service import SQLUtil
+    from app.services.dangerous_function_scanner import generate_report
+
+    try:
+        if captured_ctx is not None:
+            restore_request_context(captured_ctx, override_task_id=task_uuid)
+
+        TaskManager.set_status(task_uuid, "processing")
+
+        # Load binary functions
+        binary_functions = await SQLUtil.get_binary_functions(binary_id)
+        if not binary_functions:
+            TaskManager.set_status(task_uuid, "error")
+            logger.error("No functions found for binary {}", binary_id)
+            return
+
+        binary_name = await SQLUtil.get_binary_name(binary_id)
+
+        # Build function dicts for pipeline processing
+        function_dicts = [
+            {
+                "functionName": bf.function_name,
+                "lowAddress": bf.entrypoint,
+                "tokenList": bf.raw_code.split(),
+                "raw_code": bf.raw_code,
+            }
+            for bf in binary_functions
+        ]
+
+        # Run tokenize and filter steps
+        context = PipelineContext(
+            uuid=task_uuid,
+            binary_path="",
+            pipeline_type="dangerous_functions",
+            metadata={"binary_id": binary_id, "task_name": task_name},
+        )
+        context.set("functions", function_dicts)
+
+        tokenize_step = TokenizeStep()
+        context = await tokenize_step.execute(context)
+        if context.error:
+            TaskManager.set_status(task_uuid, "error")
+            logger.error("Tokenization failed: {}", context.error)
+            return
+
+        filter_step = FilterStep()
+        context = await filter_step.execute(context)
+        if context.error:
+            TaskManager.set_status(task_uuid, "error")
+            logger.error("Filtering failed: {}", context.error)
+            return
+
+        filtered_functions = context.get("filtered_functions", [])
+
+        # Scan for dangerous functions
+        report = generate_report(binary_name or f"binary_{binary_id}", filtered_functions)
+
+        TaskManager.set_status(task_uuid, "completed")
+
+        # Store results
+        result = {
+            "task_uuid": task_uuid,
+            "binary_id": binary_id,
+            "binary_name": binary_name,
+            "model_name": binary_name or f"binary_{binary_id}",
+            "total_functions_scanned": report.total_functions_scanned,
+            "total_found": report.total_found,
+            "critical_count": report.critical_count,
+            "high_count": report.high_count,
+            "medium_count": report.medium_count,
+            "low_count": report.low_count,
+            "results": [
+                {
+                    "function_name": r.function_name,
+                    "containing_function": r.containing_function,
+                    "entrypoint": r.entrypoint,
+                    "category": r.category,
+                    "severity": r.severity,
+                    "cwe": r.cwe,
+                    "description": r.description,
+                    "safe_alternative": r.safe_alternative,
+                    "usage_context": r.usage_context,
+                    "containing_function_code": r.containing_function_code,
+                }
+                for r in report.results
+            ],
+        }
+        TaskManager.set_task_result(task_uuid, result)
+
+        logger.info(
+            "Dangerous function scan completed: {} dangerous functions found in binary {}",
+            report.total_found,
+            binary_id,
+        )
+
+    except Exception:
+        TaskManager.set_status(task_uuid, "error")
+        logger.exception("Dangerous function scan task failed")
+        raise
+    finally:
+        asyncio.get_event_loop().call_later(
+            10, lambda: TaskManager.remove_task(task_uuid)
+        )
+        clear_request_context()
+
+
 async def _run_ml_task(
     binary_id: int,
     task_uuid: str,
@@ -333,7 +458,7 @@ async def execute_task(
     """Execute an analysis task on a previously uploaded binary.
 
     Validates the binary exists and belongs to the user, then queues
-    the appropriate pipeline (code reuse, ML training, or ML prediction)
+    the appropriate pipeline (code reuse, dangerous functions, ML training, or ML prediction)
     as a background task.
 
     Args:
@@ -374,6 +499,14 @@ async def execute_task(
     if request_values.task_type == TaskType.CODE_REUSE:
         background_tasks.add_task(
             _run_code_reuse_task,
+            request_values.binary_id,
+            task_uuid,
+            request_values.task_name,
+            captured_ctx,
+        )
+    elif request_values.task_type == TaskType.DANGEROUS_FUNCTIONS:
+        background_tasks.add_task(
+            _run_dangerous_functions_task,
             request_values.binary_id,
             task_uuid,
             request_values.task_name,

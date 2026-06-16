@@ -70,6 +70,35 @@
     </div>
 </div>
 
+<!-- Task Selection Modal -->
+<div id="task-modal-overlay" class="task-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+    <div class="task-modal">
+        <p class="task-modal-title" id="task-modal-title">// SELECT TASK TYPE</p>
+        
+        <a href="#" class="task-option" data-task-type="code_reuse">
+            <span class="task-option-name">Code Reuse Detection</span>
+            <span class="task-option-desc">Compare the source binary against all other binaries in the library to detect reused code patterns.</span>
+        </a>
+
+        <a href="#" class="task-option" data-task-type="dangerous_functions">
+            <span class="task-option-name">Dangerous Functions Scan</span>
+            <span class="task-option-desc">Scan the binary for dangerous/insecure functions like strcpy, gets, sprintf, and others known to introduce vulnerabilities.</span>
+        </a>
+
+        <a href="#" class="task-option" data-task-type="ml_training">
+            <span class="task-option-name">ML Training</span>
+            <span class="task-option-desc">Train a new ML model using the functions extracted from this binary.</span>
+        </a>
+
+        <a href="#" class="task-option" data-task-type="ml_prediction">
+            <span class="task-option-name">ML Prediction</span>
+            <span class="task-option-desc">Run predictions using an existing ML model on the functions from this binary.</span>
+        </a>
+
+        <button type="button" class="task-modal-close" onclick="event.stopPropagation(); hideTaskSelectionModal(); return false;">CANCEL</button>
+    </div>
+</div>
+
 {% endblock content %}
 
 {% block scripts %}

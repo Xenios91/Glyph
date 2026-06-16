@@ -213,6 +213,133 @@
     color: var(--text-muted);
 }
 
+/* ── Dangerous Functions Scan Results ───────────────────────── */
+
+/* Severity badges */
+.severity-badge {
+    display: inline-block;
+    font-family: var(--font-code);
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: var(--space-sm);
+    text-transform: uppercase;
+}
+
+.severity-badge.critical {
+    color: var(--red);
+    background-color: rgba(255, 80, 80, 0.15);
+    border: 1px solid rgba(255, 80, 80, 0.3);
+}
+
+.severity-badge.high {
+    color: var(--orange, #ff9800);
+    background-color: rgba(255, 152, 0, 0.15);
+    border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.severity-badge.medium {
+    color: var(--yellow);
+    background-color: rgba(212, 200, 122, 0.15);
+    border: 1px solid rgba(212, 200, 122, 0.3);
+}
+
+.severity-badge.low {
+    color: var(--text-muted);
+    background-color: rgba(138, 146, 184, 0.15);
+    border: 1px solid rgba(138, 146, 184, 0.3);
+}
+
+/* Summary cards for severity */
+.summary-card.is-critical {
+    border-color: rgba(255, 80, 80, 0.4);
+}
+
+.summary-card.is-critical .card-value {
+    color: var(--red);
+}
+
+.summary-card.is-high {
+    border-color: rgba(255, 152, 0, 0.4);
+}
+
+.summary-card.is-high .card-value {
+    color: var(--orange, #ff9800);
+}
+
+.summary-card.is-medium {
+    border-color: rgba(212, 200, 122, 0.4);
+}
+
+.summary-card.is-medium .card-value {
+    color: var(--yellow);
+}
+
+.summary-card.is-low {
+    border-color: rgba(138, 146, 184, 0.4);
+}
+
+.summary-card.is-low .card-value {
+    color: var(--text-muted);
+}
+
+/* Scan result details */
+.scan-details {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+}
+
+.detail-row {
+    margin-bottom: var(--space-sm);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid rgba(125, 216, 216, 0.05);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.detail-label {
+    display: block;
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    color: var(--cyan);
+    margin-bottom: 4px;
+}
+
+.safe-alternative {
+    color: var(--green);
+    font-family: var(--font-code);
+    font-size: var(--text-xs);
+}
+
+/* Usage context code lines */
+.usage-context {
+    margin-top: 4px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(125, 216, 216, 0.1);
+    border-radius: 4px;
+    padding: var(--space-sm);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.usage-line {
+    display: block;
+    font-family: var(--font-code);
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+    padding: 2px 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.usage-line:hover {
+    color: var(--text-primary);
+}
+
 /* ── Navigation ─────────────────────────────────────────────── */
 .nav-section {
     text-align: center;

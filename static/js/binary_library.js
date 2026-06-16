@@ -39,17 +39,16 @@
         var tbody = document.getElementById('binaries-tbody');
         if (!tbody) return;
 
-        // Handle RUN TASK button clicks
         tbody.addEventListener('click', function (e) {
             var target = e.target;
 
-            // Run Task button
+            // Run Task button - show task selection modal
             if (target.classList.contains('btn-run-task')) {
                 e.preventDefault();
                 e.stopPropagation();
                 var binaryId = target.getAttribute('data-binary-id');
                 var binaryName = target.getAttribute('data-binary-name');
-                window.location.href = '/run-task?binary_id=' + binaryId + '&binary_name=' + encodeURIComponent(binaryName);
+                showTaskSelectionModal(binaryId, binaryName);
                 return;
             }
 
@@ -80,6 +79,66 @@
             }
         });
     }
+
+    // ============================================================
+    // Task Selection Modal
+    // ============================================================
+
+    /**
+     * Show the task selection modal
+     * @param {string} binaryId
+     * @param {string} binaryName
+     */
+    function showTaskSelectionModal(binaryId, binaryName) {
+        var overlay = document.getElementById('task-modal-overlay');
+        if (!overlay) return;
+
+        // Update links with the correct binary_id and binary_name
+        var links = overlay.querySelectorAll('a.task-option');
+        links.forEach(function (link) {
+            var taskType = link.getAttribute('data-task-type');
+            // Dangerous functions navigates to the dedicated scanner page
+            if (taskType === 'dangerous_functions') {
+                link.href = '/getDangerousFunctions?binary_id=' + binaryId;
+            } else {
+                link.href = '/run-task?binary_id=' + binaryId + '&binary_name=' + encodeURIComponent(binaryName) + '&task_type=' + taskType;
+            }
+        });
+
+        overlay.classList.add('is-visible');
+    }
+
+    /**
+     * Hide the task selection modal
+     */
+    function hideTaskSelectionModal() {
+        var overlay = document.getElementById('task-modal-overlay');
+        if (overlay) {
+            overlay.classList.remove('is-visible');
+        }
+    }
+
+    // Expose hide function globally for the CANCEL button onclick
+    window.hideTaskSelectionModal = hideTaskSelectionModal;
+
+    // Close modal when clicking outside the modal content
+    document.addEventListener('click', function (e) {
+        var overlay = document.getElementById('task-modal-overlay');
+        if (!overlay) return;
+        if (e.target === overlay) {
+            hideTaskSelectionModal();
+        }
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            var overlay = document.getElementById('task-modal-overlay');
+            if (overlay && overlay.classList.contains('is-visible')) {
+                hideTaskSelectionModal();
+            }
+        }
+    });
 
     // ============================================================
     // Binary Actions

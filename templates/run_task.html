@@ -42,6 +42,7 @@
             <div class="cyber-select">
                 <select id="task-type" name="task_type" aria-required="true" onchange="handleTaskTypeChange()">
                     <option value="code_reuse">Code Reuse Detection</option>
+                    <option value="dangerous_functions">Dangerous Functions Scan</option>
                     <option value="ml_training">ML Training</option>
                     <option value="ml_prediction">ML Prediction</option>
                 </select>
@@ -61,6 +62,16 @@
                     <input type="number" id="similarity-threshold" class="cyber-input" value="0.7" min="0" max="1" step="0.05">
                     <span class="field-hint">Minimum similarity score to report a match (0.0 - 1.0)</span>
                 </div>
+            </div>
+        </div>
+
+        <!-- Dangerous Functions Options -->
+        <div id="dangerous-functions-options" class="task-options" style="display: none;">
+            <div class="cyber-container with-title">
+                <p class="title">// DANGEROUS FUNCTIONS OPTIONS</p>
+                <p class="option-description">
+                    Scan the binary for dangerous/insecure functions like strcpy, gets, sprintf, and others known to introduce vulnerabilities.
+                </p>
             </div>
         </div>
 

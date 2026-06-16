@@ -20,6 +20,9 @@
     /** @type {number} */
     var binaryId = parseInt(window.location.search.match(/binary_id=(\d+)/)?.[1] || '0', 10);
 
+    /** @type {string|null} */
+    var urlTaskType = new URLSearchParams(window.location.search).get('task_type');
+
     // ============================================================
     // DOM Ready
     // ============================================================
@@ -27,6 +30,7 @@
     document.addEventListener('DOMContentLoaded', function () {
         loadFunctionCount();
         autoFillTaskName();
+        preSelectTaskType();
     });
 
     // ============================================================
@@ -67,6 +71,19 @@
         }
     }
 
+    /**
+     * Pre-select task type from URL parameter
+     */
+    function preSelectTaskType() {
+        if (!urlTaskType) return;
+
+        var taskTypeSelect = document.getElementById('task-type');
+        if (taskTypeSelect && taskTypeSelect.querySelector('option[value="' + urlTaskType + '"]')) {
+            taskTypeSelect.value = urlTaskType;
+            handleTaskTypeChange();
+        }
+    }
+
     // ============================================================
     // Task Type Switching
     // ============================================================
@@ -78,17 +95,21 @@
         var taskType = document.getElementById('task-type').value;
 
         var codeReuseOptions = document.getElementById('code-reuse-options');
+        var dangerousFunctionsOptions = document.getElementById('dangerous-functions-options');
         var mlTrainingOptions = document.getElementById('ml-training-options');
         var mlPredictionOptions = document.getElementById('ml-prediction-options');
 
         // Hide all
         if (codeReuseOptions) codeReuseOptions.style.display = 'none';
+        if (dangerousFunctionsOptions) dangerousFunctionsOptions.style.display = 'none';
         if (mlTrainingOptions) mlTrainingOptions.style.display = 'none';
         if (mlPredictionOptions) mlPredictionOptions.style.display = 'none';
 
         // Show selected
         if (taskType === 'code_reuse' && codeReuseOptions) {
             codeReuseOptions.style.display = 'block';
+        } else if (taskType === 'dangerous_functions' && dangerousFunctionsOptions) {
+            dangerousFunctionsOptions.style.display = 'block';
         } else if (taskType === 'ml_training' && mlTrainingOptions) {
             mlTrainingOptions.style.display = 'block';
         } else if (taskType === 'ml_prediction' && mlPredictionOptions) {
@@ -133,6 +154,7 @@
                 return;
             }
         }
+        // dangerous_functions task type requires no additional parameters
 
         // Disable button
         var btn = document.getElementById('execute-btn');
