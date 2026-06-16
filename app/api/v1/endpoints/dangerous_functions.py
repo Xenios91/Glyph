@@ -70,6 +70,7 @@ class ScanResultDict(BaseModel):
         description: Why this function is dangerous.
         safe_alternative: Recommended replacement.
         usage_context: Decompiled code lines showing usage.
+        containing_function_code: Full decompiled code of the containing function.
     """
 
     function_name: str
@@ -81,6 +82,7 @@ class ScanResultDict(BaseModel):
     description: str
     safe_alternative: str
     usage_context: list[str] = []
+    containing_function_code: str = ""
 
 
 class ScanReportResponse(BaseModel):
@@ -150,6 +152,7 @@ def _scan_result_to_dict(result: ScanResult) -> ScanResultDict:
         description=result.description,
         safe_alternative=result.safe_alternative,
         usage_context=result.usage_context,
+        containing_function_code=result.containing_function_code,
     )
 
 

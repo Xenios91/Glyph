@@ -258,6 +258,8 @@ function displayResults(data, targetName) {
 function createResultRow(result, index) {
     const row = document.createElement('tr');
     row.setAttribute('data-index', index);
+    row.classList.add('hover-row');
+    row.style.cursor = 'pointer';
 
     const severityClass = result.severity.toLowerCase();
     const entrypoint = result.entrypoint ? '0x' + result.entrypoint : 'N/A';
@@ -265,20 +267,13 @@ function createResultRow(result, index) {
     row.innerHTML = `
         <td>${escapeHtml(result.function_name)}</td>
         <td>${escapeHtml(result.containing_function)}</td>
-        <td>${escapeHtml(entrypoint)}</td>
         <td><span class="severity-badge ${severityClass}">${escapeHtml(result.severity)}</span></td>
-        <td>${escapeHtml(result.cwe)}</td>
-        <td>${escapeHtml(result.category)}</td>
-        <td><button type="button" class="detail-btn" data-index="${index}" aria-label="View details for ${escapeHtml(result.function_name)}">View</button></td>
     `;
 
-    // Attach detail button handler
-    const detailBtn = row.querySelector('.detail-btn');
-    if (detailBtn) {
-        detailBtn.addEventListener('click', () => {
-            openContextModal(result);
-        });
-    }
+    // Make entire row clickable
+    row.addEventListener('click', () => {
+        openContextModal(result);
+    });
 
     return row;
 }
@@ -295,10 +290,18 @@ function openContextModal(result) {
     const modalDescription = document.getElementById('modal-description');
     const modalSafeAlternative = document.getElementById('modal-safe-alternative');
     const modalUsageContext = document.getElementById('modal-usage-context');
+    const containingCodeSection = document.getElementById('containing-code-section');
+    const modalContainingCode = document.getElementById('modal-containing-code');
 
     if (modalFunctionName) modalFunctionName.textContent = result.function_name;
     if (modalContainingFunction) modalContainingFunction.textContent = result.containing_function;
-    if (modalSeverity) modalSeverity.textContent = result.severity;
+
+    // Severity with colored badge
+    if (modalSeverity) {
+        const severityClass = (result.severity || '').toLowerCase();
+        modalSeverity.innerHTML = `<span class="severity-badge ${severityClass}">${escapeHtml(result.severity)}</span>`;
+    }
+
     if (modalCwe) modalCwe.textContent = result.cwe;
     if (modalDescription) modalDescription.textContent = result.description;
     if (modalSafeAlternative) modalSafeAlternative.textContent = result.safe_alternative;
@@ -309,6 +312,17 @@ function openContextModal(result) {
             modalUsageContext.textContent = contextLines.join('\n');
         } else {
             modalUsageContext.textContent = '(No usage context available)';
+        }
+    }
+
+    // Show containing function code if available
+    if (containingCodeSection && modalContainingCode) {
+        const code = result.containing_function_code || '';
+        if (code) {
+            modalContainingCode.textContent = code;
+            containingCodeSection.style.display = '';
+        } else {
+            containingCodeSection.style.display = 'none';
         }
     }
 

@@ -35,6 +35,7 @@ class ScanResult:
         description: Why this function is dangerous.
         safe_alternative: Recommended replacement.
         usage_context: Decompiled code lines showing how the function is used.
+        containing_function_code: Full decompiled code of the containing function.
     """
 
     function_name: str
@@ -46,6 +47,7 @@ class ScanResult:
     description: str
     safe_alternative: str
     usage_context: list[str] = field(default_factory=lambda: list[str]())
+    containing_function_code: str = ""
 
 
 @dataclass
@@ -175,6 +177,7 @@ def scan_functions(functions: list[dict[str, Any]]) -> list[ScanResult]:
             description=entry.description,
             safe_alternative=entry.safe_alternative,
             usage_context=usage_context,
+            containing_function_code=_format_full_function_code(tokens),
         )
         results.append(result)
 
@@ -220,6 +223,28 @@ def _get_function_body_context(tokens: list[str], max_lines: int = 5) -> list[st
     return context
 
 
+def _format_full_function_code(tokens: list[str]) -> str:
+    """Format the full decompiled function body from tokens into readable code.
+
+    Uses format_code from app.utils.common for proper indentation and formatting.
+
+    Args:
+        tokens: Token list from decompiled function.
+
+    Returns:
+        Formatted function code as a multi-line string.
+    """
+    if not tokens:
+        return ""
+
+    from app.utils.common import format_code
+
+    code_text = " ".join(str(t) for t in tokens)
+    code_text = re.sub(r"\s+", " ", code_text).strip()
+
+    return format_code(code_text)
+
+
 def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
     """Scan function bodies for calls to dangerous functions.
 
@@ -236,14 +261,20 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
     from app.services.dangerous_functions_catalog import FUNCTION_LOOKUP
 
     results: list[ScanResult] = []
+    total_funcs = len(functions)
+    funcs_with_tokens = 0
+    funcs_with_match = 0
 
     for func_info in functions:
         func_name = func_info.get("functionName", "")
         tokens = func_info.get("tokenList", [])
         if not tokens:
             continue
+        funcs_with_tokens += 1
 
         code_text = " ".join(str(t) for t in tokens)
+        code_text = re.sub(r"\s+", " ", code_text).strip()
+
 
         # Check for each dangerous function in the code text
         for df_name_lower, entry in FUNCTION_LOOKUP.items():
@@ -251,10 +282,54 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
             if func_name.lower() == df_name_lower:
                 continue
 
-            # Case-insensitive search for the dangerous function name
-            # Use word boundary to avoid false positives
-            pattern = re.compile(r'\b' + re.escape(entry.name) + r'\b')
+            found = False
+
+            # Primary: Case-insensitive word boundary match
+            # \b matches between word and non-word chars (e.g., before '(' in 'strcpy(')
+            pattern = re.compile(
+                r'\b' + re.escape(entry.name) + r'\b', re.IGNORECASE
+            )
             if pattern.search(code_text):
+                found = True
+
+            # Fallback: Substring match for edge cases where Ghidra tokens
+            # might combine the function name with punctuation in unexpected
+            # ways. Treat alphanumeric AND underscore as identifier characters
+            # (same as regex \b) to avoid false positives like
+            # 'my_strcpy_wrapper' matching 'strcpy'.
+            if not found:
+                df_name_lower_entry = entry.name.lower()
+                code_text_lower = code_text.lower()
+                idx = 0
+                while idx < len(code_text_lower):
+                    pos = code_text_lower.find(df_name_lower_entry, idx)
+                    if pos == -1:
+                        break
+                    # Check character before match (if any)
+                    # Treat _ as part of identifier (like regex \b does)
+                    before_ok = (
+                        pos == 0
+                        or (
+                            not code_text_lower[pos - 1].isalnum()
+                            and code_text_lower[pos - 1] != "_"
+                        )
+                    )
+                    # Check character after match (if any)
+                    end_pos = pos + len(df_name_lower_entry)
+                    after_ok = (
+                        end_pos >= len(code_text_lower)
+                        or (
+                            not code_text_lower[end_pos].isalnum()
+                            and code_text_lower[end_pos] != "_"
+                        )
+                    )
+                    if before_ok and after_ok:
+                        found = True
+                        break
+                    idx = pos + 1
+
+            if found:
+                funcs_with_match += 1
                 usage_context = _extract_usage_context(tokens, entry.name)
                 result = ScanResult(
                     function_name=entry.name,
@@ -266,16 +341,27 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
                     description=entry.description,
                     safe_alternative=entry.safe_alternative,
                     usage_context=usage_context,
+                    containing_function_code=_format_full_function_code(tokens),
                 )
                 results.append(result)
+                logger.debug(
+                    "Body scan: found '{}' in function '{}' (entrypoint {})",
+                    entry.name,
+                    func_name,
+                    func_info.get("lowAddress", "0x0"),
+                )
 
     # Sort by severity
     results.sort(key=lambda r: get_severity_order(r.severity))
 
-    if results:
-        logger.debug(
-            "Found {} dangerous function calls in function bodies", len(results)
-        )
+    logger.info(
+        "Body scan: found {} dangerous function calls in {} functions "
+        "({} had tokens, {} had matches)",
+        len(results),
+        total_funcs,
+        funcs_with_tokens,
+        funcs_with_match,
+    )
 
     return results
 

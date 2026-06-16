@@ -77,11 +77,7 @@
                     <tr>
                         <th scope="col">Dangerous Function</th>
                         <th scope="col">Containing Function</th>
-                        <th scope="col">Offset</th>
                         <th scope="col">Severity</th>
-                        <th scope="col">CWE</th>
-                        <th scope="col">Category</th>
-                        <th scope="col">Details</th>
                     </tr>
                 </thead>
                 <tbody id="scan-results-body">
@@ -106,25 +102,47 @@
     </div>
 </div>
 
-<!-- Usage Context Modal -->
+<!-- Finding Details Modal -->
 <div id="context-modal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="context-modal-title">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 id="context-modal-title">Usage Context</h3>
+            <h3 id="context-modal-title">Finding Details</h3>
             <button type="button" class="modal-close" id="modal-close-btn" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body">
-            <div class="context-info">
-                <p><strong>Function:</strong> <span id="modal-function-name"></span></p>
-                <p><strong>Containing:</strong> <span id="modal-containing-function"></span></p>
-                <p><strong>Severity:</strong> <span id="modal-severity"></span></p>
-                <p><strong>CWE:</strong> <span id="modal-cwe"></span></p>
+            <!-- Metadata Summary Bar -->
+            <div class="finding-summary">
+                <div class="summary-item">
+                    <span class="summary-label">Dangerous Function</span>
+                    <span class="summary-value" id="modal-function-name"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Containing</span>
+                    <span class="summary-value" id="modal-containing-function"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Severity</span>
+                    <span class="summary-value" id="modal-severity"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">CWE</span>
+                    <span class="summary-value" id="modal-cwe"></span>
+                </div>
+            </div>
+            <div class="finding-description">
                 <p><strong>Description:</strong> <span id="modal-description"></span></p>
                 <p><strong>Safe Alternative:</strong> <span id="modal-safe-alternative"></span></p>
             </div>
-            <div class="context-code">
-                <h4>Decompiled Usage:</h4>
-                <pre id="modal-usage-context"><code></code></pre>
+            <!-- Code Sections -->
+            <div class="code-sections">
+                <div class="context-code">
+                    <h4>Usage Context</h4>
+                    <pre id="modal-usage-context"><code></code></pre>
+                </div>
+                <div class="context-code" id="containing-code-section" style="display: none;">
+                    <h4>Containing Function Code</h4>
+                    <pre id="modal-containing-code"><code></code></pre>
+                </div>
             </div>
         </div>
     </div>

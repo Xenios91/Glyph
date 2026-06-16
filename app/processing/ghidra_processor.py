@@ -127,10 +127,7 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list[Any]]:
             "tokenList": tokens,
         }
 
-        if any("/*" in tok for tok in tokens):
-            functions_map["erroredFunctions"].append(func_entry)
-        else:
-            functions_map["functions"].append(func_entry)
+        functions_map["functions"].append(func_entry)
 
     decomp_interface.dispose()
     return functions_map
