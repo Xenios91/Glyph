@@ -30,13 +30,15 @@
 </head>
 
 <body>
+    <!-- Skip to main content link for keyboard/screen reader users -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
 
     {% include 'components/background.html' %}
 
     {% include 'components/navbar.html' %}
 
     <!-- Page content -->
-    <div class="page-content" role="main">
+    <div class="page-content" role="main" id="main-content" tabindex="-1">
         {%- block content %}{%- endblock content %}
     </div>
 

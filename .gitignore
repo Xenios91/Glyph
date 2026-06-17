@@ -138,9 +138,40 @@ cython_debug/
 *.db-shm
 *.db-wal
 
+# Test artifacts (shared-memory SQLite files)
+file:mem_*
+
 # Project-specific
 data/
 logs/
 binaries/
 .docs/
 glyph_venv/*
+
+# Virtual environments (additional patterns)
+*.egg-info/
+.venv/
+venv/
+env/
+ENV/
+glyph_env/
+__pycache__/*.pyc
+__pycache__/*.pyo
+
+# Build artifacts
+build/
+dist/
+*.so
+*.whl
+
+# IDE and editor files
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# OS-generated files
+.DS_Store
+Thumbs.db

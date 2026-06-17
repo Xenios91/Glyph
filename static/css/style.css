@@ -2,6 +2,34 @@
    GLYPH — THEME STYLES (eye-friendly revision)
    ============================================================= */
 
+/* ── Skip Link (Accessibility) ──────────────────────────────── */
+.skip-link {
+    position: absolute;
+    top: -100%;
+    left: 0;
+    z-index: 1000;
+    padding: 0.75rem 1.5rem;
+    background-color: var(--cyan, #7dd8d8);
+    color: var(--bg, #0d0d1a);
+    font-weight: var(--font-weight-bold, 700);
+    text-decoration: none;
+    border-radius: 0 0 0.5rem 0;
+    transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+    top: 0;
+    outline: 2px solid var(--cyan-bright, #a8ecec);
+    outline-offset: 2px;
+}
+
+/* ── Focus Styles (Accessibility) ───────────────────────────── */
+/* Visible focus indicator for keyboard navigation */
+*:focus-visible {
+    outline: 2px solid var(--cyan, #7dd8d8);
+    outline-offset: 2px;
+}
+
 /* ── Palette ────────────────────────────────────────────────── */
 :root {
     --bg:           #0d0d1a;   /* lifted from pure black — kills halation  */

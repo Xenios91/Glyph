@@ -14,7 +14,6 @@ from typing import Any
 from loguru import logger
 
 from app.services.dangerous_functions_catalog import (
-    get_entry,
     get_severity_order,
     Severity,
 )
@@ -132,11 +131,10 @@ def _extract_usage_context(
 
 
 def scan_functions(functions: list[dict[str, Any]]) -> list[ScanResult]:
-    """Scan a list of decompiled functions against the dangerous function catalog.
+    """Scan a list of decompiled functions for calls to dangerous functions.
 
-    For each function in the list, checks if the function name matches any
-    entry in the catalog. For matches, extracts usage context from the
-    function's token list.
+    Scans each function's decompiled token list for references to dangerous
+    functions from the catalog.
 
     Args:
         functions: List of function dictionaries from Ghidra decompilation.
@@ -145,44 +143,7 @@ def scan_functions(functions: list[dict[str, Any]]) -> list[ScanResult]:
     Returns:
         List of ScanResult sorted by severity (Critical first).
     """
-    results: list[ScanResult] = []
-
-    for func_info in functions:
-        func_name = func_info.get("functionName", "")
-        if not func_name:
-            continue
-
-        entry = get_entry(func_name)
-        if entry is None:
-            continue
-
-        # Extract usage context from the function's tokens
-        tokens = func_info.get("tokenList", [])
-        usage_context = _extract_usage_context(tokens, func_name)
-
-        # Also check if this function *calls* dangerous functions
-        # by scanning the token list for dangerous function names
-        if not usage_context:
-            # The function itself is the dangerous function
-            # Show its own decompiled code as context
-            usage_context = _get_function_body_context(tokens)
-
-        result = ScanResult(
-            function_name=func_name,
-            containing_function=func_name,
-            entrypoint=func_info.get("lowAddress", "0x0"),
-            category=entry.category,
-            severity=entry.severity,
-            cwe=entry.cwe,
-            description=entry.description,
-            safe_alternative=entry.safe_alternative,
-            usage_context=usage_context,
-            containing_function_code=_format_full_function_code(tokens),
-        )
-        results.append(result)
-
-    # Also scan function bodies for calls to dangerous functions
-    results.extend(_scan_function_bodies(functions))
+    results = _scan_function_bodies(functions)
 
     # Sort by severity
     results.sort(key=lambda r: get_severity_order(r.severity))
@@ -194,33 +155,6 @@ def scan_functions(functions: list[dict[str, Any]]) -> list[ScanResult]:
     )
 
     return results
-
-
-def _get_function_body_context(tokens: list[str], max_lines: int = 5) -> list[str]:
-    """Get a brief excerpt of the function body as context.
-
-    Args:
-        tokens: Token list from decompiled function.
-        max_lines: Maximum number of lines to return.
-
-    Returns:
-        First few statements from the function body.
-    """
-    if not tokens:
-        return []
-
-    code_text = " ".join(str(t) for t in tokens)
-    code_text = re.sub(r"\s+", " ", code_text).strip()
-
-    statements = [s.strip() for s in code_text.split(";") if s.strip()]
-    context: list[str] = []
-
-    for stmt in statements[:max_lines]:
-        if len(stmt) > 300:
-            stmt = stmt[:300] + "..."
-        context.append(stmt)
-
-    return context
 
 
 def _format_full_function_code(tokens: list[str]) -> str:
@@ -277,9 +211,9 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
 
 
         # Check for each dangerous function in the code text
-        for df_name_lower, entry in FUNCTION_LOOKUP.items():
-            # Skip if this function IS the dangerous function (already caught)
-            if func_name.lower() == df_name_lower:
+        for _, entry in FUNCTION_LOOKUP.items():
+            # Skip if the containing function IS the dangerous function itself
+            if func_name.lower() == entry.name.lower():
                 continue
 
             found = False

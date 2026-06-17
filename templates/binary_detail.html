@@ -16,38 +16,41 @@
         <span>Loading binary details...</span>
     </div>
 
-    <!-- Binary Info -->
-    <div id="binary-info" class="cyber-container with-title is-centered" style="display: none;">
-        <p class="title">// BINARY INFORMATION</p>
-        <div class="summary-grid" id="info-grid">
-        </div>
-    </div>
-
-    <!-- Functions List -->
-    <div id="functions-container" class="cyber-container with-title is-centered" style="display: none;">
-        <p class="title">// FUNCTIONS</p>
-
-        <div id="functions-empty" class="empty-state" style="display: none;">
-            <p>No functions found. The binary may still be processing.</p>
+    <!-- Main Content Card -->
+    <div id="detail-content" class="cyber-container binary-detail-card" style="display: none;">
+        <!-- Binary Info Section -->
+        <div class="detail-section">
+            <div class="detail-section-title">INFORMATION</div>
+            <div class="summary-grid" id="info-grid">
+            </div>
         </div>
 
-        <div id="functions-table-wrapper" class="table-wrapper" style="display: none;">
-            <table class="cyber-table" role="grid" aria-label="Binary functions">
-                <thead>
-                    <tr>
-                        <th scope="col">Function Name</th>
-                        <th scope="col">Entrypoint</th>
-                        <th scope="col">Tokens</th>
-                    </tr>
-                </thead>
-                <tbody id="functions-tbody">
-                </tbody>
-            </table>
+        <!-- Functions Section -->
+        <div class="detail-section">
+            <div class="detail-section-title">FUNCTIONS</div>
+
+            <div id="functions-empty" class="empty-state" style="display: none;">
+                <p>No functions found. The binary may still be processing.</p>
+            </div>
+
+            <div id="functions-table-wrapper" class="table-wrapper" style="display: none;">
+                <table class="cyber-table" role="grid" aria-label="Binary functions">
+                    <thead>
+                        <tr>
+                            <th scope="col">Function Name</th>
+                            <th scope="col">Entrypoint</th>
+                            <th scope="col">Lines</th>
+                        </tr>
+                    </thead>
+                    <tbody id="functions-tbody">
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <!-- Error State -->
-    <div id="detail-error" class="cyber-container with-title is-centered" style="display: none;">
+    <div id="detail-error" class="cyber-container is-danger" style="display: none;">
         <p class="title" style="color: var(--red);">// ERROR</p>
         <p class="empty-state" id="error-message">Failed to load binary details.</p>
     </div>

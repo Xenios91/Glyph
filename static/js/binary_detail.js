@@ -32,13 +32,11 @@
     async function loadBinaryDetail() {
         var loadingEl = document.getElementById('detail-loading');
         var errorEl = document.getElementById('detail-error');
-        var infoEl = document.getElementById('binary-info');
-        var functionsContainer = document.getElementById('functions-container');
+        var contentEl = document.getElementById('detail-content');
 
         if (loadingEl) loadingEl.style.display = 'flex';
         if (errorEl) errorEl.style.display = 'none';
-        if (infoEl) infoEl.style.display = 'none';
-        if (functionsContainer) functionsContainer.style.display = 'none';
+        if (contentEl) contentEl.style.display = 'none';
 
         try {
             // Load binary metadata
@@ -55,6 +53,9 @@
             var binary = detailData.data;
 
             if (loadingEl) loadingEl.style.display = 'none';
+
+            // Show main content card
+            if (contentEl) contentEl.style.display = 'block';
 
             // Update subtitle
             var subtitle = document.getElementById('binary-subtitle');
@@ -84,10 +85,9 @@
      * @param {Object} binary
      */
     function displayBinaryInfo(binary) {
-        var infoEl = document.getElementById('binary-info');
         var grid = document.getElementById('info-grid');
 
-        if (!infoEl || !grid) return;
+        if (!grid) return;
 
         var date = formatDate(binary.created_at);
         var size = formatFileSize(binary.file_size);
@@ -117,25 +117,19 @@
                 '<span class="summary-label">Uploaded</span>' +
                 '<span class="summary-value">' + date + '</span>' +
             '</div>';
-
-        infoEl.style.display = 'block';
     }
 
     /**
      * Load and display binary functions
-     * @param {number} binaryId
+     * @param {number} id
      */
-    async function loadBinaryFunctions(binaryId) {
-        var functionsContainer = document.getElementById('functions-container');
+    async function loadBinaryFunctions(id) {
         var functionsEmpty = document.getElementById('functions-empty');
         var functionsTable = document.getElementById('functions-table-wrapper');
         var tbody = document.getElementById('functions-tbody');
 
-        if (!functionsContainer) return;
-        functionsContainer.style.display = 'block';
-
         try {
-            var response = await authenticatedFetch('/api/v1/binaries/functions/' + binaryId, {
+            var response = await authenticatedFetch('/api/v1/binaries/functions/' + id, {
                 headers: { 'Accept': 'application/json' }
             });
 

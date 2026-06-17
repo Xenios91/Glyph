@@ -79,6 +79,7 @@ class CSPMiddleware:
     SECURITY_HEADERS: list[tuple[bytes, bytes]] = [
         (b"x-content-type-options", b"nosniff"),
         (b"x-frame-options", b"DENY"),
+        (b"strict-transport-security", b"max-age=31536000; includeSubDomains; preload"),
         (b"referrer-policy", b"strict-origin-when-cross-origin"),
         (b"permissions-policy", b"geolocation=(), camera=(), microphone=()"),
     ]
@@ -124,6 +125,78 @@ class CSPMiddleware:
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
+
+
+class RequestSizeMiddleware:
+    """ASGI middleware that enforces a maximum request body size.
+
+    Prevents denial-of-service attacks via extremely large request bodies
+    by rejecting requests that exceed the configured maximum size.
+    """
+
+    def __init__(
+        self,
+        app: Callable[[Any, Any, Any], Awaitable[None]],
+        max_size: int = 100 * 1024 * 1024,  # 100 MB default
+    ) -> None:
+        """Initialize the request size middleware.
+
+        Args:
+            app: The downstream ASGI application.
+            max_size: Maximum allowed request body size in bytes.
+        """
+        self.app = app
+        self.max_size = max_size
+
+    async def __call__(
+        self,
+        scope: dict[str, Any],
+        receive: Callable[[], Awaitable[dict[str, Any]]],
+        send: Callable[[dict[str, Any]], Awaitable[None]],
+    ) -> None:
+        """Process the ASGI request, enforcing body size limits.
+
+        Args:
+            scope: The ASGI connection scope.
+            receive: Awaitable callable for receiving events.
+            send: Awaitable callable for sending events.
+        """
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        total_size: int = 0
+
+        async def receive_wrapper() -> dict[str, Any]:
+            nonlocal total_size
+            message = await receive()
+            if message["type"] == "http.request" and message.get("body"):
+                body_size = len(message["body"])
+                total_size += body_size
+                if total_size > self.max_size:
+                    raise ValueError(
+                        f"Request body size ({total_size} bytes) exceeds "
+                        f"maximum allowed size ({self.max_size} bytes)"
+                    )
+            return message
+
+        try:
+            await self.app(scope, receive_wrapper, send)
+        except ValueError:
+            response = {
+                "type": "http.response.start",
+                "status": 413,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                ],
+            }
+            await send(response)
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": b'{"detail": "Request body too large"}',
+                }
+            )
 
 
 class CachedStaticFiles(StaticFiles):
@@ -182,6 +255,12 @@ def create_app() -> FastAPI:
 
     from app.config.settings import get_settings
     settings = get_settings()
+
+    # Request size limit middleware
+    max_body_size = settings.max_file_size_mb * 1024 * 1024
+    app.add_middleware(RequestSizeMiddleware, max_size=max_body_size)
+    logger.info("Middleware registered: RequestSizeMiddleware (max_size=%d MB)", settings.max_file_size_mb)
+
     if settings.logging.request_tracing.enabled:
         from app.core.correlation_bridge import CorrelationIdBridgeMiddleware
         app.add_middleware(CorrelationIdBridgeMiddleware)
@@ -223,6 +302,44 @@ def create_app() -> FastAPI:
 
     app.include_router(web_router)
     logger.info("Router registered: web")
+
+    # Health check endpoints
+    @app.get("/health", tags=["Health"])
+    async def health_check() -> JSONResponse:
+        """Liveness probe for Kubernetes and other orchestrators.
+
+        Returns:
+            JSON response with status "ok".
+        """
+        return JSONResponse({"status": "ok"})
+
+    @app.get("/ready", tags=["Health"])
+    async def readiness_check() -> JSONResponse:
+        """Readiness probe to verify application dependencies are available.
+
+        Checks database connectivity and returns overall readiness status.
+
+        Returns:
+            JSON response with readiness status and component health.
+        """
+        from app.database.session_handler import get_async_session
+
+        component_status: dict[str, str] = {}
+
+        # Check database connectivity
+        try:
+            async with await get_async_session() as session:
+                await session.execute("SELECT 1")
+            component_status["database"] = "ok"
+        except Exception as e:
+            logger.warning("Database readiness check failed: {}", e)
+            component_status["database"] = f"error: {e}"
+
+        overall = "ok" if all(v == "ok" for v in component_status.values()) else "degraded"
+        return JSONResponse({
+            "status": overall,
+            "components": component_status,
+        })
 
     return app
 
