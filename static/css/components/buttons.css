@@ -1,0 +1,343 @@
+/* =============================================================
+   BUTTON DESIGN SYSTEM
+   Unified button components with variants and sizes.
+   ============================================================= */
+
+/* ── Base button ────────────────────────────────────────────── */
+.cyber-btn,
+button.cyber-btn {
+    font-family: var(--font-display);
+    font-size: var(--btn-font-size);
+    letter-spacing: 0.1em;
+    padding: var(--btn-padding-y) var(--btn-padding-x);
+    min-height: var(--btn-min-height);
+    min-width: var(--btn-min-width);
+    border: 2px solid;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all var(--duration-normal) ease;
+    border-radius: 0;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+
+    /* Default state (cyan) */
+    background: var(--bg);
+    border-color: var(--cyan-dim);
+    color: var(--cyan);
+    box-shadow: 0 0 10px rgba(125, 216, 216, 0.12);
+}
+
+.cyber-btn:hover:not(:disabled),
+button.cyber-btn:hover:not(:disabled) {
+    background: var(--cyan-dim);
+    color: var(--text-primary);
+    box-shadow: 0 0 16px rgba(125, 216, 216, 0.25);
+    transform: translate(-2px, -2px);
+}
+
+.cyber-btn:active:not(:disabled),
+button.cyber-btn:active:not(:disabled) {
+    transform: translate(0, 0);
+    box-shadow: none;
+}
+
+.cyber-btn:focus-visible,
+button.cyber-btn:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-offset);
+    box-shadow: 0 0 8px rgba(125, 216, 216, 0.4);
+}
+
+/* ── Disabled state ─────────────────────────────────────────── */
+.cyber-btn:disabled,
+.cyber-btn.is-disabled,
+button.cyber-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* ── Variant: Primary (yellow) ──────────────────────────────── */
+.cyber-btn.is-primary {
+    border-color: var(--yellow);
+    color: var(--yellow);
+    box-shadow: 0 0 10px rgba(212, 200, 122, 0.2);
+}
+
+.cyber-btn.is-primary:hover:not(:disabled) {
+    background: var(--yellow);
+    color: var(--bg);
+    box-shadow: 0 0 18px rgba(212, 200, 122, 0.4);
+}
+
+/* ── Variant: Danger/Delete/Error (red) ─────────────────────── */
+.cyber-btn.is-danger,
+.cyber-btn.is-delete,
+.cyber-btn.is-error {
+    border-color: var(--red);
+    color: var(--red);
+    box-shadow: 0 0 10px rgba(201, 84, 106, 0.2);
+}
+
+.cyber-btn.is-danger:hover:not(:disabled),
+.cyber-btn.is-delete:hover:not(:disabled),
+.cyber-btn.is-error:hover:not(:disabled) {
+    background: var(--red);
+    color: var(--bg);
+    box-shadow: 0 0 18px rgba(201, 84, 106, 0.4);
+}
+
+/* ── Variant: Success (green) ───────────────────────────────── */
+.cyber-btn.is-success {
+    border-color: var(--green);
+    color: var(--green);
+    box-shadow: 0 0 10px rgba(110, 201, 122, 0.2);
+}
+
+.cyber-btn.is-success:hover:not(:disabled) {
+    background: var(--green);
+    color: var(--bg);
+    box-shadow: 0 0 18px rgba(110, 201, 122, 0.4);
+}
+
+/* ── Variant: Warning (yellow) ──────────────────────────────── */
+.cyber-btn.is-warning {
+    border-color: var(--yellow);
+    color: var(--yellow);
+    box-shadow: 0 0 10px rgba(212, 200, 122, 0.2);
+}
+
+.cyber-btn.is-warning:hover:not(:disabled) {
+    background: var(--yellow);
+    color: var(--bg);
+    box-shadow: 0 0 18px rgba(212, 200, 122, 0.4);
+}
+
+/* ── Variant: Magenta ───────────────────────────────────────── */
+.cyber-btn.is-magenta {
+    border-color: var(--magenta-dim);
+    color: var(--magenta);
+    box-shadow: 0 0 10px rgba(200, 122, 184, 0.2);
+}
+
+.cyber-btn.is-magenta:hover:not(:disabled) {
+    background: var(--magenta);
+    color: var(--bg);
+    box-shadow: 0 0 18px rgba(200, 122, 184, 0.4);
+}
+
+/* ── Size: Small ────────────────────────────────────────────── */
+.cyber-btn.is-small {
+    font-size: var(--text-xs);
+    padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
+}
+
+/* ── Size: Large ────────────────────────────────────────────── */
+.cyber-btn.is-large {
+    font-size: var(--text-md);
+    padding: var(--btn-padding-y-lg) var(--btn-padding-x-lg);
+}
+
+/* ── Size: Block (full width) ───────────────────────────────── */
+.cyber-btn.is-block {
+    width: 100%;
+    display: flex;
+}
+
+/* ── Sweep animation ────────────────────────────────────────── */
+.cyber-btn::after,
+button.cyber-btn::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: rgba(255, 255, 255, 0.04);
+    animation: btn-sweep 3s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes btn-sweep {
+    from { top: -40%; }
+    to   { top: 120%; }
+}
+
+/* ── Button group ───────────────────────────────────────────── */
+.btn-group {
+    display: flex;
+    gap: var(--space-md);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn-group .cyber-btn {
+    flex: 0 1 auto;
+}
+
+/* ── Auth button ────────────────────────────────────────────── */
+.auth-btn {
+    font-family: var(--font-display) !important;
+    font-size: var(--text-sm) !important;
+    letter-spacing: 0.1em !important;
+    background: var(--bg) !important;
+    color: var(--yellow) !important;
+    border: 2px solid var(--yellow) !important;
+    box-shadow: 0 0 10px rgba(212, 200, 122, 0.20) !important;
+    padding: var(--btn-padding-y) var(--btn-padding-x) !important;
+    min-height: var(--btn-min-height) !important;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    margin-top: var(--space-sm);
+    transition: all var(--duration-normal) cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border-radius: 0 !important;
+}
+
+.auth-btn:hover {
+    background: var(--yellow) !important;
+    color: var(--bg) !important;
+    box-shadow: 0 0 18px rgba(212, 200, 122, 0.40) !important;
+    transform: translate(-1px, -1px);
+}
+
+.auth-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: none !important;
+}
+
+.auth-btn::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: rgba(255, 255, 255, 0.03);
+    animation: btn-sweep 3s linear infinite;
+    pointer-events: none;
+}
+
+/* ── Start button ───────────────────────────────────────────── */
+.start-btn {
+    font-family: var(--font-display) !important;
+    font-size: var(--text-sm) !important;
+    letter-spacing: 0.1em !important;
+    background: var(--bg) !important;
+    color: var(--yellow) !important;
+    border: 2px solid var(--yellow) !important;
+    box-shadow: 0 0 12px rgba(212, 200, 122, 0.22) !important;
+    padding: var(--btn-padding-y) var(--btn-padding-x) !important;
+    min-height: var(--btn-min-height) !important;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all var(--duration-normal) cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border-radius: 0 !important;
+}
+
+.start-btn:hover {
+    background: var(--yellow) !important;
+    color: var(--bg) !important;
+    box-shadow: 0 0 20px rgba(212, 200, 122, 0.45) !important;
+    transform: translate(-2px, -2px);
+}
+
+.start-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: none !important;
+}
+
+.start-btn::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: rgba(255, 255, 255, 0.04);
+    animation: btn-sweep 3s linear infinite;
+    pointer-events: none;
+}
+
+/* ── Button loading state ────────────────────────────────────── */
+.cyber-btn.is-loading,
+button.cyber-btn.is-loading {
+    position: relative;
+    cursor: wait;
+    pointer-events: none;
+    /* Hide original text content */
+    color: transparent !important;
+}
+
+.cyber-btn.is-loading::before,
+button.cyber-btn.is-loading::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    /* Restore visible color for spinner */
+    border-top-color: var(--cyan);
+    z-index: 1;
+}
+
+.cyber-btn.is-loading::after,
+button.cyber-btn.is-loading::after {
+    /* Disable sweep animation during loading */
+    animation: none;
+    opacity: 0;
+}
+
+/* Loading state color variants */
+.cyber-btn.is-primary.is-loading::before { border-top-color: var(--yellow); }
+.cyber-btn.is-danger.is-loading::before,
+.cyber-btn.is-delete.is-loading::before,
+.cyber-btn.is-error.is-loading::before { border-top-color: var(--red); }
+.cyber-btn.is-success.is-loading::before { border-top-color: var(--green); }
+.cyber-btn.is-warning.is-loading::before { border-top-color: var(--yellow); }
+.cyber-btn.is-magenta.is-loading::before { border-top-color: var(--magenta); }
+
+/* Auth button loading state */
+.auth-btn.is-loading {
+    color: transparent !important;
+    pointer-events: none;
+}
+
+.auth-btn.is-loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top-color: var(--yellow);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+/* Start button loading state */
+.start-btn.is-loading {
+    color: transparent !important;
+    pointer-events: none;
+}
+
+.start-btn.is-loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top-color: var(--yellow);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
