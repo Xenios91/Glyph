@@ -1,194 +1,207 @@
 /* =============================================================
-   GLYPH — MAIN PAGE (main_style.css)  cyberpunk revision
+   GLYPH — MAIN PAGE (main_style.css)
    ============================================================= */
 
 .content {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: calc(100vh - 56px - 48px);
     padding: var(--space-xl) var(--space-md);
     position: relative;
     z-index: 10;
+    gap: var(--space-xl);
 }
 
-/* ── Main card ──────────────────────────────────────────────── */
-.cyber-card,
-.cyber-container {
-    background: #11111f !important;
-    border: 2px solid #2a5a5a !important;
-    box-shadow:
-        0 0 20px rgba(125, 216, 216, 0.12),
-        0 0 60px rgba(125, 216, 216, 0.05),
-        inset 0 0 24px rgba(125, 216, 216, 0.03);
-    max-width: 560px;
-    width: 100%;
-    padding: var(--space-xl) var(--space-lg);
-    position: relative;
-}
-
-.cyber-card::before,
-.cyber-card::after,
-.cyber-container::before,
-.cyber-container::after {
-    content: '';
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    border-color: #4a2244;
-    border-style: solid;
-}
-
-.cyber-card::before,
-.cyber-container::before {
-    top: -2px;
-    left: -2px;
-    border-width: 2px 0 0 2px;
-}
-
-.cyber-card::after,
-.cyber-container::after {
-    bottom: -2px;
-    right: -2px;
-    border-width: 0 2px 2px 0;
-}
-
-/* ── Hero title ─────────────────────────────────────────────── */
+/* ── Hero ────────────────────────────────────────────────────── */
 .hero-section {
     text-align: center;
-    margin-bottom: 2rem;
     position: relative;
 }
 
 .cyber-title {
     font-family: var(--font-display);
-    font-size: clamp(2rem, 8vw, 3.5rem);
-    color: #a8ecec;
-    letter-spacing: 0.05em;  /* Reduced from 0.1em for better readability */
-    line-height: 1.4;        /* Increased from 1.35 for better readability */
+    font-size: clamp(2.5rem, 8vw, 4rem);
+    color: var(--cyan);
+    letter-spacing: 0.08em;
+    line-height: 1.2;
     text-shadow:
-        0 0 12px rgba(168, 236, 236, 0.30),
-        3px 3px 0 #4a2244;
+        0 0 20px rgba(125, 216, 216, 0.25),
+        3px 3px 0 var(--magenta-dim);
     animation: title-glitch 9s step-end infinite;
     display: inline-block;
+    margin: 0;
 }
 
 @keyframes title-glitch {
-
-    0%,
-    88%,
-    93%,
-    100% {
-        text-shadow: 0 0 12px rgba(168, 236, 236, 0.30), 3px 3px 0 #4a2244;
+    0%, 88%, 93%, 100% {
+        text-shadow: 0 0 20px rgba(125, 216, 216, 0.25), 3px 3px 0 var(--magenta-dim);
         transform: translate(0, 0);
     }
-
     89% {
         transform: translate(-3px, 0);
-        text-shadow: -3px 0 #c87ab8, 3px 0 #7dd8d8;
+        text-shadow: -3px 0 var(--magenta), 3px 0 var(--cyan);
     }
-
     90% {
         transform: translate(3px, 1px);
     }
-
     91% {
         transform: translate(0, 0);
     }
-
     92% {
         transform: translate(-1px, -1px);
     }
 }
 
-.hero-section::after {
-    content: '';
-    display: block;
-    margin: 1.25rem auto 0;
-    width: 80%;
-    height: 1px;
-    background: linear-gradient(90deg,
-            transparent 0%, #2a5a5a 20%, #4a2244 50%, #2a5a5a 80%, transparent 100%);
-}
-
-/* ── Description box ────────────────────────────────────────── */
-.description-box {
-    text-align: center;
-    margin-bottom: var(--space-lg);
-    padding: var(--space-md) var(--space-lg);
-    border: 1px solid rgba(125, 216, 216, 0.12);
-    background: rgba(125, 216, 216, 0.02);
-}
-
-.description-box p {
+.hero-subtitle {
     font-family: var(--font-body);
     font-size: var(--text-sm);
-    line-height: var(--leading-relaxed);
-    color: #a8ecec !important;
+    color: var(--text-dim);
+    margin-top: var(--space-md);
     letter-spacing: 0.04em;
 }
 
-.description-box .cyber-text.is-error {
-    color: #c87ab8 !important;
-    text-shadow: 0 0 8px rgba(200, 122, 184, 0.30);
-    animation: error-pulse 4s ease-in-out infinite alternate;
+/* ── Stats Row ──────────────────────────────────────────────── */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-md);
+    width: 100%;
+    max-width: 540px;
 }
 
-@keyframes error-pulse {
-    from {
-        text-shadow: 0 0 6px rgba(200, 122, 184, 0.25);
-    }
-
-    to {
-        text-shadow: 0 0 14px rgba(200, 122, 184, 0.50);
-    }
+.stat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-md) var(--space-sm);
+    background: rgba(17, 17, 31, 0.85);
+    border: 1px solid var(--cyan-dim);
+    position: relative;
 }
 
-/* ── Action area ────────────────────────────────────────────── */
-.action-area {
-    text-align: center;
-    margin-bottom: var(--space-lg);
+.stat-card::before,
+.stat-card::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-color: var(--magenta-dim);
+    border-style: solid;
 }
 
-/* Note: .start-btn styles now defined in style.css for consistency */
+.stat-card::before {
+    top: -1px;
+    left: -1px;
+    border-width: 2px 0 0 2px;
+}
 
-/* ── Blink text ─────────────────────────────────────────────── */
-.blink_text {
+.stat-card::after {
+    bottom: -1px;
+    right: -1px;
+    border-width: 0 2px 2px 0;
+}
+
+.stat-value {
     font-family: var(--font-display);
+    font-size: var(--text-xl);
+    color: var(--cyan);
+    text-shadow: 0 0 10px rgba(125, 216, 216, 0.3);
+}
+
+.stat-label {
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
     color: var(--text-dim);
-    font-size: var(--text-xs) !important;
-    margin-top: 1.25rem !important;
-    letter-spacing: 0.06em;  /* Reduced from 0.08em for better readability */
-    animation: cyber-blink 3s step-end infinite;
+    letter-spacing: 0.06em;
 }
 
-.blink_text {
-    animation: cyber-blink 3s step-end infinite;
+/* ── Feature Cards ──────────────────────────────────────────── */
+.feature-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-md);
+    width: 100%;
+    max-width: 640px;
 }
 
-@keyframes cyber-blink {
-
-    0%,
-    49% {
-        opacity: 1;
-    }
-
-    50%,
-    75% {
-        opacity: 0.5;
-    }
-
-    50%,
-    100% {
-        opacity: 0;
-    }
+.feature-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-lg) var(--space-sm);
+    background: rgba(17, 17, 31, 0.85);
+    border: 1px solid rgba(125, 216, 216, 0.15);
+    text-decoration: none;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
 }
 
-/* ── Divider ────────────────────────────────────────────────── */
-.cyber-hr {
-    border: none;
-    height: 1px;
-    margin: 0.75rem 0 0;
-    background: linear-gradient(90deg,
-            transparent 0%, #2a5a5a 25%, #4a2244 50%, #2a5a5a 75%, transparent 100%);
+.feature-card::before,
+.feature-card::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-color: var(--magenta-dim);
+    border-style: solid;
+    transition: border-color 0.15s ease;
+}
+
+.feature-card::before {
+    top: -1px;
+    left: -1px;
+    border-width: 2px 0 0 2px;
+}
+
+.feature-card::after {
+    bottom: -1px;
+    right: -1px;
+    border-width: 0 2px 2px 0;
+}
+
+.feature-card:hover {
+    border-color: var(--cyan);
+    background: rgba(125, 216, 216, 0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px rgba(125, 216, 216, 0.1);
+}
+
+.feature-card:hover::before,
+.feature-card:hover::after {
+    border-color: var(--cyan);
+}
+
+.feature-icon {
+    font-size: 1.75rem;
+    line-height: 1;
+    margin-bottom: var(--space-xs);
+}
+
+.feature-title {
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    color: var(--cyan);
+    letter-spacing: 0.06em;
+    text-align: center;
+}
+
+.feature-desc {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+    text-align: center;
+    line-height: 1.5;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .stats-row,
+    .feature-cards {
+        grid-template-columns: 1fr;
+        max-width: 280px;
+    }
 }

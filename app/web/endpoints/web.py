@@ -48,6 +48,29 @@ async def home(
     )
 
 
+@router.get("/stats", response_model=None)
+async def home_stats(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> JSONResponse:
+    """
+    Returns homepage statistics for the current user.
+    """
+    from app.database.sql_service import SQLUtil
+
+    binaries = await SQLUtil.get_binaries_by_user(current_user.id)
+    models = await MLPersistanceUtil.get_models_list()
+    predictions = await PredictionPersistanceUtil.get_predictions_list()
+
+    return JSONResponse(
+        content={
+            "binaries": len(binaries),
+            "models": len(models),
+            "predictions": len(predictions) if predictions else 0,
+        }
+    )
+
+
 @router.get("/config")
 async def config(
     request: Request,
