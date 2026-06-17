@@ -42,6 +42,9 @@
         {%- block content %}{%- endblock content %}
     </div>
 
+    <!-- Modals block - outside page-content for proper fixed positioning -->
+    {%- block modals %}{%- endblock modals %}
+
     {%- block common_scripts %}{% include 'components/scripts.html' %}{%- endblock common_scripts %}
 
     {%- block scripts %}{%- endblock scripts %}

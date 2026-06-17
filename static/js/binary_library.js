@@ -122,8 +122,18 @@
         }
     }
 
-    // Expose hide function globally for the CANCEL button onclick
+    // Expose hide function globally
     window.hideTaskSelectionModal = hideTaskSelectionModal;
+
+    // Cancel button handler
+    var cancelBtn = document.getElementById('task-modal-cancel');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            hideTaskSelectionModal();
+        });
+    }
 
     // Close modal when clicking outside the modal content
     document.addEventListener('click', function (e) {
