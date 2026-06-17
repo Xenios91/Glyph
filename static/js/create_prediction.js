@@ -1,6 +1,6 @@
 /**
- * Glyph - Create Model Page JavaScript
- * Handles model creation from uploaded binaries
+ * Glyph - Create Prediction Page JavaScript
+ * Handles prediction task creation from uploaded binaries using existing ML models
  * Uses native fetch API with authenticatedFetch from common.js
  */
 'use strict';
@@ -23,7 +23,7 @@
             });
 
             if (!response.ok) {
-                console.error('[CREATE_MODEL] Failed to load binaries:', response.status);
+                console.error('[CREATE_PREDICTION] Failed to load binaries:', response.status);
                 return;
             }
 
@@ -47,18 +47,68 @@
                 }
             });
         } catch (error) {
-            console.error('[CREATE_MODEL] Error loading binaries:', error);
+            console.error('[CREATE_PREDICTION] Error loading binaries:', error);
         }
     }
 
     /**
-     * Validate the create model form
+     * Load available ML models into the model selection dropdown
+     */
+    async function loadModels() {
+        const select = document.getElementById('model-select');
+        if (!select) return;
+
+        try {
+            const response = await authenticatedFetch('/getModels', {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (!response.ok) {
+                console.error('[CREATE_PREDICTION] Failed to load models:', response.status);
+                return;
+            }
+
+            const data = await response.json();
+            const models = data.models ? data.models : [];
+
+            if (models.length === 0) {
+                select.innerHTML = '<option value="" disabled selected hidden>NO MODELS AVAILABLE</option>';
+                return;
+            }
+
+            select.innerHTML = '<option value="" disabled selected hidden>SELECT MODEL</option>';
+            models.forEach(function (model) {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                select.appendChild(option);
+            });
+        } catch (error) {
+            console.error('[CREATE_PREDICTION] Error loading models:', error);
+        }
+    }
+
+    /**
+     * Auto-fill task name with timestamp
+     */
+    function autoFillTaskName() {
+        var nameInput = document.getElementById('task-name');
+        if (nameInput) {
+            var timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            nameInput.value = 'prediction_' + timestamp;
+        }
+    }
+
+    /**
+     * Validate the create prediction form
      * @returns {boolean} True if valid, false otherwise
      */
     function validateForm() {
         const binarySelect = document.getElementById('binary-select');
-        const modelName = document.getElementById('model-name');
-        const errorEl = document.getElementById('create-model-error');
+        const modelSelect = document.getElementById('model-select');
+        const taskName = document.getElementById('task-name');
+        const errorEl = document.getElementById('create-prediction-error');
 
         if (!binarySelect || !binarySelect.value) {
             if (errorEl) {
@@ -68,9 +118,17 @@
             return false;
         }
 
-        if (!modelName || !modelName.value.trim()) {
+        if (!modelSelect || !modelSelect.value) {
             if (errorEl) {
-                errorEl.textContent = 'Please enter a model name.';
+                errorEl.textContent = 'Please select a model.';
+                errorEl.style.display = 'block';
+            }
+            return false;
+        }
+
+        if (!taskName || !taskName.value.trim()) {
+            if (errorEl) {
+                errorEl.textContent = 'Please enter a task name.';
                 errorEl.style.display = 'block';
             }
             return false;
@@ -88,8 +146,8 @@
      * @param {boolean} isSuccess - Whether this is a success message
      */
     function showStatus(message, isSuccess) {
-        const statusEl = document.getElementById('create-model-status');
-        const statusText = document.getElementById('create-model-status-text');
+        const statusEl = document.getElementById('create-prediction-status');
+        const statusText = document.getElementById('create-prediction-status-text');
         const spinner = document.getElementById('status-spinner');
 
         if (!statusEl || !statusText) return;
@@ -111,11 +169,11 @@
     }
 
     /**
-     * Disable/enable the create model button
+     * Disable/enable the create prediction button
      * @param {boolean} disabled - Whether to disable the button
      */
     function setButtonState(disabled) {
-        const btn = document.getElementById('create-model-btn');
+        const btn = document.getElementById('create-prediction-btn');
         if (btn) {
             btn.disabled = disabled;
         }
@@ -136,7 +194,7 @@
                 );
 
                 if (!response.ok) {
-                    console.error('[CREATE_MODEL] Status poll failed:', response.status);
+                    console.error('[CREATE_PREDICTION] Status poll failed:', response.status);
                     return 'unknown';
                 }
 
@@ -144,23 +202,23 @@
                 const status = data.data && data.data.status;
 
                 if (status === 'completed') {
-                    showStatus('Model trained successfully!', true);
-                    // Redirect to models page after a brief delay
+                    showStatus('Prediction completed successfully!', true);
+                    // Redirect to predictions page after a brief delay
                     setTimeout(function () {
-                        window.location.href = '/getModels';
+                        window.location.href = '/getPredictions';
                     }, 1500);
                     return 'done';
                 } else if (status === 'failed' || status === 'error') {
-                    showStatus('Model training failed.', false);
+                    showStatus('Prediction failed.', false);
                     setButtonState(false);
                     return 'done';
                 }
 
                 // Still running - update status and continue polling
-                showStatus('Training in progress... (' + status + ')', null);
+                showStatus('Prediction in progress... (' + status + ')', null);
                 setTimeout(checkStatus, POLL_INTERVAL);
             } catch (error) {
-                console.error('[CREATE_MODEL] Error polling status:', error);
+                console.error('[CREATE_PREDICTION] Error polling status:', error);
                 setTimeout(checkStatus, POLL_INTERVAL);
             }
         };
@@ -170,17 +228,17 @@
     }
 
     /**
-     * Handle create model button click
+     * Handle create prediction button click
      */
-    async function handleCreateModel() {
+    async function handleCreatePrediction() {
         if (!validateForm()) return;
 
         const binaryId = parseInt(document.getElementById('binary-select').value, 10);
-        const modelName = document.getElementById('model-name').value.trim();
-        const mlClassType = document.getElementById('ml-class-type').value;
+        const modelName = document.getElementById('model-select').value.trim();
+        const taskName = document.getElementById('task-name').value.trim();
 
         setButtonState(true);
-        showStatus('Submitting training task...', null);
+        showStatus('Submitting prediction task...', null);
 
         try {
             const response = await authenticatedFetch('/api/v1/tasks/execute', {
@@ -191,10 +249,9 @@
                 },
                 body: JSON.stringify({
                     binary_id: binaryId,
-                    task_type: 'ml_training',
-                    task_name: modelName,
-                    model_name: modelName,
-                    ml_class_type: mlClassType
+                    task_type: 'ml_prediction',
+                    task_name: taskName,
+                    model_name: modelName
                 })
             });
 
@@ -202,7 +259,7 @@
                 const errorData = await response.json().catch(function () { return null; });
                 const errorMsg = errorData && errorData.detail
                     ? errorData.detail
-                    : 'Failed to create training task (HTTP ' + response.status + ')';
+                    : 'Failed to create prediction task (HTTP ' + response.status + ')';
                 showStatus(errorMsg, false);
                 setButtonState(false);
                 return;
@@ -212,14 +269,14 @@
             const taskUuid = data.data && data.data.task_uuid;
 
             if (taskUuid) {
-                showStatus('Training task submitted. Processing...', null);
+                showStatus('Prediction task submitted. Processing...', null);
                 pollTaskStatus(taskUuid);
             } else {
                 showStatus('Task submitted but no UUID received.', false);
                 setButtonState(false);
             }
         } catch (error) {
-            console.error('[CREATE_MODEL] Error submitting task:', error);
+            console.error('[CREATE_PREDICTION] Error submitting task:', error);
             showStatus('Network error. Please try again.', false);
             setButtonState(false);
         }
@@ -230,10 +287,12 @@
      */
     function init() {
         loadBinaries();
+        loadModels();
+        autoFillTaskName();
 
-        const btn = document.getElementById('create-model-btn');
+        const btn = document.getElementById('create-prediction-btn');
         if (btn) {
-            btn.addEventListener('click', handleCreateModel);
+            btn.addEventListener('click', handleCreatePrediction);
         }
     }
 

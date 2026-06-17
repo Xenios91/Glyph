@@ -302,7 +302,7 @@ class FunctionPersistanceUtil:
         if functions and len(functions) == len(predictions):
             for ctr, function in enumerate(functions):
                 updated_function = function.copy()
-                updated_function["functionName"] = predictions[ctr]
+                updated_function["prediction"] = predictions[ctr]
                 functions[ctr] = updated_function
             await SQLUtil.save_predictions(
                 task_name, prediction_request.model_name, functions

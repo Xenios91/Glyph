@@ -431,6 +431,67 @@ async def _run_ml_task(
                 "ML pipeline failed: {}", result.error
             )
         else:
+            # Persist results to the database
+            filtered_functions = result.get("filtered_functions")
+            if task_type == TaskType.ML_TRAINING:
+                if filtered_functions:
+                    from app.services.request_handler import TrainingRequest
+                    from app.utils.persistence_util import FunctionPersistanceUtil
+
+                    training_data = {
+                        "binaryName": f"binary_{binary_id}",
+                        "functionsMap": {
+                            "functions": filtered_functions,
+                            "erroredFunctions": result.get("errored_functions", []),
+                        },
+                    }
+                    try:
+                        training_request = TrainingRequest(
+                            req_uuid=task_uuid,
+                            model_name=model_name,
+                            data=training_data,
+                        )
+                        await FunctionPersistanceUtil.add_model_functions(training_request)
+                        logger.info(
+                            "Functions saved for model '{}' ({} functions)",
+                            model_name,
+                            len(filtered_functions),
+                        )
+                    except Exception:
+                        logger.exception("Failed to save functions for model '{}'", model_name)
+                        raise
+            elif task_type == TaskType.ML_PREDICTION:
+                predictions = result.get("predictions")
+                if predictions and filtered_functions:
+                    from app.services.request_handler import PredictionRequest
+                    from app.utils.persistence_util import FunctionPersistanceUtil
+
+                    prediction_data = {
+                        "binaryName": f"binary_{binary_id}",
+                        "taskName": task_name,
+                        "functionsMap": {
+                            "functions": filtered_functions,
+                            "erroredFunctions": result.get("errored_functions", []),
+                        },
+                    }
+                    try:
+                        prediction_request = PredictionRequest(
+                            req_uuid=task_uuid,
+                            model_name=model_name,
+                            data=prediction_data,
+                        )
+                        await FunctionPersistanceUtil.add_prediction_functions(
+                            prediction_request, predictions
+                        )
+                        logger.info(
+                            "Predictions saved for task '{}' ({} predictions)",
+                            task_name,
+                            len(predictions),
+                        )
+                    except Exception:
+                        logger.exception("Failed to save predictions for task '{}'", task_name)
+                        raise
+
             TaskManager.set_status(task_uuid, "completed")
             logger.info("ML {} pipeline completed for binary {}", task_type.value, binary_id)
 

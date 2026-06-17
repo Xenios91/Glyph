@@ -185,12 +185,6 @@ async def get_prediction_details(
             task_name, model_name, function_name
         )
 
-        if model_info is None:
-            raise HTTPException(
-                status_code=404,
-                detail=create_error_response(
-                    error_code="FUNCTION_NOT_FOUND",
-                    error_message="Function not found in model").model_dump())
         if not prediction_data:
             raise HTTPException(
                 status_code=404,
@@ -198,9 +192,16 @@ async def get_prediction_details(
                     error_code="PREDICTION_NOT_FOUND",
                     error_message="Prediction not found").model_dump())
 
-        model_tokens = format_code(model_info.tokens)
+        # Model function lookup is optional - the binary may not have been used
+        # during model training, so the function may not exist in the functions DB.
+        if model_info is not None:
+            model_tokens = format_code(model_info.tokens)
+        else:
+            model_tokens = "Model function not found (binary was not used during training)"
         prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
+    except HTTPException:
+        raise
     except (TypeError, IndexError, KeyError):
         logger.exception("Failed to retrieve prediction details")
         raise HTTPException(

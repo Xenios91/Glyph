@@ -100,8 +100,12 @@
             // Dangerous functions navigates to the dedicated scanner page
             if (taskType === 'dangerous_functions') {
                 link.href = '/getDangerousFunctions?binary_id=' + binaryId;
-            } else {
-                link.href = '/run-task?binary_id=' + binaryId + '&binary_name=' + encodeURIComponent(binaryName) + '&task_type=' + taskType;
+            } else if (taskType === 'ml_training') {
+                // ML Training navigates to the create model page with binary pre-selected
+                link.href = '/create-model?binary_id=' + binaryId;
+            } else if (taskType === 'ml_prediction') {
+                // ML Prediction navigates to the create prediction page with binary pre-selected
+                link.href = '/create-prediction?binary_id=' + binaryId;
             }
         });
 

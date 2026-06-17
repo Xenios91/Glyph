@@ -41,28 +41,11 @@
             <label for="task-type">Task Type</label>
             <div class="cyber-select">
                 <select id="task-type" name="task_type" aria-required="true" onchange="handleTaskTypeChange()">
-                    <option value="code_reuse">Code Reuse Detection</option>
                     <option value="dangerous_functions">Dangerous Functions Scan</option>
                     <option value="ml_training">ML Training</option>
-                    <option value="ml_prediction">ML Prediction</option>
                 </select>
             </div>
             <span class="field-hint">Select the type of analysis to perform</span>
-        </div>
-
-        <!-- Code Reuse Options -->
-        <div id="code-reuse-options" class="task-options">
-            <div class="cyber-container with-title">
-                <p class="title">// CODE REUSE OPTIONS</p>
-                <p class="option-description">
-                    Compare the source binary against all other binaries in the library to detect reused code patterns.
-                </p>
-                <div class="cyber-field">
-                    <label for="similarity-threshold">Similarity Threshold</label>
-                    <input type="number" id="similarity-threshold" class="cyber-input" value="0.7" min="0" max="1" step="0.05">
-                    <span class="field-hint">Minimum similarity score to report a match (0.0 - 1.0)</span>
-                </div>
-            </div>
         </div>
 
         <!-- Dangerous Functions Options -->
@@ -91,35 +74,6 @@
                     <label for="ml-class-type">Classification Type</label>
                     <div class="cyber-select">
                         <select id="ml-class-type" name="ml_class_type">
-                            <option value="1">Multi Class</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ML Prediction Options -->
-        <div id="ml-prediction-options" class="task-options" style="display: none;">
-            <div class="cyber-container with-title">
-                <p class="title">// ML PREDICTION OPTIONS</p>
-                <p class="option-description">
-                    Run predictions using an existing ML model on the functions from this binary.
-                </p>
-                <div class="cyber-field">
-                    <label for="prediction-model">Model</label>
-                    <div class="cyber-select">
-                        <select id="prediction-model" name="prediction_model">
-                            <option value="" disabled selected>Select a model...</option>
-                            {% for model in models %}
-                            <option value="{{ model }}">{{ model }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                <div class="cyber-field">
-                    <label for="ml-class-type-pred">Classification Type</label>
-                    <div class="cyber-select">
-                        <select id="ml-class-type-pred" name="ml_class_type">
                             <option value="1">Multi Class</option>
                         </select>
                     </div>

@@ -170,32 +170,6 @@ class TestAuthenticatedNavigation:
         logout_link = page.locator('a[role="menuitem"][aria-label="Logout"]')
         expect(logout_link).to_be_visible()
 
-    def test_navigation_to_upload_via_dropdown(self, page: Any, server: Any) -> None:
-        """Test navigating to upload page via the ANALYSIS dropdown."""
-        register_and_login(page)
-
-        # Use JS to force open both ANALYSIS dropdown and CODE REUSE sub-menu
-        page.evaluate("""
-          const analysisMenu = document.getElementById('analysis-menu');
-          const analysisToggle = analysisMenu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
-          if (analysisMenu && analysisToggle) {
-            analysisMenu.classList.add('is-open');
-            analysisToggle.setAttribute('aria-expanded', 'true');
-          }
-          const codeReuseMenu = document.getElementById('code-reuse-menu');
-          const codeReuseToggle = codeReuseMenu?.closest('.nav-dropdown-sub')?.querySelector('.nav-dropdown-sub-toggle');
-          if (codeReuseMenu && codeReuseToggle) {
-            codeReuseMenu.classList.add('is-open');
-            codeReuseToggle.setAttribute('aria-expanded', 'true');
-          }
-        """)
-        page.wait_for_selector("#code-reuse-menu.is-open", state="visible", timeout=5000)
-        upload_link = page.locator('a[role="menuitem"][aria-label="Upload Binary"]')
-        upload_link.click()
-        page.wait_for_url(f"{BASE_URL}/uploadBinary")
-
-        expect(page).to_have_title("Glyph - Upload Binary")
-
     def test_navigation_to_models_via_dropdown(self, page: Any, server: Any) -> None:
         """Test navigating to models page via the ANALYSIS dropdown."""
         register_and_login(page)

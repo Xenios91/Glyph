@@ -88,28 +88,6 @@ async def error_page(request: Request, type: str | None = None) -> HTMLResponse:
     )
 
 
-@router.get("/uploadBinary", response_model=None)
-async def get_upload_binary(
-    request: Request,
-    current_user: Annotated[User, Depends(get_current_active_user)]
-) -> Union[JSONResponse, HTMLResponse]:
-    """
-    Handles GET request to load the upload webpage
-    """
-    accept = request.headers.get("Accept", "")
-    if ACCEPT_TYPE not in accept:
-        return JSONResponse(
-            content={"error": "API calls can only be POST"}, status_code=200
-        )
-
-    models: list[str] = await MLPersistanceUtil.get_models_list()
-    allow_prediction = len(models) > 0
-    return templates.TemplateResponse(
-        request,
-        "upload.html",
-        {"title": "Glyph - Upload Binary", "allow_prediction": allow_prediction, "models": models, "user": current_user})
-
-
 @router.get("/getModels", response_model=None)
 async def get_list_models(
     request: Request,
@@ -489,15 +467,34 @@ async def run_task_page(
 @router.get("/create-model")
 async def create_model_page(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_active_user)]
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    binary_id: int | None = Query(None),
 ) -> HTMLResponse:
     """
     Loads the create model page for training ML models from uploaded binaries.
+    Optionally pre-selects a binary via the binary_id query parameter.
     """
     return templates.TemplateResponse(
         request,
         "create_model.html",
-        {"title": "Glyph - Create Model", "user": current_user},
+        {"title": "Glyph - Create Model", "binary_id": binary_id, "user": current_user},
+    )
+
+
+@router.get("/create-prediction")
+async def create_prediction_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    binary_id: int | None = Query(None),
+) -> HTMLResponse:
+    """
+    Loads the create prediction page for running ML predictions on uploaded binaries.
+    Optionally pre-selects a binary via the binary_id query parameter.
+    """
+    return templates.TemplateResponse(
+        request,
+        "create_prediction.html",
+        {"title": "Glyph - Create Prediction", "binary_id": binary_id, "user": current_user},
     )
 
 
