@@ -137,6 +137,98 @@ class Function(Base):
     )
 
 
+class Binary(Base):
+    """Model representing an uploaded binary in the database.
+
+    Stores metadata about the binary file and links to its raw
+    decompiled functions via BinaryFunction.
+
+    Attributes:
+        id: Primary key (auto-increment integer)
+        name: Human-readable name given by the user at upload time
+        file_path: Path to the binary file on disk
+        file_size: Size in bytes
+        mime_type: Detected MIME type of the binary
+        uploaded_by: Foreign key to User.id
+        created_at: Timestamp when the binary was uploaded
+        modified_at: Timestamp when the binary was last modified
+    """
+
+    __tablename__ = "binaries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    uploaded_by: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
+
+    functions: Mapped[list["BinaryFunction"]] = relationship(
+        back_populates="binary",
+        cascade="save-update, merge, delete, delete-orphan",
+    )
+
+
+class BinaryFunction(Base):
+    """Model representing a raw decompiled function from a binary.
+
+    Stores the unmodified C code output from Ghidra. No tokenization,
+    filtering, or normalization is applied at storage time — those
+    transformations happen only in memory when a task is executed.
+
+    Attributes:
+        id: Primary key (auto-increment integer)
+        binary_id: Foreign key to Binary.id
+        function_name: Name of the function (e.g., "FUN_00401000")
+        entrypoint: Memory address/entry point of the function
+        raw_code: Raw decompiled C code as text
+        created_at: Timestamp when the function was extracted
+        modified_at: Timestamp when the function was last modified
+    """
+
+    __tablename__ = "binary_functions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    binary_id: Mapped[int] = mapped_column(
+        ForeignKey("binaries.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    function_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    entrypoint: Mapped[str] = mapped_column(String(16), nullable=False)
+    raw_code: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
+
+    binary: Mapped["Binary"] = relationship(back_populates="functions")
+
+    __table_args__ = (
+        UniqueConstraint("binary_id", "function_name", name="uq_binary_functions_binary_name"),
+    )
+
+
 class User(Base):
     """Model representing a user in the database.
     

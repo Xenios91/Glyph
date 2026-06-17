@@ -246,32 +246,6 @@ class TestAuthenticatedPageAccess:
         expect(page.locator("#glyph-title")).to_be_visible()
         expect(page.locator("#glyph-title")).to_have_text("GLYPH")
 
-    def test_upload_page_after_login(self, page: Any, server: Any) -> None:
-        """Test upload page loads correctly after login."""
-        username = generate_unique_username()
-        email = f"{username}@test.com"
-
-        # Register and login
-        page.goto(f"{BASE_URL}/register")
-        wait_for_register_form(page)
-        page.locator("#username").fill(username)
-        page.locator("#email").fill(email)
-        page.locator("#password").fill("SecurePass123!")
-        page.locator("#confirm_password").fill("SecurePass123!")
-        page.locator("#register-submit-btn").click()
-        page.wait_for_url(f"{BASE_URL}/login")
-
-        wait_for_login_form(page)
-        page.locator("#username").fill(username)
-        page.locator("#password").fill("SecurePass123!")
-        page.locator("#login-submit-btn").click()
-        page.wait_for_url(f"{BASE_URL}/")
-
-        # Navigate to upload page
-        page.goto(f"{BASE_URL}/uploadBinary")
-        expect(page).to_have_title("Glyph - Upload Binary")
-        expect(page.locator("#upload-box")).to_be_visible()
-
     def test_profile_page_after_login(self, page: Any, server: Any) -> None:
         """Test profile page loads correctly after login."""
         username = generate_unique_username()

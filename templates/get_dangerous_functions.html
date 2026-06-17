@@ -1,0 +1,156 @@
+{% extends "layout.html" %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/dangerous_functions_style.css') }}">
+{% endblock head %}
+{% block content %}
+<div class="content blue-bg">
+    <div class="center-contents">
+        <h2>Dangerous Function Scanner</h2>
+        <p class="scanner-description">
+            Scan analyzed binaries for insecure functions that may lead to vulnerabilities.
+            Select a model, prediction task, or binary from the library to begin scanning.
+        </p>
+    </div>
+
+    <!-- Scanner Controls -->
+    <div class="scanner-controls">
+        <div class="control-group">
+            <label for="scan-target-type" class="control-label">Target Type</label>
+            <select id="scan-target-type" class="cyber-select" aria-label="Select target type">
+                <option value="model">Model (Training Data)</option>
+                <option value="prediction">Prediction Task</option>
+                <option value="binary">Binary (Library)</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label for="scan-target-select" class="control-label">Target</label>
+            <select id="scan-target-select" class="cyber-select" aria-label="Select target to scan" disabled>
+                <option value="">Loading...</option>
+            </select>
+        </div>
+        <div class="control-group button-group">
+            <button type="button" id="scan-btn" class="cyber-btn is-primary" disabled aria-label="Start scan">
+                <span class="btn-text">Scan</span>
+                <span class="btn-loading" style="display: none;">Scanning...</span>
+            </button>
+            <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
+        </div>
+    </div>
+
+    <!-- Results Summary (hidden until scan completes) -->
+    <div id="scan-summary" class="scan-summary" style="display: none;">
+        <div class="summary-header">
+            <h3>Scan Results</h3>
+            <span id="scan-target-name" class="target-name"></span>
+        </div>
+        <div class="severity-cards">
+            <div class="severity-card is-critical">
+                <span class="severity-count" id="critical-count">0</span>
+                <span class="severity-label">Critical</span>
+            </div>
+            <div class="severity-card is-high">
+                <span class="severity-count" id="high-count">0</span>
+                <span class="severity-label">High</span>
+            </div>
+            <div class="severity-card is-medium">
+                <span class="severity-count" id="medium-count">0</span>
+                <span class="severity-label">Medium</span>
+            </div>
+            <div class="severity-card is-low">
+                <span class="severity-count" id="low-count">0</span>
+                <span class="severity-label">Low</span>
+            </div>
+            <div class="severity-card is-total">
+                <span class="severity-count" id="total-count">0</span>
+                <span class="severity-label">Total Found</span>
+            </div>
+        </div>
+        <div class="scan-stats">
+            <span>Functions scanned: <strong id="total-scanned">0</strong></span>
+        </div>
+    </div>
+
+    <!-- Results Table (hidden until scan completes) -->
+    <div id="scan-results-container" class="table-wrapper" style="display: none;">
+        <div class="cyber-table-responsive">
+            <table class="cyber-table is-bordered is-centered scan-results-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Dangerous Function</th>
+                        <th scope="col">Containing Function</th>
+                        <th scope="col">Severity</th>
+                    </tr>
+                </thead>
+                <tbody id="scan-results-body">
+                    <!-- Results populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- No Results Message (hidden by default) -->
+    <div id="no-results-message" class="empty-state" style="display: none;">
+        <div class="empty-state-icon">&#10004;</div>
+        <h3>No Dangerous Functions Found</h3>
+        <p class="empty-state-description">
+            The scanned binary does not contain any known dangerous functions.
+        </p>
+    </div>
+
+    <!-- Error Message (hidden by default) -->
+    <div id="scan-error" class="scan-error" style="display: none;">
+        <span id="scan-error-message"></span>
+    </div>
+</div>
+
+<!-- Finding Details Modal -->
+<div id="context-modal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="context-modal-title">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="context-modal-title">Finding Details</h3>
+            <button type="button" class="modal-close" id="modal-close-btn" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Metadata Summary Bar -->
+            <div class="finding-summary">
+                <div class="summary-item">
+                    <span class="summary-label">Dangerous Function</span>
+                    <span class="summary-value" id="modal-function-name"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Containing</span>
+                    <span class="summary-value" id="modal-containing-function"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Severity</span>
+                    <span class="summary-value" id="modal-severity"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">CWE</span>
+                    <span class="summary-value" id="modal-cwe"></span>
+                </div>
+            </div>
+            <div class="finding-description">
+                <p><strong>Description:</strong> <span id="modal-description"></span></p>
+                <p><strong>Safe Alternative:</strong> <span id="modal-safe-alternative"></span></p>
+            </div>
+            <!-- Code Sections -->
+            <div class="code-sections">
+                <div class="context-code">
+                    <h4>Usage Context</h4>
+                    <pre id="modal-usage-context"><code></code></pre>
+                </div>
+                <div class="context-code" id="containing-code-section" style="display: none;">
+                    <h4>Containing Function Code</h4>
+                    <pre id="modal-containing-code"><code></code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/dangerous_functions.js') }}" defer></script>
+{% endblock scripts %}

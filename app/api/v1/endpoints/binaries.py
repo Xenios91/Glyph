@@ -50,42 +50,15 @@ class BinaryUploadForm(BaseModel):
     """Form schema for binary upload requests.
 
     Attributes:
-        training_data: Whether the binary is for training ("true" or "false").
-        model_name: Name of the ML model to associate with this binary.
-        ml_class_type: Machine learning classification type.
-        name: Human-readable name for this binary analysis task.
+        name: Human-readable name for the binary.
     """
 
-    training_data: str = Field(default="false")
-    model_name: str = Field(..., min_length=1)
-    ml_class_type: str = Field(..., min_length=1)
-    name: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1, max_length=256)
 
-    @field_validator("training_data", mode="before")
+    @field_validator("name", mode="before")
     @classmethod
-    def validate_training_data(cls, v: str | None) -> str:
-        """Normalize training_data to 'true' or 'false'.
-
-        Args:
-            v: Raw form value.
-
-        Returns:
-            Normalized boolean string.
-
-        Raises:
-            ValueError: If value is not 'true' or 'false'.
-        """
-        if v is None:
-            return "false"
-        v_lower = v.lower().strip()
-        if v_lower not in ("true", "false"):
-            raise ValueError("training_data must be 'true' or 'false'")
-        return v_lower
-
-    @field_validator("model_name", "ml_class_type", "name", mode="before")
-    @classmethod
-    def strip_strings(cls, v: str | None) -> str:
-        """Strip whitespace from string fields.
+    def strip_name(cls, v: str | None) -> str:
+        """Strip whitespace from the name field.
 
         Args:
             v: Raw form value.
@@ -97,7 +70,7 @@ class BinaryUploadForm(BaseModel):
             ValueError: If value is empty.
         """
         if v is None:
-            raise ValueError("Field cannot be empty")
+            raise ValueError("name is required")
         return v.strip()
 
 
@@ -105,10 +78,42 @@ class BinaryUploadResponse(BaseModel):
     """Response schema for binary upload.
 
     Attributes:
-        uuid: Unique identifier for the submitted analysis task.
+        binary_id: Database id of the uploaded binary.
+        uuid: Unique identifier for the decompilation task.
     """
 
+    binary_id: int = Field(...)
     uuid: str = Field(...)
+
+
+class BinaryListItem(BaseModel):
+    """Single binary entry for listing endpoints."""
+
+    id: int
+    name: str
+    file_size: int
+    mime_type: str
+    function_count: int
+    created_at: str
+
+
+class BinaryListResponse(BaseModel):
+    """Response schema for binary listing."""
+
+    binaries: list[BinaryListItem]
+
+
+class BinaryDetailResponse(BaseModel):
+    """Response schema for binary detail."""
+
+    id: int
+    name: str
+    file_size: int
+    mime_type: str
+    uploaded_by: int
+    created_at: str
+    modified_at: str
+    function_count: int
 
 
 router = APIRouter()
@@ -170,6 +175,77 @@ def sanitize_filename(filename: str) -> str:
     return Path(filename).name
 
 
+async def _run_upload_pipeline(
+    binary_id: int,
+    file_path: str,
+    task_uuid: str,
+    captured_ctx: CapturedContext | None = None,
+) -> None:
+    """Execute the upload pipeline: decompile + save raw functions.
+
+    Runs Ghidra decompilation and saves raw function output to the
+    BinaryFunction table. No ML processing is performed.
+
+    Args:
+        binary_id: Database id of the uploaded binary.
+        file_path: Path to the binary file on disk.
+        task_uuid: Task UUID for progress tracking.
+        captured_ctx: Captured request context for logging propagation.
+    """
+    from app.processing.steps import ValidationStep, DecompileStep, SaveRawFunctionsStep
+    from app.processing.pipeline import ProcessingPipeline, PipelineContext
+
+    try:
+        if captured_ctx is not None:
+            restore_request_context(captured_ctx, override_task_id=task_uuid)
+
+        TaskManager.set_status(task_uuid, "processing")
+
+        context = PipelineContext(
+            uuid=task_uuid,
+            binary_path=file_path,
+            pipeline_type="binary_upload",
+            metadata={"binary_id": binary_id},
+        )
+        context.set("binary_id", binary_id)
+
+        pipeline = ProcessingPipeline(
+            "Binary Upload Pipeline",
+            [
+                ValidationStep(),
+                DecompileStep(),
+                SaveRawFunctionsStep(),
+            ],
+        )
+        result = await pipeline.execute(context)
+
+        if result.error:
+            TaskManager.set_status(task_uuid, "error")
+            logger.opt(exception=result.exc_info).error(
+                "Upload pipeline failed: {}", result.error
+            )
+        else:
+            functions_saved = result.get("functions_saved", 0)
+            logger.info(
+                "Upload pipeline completed: {} raw functions saved for binary {}",
+                functions_saved,
+                binary_id,
+            )
+            TaskManager.set_status(task_uuid, "completed")
+
+    except Exception:
+        TaskManager.set_status(task_uuid, "error")
+        logger.exception("Upload pipeline task failed")
+        raise
+    finally:
+        import asyncio
+
+        asyncio.get_event_loop().call_later(
+            10, lambda: TaskManager.remove_task(task_uuid)
+        )
+        clear_request_context()
+
+
 async def _run_pipeline_analysis(
     ghidra_request: GhidraRequest,
     file_path: str,
@@ -177,9 +253,9 @@ async def _run_pipeline_analysis(
 ) -> None:
     """Execute the full analysis pipeline for a binary file.
 
-    Runs Ghidra decompilation, tokenization, filtering, and optionally
-    training or prediction depending on the request type. Results are
-    persisted to the database.
+    Legacy handler kept for backward compatibility with existing
+    training / prediction workflows that still pass full GhidraRequest
+    objects.
 
     Args:
         ghidra_request: The Ghidra analysis request containing metadata.
@@ -197,7 +273,8 @@ async def _run_pipeline_analysis(
         if result.error:
             TaskManager.set_status(task_uuid, "error")
             logger.opt(exception=result.exc_info).error(
-                "Pipeline execution failed: {}", result.error)
+                "Pipeline execution failed: {}", result.error
+            )
         else:
             logger.info("Pipeline execution completed")
 
@@ -216,9 +293,12 @@ async def _run_pipeline_analysis(
                     training_request = TrainingRequest(
                         req_uuid=task_uuid,
                         model_name=ghidra_request.model_name,
-                        data=training_data)
+                        data=training_data,
+                    )
                     await FunctionPersistanceUtil.add_model_functions(training_request)
-                    logger.debug("Functions saved for model {}", ghidra_request.model_name)
+                    logger.debug(
+                        "Functions saved for model {}", ghidra_request.model_name
+                    )
             else:
                 predictions = result.get("predictions")
                 filtered_functions = result.get("filtered_functions")
@@ -226,7 +306,8 @@ async def _run_pipeline_analysis(
                     "Prediction results: {} predictions, {} functions, task '{}'",
                     len(predictions) if predictions else 0,
                     len(filtered_functions) if filtered_functions else 0,
-                    ghidra_request.name)
+                    ghidra_request.name,
+                )
                 if predictions and filtered_functions:
                     from app.services.request_handler import PredictionRequest
 
@@ -242,11 +323,14 @@ async def _run_pipeline_analysis(
                         prediction_request = PredictionRequest(
                             req_uuid=task_uuid,
                             model_name=ghidra_request.model_name,
-                            data=prediction_data)
+                            data=prediction_data,
+                        )
                         await FunctionPersistanceUtil.add_prediction_functions(
                             prediction_request, predictions
                         )
-                        logger.debug("Predictions saved for task {}", ghidra_request.name)
+                        logger.debug(
+                            "Predictions saved for task {}", ghidra_request.name
+                        )
                     except Exception:
                         logger.exception("Failed to create PredictionRequest")
                         raise
@@ -259,7 +343,10 @@ async def _run_pipeline_analysis(
         raise
     finally:
         import asyncio
-        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
+
+        asyncio.get_event_loop().call_later(
+            10, lambda: TaskManager.remove_task(task_uuid)
+        )
         clear_request_context()
 
 
@@ -269,16 +356,23 @@ async def post_upload_binary(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     binary_file: UploadFile = File(...),
-    training_data: str = Form("false"),
-    model_name: str = Form(...),
-    ml_class_type: str = Form(...),
-    name: str = Form(...)
+    name: str = Form(...),
 ) -> Union[SuccessResponse[BinaryUploadResponse], HTMLResponse]:
-    form_data = BinaryUploadForm(
-        training_data=training_data,
-        model_name=model_name,
-        ml_class_type=ml_class_type,
-        name=name)
+    """Upload a binary and store raw decompiled functions.
+
+    The binary file is saved to disk, metadata is stored in the
+    binaries database, and a background task runs Ghidra decompilation
+    followed by saving raw functions. No ML processing occurs at upload
+    time.
+
+    Args:
+        binary_file: The binary file to upload.
+        name: Human-readable name for the binary.
+
+    Returns:
+        Binary id and task UUID for progress tracking.
+    """
+    form_data = BinaryUploadForm(name=name)
 
     accept = request.headers.get("Accept", "")
 
@@ -287,7 +381,9 @@ async def post_upload_binary(
             status_code=400,
             detail=create_error_response(
                 error_code="NO_FILE_FOUND",
-                error_message="no file found").model_dump())
+                error_message="no file found",
+            ).model_dump(),
+        )
 
     settings = get_settings()
     max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
@@ -296,7 +392,8 @@ async def post_upload_binary(
     logger.info(
         "Binary upload started: {} ({} bytes)",
         binary_file.filename,
-        len(file_content))
+        len(file_content),
+    )
 
     if len(file_content) > max_file_size_bytes:
         actual_size_mb = len(file_content) / (1024 * 1024)
@@ -304,9 +401,17 @@ async def post_upload_binary(
             status_code=413,
             detail=create_error_response(
                 error_code="FILE_TOO_LARGE",
-                error_message=f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)").model_dump())
+                error_message=f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)",
+            ).model_dump(),
+        )
 
-    validate_binary_mime_type(file_content)
+    mime_type = magic.from_buffer(file_content[:1024], mime=True)
+    if mime_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type '{mime_type}' not allowed. Expected binary/ELF format",
+        )
+
     sanitize_filename(binary_file.filename)
     unique_filename = f"{uuid.uuid4()}"
     upload_folder = settings.upload_folder
@@ -320,43 +425,97 @@ async def post_upload_binary(
             status_code=507,
             detail=create_error_response(
                 error_code="INSUFFICIENT_STORAGE",
-                error_message="Insufficient disk space to complete upload").model_dump())
+                error_message="Insufficient disk space to complete upload",
+            ).model_dump(),
+        )
 
     file_path = os.path.join(upload_folder, unique_filename)
 
     with open(file_path, "wb") as f:
         f.write(file_content)
     os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
-    is_training_data = form_data.training_data == "true"
 
-    ghidra_task = GhidraRequest(
-        unique_filename,
-        is_training_data,
-        form_data.model_name,
-        form_data.name,
-        form_data.ml_class_type)
+    # Save binary metadata to database
+    from app.database.sql_service import SQLUtil
 
-    TaskManager.register_task(ghidra_task.uuid, "starting", owner_id=current_user.id)
+    binary_id = await SQLUtil.save_binary(
+        name=form_data.name,
+        file_path=file_path,
+        file_size=len(file_content),
+        mime_type=mime_type,
+        uploaded_by=current_user.id,
+    )
+
+    task_uuid = str(uuid.uuid4())
+    TaskManager.register_task(task_uuid, "starting", owner_id=current_user.id)
 
     captured_ctx = capture_request_context()
     background_tasks.add_task(
-        _run_pipeline_analysis, ghidra_task, file_path, captured_ctx)
-    logger.info("Binary uploaded to: {}, background task queued (uuid={}), returning response now", file_path, ghidra_task.uuid)
+        _run_upload_pipeline, binary_id, file_path, task_uuid, captured_ctx
+    )
+    logger.info(
+        "Binary uploaded to: {}, background task queued (uuid={}), returning response now",
+        file_path,
+        task_uuid,
+    )
 
     if "text/html" in accept and "application/json" not in accept:
-        return templates.TemplateResponse(request, "upload.html", {"user": current_user})
+        return templates.TemplateResponse(
+            request,
+            "upload.html",
+            {
+                "user": current_user,
+                "binary_id": binary_id,
+                "task_uuid": task_uuid,
+            },
+        )
 
     result = create_success_response(
-        data=BinaryUploadResponse(uuid=ghidra_task.uuid),
-        message="Binary uploaded successfully")
-    logger.info("Returning success response for upload {}", ghidra_task.uuid)
+        data=BinaryUploadResponse(binary_id=binary_id, uuid=task_uuid),
+        message="Binary uploaded successfully",
+    )
+    logger.info("Returning success response for upload {}", task_uuid)
     return result
+
+
+@router.get("/list", response_model=SuccessResponse[BinaryListResponse])
+async def list_binaries(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[BinaryListResponse]:
+    """List all binaries uploaded by the current user."""
+    from app.database.sql_service import SQLUtil
+
+    binaries = await SQLUtil.get_binaries_by_user(current_user.id)
+
+    items: list[BinaryListItem] = []
+    for b in binaries:
+        # Count functions
+        functions = await SQLUtil.get_binary_functions(b.id)
+        items.append(
+            BinaryListItem(
+                id=b.id,
+                name=b.name,
+                file_size=b.file_size,
+                mime_type=b.mime_type,
+                function_count=len(functions),
+                created_at=b.created_at.isoformat(),
+            )
+        )
+
+    return create_success_response(
+        data=BinaryListResponse(binaries=items),
+        message="Binaries retrieved successfully",
+    )
 
 
 @router.get("/listBins", response_model=SuccessResponse[dict[str, Any]])
 async def list_bins(
-    current_user: Annotated[User, Depends(get_current_active_user)]
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[dict[str, Any]]:
+    """Legacy endpoint — lists uploaded binary files from disk.
+
+    Deprecated: use GET /list for database-backed binary listing.
+    """
     files: list[str] = []
     settings = get_settings()
     directory_path = settings.upload_folder
@@ -365,4 +524,110 @@ async def list_bins(
             files.extend(files_found)
     return create_success_response(
         data={"files": files},
-        message="Binaries retrieved successfully")
+        message="Binaries retrieved successfully",
+    )
+
+
+@router.get("/binaries/{binary_id}", response_model=SuccessResponse[BinaryDetailResponse])
+async def get_binary_detail(
+    binary_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[BinaryDetailResponse]:
+    """Get detailed metadata for a specific binary."""
+    from app.database.sql_service import SQLUtil
+
+    binary = await SQLUtil.get_binary(binary_id)
+    if binary is None:
+        raise HTTPException(status_code=404, detail="Binary not found")
+
+    if binary.uploaded_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    functions = await SQLUtil.get_binary_functions(binary_id)
+
+    detail = BinaryDetailResponse(
+        id=binary.id,
+        name=binary.name,
+        file_size=binary.file_size,
+        mime_type=binary.mime_type,
+        uploaded_by=binary.uploaded_by,
+        created_at=binary.created_at.isoformat(),
+        modified_at=binary.modified_at.isoformat(),
+        function_count=len(functions),
+    )
+
+    return create_success_response(
+        data=detail,
+        message="Binary details retrieved successfully",
+    )
+
+
+class BinaryFunctionItem(BaseModel):
+    """Single function entry for binary function listing."""
+
+    function_name: str
+    entrypoint: str
+    raw_code_lines: int
+
+
+class BinaryFunctionsResponse(BaseModel):
+    """Response schema for binary function listing."""
+
+    functions: list[BinaryFunctionItem]
+
+
+@router.get("/functions/{binary_id}", response_model=SuccessResponse[BinaryFunctionsResponse])
+async def list_binary_functions(
+    binary_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[BinaryFunctionsResponse]:
+    """List all decompiled functions for a specific binary."""
+    from app.database.sql_service import SQLUtil
+
+    binary = await SQLUtil.get_binary(binary_id)
+    if binary is None:
+        raise HTTPException(status_code=404, detail="Binary not found")
+
+    if binary.uploaded_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    functions = await SQLUtil.get_binary_functions(binary_id)
+
+    items: list[BinaryFunctionItem] = []
+    for fn in functions:
+        line_count = fn.raw_code.count('\n') + 1 if fn.raw_code else 0
+        items.append(
+            BinaryFunctionItem(
+                function_name=fn.function_name,
+                entrypoint=fn.entrypoint,
+                raw_code_lines=line_count,
+            )
+        )
+
+    return create_success_response(
+        data=BinaryFunctionsResponse(functions=items),
+        message="Functions retrieved successfully",
+    )
+
+
+@router.delete("/binaries/{binary_id}", response_model=SuccessResponse[dict[str, str]])
+async def delete_binary(
+    binary_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[dict[str, str]]:
+    """Delete a binary and all its associated functions."""
+    from app.database.sql_service import SQLUtil
+
+    binary = await SQLUtil.get_binary(binary_id)
+    if binary is None:
+        raise HTTPException(status_code=404, detail="Binary not found")
+
+    if binary.uploaded_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    await SQLUtil.delete_binary(binary_id)
+
+    return create_success_response(
+        data={"message": f"Binary '{binary.name}' deleted successfully"},
+        message="Binary deleted successfully",
+    )

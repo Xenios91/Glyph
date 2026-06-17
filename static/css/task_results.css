@@ -1,0 +1,364 @@
+/* =============================================================
+   GLYPH — Task Results Styles
+   ============================================================= */
+
+/* ── Page Header ────────────────────────────────────────────── */
+.page-header {
+    text-align: center;
+    margin: var(--space-xl) var(--space-md);
+}
+
+.page-header .title {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    color: var(--cyan);
+    margin-bottom: var(--space-sm);
+}
+
+.page-header .subtitle {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-dim);
+}
+
+/* ── Summary Container ──────────────────────────────────────── */
+#results-summary {
+    max-width: 800px;
+    margin: var(--space-lg) auto;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-md);
+    margin: var(--space-md) var(--space-lg);
+}
+
+.summary-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--cyan-dim);
+    border-radius: var(--space-xs);
+    padding: var(--space-md);
+    text-align: center;
+}
+
+.summary-card .card-value {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    color: var(--cyan);
+    display: block;
+    margin-bottom: var(--space-xs);
+}
+
+.summary-card .card-label {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+/* ── Comparisons Container ──────────────────────────────────── */
+#comparisons-container {
+    max-width: 900px;
+    margin: var(--space-lg) auto;
+}
+
+.comparison-block {
+    margin: var(--space-md) var(--space-lg);
+    border: 1px solid var(--cyan-dim);
+    border-radius: var(--space-xs);
+    overflow: hidden;
+}
+
+.comparison-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) var(--space-lg);
+    background-color: var(--bg-surface);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.comparison-header:hover {
+    background-color: rgba(125, 216, 216, 0.08);
+}
+
+.comparison-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    color: var(--cyan);
+}
+
+.comparison-score {
+    font-family: var(--font-code);
+    font-size: var(--text-sm);
+    padding: 2px var(--space-sm);
+    border-radius: 4px;
+}
+
+.comparison-score.high {
+    color: var(--green);
+    background-color: rgba(110, 201, 122, 0.1);
+}
+
+.comparison-score.medium {
+    color: var(--yellow);
+    background-color: rgba(212, 200, 122, 0.1);
+}
+
+.comparison-score.low {
+    color: var(--text-muted);
+    background-color: rgba(138, 146, 184, 0.1);
+}
+
+.comparison-body {
+    display: none;
+    padding: var(--space-md) var(--space-lg);
+}
+
+.comparison-body.is-open {
+    display: block;
+}
+
+/* ── Match Table ────────────────────────────────────────────── */
+.match-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+}
+
+.match-table th {
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    color: var(--cyan);
+    text-align: left;
+    padding: var(--space-xs) var(--space-sm);
+    border-bottom: 1px solid var(--cyan-dim);
+}
+
+.match-table td {
+    padding: var(--space-xs) var(--space-sm);
+    border-bottom: 1px solid rgba(125, 216, 216, 0.05);
+    color: var(--text-primary);
+    vertical-align: top;
+}
+
+.match-table tr:hover td {
+    background-color: rgba(125, 216, 216, 0.03);
+}
+
+.function-name {
+    font-family: var(--font-code);
+    font-size: var(--text-xs);
+}
+
+.score-cell {
+    font-family: var(--font-code);
+    font-weight: var(--font-weight-semibold);
+}
+
+.score-cell.high { color: var(--green); }
+.score-cell.medium { color: var(--yellow); }
+.score-cell.low { color: var(--text-muted); }
+
+/* ── Code Preview ───────────────────────────────────────────── */
+.code-preview-btn {
+    font-family: var(--font-display);
+    font-size: 0.6rem;
+    padding: 2px var(--space-xs);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--cyan);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.code-preview-btn:hover {
+    background-color: rgba(125, 216, 216, 0.1);
+}
+
+/* ── Loading / Empty States ─────────────────────────────────── */
+.loading-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-xl);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-dim);
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--cyan-dim);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.empty-state {
+    text-align: center;
+    padding: var(--space-xl);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+/* ── Dangerous Functions Scan Results ───────────────────────── */
+
+/* Severity badges */
+.severity-badge {
+    display: inline-block;
+    font-family: var(--font-code);
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: var(--space-sm);
+    text-transform: uppercase;
+}
+
+.severity-badge.critical {
+    color: var(--red);
+    background-color: rgba(255, 80, 80, 0.15);
+    border: 1px solid rgba(255, 80, 80, 0.3);
+}
+
+.severity-badge.high {
+    color: var(--orange, #ff9800);
+    background-color: rgba(255, 152, 0, 0.15);
+    border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.severity-badge.medium {
+    color: var(--yellow);
+    background-color: rgba(212, 200, 122, 0.15);
+    border: 1px solid rgba(212, 200, 122, 0.3);
+}
+
+.severity-badge.low {
+    color: var(--text-muted);
+    background-color: rgba(138, 146, 184, 0.15);
+    border: 1px solid rgba(138, 146, 184, 0.3);
+}
+
+/* Summary cards for severity */
+.summary-card.is-critical {
+    border-color: rgba(255, 80, 80, 0.4);
+}
+
+.summary-card.is-critical .card-value {
+    color: var(--red);
+}
+
+.summary-card.is-high {
+    border-color: rgba(255, 152, 0, 0.4);
+}
+
+.summary-card.is-high .card-value {
+    color: var(--orange, #ff9800);
+}
+
+.summary-card.is-medium {
+    border-color: rgba(212, 200, 122, 0.4);
+}
+
+.summary-card.is-medium .card-value {
+    color: var(--yellow);
+}
+
+.summary-card.is-low {
+    border-color: rgba(138, 146, 184, 0.4);
+}
+
+.summary-card.is-low .card-value {
+    color: var(--text-muted);
+}
+
+/* Scan result details */
+.scan-details {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+}
+
+.detail-row {
+    margin-bottom: var(--space-sm);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid rgba(125, 216, 216, 0.05);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.detail-label {
+    display: block;
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    color: var(--cyan);
+    margin-bottom: 4px;
+}
+
+.safe-alternative {
+    color: var(--green);
+    font-family: var(--font-code);
+    font-size: var(--text-xs);
+}
+
+/* Usage context code lines */
+.usage-context {
+    margin-top: 4px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(125, 216, 216, 0.1);
+    border-radius: 4px;
+    padding: var(--space-sm);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.usage-line {
+    display: block;
+    font-family: var(--font-code);
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+    padding: 2px 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.usage-line:hover {
+    color: var(--text-primary);
+}
+
+/* ── Navigation ─────────────────────────────────────────────── */
+.nav-section {
+    text-align: center;
+    margin: var(--space-xl) var(--space-md);
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .comparison-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-xs);
+    }
+
+    .match-table {
+        font-size: var(--text-xs);
+    }
+}

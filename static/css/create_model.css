@@ -1,0 +1,103 @@
+/**
+ * Create Model page styles
+ * Matches Glyph cyberpunk theme
+ */
+
+/* Page Header */
+.page-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.page-header .title {
+    font-family: var(--font-display, 'Orbitron', monospace);
+    font-size: 2rem;
+    color: var(--cyan, #00f0ff);
+    text-shadow: 0 0 10px var(--cyan, #00f0ff);
+    margin-bottom: 0.5rem;
+}
+
+.page-header .subtitle {
+    font-family: var(--font-body, 'Rajdhani', sans-serif);
+    font-size: 1.1rem;
+    color: var(--text-muted, #8892b0);
+}
+
+/* Form Container */
+#create-model-box {
+    max-width: 600px;
+    margin: 0 auto 2rem;
+}
+
+/* Cyber Field Overrides */
+#create-model-box .cyber-field {
+    margin-bottom: 1.5rem;
+}
+
+/* Submit Section */
+.submit-section {
+    text-align: center;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color, rgba(0, 240, 255, 0.1));
+}
+
+.submit-section .cyber-btn {
+    min-width: 200px;
+}
+
+.submit-section .cyber-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Status Section */
+#create-model-status {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+#create-model-status-text {
+    font-family: var(--font-body, 'Rajdhani', sans-serif);
+    font-size: 1.1rem;
+    color: var(--text-primary, #ccd6f6);
+    text-align: center;
+}
+
+/* Status Spinner */
+.status-spinner {
+    width: 40px;
+    height: 40px;
+    margin: 1rem auto;
+    border: 3px solid rgba(0, 240, 255, 0.2);
+    border-top-color: var(--cyan, #00f0ff);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Error State */
+#create-model-status.is-error #create-model-status-text {
+    color: var(--red, #ff0040);
+}
+
+/* Success State */
+#create-model-status.is-success #create-model-status-text {
+    color: var(--green, #00ff88);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .page-header .title {
+        font-size: 1.5rem;
+    }
+
+    #create-model-box {
+        margin: 0 1rem 2rem;
+    }
+}

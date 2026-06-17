@@ -4,28 +4,48 @@
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
-    <div class="cyber-container with-title is-centered white-bg main-card" role="region" aria-labelledby="glyph-title">
-        <div class="hero-section">
-            <h1 class="cyber-title" id="glyph-title">GLYPH</h1>
+    <!-- Hero Title -->
+    <div class="hero-section">
+        <h1 class="cyber-title" id="glyph-title">GLYPH</h1>
+        <p class="hero-subtitle">A binary analysis tool powered by machine learning</p>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-row" role="region" aria-label="Dashboard statistics">
+        <div class="stat-card">
+            <span class="stat-value" id="stat-binaries">-</span>
+            <span class="stat-label">BINARIES</span>
         </div>
-        
-        <div class="description-box">
-            <p class="cyber-text is-primary">
-                A binary analysis tool for <br>
-                <span class="cyber-text is-error">fingerprinting functions</span>
-            </p>
+        <div class="stat-card">
+            <span class="stat-value" id="stat-models">-</span>
+            <span class="stat-label">MODELS</span>
         </div>
-        
-        <div class="action-area">
-            <a href="/uploadBinary" class="cyber-btn is-primary start-btn" role="button" aria-label="Start binary analysis">
-                [ START ]
-            </a>
-            <p class="blink_text mt-2" style="font-size: 1.0rem;">PRESS START TO BEGIN</p>
+        <div class="stat-card">
+            <span class="stat-value" id="stat-predictions">-</span>
+            <span class="stat-label">PREDICTIONS</span>
         </div>
-        
-        <hr class="cyber-hr">
-        
+    </div>
+
+    <!-- Feature Cards -->
+    <div class="feature-cards" role="navigation" aria-label="Quick actions">
+        <a href="/binary-library" class="feature-card" aria-label="Go to Binary Library">
+            <span class="feature-icon" aria-hidden="true">&#x1F4E6;</span>
+            <span class="feature-title">BINARY LIBRARY</span>
+            <span class="feature-desc">Upload and manage binaries</span>
+        </a>
+        <a href="/create-model" class="feature-card" aria-label="Create a new ML model">
+            <span class="feature-icon" aria-hidden="true">&#x1F9E0;</span>
+            <span class="feature-title">CODE REUSE</span>
+            <span class="feature-desc">Train and run ML models</span>
+        </a>
+        <a href="/getDangerousFunctions" class="feature-card" aria-label="Scan for dangerous functions">
+            <span class="feature-icon" aria-hidden="true">&#x26A0;</span>
+            <span class="feature-title">DANGEROUS FUNCTIONS</span>
+            <span class="feature-desc">Scan for risky patterns</span>
+        </a>
     </div>
 </div>
-
 {% endblock content %}
+{% block scripts %}
+<script src="{{ url_for('static', path='js/main.js') }}"></script>
+{% endblock scripts %}

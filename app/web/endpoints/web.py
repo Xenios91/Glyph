@@ -48,6 +48,29 @@ async def home(
     )
 
 
+@router.get("/stats", response_model=None)
+async def home_stats(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> JSONResponse:
+    """
+    Returns homepage statistics for the current user.
+    """
+    from app.database.sql_service import SQLUtil
+
+    binaries = await SQLUtil.get_binaries_by_user(current_user.id)
+    models = await MLPersistanceUtil.get_models_list()
+    predictions = await PredictionPersistanceUtil.get_predictions_list()
+
+    return JSONResponse(
+        content={
+            "binaries": len(binaries),
+            "models": len(models),
+            "predictions": len(predictions) if predictions else 0,
+        }
+    )
+
+
 @router.get("/config")
 async def config(
     request: Request,
@@ -86,28 +109,6 @@ async def error_page(request: Request, type: str | None = None) -> HTMLResponse:
         request,
         "error.html", {"title": "Glyph - Error", "message": message}
     )
-
-
-@router.get("/uploadBinary", response_model=None)
-async def get_upload_binary(
-    request: Request,
-    current_user: Annotated[User, Depends(get_current_active_user)]
-) -> Union[JSONResponse, HTMLResponse]:
-    """
-    Handles GET request to load the upload webpage
-    """
-    accept = request.headers.get("Accept", "")
-    if ACCEPT_TYPE not in accept:
-        return JSONResponse(
-            content={"error": "API calls can only be POST"}, status_code=200
-        )
-
-    models: list[str] = await MLPersistanceUtil.get_models_list()
-    allow_prediction = len(models) > 0
-    return templates.TemplateResponse(
-        request,
-        "upload.html",
-        {"title": "Glyph - Upload Binary", "allow_prediction": allow_prediction, "models": models, "user": current_user})
 
 
 @router.get("/getModels", response_model=None)
@@ -238,6 +239,19 @@ async def get_prediction(
             "prediction": {"predictions": prediction.predictions},
             "user": current_user,
         })
+
+
+@router.get("/getDangerousFunctions", response_model=None)
+async def get_dangerous_functions_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> HTMLResponse:
+    """Loads the dangerous function scanner page."""
+    return templates.TemplateResponse(
+        request,
+        "get_dangerous_functions.html",
+        {"title": "Glyph - Dangerous Function Scanner", "user": current_user},
+    )
 
 
 @router.get("/login", response_model=None)
@@ -412,3 +426,112 @@ async def profile_page(
                 "created_at": current_user.created_at
             }
         })
+
+
+@router.get("/binary-library")
+async def binary_library_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> HTMLResponse:
+    """
+    Loads the binary library page for managing uploaded binaries.
+    """
+    return templates.TemplateResponse(
+        request,
+        "binary_library.html",
+        {"title": "Glyph - Binary Library", "user": current_user},
+    )
+
+
+@router.get("/binary/{binary_id}")
+async def binary_detail_page(
+    request: Request,
+    binary_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> HTMLResponse:
+    """
+    Loads the binary detail page showing functions and metadata for a specific binary.
+    """
+    return templates.TemplateResponse(
+        request,
+        "binary_detail.html",
+        {
+            "title": "Glyph - Binary Details",
+            "binary_id": binary_id,
+            "user": current_user,
+        },
+    )
+
+
+@router.get("/run-task")
+async def run_task_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    binary_id: int = Query(...),
+    binary_name: str = Query(...),
+) -> HTMLResponse:
+    """
+    Loads the task execution page for a given binary.
+    """
+    models: list[str] = await MLPersistanceUtil.get_models_list()
+    return templates.TemplateResponse(
+        request,
+        "run_task.html",
+        {
+            "title": "Glyph - Run Task",
+            "binary_id": binary_id,
+            "binary_name": binary_name,
+            "models": models,
+            "user": current_user,
+        },
+    )
+
+
+@router.get("/create-model")
+async def create_model_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    binary_id: int | None = Query(None),
+) -> HTMLResponse:
+    """
+    Loads the create model page for training ML models from uploaded binaries.
+    Optionally pre-selects a binary via the binary_id query parameter.
+    """
+    return templates.TemplateResponse(
+        request,
+        "create_model.html",
+        {"title": "Glyph - Create Model", "binary_id": binary_id, "user": current_user},
+    )
+
+
+@router.get("/create-prediction")
+async def create_prediction_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    binary_id: int | None = Query(None),
+) -> HTMLResponse:
+    """
+    Loads the create prediction page for running ML predictions on uploaded binaries.
+    Optionally pre-selects a binary via the binary_id query parameter.
+    """
+    return templates.TemplateResponse(
+        request,
+        "create_prediction.html",
+        {"title": "Glyph - Create Prediction", "binary_id": binary_id, "user": current_user},
+    )
+
+
+@router.get("/task-results")
+async def task_results_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    task_uuid: str = Query(...),
+) -> HTMLResponse:
+    """
+    Loads the task results page for a given task UUID.
+    """
+    return templates.TemplateResponse(
+        request,
+        "task_results.html",
+        {"title": "Glyph - Task Results", "task_uuid": task_uuid, "user": current_user},
+    )

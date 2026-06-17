@@ -45,20 +45,31 @@ function getAccessToken() {
  */
 async function authenticatedFetch(url, options = {}) {
     const token = getAccessToken();
-    const headers = { ...options.headers };
-    
-    if (token && !headers['Authorization']) {
-        headers['Authorization'] = 'Bearer ' + token;
+    const fetchOptions = { ...options };
+
+    // When body is FormData, the browser must auto-set Content-Type with the
+    // multipart boundary. Setting an explicit headers object prevents that,
+    // so skip adding Authorization and rely on the cookie instead.
+    const isFormData = options.body instanceof FormData;
+
+    if (!isFormData && token) {
+        let headers = options.headers ? { ...options.headers } : {};
+        if (!headers['Authorization']) {
+            headers['Authorization'] = 'Bearer ' + token;
+        }
+        if (Object.keys(headers).length > 0) {
+            fetchOptions.headers = headers;
+        }
     }
-    
-    const response = await fetch(url, { ...options, headers });
-    
+
+    const response = await fetch(url, fetchOptions);
+
     if (response.status === 401) {
         // Redirect to login, preserving current path
         const redirectUrl = '/login?redirect=' + encodeURIComponent(window.location.pathname);
         window.location.href = redirectUrl;
     }
-    
+
     return response;
 }
 

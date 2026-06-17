@@ -180,6 +180,7 @@ class TaskManager:
     __instance: "TaskManager | None" = None
     _active_tasks: dict[str, str] = {}
     _task_owners: dict[str, int] = {}
+    _task_results: dict[str, Any] = {}
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Initialize the process pool executor for subclasses."""
@@ -366,6 +367,29 @@ class TaskManager:
         return False
 
     @classmethod
+    def set_task_result(cls, job_uuid: str, result: Any) -> None:
+        """Store the result of a completed task.
+
+        Args:
+            job_uuid: The UUID of the job.
+            result: The result payload to associate with the task.
+        """
+        cls._task_results[job_uuid] = result
+        logger.debug("Stored result for task {}", job_uuid)
+
+    @classmethod
+    def get_task_result(cls, job_uuid: str) -> Any | None:
+        """Retrieve the stored result for a task.
+
+        Args:
+            job_uuid: The UUID of the job.
+
+        Returns:
+            The stored result, or None if no result exists.
+        """
+        return cls._task_results.get(job_uuid)
+
+    @classmethod
     def remove_task(cls, job_uuid: str) -> None:
         """Remove a completed or failed task from the active registry.
 
@@ -375,6 +399,7 @@ class TaskManager:
         if job_uuid in cls._active_tasks:
             del cls._active_tasks[job_uuid]
         cls._task_owners.pop(job_uuid, None)
+        cls._task_results.pop(job_uuid, None)
         logger.debug("Removed task {} from active registry", job_uuid)
 
 

@@ -2,7 +2,8 @@
 
 from typing import Annotated, AsyncGenerator
 
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,6 +48,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     except HTTPException:
         await session.rollback()
         raise
+    except RequestValidationError:
+        await session.rollback()
+        raise
     except Exception:
         await session.rollback()
         logger.exception("Database session error, rolling back")
@@ -60,6 +64,11 @@ async def get_current_user(
     db: Annotated[AsyncSession, Depends(get_db)],
     jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)]) -> User:
     """Get the current authenticated user from JWT token or API key."""
+    settings = get_settings()
+    if not settings.auth_enabled:
+        logger.debug("Auth disabled, returning anonymous user")
+        return User(id=0, username="anonymous", is_active=True)
+
     auth_header = request.headers.get("Authorization")
     token = None
 

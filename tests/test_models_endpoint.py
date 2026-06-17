@@ -252,8 +252,13 @@ class TestModelsRouter:
             clear_dependency_overrides(client)
 
     @patch("app.api.v1.endpoints.models.FunctionPersistanceUtil")
-    def test_get_prediction_details_function_not_found(self, mock_func_persistance: Any, client: TestClient) -> None:
-        """Test getting prediction details when function not found returns 404."""
+    def test_get_prediction_details_model_function_not_found(self, mock_func_persistance: Any, client: TestClient) -> None:
+        """Test getting prediction details when model function not found still returns 200.
+
+        The model function lookup is optional - the binary may not have been used
+        during model training, so the function may not exist in the functions DB.
+        Prediction details should still be displayed.
+        """
         from app.auth.dependencies import get_current_active_user
         mock_func_persistance.get_function = AsyncMock(return_value=None)
         mock_func_persistance.get_prediction_function = AsyncMock(return_value={
@@ -266,17 +271,18 @@ class TestModelsRouter:
                 "/models/getPredictionDetails",
                 params={
                     "model_name": "test_model",
-                    "function_name": "nonexistent",
+                    "function_name": "test_func",
                     "task_name": "test_task",
                 },
                 headers={"Accept": "application/json"},
             )
 
-            assert response.status_code == 404
+            assert response.status_code == 200
             data = response.json()
-            detail = data.get("detail", data)
-            assert detail["success"] is False
-            assert "FUNCTION_NOT_FOUND" in detail.get("error", {}).get("code", "")
+            assert data["success"] is True
+            assert "model_tokens" in data["data"]
+            assert "prediction_tokens" in data["data"]
+            assert "Model function not found" in data["data"]["model_tokens"]
         finally:
             clear_dependency_overrides(client)
 

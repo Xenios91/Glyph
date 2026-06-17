@@ -6,7 +6,7 @@ prediction results, and managing prediction tasks.
 
 import asyncio
 import contextvars
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from starlette.responses import HTMLResponse
@@ -50,6 +50,74 @@ class PredictTokensRequest(BaseModel):
     model_config = {"extra": "allow"}
 
 
+async def _execute_prediction(
+    prediction_request: PredictionRequest,
+    captured_ctx: CapturedContext | None = None,
+) -> None:
+    """Execute the prediction pipeline and persist results.
+
+    Runs tokenization, filtering, feature extraction, and prediction
+    steps using the ProcessingPipeline framework, then saves the
+    predictions to the database.
+
+    Args:
+        prediction_request: The prediction request containing functions to analyze.
+        captured_ctx: Captured request context for logging propagation.
+    """
+    if captured_ctx is not None:
+        restore_request_context(captured_ctx, override_task_id=prediction_request.uuid)
+
+    from app.processing.steps import (
+        TokenizeStep,
+        FilterStep,
+        FeatureExtractStep,
+        PredictStep)
+    from app.processing.pipeline import ProcessingPipeline, PipelineContext
+
+    functions = prediction_request.get_functions()
+
+    context = PipelineContext(
+        uuid=prediction_request.uuid,
+        binary_path="",
+        pipeline_type="ml_prediction",
+        metadata={
+            "model_name": prediction_request.model_name,
+            "task_name": prediction_request.task_name,
+        })
+
+    context.set("functions", functions)
+
+    pipeline = ProcessingPipeline(
+        "ML Prediction Pipeline",
+        [
+            TokenizeStep(),
+            FilterStep(),
+            FeatureExtractStep(),
+            PredictStep(),
+        ])
+    result = await pipeline.execute(context)
+
+    if result.error:
+        raise RuntimeError(result.error)
+
+    # Persist prediction results to the database
+    predictions = result.get("predictions")
+    if predictions:
+        await FunctionPersistanceUtil.add_prediction_functions(
+            prediction_request, predictions
+        )
+        logger.info(
+            "Prediction task completed and saved: {} ({} predictions)",
+            prediction_request.uuid,
+            len(predictions),
+        )
+    else:
+        logger.warning(
+            "Prediction task completed but no predictions to save: {}",
+            prediction_request.uuid,
+        )
+
+
 def _run_prediction_task(
     prediction_request: PredictionRequest,
     captured_ctx: CapturedContext | None = None,
@@ -57,56 +125,18 @@ def _run_prediction_task(
     """Execute the prediction pipeline for a given request.
 
     Runs tokenization, filtering, feature extraction, and prediction
-    steps using the ProcessingPipeline framework.
+    steps using the ProcessingPipeline framework, then persists the
+    results to the database.
 
     Args:
         prediction_request: The prediction request containing functions to analyze.
         captured_ctx: Captured request context for logging propagation.
     """
     try:
-        if captured_ctx is not None:
-            restore_request_context(captured_ctx, override_task_id=prediction_request.uuid)
-
-        from app.processing.steps import (
-            TokenizeStep,
-            FilterStep,
-            FeatureExtractStep,
-            PredictStep)
-        from app.processing.pipeline import ProcessingPipeline, PipelineContext
-
-        functions = prediction_request.get_functions()
-
-        context = PipelineContext(
-            uuid=prediction_request.uuid,
-            binary_path="",
-            pipeline_type="ml_prediction",
-            metadata={
-                "model_name": prediction_request.model_name,
-                "task_name": prediction_request.task_name,
-            })
-
-        context.set("functions", functions)
-
-        pipeline = ProcessingPipeline(
-            "ML Prediction Pipeline",
-            [
-                TokenizeStep(),
-                FilterStep(),
-                FeatureExtractStep(),
-                PredictStep(),
-            ])
-        result = cast(
-            PipelineContext,
-            asyncio.run(
-                pipeline.execute(context),
-                context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
-            ),
+        asyncio.run(
+            _execute_prediction(prediction_request, captured_ctx),
+            context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
         )
-
-        if result.error:
-            raise RuntimeError(result.error)
-
-        logger.info("Prediction task completed: {}", prediction_request.uuid)
     except Exception:
         logger.exception("Prediction task failed: {}", prediction_request.uuid)
         raise

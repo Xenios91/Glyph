@@ -34,12 +34,6 @@ class TestProtectedRoutesRedirect:
         # If redirected, URL should be login; if not, page should show error
         assert "/login" in current_url or page.title() != "Glyph"
 
-    def test_upload_binary_redirects_to_login(self, page: Any, server: Any) -> None:
-        """Test that accessing upload page redirects to login."""
-        page.goto(f"{BASE_URL}/uploadBinary", wait_until="commit")
-        current_url = page.url
-        assert "/login" in current_url or page.title() != "Glyph - Upload Binary"
-
     def test_models_redirects_to_login(self, page: Any, server: Any) -> None:
         """Test that accessing models page redirects to login."""
         page.goto(f"{BASE_URL}/getModels", wait_until="commit")
@@ -166,9 +160,6 @@ class TestSessionPersistence:
         page.wait_for_url(f"{BASE_URL}/")
 
         # Navigate to multiple pages
-        page.goto(f"{BASE_URL}/uploadBinary")
-        expect(page).to_have_title("Glyph - Upload Binary")
-
         page.goto(f"{BASE_URL}/getModels")
         expect(page).to_have_title("Models List")
 

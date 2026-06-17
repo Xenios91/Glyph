@@ -2654,10 +2654,12 @@ textarea.cyber-textarea:focus {
 
 /* Base card styles */
 .cyber-card,
+.cyber-container,
 .auth-card,
 .profile-section,
 .config-section,
 div.cyber-card,
+div.cyber-container,
 div.auth-card {
     background: var(--bg-panel);
     border: 2px solid var(--cyan-dim);
@@ -2671,9 +2673,11 @@ div.auth-card {
 
 /* Corner brackets (top-left) */
 .cyber-card::before,
+.cyber-container::before,
 .auth-card::before,
 .profile-section::before,
 div.cyber-card::before,
+div.cyber-container::before,
 div.auth-card::before {
     content: '';
     position: absolute;
@@ -2688,9 +2692,11 @@ div.auth-card::before {
 
 /* Corner brackets (bottom-right) */
 .cyber-card::after,
+.cyber-container::after,
 .auth-card::after,
 .profile-section::after,
 div.cyber-card::after,
+div.cyber-container::after,
 div.auth-card::after {
     content: '';
     position: absolute;
@@ -2705,9 +2711,11 @@ div.auth-card::after {
 
 /* Card with title bar */
 .cyber-card.with-title .title,
+.cyber-container.with-title .title,
 .auth-card .title,
 .profile-section .title,
-div.cyber-card.with-title .title {
+div.cyber-card.with-title .title,
+div.cyber-container.with-title .title {
     background: var(--bg-panel);
     color: var(--cyan-bright);
     font-family: var(--font-display);
@@ -2721,6 +2729,7 @@ div.cyber-card.with-title .title {
 
 /* Card: Primary variant (cyan theme) */
 .cyber-card.is-primary,
+.cyber-container.is-primary,
 .auth-card.is-primary {
     border-color: var(--cyan);
     box-shadow:
@@ -2730,13 +2739,16 @@ div.cyber-card.with-title .title {
 
 .cyber-card.is-primary::before,
 .cyber-card.is-primary::after,
+.cyber-container.is-primary::before,
+.cyber-container.is-primary::after,
 .auth-card.is-primary::before,
 .auth-card.is-primary::after {
     border-color: var(--cyan);
 }
 
 /* Card: Warning variant (yellow theme) */
-.cyber-card.is-warning {
+.cyber-card.is-warning,
+.cyber-container.is-warning {
     border-color: var(--yellow);
     box-shadow:
         0 0 20px rgba(212, 200, 122, 0.15),
@@ -2744,13 +2756,17 @@ div.cyber-card.with-title .title {
 }
 
 .cyber-card.is-warning::before,
-.cyber-card.is-warning::after {
+.cyber-card.is-warning::after,
+.cyber-container.is-warning::before,
+.cyber-container.is-warning::after {
     border-color: var(--yellow);
 }
 
 /* Card: Error/Danger variant (red theme) */
 .cyber-card.is-error,
-.cyber-card.is-danger {
+.cyber-card.is-danger,
+.cyber-container.is-error,
+.cyber-container.is-danger {
     border-color: var(--red);
     box-shadow:
         0 0 20px rgba(201, 84, 106, 0.15),
@@ -2760,12 +2776,17 @@ div.cyber-card.with-title .title {
 .cyber-card.is-error::before,
 .cyber-card.is-error::after,
 .cyber-card.is-danger::before,
-.cyber-card.is-danger::after {
+.cyber-card.is-danger::after,
+.cyber-container.is-error::before,
+.cyber-container.is-error::after,
+.cyber-container.is-danger::before,
+.cyber-container.is-danger::after {
     border-color: var(--red);
 }
 
 /* Card: Success variant (green theme) */
-.cyber-card.is-success {
+.cyber-card.is-success,
+.cyber-container.is-success {
     border-color: var(--green);
     box-shadow:
         0 0 20px rgba(110, 201, 122, 0.15),
@@ -2773,12 +2794,15 @@ div.cyber-card.with-title .title {
 }
 
 .cyber-card.is-success::before,
-.cyber-card.is-success::after {
+.cyber-card.is-success::after,
+.cyber-container.is-success::before,
+.cyber-container.is-success::after {
     border-color: var(--green);
 }
 
 /* Card: Magenta variant */
-.cyber-card.is-magenta {
+.cyber-card.is-magenta,
+.cyber-container.is-magenta {
     border-color: var(--magenta);
     box-shadow:
         0 0 20px rgba(200, 122, 184, 0.15),
@@ -2786,31 +2810,38 @@ div.cyber-card.with-title .title {
 }
 
 .cyber-card.is-magenta::before,
-.cyber-card.is-magenta::after {
+.cyber-card.is-magenta::after,
+.cyber-container.is-magenta::before,
+.cyber-container.is-magenta::after {
     border-color: var(--magenta);
 }
 
 /* Card: Small variant */
-.cyber-card.is-small {
+.cyber-card.is-small,
+.cyber-container.is-small {
     padding: var(--space-md) var(--space-sm);
 }
 
 /* Card: Large variant */
-.cyber-card.is-large {
+.cyber-card.is-large,
+.cyber-container.is-large {
     padding: var(--space-2xl) var(--space-xl);
 }
 
 /* Card: No padding variant */
-.cyber-card.is-flush {
+.cyber-card.is-flush,
+.cyber-container.is-flush {
     padding: 0;
 }
 
 /* Card: Hover effect */
-.cyber-card.is-hoverable {
+.cyber-card.is-hoverable,
+.cyber-container.is-hoverable {
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.cyber-card.is-hoverable:hover {
+.cyber-card.is-hoverable:hover,
+.cyber-container.is-hoverable:hover {
     transform: translateY(-4px);
     box-shadow:
         0 0 30px rgba(125, 216, 216, 0.2),
@@ -2918,6 +2949,7 @@ div.cyber-card.with-title .title {
 .cyber-btn,
 .cyber-input,
 .cyber-card,
+.cyber-container,
 .auth-btn,
 .auth-form-input,
 .start-btn {
@@ -3155,6 +3187,7 @@ div.cyber-card.with-title .title {
     
     /* Mobile-first adjustments */
     .cyber-card,
+    .cyber-container,
     .auth-card,
     .profile-section {
         padding: var(--space-md) var(--space-sm);
@@ -3333,6 +3366,7 @@ div.cyber-card.with-title .title {
 
 /* Multi-layer card depth with enhanced gradients */
 .cyber-card,
+.cyber-container,
 .auth-card,
 .profile-section {
     background:
@@ -3355,6 +3389,7 @@ div.cyber-card.with-title .title {
 
 /* Hover lift effect for interactive cards */
 .cyber-card.is-hoverable:hover,
+.cyber-container.is-hoverable:hover,
 .auth-card.is-hoverable:hover,
 .profile-section.is-hoverable:hover {
     transform: translateY(-4px);

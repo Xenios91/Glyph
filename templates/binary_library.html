@@ -1,0 +1,101 @@
+{% extends "layout.html" %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/binary_library.css') }}">
+{% endblock head %}
+{% block content %}
+<div class="content blue-bg">
+    <!-- Header -->
+    <div class="page-header">
+        <p class="title">// BINARY LIBRARY</p>
+        <p class="subtitle">Manage your uploaded binaries and run analysis tasks</p>
+    </div>
+
+    <!-- Upload Section -->
+    <div id="upload-box" class="cyber-container with-title is-centered" role="region" aria-labelledby="upload-title">
+        <p class="title" id="upload-title">// UPLOAD BINARY</p>
+
+        <div class="cyber-field">
+            <label for="binary-name">Binary Name</label>
+            <input type="text" id="binary-name" name="name" class="cyber-input" placeholder="ENTER BINARY NAME..." aria-required="true" aria-describedby="binary-name-hint">
+            <span id="binary-name-hint" class="field-hint">Enter a unique identifier for this binary</span>
+        </div>
+
+        <div id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-label="File upload area. Drag and drop a binary file here or click to select.">
+            <span class="drop-zone-text">DRAG & DROP BINARY HERE</span>
+            <span class="drop-zone-subtext">OR</span>
+            <label class="cyber-btn is-primary" id="file-upload-label">
+                <span>SELECT FILE</span>
+                <input id="upload-binary" type="file" accept=".exe,.dll,.so,.bin,.elf,application/octet-stream" aria-label="Select binary file to upload">
+            </label>
+        </div>
+
+        <div id="upload-progress" class="upload-progress" style="display: none;" role="status" aria-live="polite">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <p class="progress-text" id="progress-text">Uploading...</p>
+        </div>
+
+        <div id="upload-error" class="field-error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+    </div>
+
+    <!-- Binaries List -->
+    <div id="binaries-container" class="cyber-container with-title is-centered" role="region" aria-labelledby="binaries-title">
+        <p class="title" id="binaries-title">// YOUR BINARIES</p>
+
+        <div id="binaries-loading" class="loading-indicator" role="status">
+            <span class="loading-spinner"></span>
+            <span>Loading binaries...</span>
+        </div>
+
+        <div id="binaries-empty" class="empty-state" style="display: none;" role="status">
+            <p>No binaries uploaded yet. Upload your first binary above.</p>
+        </div>
+
+        <div id="binaries-table-wrapper" class="table-wrapper" style="display: none;">
+            <table class="cyber-table" role="grid" aria-label="Binary library">
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Size</th>
+                        <th scope="col">Functions</th>
+                        <th scope="col">Uploaded</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="binaries-tbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Task Selection Modal -->
+<div id="task-modal-overlay" class="task-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+    <div class="task-modal">
+        <p class="task-modal-title" id="task-modal-title">// SELECT TASK TYPE</p>
+        
+        <a href="#" class="task-option" data-task-type="dangerous_functions">
+            <span class="task-option-name">Dangerous Functions Scan</span>
+            <span class="task-option-desc">Scan the binary for dangerous/insecure functions like strcpy, gets, sprintf, and others known to introduce vulnerabilities.</span>
+        </a>
+
+        <a href="#" class="task-option" data-task-type="ml_training">
+            <span class="task-option-name">ML Training</span>
+            <span class="task-option-desc">Train a new ML model using the functions extracted from this binary.</span>
+        </a>
+
+        <a href="#" class="task-option" data-task-type="ml_prediction">
+            <span class="task-option-name">ML Prediction</span>
+            <span class="task-option-desc">Run predictions using an existing ML model on the functions from this binary.</span>
+        </a>
+
+        <button type="button" class="task-modal-close" onclick="event.stopPropagation(); hideTaskSelectionModal(); return false;">CANCEL</button>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/binary_library.js') }}" defer></script>
+{% endblock scripts %}

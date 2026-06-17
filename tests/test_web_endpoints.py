@@ -101,44 +101,6 @@ class TestWebEndpoints:
         assert "ELF" in response.text
 
     @patch("app.web.endpoints.web.MLPersistanceUtil")
-    def test_upload_binary_json_response(self, mock_ml_persistance: Any, client: TestClient) -> None:
-        """Test upload binary endpoint returns JSON for API clients."""
-        mock_ml_persistance.get_models_list = AsyncMock(return_value=set())
-
-        response = client.get(
-            "/uploadBinary",
-            headers={"Accept": "application/json"},
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "error" in data
-
-    @patch("app.web.endpoints.web.MLPersistanceUtil")
-    def test_upload_binary_html_no_models(self, mock_ml_persistance: Any, client: TestClient) -> None:
-        """Test upload binary endpoint with no models."""
-        mock_ml_persistance.get_models_list = AsyncMock(return_value=set())
-
-        response = client.get(
-            "/uploadBinary",
-            headers={"Accept": "text/html"},
-        )
-
-        assert response.status_code == 200
-
-    @patch("app.web.endpoints.web.MLPersistanceUtil")
-    def test_upload_binary_html_with_models(self, mock_ml_persistance: Any, client: TestClient) -> None:
-        """Test upload binary endpoint with models available."""
-        mock_ml_persistance.get_models_list = AsyncMock(return_value={"model1", "model2"})
-
-        response = client.get(
-            "/uploadBinary",
-            headers={"Accept": "text/html"},
-        )
-
-        assert response.status_code == 200
-
-    @patch("app.web.endpoints.web.MLPersistanceUtil")
     @patch("app.web.endpoints.web.TaskManager")
     def test_get_models_json_response(self, mock_task_manager: Any, mock_ml_persistance: Any, client: TestClient) -> None:
         """Test get models endpoint returns JSON for API clients."""

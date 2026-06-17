@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/create_prediction.css') }}">
+{% endblock head %}
+{% block content %}
+<div class="content blue-bg">
+    <!-- Header -->
+    <div class="page-header">
+        <p class="title">// CREATE PREDICTION</p>
+        <p class="subtitle">Run predictions using an existing ML model on an uploaded binary</p>
+    </div>
+
+    <!-- Create Prediction Form -->
+    <div id="create-prediction-box" class="cyber-container with-title is-centered" role="region" aria-labelledby="create-prediction-title">
+        <p class="title" id="create-prediction-title">// PREDICTION CONFIGURATION</p>
+
+        <!-- Binary Selection -->
+        <div class="cyber-field">
+            <label for="binary-select">Select Binary</label>
+            <div class="cyber-select">
+                <select id="binary-select" name="binary_select" required aria-required="true" aria-describedby="binary-select-hint">
+                    <option value="" disabled selected hidden>SELECT BINARY</option>
+                </select>
+            </div>
+            <span id="binary-select-hint" class="field-hint">Choose a binary from your library</span>
+        </div>
+
+        <!-- Model Selection -->
+        <div class="cyber-field">
+            <label for="model-select">Select Model</label>
+            <div class="cyber-select">
+                <select id="model-select" name="model_select" required aria-required="true" aria-describedby="model-select-hint">
+                    <option value="" disabled selected hidden>SELECT MODEL</option>
+                </select>
+            </div>
+            <span id="model-select-hint" class="field-hint">Choose a trained ML model</span>
+        </div>
+
+        <!-- Task Name -->
+        <div class="cyber-field">
+            <label for="task-name">Task Name</label>
+            <input type="text" id="task-name" name="task_name" class="cyber-input" placeholder="ENTER TASK NAME..." aria-required="true" aria-describedby="task-name-hint">
+            <span id="task-name-hint" class="field-hint">Enter a unique name for this prediction task</span>
+        </div>
+
+        <!-- Error message container -->
+        <div id="create-prediction-error" class="field-error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+
+        <!-- Submit Button -->
+        <div class="submit-section">
+            <button id="create-prediction-btn" class="cyber-btn is-primary" type="button" aria-label="Run prediction">
+                RUN PREDICTION
+            </button>
+        </div>
+    </div>
+
+    <!-- Status Message -->
+    <div id="create-prediction-status" class="cyber-container with-title is-centered" style="display: none;" role="status" aria-live="polite">
+        <p class="title">// PREDICTION STATUS</p>
+        <div id="status-spinner" class="status-spinner" style="display: none;"></div>
+        <p id="create-prediction-status-text"></p>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/create_prediction.js') }}" defer></script>
+{% endblock scripts %}
