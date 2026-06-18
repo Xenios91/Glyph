@@ -344,7 +344,7 @@
 }
 
 .task-modal-overlay.is-visible {
-    display: flex;
+    display: flex !important;
 }
 
 .task-modal {
@@ -362,7 +362,10 @@
     font-size: var(--text-sm, 1rem);
     color: var(--cyan, #7dd8d8);
     text-align: center;
+    margin: 0 auto;
     margin-bottom: var(--space-lg, 16px);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .task-option {
