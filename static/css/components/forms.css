@@ -1,0 +1,308 @@
+/* =============================================================
+   FORM INPUT SYSTEM
+   Unified form controls with validation states.
+   ============================================================= */
+
+/* ── Form labels ────────────────────────────────────────────── */
+.cyber-label,
+.auth-form-label,
+.form-group label,
+label.cyber-label {
+    display: block;
+    font-family: var(--font-display);
+    font-size: var(--label-font-size);
+    color: var(--text-dim);
+    margin-bottom: var(--space-sm);
+    letter-spacing: 0.08em;
+}
+
+/* ── Base input styles ──────────────────────────────────────── */
+.cyber-input,
+.auth-form-input,
+.form-group input[type="text"],
+.form-group input[type="password"],
+.form-group input[type="email"],
+.form-group input[type="number"],
+.form-group input[type="search"],
+.form-group input:not([type]),
+input.cyber-input {
+    width: 100%;
+    padding: var(--input-padding-y) var(--input-padding-x);
+    font-family: var(--font-body);
+    font-size: var(--input-font-size);
+    color: var(--text-primary);
+    background: var(--bg);
+    border: 2px solid var(--cyan-dim);
+    border-radius: 0;
+    transition: border-color var(--duration-normal), box-shadow var(--duration-normal);
+    caret-color: var(--cyan);
+}
+
+.cyber-input::placeholder,
+.auth-form-input::placeholder,
+input.cyber-input::placeholder {
+    /* WCAG AA: 0.55 opacity on --bg gives ~5.5:1 contrast ratio */
+    color: rgba(125, 216, 216, 0.55);
+}
+
+.cyber-input:hover,
+.auth-form-input:hover,
+input.cyber-input:hover {
+    border-color: var(--cyan);
+}
+
+.cyber-input:focus,
+.auth-form-input:focus,
+input.cyber-input:focus {
+    outline: none;
+    border-color: var(--cyan);
+    box-shadow:
+        0 0 0 2px rgba(125, 216, 216, 0.15),
+        0 0 12px rgba(125, 216, 216, 0.1);
+}
+
+/* ── Input: Error state ─────────────────────────────────────── */
+.cyber-input.is-error,
+.auth-form-input.is-error,
+input.cyber-input.is-error {
+    border-color: var(--red);
+    box-shadow: 0 0 8px rgba(201, 84, 106, 0.3);
+}
+
+.cyber-input.is-error:focus,
+.auth-form-input.is-error:focus,
+input.cyber-input.is-error:focus {
+    box-shadow:
+        0 0 0 2px rgba(201, 84, 106, 0.15),
+        0 0 12px rgba(201, 84, 106, 0.2);
+}
+
+/* ── Input: Success state ───────────────────────────────────── */
+.cyber-input.is-success,
+.auth-form-input.is-success,
+input.cyber-input.is-success {
+    border-color: var(--green);
+    box-shadow: 0 0 8px rgba(110, 201, 122, 0.3);
+}
+
+.cyber-input.is-success:focus,
+.auth-form-input.is-success:focus,
+input.cyber-input.is-success:focus {
+    box-shadow:
+        0 0 0 2px rgba(110, 201, 122, 0.15),
+        0 0 12px rgba(110, 201, 122, 0.2);
+}
+
+/* ── Input: Disabled state ──────────────────────────────────── */
+.cyber-input:disabled,
+.cyber-input.is-disabled,
+.auth-form-input:disabled,
+input.cyber-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-surface);
+}
+
+/* ── Select dropdowns ───────────────────────────────────────── */
+.cyber-select select,
+.form-group select,
+select.cyber-select {
+    width: 100%;
+    padding: var(--space-sm) var(--space-xl) var(--space-sm) var(--space-md);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    background: var(--bg);
+    border: 2px solid var(--cyan-dim);
+    border-radius: 0;
+    transition: border-color var(--duration-normal), box-shadow var(--duration-normal);
+    appearance: none;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237dd8d8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-md) center;
+}
+
+.cyber-select select:hover,
+.form-group select:hover,
+select.cyber-select:hover {
+    border-color: var(--cyan);
+}
+
+.cyber-select select:focus,
+.form-group select:focus,
+select.cyber-select:focus {
+    outline: none;
+    border-color: var(--cyan);
+    box-shadow:
+        0 0 0 2px rgba(125, 216, 216, 0.15),
+        0 0 12px rgba(125, 216, 216, 0.1);
+}
+
+.cyber-select select option,
+.form-group select option {
+    background: var(--bg);
+    color: var(--text-primary);
+    padding: var(--space-sm);
+}
+
+/* ── Textarea ───────────────────────────────────────────────── */
+.cyber-textarea,
+.form-group textarea,
+textarea.cyber-textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: var(--space-sm) var(--space-md);
+    font-family: var(--font-code);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    background: var(--bg);
+    border: 2px solid var(--cyan-dim);
+    border-radius: 0;
+    transition: border-color var(--duration-normal), box-shadow var(--duration-normal);
+    resize: vertical;
+    line-height: var(--leading-normal);
+}
+
+.cyber-textarea:focus,
+.form-group textarea:focus,
+textarea.cyber-textarea:focus {
+    outline: none;
+    border-color: var(--cyan);
+    box-shadow:
+        0 0 0 2px rgba(125, 216, 216, 0.15),
+        0 0 12px rgba(125, 216, 216, 0.1);
+}
+
+/* ── Form group container ───────────────────────────────────── */
+.form-group,
+.auth-form-group {
+    margin-bottom: var(--space-lg);
+}
+
+/* ── Field error message ────────────────────────────────────── */
+.field-error-message {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-top: var(--space-sm);
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--red);
+}
+
+.field-error-message::before {
+    content: '!';
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    background: var(--red);
+    color: var(--bg);
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+/* ── Field hint/help text ───────────────────────────────────── */
+.field-hint {
+    display: block;
+    margin-top: var(--space-sm);
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+}
+
+/* ── Checkbox and radio ─────────────────────────────────────── */
+.cyber-checkbox,
+.cyber-radio {
+    width: 18px;
+    height: 18px;
+    margin-right: var(--space-sm);
+    accent-color: var(--cyan);
+    cursor: pointer;
+}
+
+.checkbox-label,
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+/* ── File input ─────────────────────────────────────────────── */
+.cyber-file-input {
+    padding: var(--space-sm);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-dim);
+    background: var(--bg);
+    border: 2px dashed var(--cyan-dim);
+    border-radius: 0;
+    cursor: pointer;
+    transition: border-color var(--duration-normal);
+}
+
+.cyber-file-input:hover {
+    border-color: var(--cyan);
+}
+
+.cyber-file-input::file-selector-button {
+    margin-right: var(--space-md);
+    padding: var(--space-xs) var(--space-md);
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    color: var(--bg);
+    background: var(--cyan);
+    border: none;
+    cursor: pointer;
+    transition: background var(--duration-normal);
+}
+
+.cyber-file-input::file-selector-button:hover {
+    background: var(--cyan-bright);
+}
+
+/* ── Range input ────────────────────────────────────────────── */
+.cyber-range,
+input[type="range"].cyber-range {
+    width: 100%;
+    height: 6px;
+    appearance: none;
+    background: var(--bg-surface);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 0;
+    outline: none;
+}
+
+.cyber-range::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--cyan);
+    border: 2px solid var(--cyan-bright);
+    cursor: pointer;
+}
+
+.cyber-range::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--cyan);
+    border: 2px solid var(--cyan-bright);
+    border-radius: 0;
+    cursor: pointer;
+}
+
+/* Range color variants */
+.cyber-range.is-cyan::-webkit-slider-thumb { background: var(--cyan); }
+.cyber-range.is-cyan::-moz-range-thumb { background: var(--cyan); }
+.cyber-range.is-yellow::-webkit-slider-thumb { background: var(--yellow); }
+.cyber-range.is-yellow::-moz-range-thumb { background: var(--yellow); }
+.cyber-range.is-magenta::-webkit-slider-thumb { background: var(--magenta); }
+.cyber-range.is-magenta::-moz-range-thumb { background: var(--magenta); }

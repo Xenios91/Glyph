@@ -524,6 +524,41 @@ function initProfilePage() {
             Toast.info(enabled ? 'Dyslexia-friendly font enabled' : 'Dyslexia-friendly font disabled');
         });
     }
+
+    // ── Accessibility: Background Effects Toggle ──────────────────────────────────
+    const effectsToggle = document.getElementById('background-effects-toggle');
+    if (effectsToggle) {
+        // Check localStorage on load (enabled by default)
+        const savedPreference = localStorage.getItem('background_effects');
+        if (savedPreference === 'true') {
+            effectsToggle.checked = true;
+            document.body.classList.remove('effects-disabled');
+        } else if (savedPreference === 'false') {
+            effectsToggle.checked = false;
+            document.body.classList.add('effects-disabled');
+        } else {
+            // Default: enabled
+            effectsToggle.checked = true;
+        }
+
+        // Handle toggle change
+        effectsToggle.addEventListener('change', function() {
+            const enabled = this.checked;
+
+            // Apply effects-disabled class to body
+            if (enabled) {
+                document.body.classList.remove('effects-disabled');
+            } else {
+                document.body.classList.add('effects-disabled');
+            }
+
+            // Save preference to localStorage
+            localStorage.setItem('background_effects', enabled);
+
+            // Show toast notification
+            Toast.info(enabled ? 'Background effects enabled' : 'Background effects disabled');
+        });
+    }
 }
 
 // Initialize when DOM is ready using shared utility

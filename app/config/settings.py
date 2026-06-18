@@ -72,7 +72,7 @@ class GlyphSettings(BaseSettings):
 
     jwt_secret_key: str = Field(
         default="change-me-in-production",
-        description="Secret key for JWT signing"
+        description="Secret key for JWT signing (must be changed in production)"
     )
     jwt_algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=15)
@@ -133,12 +133,25 @@ def get_settings() -> GlyphSettings:
             _settings = GlyphSettings()
             _DEFAULT_JWT_SECRET = "change-me-in-production"
             if _settings.jwt_secret_key == _DEFAULT_JWT_SECRET:
-                logger.warning(
-                    "Using default JWT secret key. "
-                    "Set GLYPH_JWT_SECRET_KEY environment variable or "
-                    "jwt_secret_key in config.yml for production use. "
-                    "Tokens will be invalidated on application restart."
-                )
+                env = os.environ.get("GLYPH_ENV", os.environ.get("ENV", "development"))
+                if env == "production":
+                    logger.critical(
+                        "JWT secret key is using default value in production! "
+                        "This is a critical security risk. Refusing to start."
+                    )
+                    raise RuntimeError(
+                        "JWT secret key must be changed from default value in production. "
+                        "Set GLYPH_JWT_SECRET_KEY environment variable or update config.yml."
+                    )
+                else:
+                    logger.warning(
+                        "Using default JWT secret key. "
+                        "Set GLYPH_JWT_SECRET_KEY environment variable or "
+                        "jwt_secret_key in config.yml for production use. "
+                        "Tokens will be invalidated on application restart."
+                    )
+        except RuntimeError:
+            raise
         except Exception as e:
             raise RuntimeError(f"Failed to load configuration: {e}") from e
     return _settings

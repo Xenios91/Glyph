@@ -37,15 +37,55 @@ function getAccessToken() {
 }
 
 /**
+ * Custom error class for authentication failures
+ */
+class AuthError extends Error {
+    /**
+     * @param {string} message - Error message
+     * @param {number} status - HTTP status code
+     */
+    constructor(message, status) {
+        super(message);
+        this.name = 'AuthError';
+        this.status = status;
+    }
+}
+
+/**
+ * Custom error class for API errors
+ */
+class ApiError extends Error {
+    /**
+     * @param {string} message - Error message
+     * @param {number} status - HTTP status code
+     * @param {Object} [details] - Additional error details
+     */
+    constructor(message, status, details) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+        this.details = details || null;
+    }
+}
+
+/**
  * Fetch with authentication handling
  * Automatically adds auth token and handles 401 responses
  * @param {string} url - URL to fetch
  * @param {Object} options - Fetch options
+ * @param {Object} [options] - Fetch options
+ * @param {boolean} [options.redirectOn401=true] - Whether to redirect on 401
+ * @param {number} [options.timeout=30000] - Request timeout in milliseconds
  * @returns {Promise<Response>} Fetch response
+ * @throws {AuthError} - When authentication fails (401)
+ * @throws {ApiError} - When server returns error status (4xx, 5xx)
+ * @throws {Error} - When network error or timeout occurs
  */
-async function authenticatedFetch(url, options = {}) {
+async function authenticatedFetch(url, options = {}, fetchOptions = {}) {
     const token = getAccessToken();
-    const fetchOptions = { ...options };
+    const shouldRedirect = fetchOptions.redirectOn401 !== false;
+    const timeout = fetchOptions.timeout || 30000;
+    const fetchOpts = { ...options };
 
     // When body is FormData, the browser must auto-set Content-Type with the
     // multipart boundary. Setting an explicit headers object prevents that,
@@ -58,19 +98,55 @@ async function authenticatedFetch(url, options = {}) {
             headers['Authorization'] = 'Bearer ' + token;
         }
         if (Object.keys(headers).length > 0) {
-            fetchOptions.headers = headers;
+            fetchOpts.headers = headers;
         }
     }
 
-    const response = await fetch(url, fetchOptions);
+    try {
+        // Create a timeout signal
+        const timeoutController = new AbortController();
+        const timeoutId = setTimeout(() => timeoutController.abort(), timeout);
 
-    if (response.status === 401) {
-        // Redirect to login, preserving current path
-        const redirectUrl = '/login?redirect=' + encodeURIComponent(window.location.pathname);
-        window.location.href = redirectUrl;
+        if (!fetchOpts.signal) {
+            fetchOpts.signal = timeoutController.signal;
+        }
+
+        const response = await fetch(url, fetchOpts);
+        clearTimeout(timeoutId);
+
+        if (response.status === 401) {
+            if (shouldRedirect) {
+                // Redirect to login, preserving current path
+                const redirectUrl = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+                window.location.href = redirectUrl;
+            }
+            throw new AuthError('Authentication required', 401);
+        }
+
+        if (response.status >= 400) {
+            let details = null;
+            try {
+                details = await response.json();
+            } catch (e) {
+                // Ignore JSON parse errors for error responses
+            }
+            const message = (details && (details.detail || details.message)) || `HTTP error ${response.status}`;
+            throw new ApiError(message, response.status, details);
+        }
+
+        return response;
+    } catch (error) {
+        // Re-throw AbortError as a timeout error
+        if (error.name === 'AbortError') {
+            throw new Error(`Request timed out after ${timeout}ms`);
+        }
+        // Re-throw our custom errors
+        if (error instanceof AuthError || error instanceof ApiError) {
+            throw error;
+        }
+        // Wrap network errors
+        throw new Error(`Network error: ${error.message || 'Failed to fetch'}`);
     }
-
-    return response;
 }
 
 /**

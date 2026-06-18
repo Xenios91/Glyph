@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  glyph:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: glyph
+    restart: unless-stopped
+    ports:
+      - "${GLYPH_PORT:-8000}:8000"
+    environment:
+      - GLYPH_ENV=${GLYPH_ENV:-production}
+      - GLYPH_JWT_SECRET_KEY=${GLYPH_JWT_SECRET_KEY:-}
+      - GLYPH_CPU_CORES=${GLYPH_CPU_CORES:-4}
+      - GLYPH_MAX_FILE_SIZE_MB=${GLYPH_MAX_FILE_SIZE_MB:-100}
+      - GLYPH_USE_HTTPS=${GLYPH_USE_HTTPS:-false}
+      - TZ=${TZ:-UTC}
+    volumes:
+      - ./binaries:/app/binaries
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: glyph-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  redis_data:
+    driver: local

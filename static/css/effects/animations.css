@@ -1,0 +1,345 @@
+/* =============================================================
+   ANIMATION KEYFRAMES
+   ============================================================= */
+
+/* ── Background Effects ──────────────────────────────────────── */
+
+@keyframes grid-scroll {
+    from { background-position: 0 0; }
+    to   { background-position: 0 48px; }
+}
+
+@keyframes px-blink {
+    0%, 49%  { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+
+@keyframes city-glow {
+    from { box-shadow: 0 0 6px 1px var(--magenta); opacity: 0.8; }
+    to   { box-shadow: 0 0 8px 2px var(--cyan);    opacity: 1;   }
+}
+
+@keyframes road-scroll {
+    from { background-position: 0 0; }
+    to   { background-position: 32px 0; }
+}
+
+@keyframes cloud-drift {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-130vw); }
+}
+
+@keyframes bit-fall {
+    0%   { transform: translateY(-20px); opacity: 0; }
+    10%  { opacity: 0.5; }
+    90%  { opacity: 0.3; }
+    100% { transform: translateY(100vh); opacity: 0; }
+}
+
+/* ── Navigation ──────────────────────────────────────────────── */
+
+@keyframes logo-glitch {
+    0%, 95%, 100% {
+        text-shadow: 0 0 10px rgba(168, 236, 236, 0.35);
+        transform: translate(0, 0);
+    }
+    96% {
+        transform: translate(-1px, 0);
+        text-shadow: -1px 0 var(--magenta), 1px 0 var(--cyan);
+    }
+    97% {
+        transform: translate(1px, 0);
+        text-shadow: 1px 0 var(--magenta), -1px 0 var(--cyan);
+    }
+    98% { transform: translate(0, 0); }
+}
+
+@keyframes cursor-blink {
+    0%, 49%  { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+
+@keyframes dropdown-slide-down {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes nav-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ── Toast Notifications ─────────────────────────────────────── */
+
+@keyframes toast-slide-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes toast-slide-out {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* ── Loading & Spinners ──────────────────────────────────────── */
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+
+@keyframes btn-sweep {
+    from { top: -40%; }
+    to { top: 120%; }
+}
+
+/* ── Title & Heading Effects ─────────────────────────────────── */
+
+@keyframes title-glitch {
+    0%, 88%, 93%, 100% {
+        text-shadow: 0 0 12px rgba(168, 236, 236, 0.30), 3px 3px 0 #4a2244;
+        transform: translate(0, 0);
+    }
+    89% {
+        transform: translate(-2px, 0);
+        text-shadow: -2px 0 #c87ab8, 2px 0 #7dd8d8;
+    }
+    90% {
+        transform: translate(2px, 1px);
+    }
+    91% {
+        transform: translate(0, 0);
+    }
+    92% {
+        transform: translate(-1px, -1px);
+    }
+}
+
+/* ── Entrance Animations ─────────────────────────────────────── */
+
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    animation: fade-in-up 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes slide-in-right {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.slide-in-right {
+    animation: slide-in-right 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.scale-in {
+    animation: scale-in 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* ── Page Transitions ────────────────────────────────────────── */
+
+@keyframes page-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Utility Animations ──────────────────────────────────────── */
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.fade-in {
+    animation: fade-in var(--animation-slow) ease-out;
+}
+
+@keyframes slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-up {
+    animation: slide-up var(--animation-slow) ease-out;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.bounce {
+    animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+/* ── Gradient Effects ────────────────────────────────────────── */
+
+@keyframes gradient-shift {
+    0%, 100% { background-position: 0% center; }
+    50% { background-position: 100% center; }
+}
+
+/* ── Skeleton Loaders ────────────────────────────────────────── */
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── Reduced Motion Support ──────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    /* Disable decorative animations */
+    .grid-floor::before,
+    .ground::before,
+    .cityline::before,
+    .data-bit,
+    .px-star,
+    .clouds {
+        display: none !important;
+    }
+
+    /* Disable glitch effects */
+    .nav-logo h1,
+    .cyber-title {
+        animation: none !important;
+        text-shadow: 0 0 10px rgba(168, 236, 236, 0.35);
+    }
+
+    /* Keep essential transitions minimal */
+    .cyber-btn:hover,
+    .cyber-input:focus,
+    .cyber-table tbody tr:hover {
+        transition: all var(--animation-fast);
+    }
+}
+
+/* User preference toggle class for reduced motion */
+.js-reduced-motion *,
+.js-reduced-motion *::before,
+.js-reduced-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+}
+
+.js-reduced-motion .grid-floor::before,
+.js-reduced-motion .ground::before,
+.js-reduced-motion .cityline::before,
+.js-reduced-motion .data-bit,
+.js-reduced-motion .px-star,
+.js-reduced-motion .clouds {
+    display: none !important;
+}
+
+.js-reduced-motion .nav-logo h1,
+.js-reduced-motion .cyber-title {
+    animation: none !important;
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}

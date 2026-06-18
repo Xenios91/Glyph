@@ -1,0 +1,212 @@
+/* =============================================================
+   BACKGROUND EFFECTS
+   Grid floor, starfield, city silhouette, ground strip, clouds, particles.
+   ============================================================= */
+
+/* ── Perspective grid floor ─────────────────────────────────── */
+.grid-floor {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 52vh;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+    opacity: 0.4;
+}
+
+.grid-floor::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px),
+        linear-gradient(to right,  var(--grid-line) 1px, transparent 1px);
+    background-size: 48px 48px;
+    transform: perspective(320px) rotateX(55deg);
+    transform-origin: center top;
+    animation: grid-scroll 4s linear infinite;
+}
+
+.grid-floor::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 65%;
+    background: linear-gradient(to bottom, var(--bg) 0%, transparent 100%);
+}
+
+/* ── Starfield ──────────────────────────────────────────────── */
+.starfield {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.4;
+}
+
+.px-star {
+    position: absolute;
+    background: var(--text-dim);
+}
+
+/* ── City silhouette ────────────────────────────────────────── */
+.cityline {
+    position: fixed;
+    bottom: 48px;
+    left: 0;
+    right: 0;
+    height: 120px;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.5;
+    background:
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 0    80px / 24px 40px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 24px  64px / 8px  56px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 32px  48px / 32px 72px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 64px  72px / 16px 48px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 80px  40px / 40px 80px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 120px 56px / 24px 64px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 144px 32px / 48px 88px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 192px 64px / 32px 56px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 224px 48px / 56px 72px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 280px 24px / 32px 96px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 312px 56px / 40px 64px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 352px 40px / 24px 80px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 376px 64px / 48px 56px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 424px 32px / 64px 88px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 488px 48px / 32px 72px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 520px 56px / 48px 64px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 568px 24px / 40px 96px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 608px 64px / 24px 56px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 632px 40px / 56px 80px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 688px 56px / 32px 64px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 720px 32px / 48px 88px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 768px 48px / 40px 72px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 808px 64px / 24px 56px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 832px 24px / 56px 96px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 888px 48px / 32px 72px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 920px 40px / 48px 80px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 968px 56px / 40px 64px  no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 1008px 32px / 64px 88px no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 1072px 56px / 24px 64px no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 1096px 40px / 40px 80px no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 1136px 48px / 48px 72px no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 1184px 24px / 32px 96px no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 1216px 64px / 56px 56px no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 1272px 32px / 48px 88px no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 1320px 56px / 24px 64px no-repeat,
+        linear-gradient(var(--bg) 0%, var(--bg) 100%) 1344px 40px / 64px 80px no-repeat;
+    border-top: 2px solid var(--magenta-dim);
+}
+
+.cityline::before {
+    content: '';
+    position: absolute;
+    top: -2px; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+        var(--magenta-dim) 0%,
+        var(--magenta)     35%,
+        var(--cyan)        50%,
+        var(--magenta)     65%,
+        var(--magenta-dim) 100%
+    );
+    box-shadow: 0 0 6px 1px var(--magenta);
+    animation: city-glow 5s ease-in-out infinite alternate;
+}
+
+.win {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+}
+
+/* ── Ground strip ───────────────────────────────────────────── */
+.ground {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 48px;
+    z-index: 2;
+    background:
+        repeating-linear-gradient(90deg,
+            #0d0d20 0px, #0d0d20 8px,
+            #0d0d1a 8px, #0d0d1a 16px);
+    border-top: 2px solid var(--cyan-dim);
+    box-shadow: 0 -4px 20px rgba(125, 216, 216, 0.07);
+    opacity: 0.4;
+}
+
+.ground::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 2px;
+    transform: translateY(-50%);
+    background: repeating-linear-gradient(90deg,
+        var(--yellow) 0px,  var(--yellow) 16px,
+        transparent   16px, transparent   32px
+    );
+    opacity: 0.18;
+    animation: road-scroll 2s linear infinite;
+}
+
+/* ── Clouds ─────────────────────────────────────────────────── */
+.clouds {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 220px;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.4;
+}
+
+/* ── Falling data particles ─────────────────────────────────── */
+.particles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.5;
+}
+
+.data-bit {
+    position: absolute;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    line-height: 1;
+}
+
+/* ── Background effects toggle (user preference) ────────────── */
+body.effects-disabled .grid-floor,
+body.effects-disabled .starfield,
+body.effects-disabled .cityline,
+body.effects-disabled .ground,
+body.effects-disabled .clouds,
+body.effects-disabled .particles {
+    display: none !important;
+}
+
+/* ── Reduced motion support ─────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .grid-floor::before,
+    .ground::before,
+    .cityline::before {
+        animation: none !important;
+    }
+
+    .data-bit,
+    .px-star,
+    .clouds {
+        display: none;
+    }
+}

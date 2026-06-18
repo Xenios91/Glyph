@@ -1,0 +1,111 @@
+/* =============================================================
+   TYPOGRAPHY SYSTEM
+   Font hierarchy, utility classes, and readability standards.
+   ============================================================= */
+
+/* ── Headings ───────────────────────────────────────────────── */
+h1, .text-3xl {
+    font-family: var(--font-display);
+    font-weight: var(--font-weight-bold);
+    font-size: var(--text-3xl);
+    line-height: var(--leading-tight);
+}
+
+h2, .text-2xl {
+    font-family: var(--font-display);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--text-2xl);
+    line-height: var(--leading-tight);
+}
+
+h3, .text-xl {
+    font-family: var(--font-display);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--text-xl);
+    line-height: var(--leading-normal);
+}
+
+h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: var(--font-weight-medium);
+}
+
+/* ── Body text ──────────────────────────────────────────────── */
+p,
+.description-box,
+.cyber-text,
+.empty-state-description {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+}
+
+/* ── Code & monospace ───────────────────────────────────────── */
+.token-scroll pre,
+.code-block,
+pre,
+code {
+    font-family: var(--font-code);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+}
+
+/* ── Buttons & labels use display font ──────────────────────── */
+button,
+.cyber-btn,
+.auth-btn,
+.start-btn,
+label,
+.cyber-label,
+.auth-form-label {
+    font-family: var(--font-display);
+}
+
+/* ── Navigation ─────────────────────────────────────────────── */
+.nav-logo h1,
+.nav-links a {
+    font-family: var(--font-display);
+}
+
+/* ── Table headers use display font, body uses body font ────── */
+.cyber-table thead th {
+    font-family: var(--font-display) !important;
+}
+
+.cyber-table tbody td {
+    font-family: var(--font-body) !important;
+    font-size: var(--text-sm) !important;
+}
+
+/* ── Toast notifications use body font ──────────────────────── */
+.toast {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+}
+
+/* ── Font family utility classes ────────────────────────────── */
+.font-display { font-family: var(--font-display) !important; }
+.font-body    { font-family: var(--font-body) !important; }
+.font-code    { font-family: var(--font-code) !important; }
+
+/* ── Size utility classes ───────────────────────────────────── */
+.text-xs   { font-size: var(--text-xs) !important; }
+.text-sm   { font-size: var(--text-sm) !important; }
+.text-md   { font-size: var(--text-md) !important; }
+.text-lg   { font-size: var(--text-lg) !important; }
+.text-xl   { font-size: var(--text-xl) !important; }
+.text-2xl  { font-size: var(--text-2xl) !important; }
+.text-3xl  { font-size: var(--text-3xl) !important; }
+
+/* ── Line height utilities ──────────────────────────────────── */
+.leading-tight    { line-height: var(--leading-tight) !important; }
+.leading-normal   { line-height: var(--leading-normal) !important; }
+.leading-relaxed  { line-height: var(--leading-relaxed) !important; }
+
+/* ── Field hint / error messages ────────────────────────────── */
+.field-hint,
+.field-error-message {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+}

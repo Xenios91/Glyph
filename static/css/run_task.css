@@ -132,9 +132,6 @@
     margin-bottom: var(--space-md);
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
 
 .status-text {
     font-family: var(--font-display);

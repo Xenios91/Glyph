@@ -140,9 +140,6 @@
     animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
 
 /* ── Empty State ────────────────────────────────────────────── */
 .empty-state {
@@ -157,6 +154,11 @@
 .table-wrapper {
     overflow-x: auto;
     margin: var(--space-md) var(--space-lg);
+}
+
+/* Inside detail page, remove horizontal margins */
+.binary-detail-card .table-wrapper {
+    margin: 0;
 }
 
 .cyber-table {
@@ -256,18 +258,50 @@
     white-space: nowrap;
 }
 
-/* ── Summary Grid (Binary Detail Page) ─────────────────────── */
+/* ── Binary Detail Page ────────────────────────────────────── */
+#detail-content,
+#detail-error {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+}
+
+/* Remove extra padding from the card since sections handle it */
+.binary-detail-card {
+    padding: var(--space-lg);
+}
+
+/* Detail sections (Information, Functions) */
+.detail-section {
+    padding: var(--space-md);
+}
+
+.detail-section + .detail-section {
+    border-top: 1px solid rgba(125, 216, 216, 0.1);
+    margin-top: var(--space-md);
+}
+
+.detail-section-title {
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    color: var(--cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: var(--space-md);
+}
+
+/* Summary Grid (Binary Detail Page) */
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: var(--space-md);
-    margin: var(--space-md) var(--space-lg);
 }
 
 .summary-item {
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
+    gap: 0.25rem;
     background-color: var(--bg-surface);
     border: 1px solid var(--cyan-dim);
     border-radius: var(--space-xs);
@@ -275,7 +309,7 @@
 }
 
 .summary-label {
-    font-family: var(--font-mono);
+    font-family: var(--font-code);
     font-size: 0.7rem;
     color: var(--text-muted);
     text-transform: uppercase;
@@ -283,25 +317,16 @@
 }
 
 .summary-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-code);
     font-size: 0.9rem;
     color: var(--cyan);
     font-weight: 600;
 }
 
-/* ── Navigation ─────────────────────────────────────────────── */
+/* Navigation */
 .nav-section {
     text-align: center;
     margin: var(--space-xl) var(--space-md);
-}
-
-/* ── Container Centering ────────────────────────────────────── */
-#binary-info,
-#functions-container,
-#detail-error {
-    max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
 }
 
 /* ── Task Selection Modal ───────────────────────────────────── */
@@ -319,7 +344,7 @@
 }
 
 .task-modal-overlay.is-visible {
-    display: flex;
+    display: flex !important;
 }
 
 .task-modal {
@@ -337,7 +362,10 @@
     font-size: var(--text-sm, 1rem);
     color: var(--cyan, #7dd8d8);
     text-align: center;
+    margin: 0 auto;
     margin-bottom: var(--space-lg, 16px);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .task-option {
@@ -410,5 +438,13 @@
 
     .summary-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .binary-detail-card {
+        padding: var(--space-md);
+    }
+
+    .detail-section {
+        padding: var(--space-sm);
     }
 }

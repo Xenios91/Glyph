@@ -145,11 +145,81 @@ Glyph is an architecture-independent binary analysis tool that uses NLP techniqu
 4. Tokenize → 5. Filter → 6. Extract Features → 7. Train Model → 8. Save Model
 ```
 
+#### Training Pipeline Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as API Layer
+    participant TH as TaskHandler
+    participant TS as TaskService
+    participant Pipeline
+    participant Ghidra
+    participant DB as Database
+    participant FS as Filesystem
+
+    Client->>API: POST /api/v1/models/
+    API->>API: Validate request
+    API->>DB: Create model record
+    API->>TS: Submit training task
+    TS->>TS: Queue task in TaskService
+    TS-->>API: Task ID
+    API-->>Client: 202 Accepted
+
+    Note over TS,Pipeline: Background execution
+    TS->>Pipeline: execute(context)
+    Pipeline->>Pipeline: ValidationStep
+    Pipeline->>Ghidra: DecompileStep
+    Ghidra-->>Pipeline: Decompiled C code
+    Pipeline->>Pipeline: TokenizeStep
+    Pipeline->>Pipeline: FilterStep
+    Pipeline->>Pipeline: FeatureExtractStep
+    Pipeline->>Pipeline: TrainStep
+    Pipeline->>FS: Save model (joblib)
+    Pipeline->>DB: Update model record
+    Pipeline->>TS: Mark task complete
+```
+
 ### Prediction Pipeline
 
 ```
 1. Upload Binary → 2. Validate → 3. Decompile (Ghidra) →
 4. Tokenize → 5. Filter → 6. Extract Features → 7. Predict → 8. Save Predictions
+```
+
+#### Prediction Pipeline Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as API Layer
+    participant TH as TaskHandler
+    participant TS as TaskService
+    participant Pipeline
+    participant Ghidra
+    participant DB as Database
+    participant FS as Filesystem
+
+    Client->>API: POST /api/v1/predictions/
+    API->>API: Validate request
+    API->>DB: Create prediction record
+    API->>TS: Submit prediction task
+    TS->>TS: Queue task in TaskService
+    TS-->>API: Task ID
+    API-->>Client: 202 Accepted
+
+    Note over TS,Pipeline: Background execution
+    TS->>Pipeline: execute(context)
+    Pipeline->>Pipeline: ValidationStep
+    Pipeline->>Ghidra: DecompileStep
+    Ghidra-->>Pipeline: Decompiled C code
+    Pipeline->>Pipeline: TokenizeStep
+    Pipeline->>Pipeline: FilterStep
+    Pipeline->>Pipeline: FeatureExtractStep
+    Pipeline->>FS: Load model (joblib)
+    Pipeline->>Pipeline: PredictStep
+    Pipeline->>DB: Save predictions
+    Pipeline->>TS: Mark task complete
 ```
 
 ## Database Schema

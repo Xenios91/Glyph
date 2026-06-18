@@ -1,0 +1,30 @@
+# Development configuration for Glyph
+# Override defaults for local development
+
+cpu_cores: 2
+jwt_secret_key: dev-secret-change-me
+use_https: false
+auth_enabled: true
+
+logging:
+  level: DEBUG
+  format: text
+  console:
+    enabled: true
+    level: DEBUG
+    colorize: true
+  file:
+    path: logs/glyph-dev.log
+    rotation: 10 MB
+    retention: 5 days
+  module_levels:
+    app.auth: DEBUG
+    app.database: DEBUG
+    app.processing: DEBUG
+    uvicorn: DEBUG
+  request_tracing:
+    enabled: true
+    header_name: X-Request-ID
+
+max_file_size_mb: 50
+prediction_probability_threshold: 50.0

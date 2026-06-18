@@ -1,0 +1,291 @@
+/* =============================================================
+   PAGE LAYOUT
+   Page content wrapper, spacing utilities, and layout helpers.
+   ============================================================= */
+
+/* ── Page content wrapper ───────────────────────────────────── */
+.page-content {
+    position: relative;
+    z-index: 10;
+    padding-top: 80px;
+    padding-bottom: 72px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    min-height: 100vh;
+}
+
+/* Profile page specific - center content vertically */
+.page-content.profile-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-top: 60px;
+    padding-bottom: 60px;
+}
+
+/* ── Content wrapper (legacy) ───────────────────────────────── */
+.content {
+    position: relative;
+    z-index: 10;
+    padding-top: 80px;
+    padding-bottom: 72px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    min-height: 100vh;
+}
+
+/* ── Blue background modifier ───────────────────────────────── */
+.blue-bg {
+    background: transparent;
+}
+
+/* ── Page header ────────────────────────────────────────────── */
+.page-header {
+    padding: var(--space-lg) 0;
+    margin-bottom: var(--space-xl);
+    border-bottom: 2px solid var(--cyan-dim);
+}
+
+.page-header h2 {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    color: var(--cyan);
+    letter-spacing: 0.08em;
+    margin-bottom: var(--space-sm);
+}
+
+.page-header p {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-dim);
+}
+
+/* ── Container ──────────────────────────────────────────────── */
+.container {
+    width: 100%;
+    max-width: var(--breakpoint-xl);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--space-lg);
+    padding-right: var(--space-lg);
+}
+
+.container.is-narrow {
+    max-width: var(--breakpoint-lg);
+}
+
+.container.is-wide {
+    max-width: var(--breakpoint-2xl);
+}
+
+.container.is-full {
+    max-width: 100%;
+}
+
+/* ── Grid layout helpers ────────────────────────────────────── */
+.grid {
+    display: grid;
+    gap: var(--space-lg);
+}
+
+.grid.is-2col {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.grid.is-3col {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.grid.is-4col {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+/* ── Flex layout helpers ────────────────────────────────────── */
+.flex {
+    display: flex;
+}
+
+.flex.is-centered {
+    align-items: center;
+    justify-content: center;
+}
+
+.flex.is-between {
+    justify-content: space-between;
+}
+
+.flex.is-around {
+    justify-content: space-around;
+}
+
+.flex.is-column {
+    flex-direction: column;
+}
+
+.flex.is-wrap {
+    flex-wrap: wrap;
+}
+
+/* ── Text alignment utilities ───────────────────────────────── */
+.text-left   { text-align: left !important; }
+.text-center { text-align: center !important; }
+.text-right  { text-align: right !important; }
+
+/* ── Display utilities ──────────────────────────────────────── */
+.is-hidden { display: none !important; }
+.is-visible { display: block !important; }
+.is-inline { display: inline !important; }
+.is-inline-block { display: inline-block !important; }
+
+/* ── Margin utilities ───────────────────────────────────────── */
+.m-none  { margin: 0 !important; }
+.m-xs    { margin: var(--space-xs) !important; }
+.m-sm    { margin: var(--space-sm) !important; }
+.m-md    { margin: var(--space-md) !important; }
+.m-lg    { margin: var(--space-lg) !important; }
+.m-xl    { margin: var(--space-xl) !important; }
+
+.mt-xs   { margin-top: var(--space-xs) !important; }
+.mt-sm   { margin-top: var(--space-sm) !important; }
+.mt-md   { margin-top: var(--space-md) !important; }
+.mt-lg   { margin-top: var(--space-lg) !important; }
+.mt-xl   { margin-top: var(--space-xl) !important; }
+
+.mb-xs   { margin-bottom: var(--space-xs) !important; }
+.mb-sm   { margin-bottom: var(--space-sm) !important; }
+.mb-md   { margin-bottom: var(--space-md) !important; }
+.mb-lg   { margin-bottom: var(--space-lg) !important; }
+.mb-xl   { margin-bottom: var(--space-xl) !important; }
+
+.ml-xs   { margin-left: var(--space-xs) !important; }
+.ml-sm   { margin-left: var(--space-sm) !important; }
+.ml-md   { margin-left: var(--space-md) !important; }
+.ml-lg   { margin-left: var(--space-lg) !important; }
+
+.mr-xs   { margin-right: var(--space-xs) !important; }
+.mr-sm   { margin-right: var(--space-sm) !important; }
+.mr-md   { margin-right: var(--space-md) !important; }
+.mr-lg   { margin-right: var(--space-lg) !important; }
+
+/* ── Padding utilities ──────────────────────────────────────── */
+.p-none  { padding: 0 !important; }
+.p-xs    { padding: var(--space-xs) !important; }
+.p-sm    { padding: var(--space-sm) !important; }
+.p-md    { padding: var(--space-md) !important; }
+.p-lg    { padding: var(--space-lg) !important; }
+.p-xl    { padding: var(--space-xl) !important; }
+
+.pt-xs   { padding-top: var(--space-xs) !important; }
+.pt-sm   { padding-top: var(--space-sm) !important; }
+.pt-md   { padding-top: var(--space-md) !important; }
+.pt-lg   { padding-top: var(--space-lg) !important; }
+
+.pb-xs   { padding-bottom: var(--space-xs) !important; }
+.pb-sm   { padding-bottom: var(--space-sm) !important; }
+.pb-md   { padding-bottom: var(--space-md) !important; }
+.pb-lg   { padding-bottom: var(--space-lg) !important; }
+
+.pl-xs   { padding-left: var(--space-xs) !important; }
+.pl-sm   { padding-left: var(--space-sm) !important; }
+.pl-md   { padding-left: var(--space-md) !important; }
+.pl-lg   { padding-left: var(--space-lg) !important; }
+
+.pr-xs   { padding-right: var(--space-xs) !important; }
+.pr-sm   { padding-right: var(--space-sm) !important; }
+.pr-md   { padding-right: var(--space-md) !important; }
+.pr-lg   { padding-right: var(--space-lg) !important; }
+
+.px-sm   { padding-left: var(--space-sm) !important; padding-right: var(--space-sm) !important; }
+.px-md   { padding-left: var(--space-md) !important; padding-right: var(--space-md) !important; }
+.px-lg   { padding-left: var(--space-lg) !important; padding-right: var(--space-lg) !important; }
+
+.py-sm   { padding-top: var(--space-sm) !important; padding-bottom: var(--space-sm) !important; }
+.py-md   { padding-top: var(--space-md) !important; padding-bottom: var(--space-md) !important; }
+.py-lg   { padding-top: var(--space-lg) !important; padding-bottom: var(--space-lg) !important; }
+
+/* ── Gap utilities for flex/grid ────────────────────────────── */
+.gap-xs { gap: var(--space-xs) !important; }
+.gap-sm { gap: var(--space-sm) !important; }
+.gap-md { gap: var(--space-md) !important; }
+.gap-lg { gap: var(--space-lg) !important; }
+.gap-xl { gap: var(--space-xl) !important; }
+
+/* ── Width utilities ────────────────────────────────────────── */
+.w-full  { width: 100% !important; }
+.w-auto  { width: auto !important; }
+.w-half  { width: 50% !important; }
+
+/* ── Height utilities ───────────────────────────────────────── */
+.h-full  { height: 100% !important; }
+.h-auto  { height: auto !important; }
+.h-screen { height: 100vh !important; }
+
+/* ── Overflow utilities ─────────────────────────────────────── */
+.overflow-hidden { overflow: hidden !important; }
+.overflow-auto   { overflow: auto !important; }
+.overflow-scroll { overflow: scroll !important; }
+
+/* ── Position utilities ─────────────────────────────────────── */
+.is-relative { position: relative !important; }
+.is-absolute { position: absolute !important; }
+.is-fixed    { position: fixed !important; }
+.is-sticky   { position: sticky !important; }
+
+/* ── Z-index utilities ──────────────────────────────────────── */
+.z-0    { z-index: 0 !important; }
+.z-10   { z-index: 10 !important; }
+.z-50   { z-index: 50 !important; }
+.z-100  { z-index: 100 !important; }
+.z-999  { z-index: 999 !important; }
+.z-9999 { z-index: 9999 !important; }
+
+/* ── Token scroll container ─────────────────────────────────── */
+.token-scroll {
+    max-height: 400px;
+    overflow-y: auto;
+    overflow-x: visible;
+    background: rgba(17, 17, 31, 0.85);
+    border: 2px solid var(--cyan-dim);
+    padding: 1.25rem;
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    margin: 0;
+}
+
+.token-scroll pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    word-break: break-word;
+    font-family: var(--font-code);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    color: var(--text-primary);
+    max-width: 100%;
+}
+
+/* Custom scrollbar for token containers */
+.token-scroll::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.token-scroll::-webkit-scrollbar-track {
+    background: var(--bg-panel);
+    border: 1px solid var(--cyan-dim);
+}
+
+.token-scroll::-webkit-scrollbar-thumb {
+    background: var(--cyan-dim);
+    border: 1px solid var(--cyan);
+}
+
+.token-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--cyan);
+}
+
+.token-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--cyan-dim) var(--bg-panel);
+}

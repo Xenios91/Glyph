@@ -196,14 +196,18 @@ async def login(
         httponly=True,
         secure=settings.use_https,
         samesite="lax",
-        max_age=settings.access_token_expire_minutes * 60)
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/",
+    )
     response.set_cookie(
         key="refresh_token_cookie",
         value=refresh_token,
         httponly=True,
         secure=settings.use_https,
-        samesite="lax",
-        max_age=settings.refresh_token_expire_days * 24 * 60 * 60)
+        samesite="strict",
+        max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
+        path="/auth/refresh",
+    )
 
     return response
 

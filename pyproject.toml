@@ -1,0 +1,199 @@
+[project]
+name = "glyph"
+dynamic = ["version"]
+description = "Architecture-independent binary analysis tool using NLP for function fingerprinting"
+readme = "README.md"
+license = {file = "license.md"}
+requires-python = ">=3.11"
+authors = [
+    {name = "Glyph Team"}
+]
+keywords = ["binary-analysis", "malware", "reversing", "nlp", "machine-learning", "ghidra"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "fastapi>=0.136.1",
+    "uvicorn[standard]>=0.46.0",
+    "uvloop>=0.22.1",
+    "Jinja2>=3.1.6",
+    "joblib>=1.5.3",
+    "numpy>=2.4.3",
+    "pandas>=3.0.1",
+    "scikit-learn>=1.8.0",
+    "scipy>=1.17.1",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.13.1",
+    "pydantic-extra-types>=2.11.1",
+    "python-dotenv>=1.2.2",
+    "python-multipart>=0.0.27",
+    "PyYAML>=6.0.3",
+    "python-magic>=0.4.27",
+    "loguru>=0.7.3",
+    "asgi-correlation-id>=4.3.4",
+    "slowapi>=0.1.9",
+    "argon2-cffi>=25.1.0",
+    "aiosqlite>=0.22.1",
+    "joserfc>=0.11.0",
+    "SQLAlchemy>=2.0.48,<2.2",
+    "email-validator>=2.3.0",
+    "rich>=14.3.3",
+    "sentry-sdk>=2.59.0",
+    "starlette>=1.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-timeout>=2.1.0",
+    "pytest-cov>=5.0.0",
+    "hypothesis>=6.100.0",
+    "ruff>=0.9.0",
+    "mypy>=1.14.0",
+    "pre-commit>=4.0.0",
+    "pylint>=3.3.0",
+]
+test = [
+    "playwright>=1.59.0",
+    "pytest-playwright>=0.7.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/glyph"
+Repository = "https://github.com/your-org/glyph"
+Documentation = "https://github.com/your-org/glyph/docs"
+Issues = "https://github.com/your-org/glyph/issues"
+
+[project.scripts]
+glyph = "main:create_app"
+
+[build-system]
+requires = ["setuptools>=75.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["app"]
+package-dir = {app = "app"}
+
+[tool.setuptools.dynamic]
+version = {attr = "app._version.__version__"}
+
+# Ruff configuration
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "T20",  # flake8-print
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "E501",  # line length handled by formatter
+    "F401",  # unused imports (common in __init__.py)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**" = ["T20", "S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_optional = true
+plugins = ["pydantic.mypy"]
+exclude = ["tests/e2e", "app/plugin"]
+mypy_path = "app"
+
+[[tool.mypy.overrides]]
+module = [
+    "ghidra.*",
+    "pyghidra.*",
+    "joserfc.*",
+    "slowapi.*",
+    "loguru.*",
+    "asgi_correlation_id.*",
+    "playwright.*",
+]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--strict-markers --tb=short -v"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests requiring external services",
+    "e2e: marks tests as end-to-end tests requiring Playwright",
+    "auth: marks tests related to authentication",
+    "security: marks tests related to security features",
+]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["app"]
+omit = ["tests/*", "app/plugin/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+show_missing = true
+fail_under = 70
+
+[tool.coverage.xml]
+output = "coverage.xml"

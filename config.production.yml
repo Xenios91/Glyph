@@ -1,0 +1,30 @@
+# Production configuration for Glyph
+# Copy to config.yml and customize for your environment
+
+cpu_cores: 8
+jwt_secret_key: CHANGE-ME-USE-STRONG-RANDOM-SECRET
+use_https: true
+auth_enabled: true
+
+logging:
+  level: INFO
+  format: json
+  console:
+    enabled: false
+    level: WARNING
+    colorize: false
+  file:
+    path: logs/glyph.log
+    rotation: 100 MB
+    retention: 30 days
+  module_levels:
+    app.auth: INFO
+    app.database: WARNING
+    app.processing: INFO
+    uvicorn: INFO
+  request_tracing:
+    enabled: true
+    header_name: X-Request-ID
+
+max_file_size_mb: 512
+prediction_probability_threshold: 75.0
