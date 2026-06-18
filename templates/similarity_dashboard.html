@@ -1,0 +1,120 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/similarity_dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="content blue-bg">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1>Binary Similarity Dashboard</h1>
+        <p class="page-subtitle">Compute and visualize pairwise similarity across your binary collection</p>
+    </div>
+
+    <!-- Binary Selection Panel -->
+    <div class="cyber-container with-title is-centered" role="region" aria-labelledby="selection-title">
+        <h2 id="selection-title">Select Binaries to Compare</h2>
+
+        <div class="selection-controls">
+            <label class="cyber-field">
+                <span for="task-name-input">Task Name</span>
+                <input type="text" id="task-name-input" class="cyber-input" placeholder="e.g., malware_family_comparison" maxlength="128" value="similarity_computation">
+            </label>
+
+            <label class="cyber-field">
+                <span for="threshold-input">Match Threshold</span>
+                <input type="number" id="threshold-input" class="cyber-input" min="0" max="1" step="0.05" value="0.70">
+            </label>
+        </div>
+
+        <div id="binaries-selection" class="binaries-selection" role="group" aria-label="Binary selection">
+            <div id="binaries-loading" class="loading-indicator">
+                <span class="loading-spinner"></span>
+                <span>Loading binaries...</span>
+            </div>
+            <div id="binaries-list" class="binaries-list" style="display: none;"></div>
+            <div id="no-binaries" class="empty-state" style="display: none;">
+                <p>No binaries found. Upload binaries first to run similarity analysis.</p>
+                <a href="/binary-library" class="cyber-btn is-primary">Go to Binary Library</a>
+            </div>
+        </div>
+
+        <div class="selection-actions">
+            <button id="select-all-btn" class="cyber-btn is-secondary" disabled>Select All</button>
+            <button id="deselect-all-btn" class="cyber-btn is-secondary" disabled>Deselect All</button>
+            <span id="selection-count" class="selection-count">0 selected</span>
+            <button id="compute-btn" class="cyber-btn is-primary" disabled>Compute Similarity</button>
+        </div>
+    </div>
+
+    <!-- Progress Indicator -->
+    <div id="progress-panel" class="cyber-container with-title is-centered" style="display: none;" role="status" aria-live="polite">
+        <h2>Computing Similarity Matrix</h2>
+        <div class="progress-wrapper">
+            <div class="progress-bar-track">
+                <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+            </div>
+            <p id="progress-text">Initializing...</p>
+        </div>
+    </div>
+
+    <!-- Saved Computations List -->
+    <div id="saved-computations" class="cyber-container with-title is-centered" role="region" aria-labelledby="saved-title">
+        <h2 id="saved-title">Saved Computations</h2>
+        <div id="saved-loading" class="loading-indicator">
+            <span class="loading-spinner"></span>
+            <span>Loading saved computations...</span>
+        </div>
+        <div id="saved-list" class="saved-list" style="display: none;"></div>
+        <div id="no-saved" class="empty-state" style="display: none;">
+            <p>No saved computations yet. Run a similarity analysis to get started.</p>
+        </div>
+    </div>
+
+    <!-- Results Panel -->
+    <div id="results-panel" class="cyber-container with-title is-centered" style="display: none;" role="region" aria-labelledby="results-title">
+        <h2 id="results-title">Similarity Results</h2>
+
+        <!-- Results Header -->
+        <div id="results-header" class="results-header"></div>
+
+        <!-- Heatmap View -->
+        <div class="view-toggle">
+            <button id="heatmap-btn" class="cyber-btn is-primary is-active" aria-pressed="true">Heatmap</button>
+            <button id="table-btn" class="cyber-btn is-primary" aria-pressed="false">Table</button>
+        </div>
+
+        <!-- Heatmap Container -->
+        <div id="heatmap-container" class="heatmap-container">
+            <canvas id="heatmap-canvas" aria-label="Similarity heatmap visualization"></canvas>
+            <div id="heatmap-tooltip" class="heatmap-tooltip" style="display: none;"></div>
+        </div>
+
+        <!-- Table Container -->
+        <div id="table-container" class="table-container" style="display: none;">
+            <div class="table-wrapper">
+                <table class="cyber-table" role="grid" aria-label="Similarity pairs">
+                    <thead>
+                        <tr>
+                            <th scope="col" data-sort="binary_a" aria-sort="none">Binary A</th>
+                            <th scope="col" data-sort="binary_b" aria-sort="none">Binary B</th>
+                            <th scope="col" data-sort="similarity" aria-sort="descending">Similarity</th>
+                            <th scope="col" data-sort="matched" aria-sort="none">Matched Functions</th>
+                            <th scope="col" data-sort="comparisons" aria-sort="none">Total Comparisons</th>
+                            <th scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="similarity-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/similarity_dashboard.js') }}"></script>
+{% endblock %}

@@ -535,3 +535,18 @@ async def task_results_page(
         "task_results.html",
         {"title": "Glyph - Task Results", "task_uuid": task_uuid, "user": current_user},
     )
+
+
+@router.get("/similarity-dashboard")
+async def similarity_dashboard_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> HTMLResponse:
+    """
+    Loads the binary similarity dashboard page.
+    """
+    return templates.TemplateResponse(
+        request,
+        "similarity_dashboard.html",
+        {"title": "Glyph - Similarity Dashboard", "user": current_user},
+    )

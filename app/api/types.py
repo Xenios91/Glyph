@@ -14,6 +14,7 @@ class TaskType(str, Enum):
     DANGEROUS_FUNCTIONS = "dangerous_functions"
     ML_TRAINING = "ml_training"
     ML_PREDICTION = "ml_prediction"
+    SIMILARITY_COMPUTATION = "similarity_computation"
 
 
 ModelName = Annotated[

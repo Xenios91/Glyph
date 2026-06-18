@@ -24,6 +24,8 @@ IN_MEMORY_DATABASE_URLS: dict[str, str] = {
     "predictions": "sqlite+aiosqlite:///file:mem_predictions?mode=memory&cache=shared",
     "functions": "sqlite+aiosqlite:///file:mem_functions?mode=memory&cache=shared",
     "auth": "sqlite+aiosqlite:///file:mem_auth?mode=memory&cache=shared",
+    "binaries": "sqlite+aiosqlite:///file:mem_binaries?mode=memory&cache=shared",
+    "intelligence": "sqlite+aiosqlite:///file:mem_intelligence?mode=memory&cache=shared",
 }
 
 

@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.api.types import TaskType
 from app.auth.dependencies import get_current_active_user
-from app.database.models import User
+from app.database.models import SimilarityPair, User
 from app.processing.task_management import TaskManager
 from app.utils.request_context import (
     CapturedContext,
@@ -88,6 +88,47 @@ class CodeReuseResults(BaseModel):
     source_binary_id: int
     source_binary_name: str
     comparisons: list[CodeReuseComparison]
+
+
+# ---------------------------------------------------------------------------
+# Similarity computation schemas
+# ---------------------------------------------------------------------------
+
+class SimilarityComputationRequest(BaseModel):
+    """Request schema for starting a similarity computation."""
+
+    task_name: str = Field(..., min_length=1, max_length=128)
+    binary_ids: list[int] = Field(..., min_length=2, description="Binaries to compare")
+    match_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+
+
+class SimilarityPairResponse(BaseModel):
+    """Single pairwise similarity result."""
+
+    binary_a_id: int
+    binary_a_name: str
+    binary_b_id: int
+    binary_b_name: str
+    overall_similarity: float
+    matched_function_count: int
+    total_function_comparisons: int
+
+
+class SimilarityMatrixResponse(BaseModel):
+    """Response schema for similarity matrix data."""
+
+    computation_id: int
+    task_name: str
+    binary_count: int
+    total_comparisons: int
+    status: str
+    matrix: list[SimilarityPairResponse]
+
+
+class SimilarityComputationListResponse(BaseModel):
+    """Response schema for listing similarity computations."""
+
+    computations: list[dict[str, Any]]
 
 
 # ---------------------------------------------------------------------------
@@ -506,6 +547,115 @@ async def _run_ml_task(
         clear_request_context()
 
 
+async def _run_similarity_computation_task(
+    binary_ids: list[int],
+    task_uuid: str,
+    task_name: str,
+    match_threshold: float,
+    user_id: int,
+    captured_ctx: CapturedContext | None = None,
+) -> None:
+    """Execute similarity matrix computation across a set of binaries.
+
+    Computes pairwise similarity for all unique binary pairs using the
+    existing compute_similarity() method with in-memory tokenization
+    and filtering. Results are persisted to the intelligence database.
+
+    Args:
+        binary_ids: List of binary IDs to compare.
+        task_uuid: Task UUID for progress tracking.
+        task_name: Human-readable task name.
+        match_threshold: Minimum similarity score to count a match.
+        user_id: ID of the user who initiated the computation.
+        captured_ctx: Captured request context.
+    """
+    from app.database.sql_service import SQLUtil
+    from app.services.binary_similarity_service import BinarySimilarityService
+
+    try:
+        if captured_ctx is not None:
+            restore_request_context(captured_ctx, override_task_id=task_uuid)
+
+        TaskManager.set_status(task_uuid, "processing")
+
+        # Create the computation record
+        computation = await SQLUtil.create_similarity_computation(
+            task_name=task_name,
+            computed_by=user_id,
+            binary_count=len(binary_ids),
+        )
+
+        # Compute the similarity matrix
+        entries = await BinarySimilarityService.compute_similarity_matrix(
+            binary_ids=binary_ids,
+            match_threshold=match_threshold,
+        )
+
+        # Persist pair results
+        pairs = [
+            SimilarityPair(
+                binary_a_id=entry.binary_a_id,
+                binary_b_id=entry.binary_b_id,
+                overall_similarity=entry.overall_similarity,
+                matched_function_count=entry.matched_function_count,
+                total_function_comparisons=entry.total_function_comparisons,
+            )
+            for entry in entries
+        ]
+        await SQLUtil.save_similarity_pairs(
+            computation_id=computation.id,
+            pairs=pairs,
+        )
+
+        # Mark computation completed
+        await SQLUtil.update_similarity_computation_status(
+            computation_id=computation.id,
+            status="completed",
+            total_comparisons=len(entries),
+        )
+
+        TaskManager.set_status(task_uuid, "completed")
+
+        # Store lightweight result reference
+        result = {
+            "task_uuid": task_uuid,
+            "computation_id": computation.id,
+            "binary_count": len(binary_ids),
+            "pairs_computed": len(entries),
+        }
+        TaskManager.set_task_result(task_uuid, result)
+
+        logger.info(
+            "Similarity computation completed: {} pairs from {} binaries (computation_id={})",
+            len(entries),
+            len(binary_ids),
+            computation.id,
+        )
+
+    except Exception:
+        TaskManager.set_status(task_uuid, "error")
+        logger.exception("Similarity computation task failed")
+        # Mark computation as errored if it was created
+        try:
+            computation = await SQLUtil.create_similarity_computation(
+                task_name=task_name,
+                computed_by=user_id,
+                binary_count=len(binary_ids),
+            )
+            await SQLUtil.update_similarity_computation_status(
+                computation_id=computation.id,
+                status="error",
+            )
+        except Exception:
+            logger.exception("Failed to persist error state for similarity computation")
+        raise
+    finally:
+        asyncio.get_event_loop().call_later(
+            10, lambda: TaskManager.remove_task(task_uuid)
+        )
+        clear_request_context()
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -573,6 +723,16 @@ async def execute_task(
             request_values.task_name,
             captured_ctx,
         )
+    elif request_values.task_type == TaskType.SIMILARITY_COMPUTATION:
+        background_tasks.add_task(
+            _run_similarity_computation_task,
+            [request_values.binary_id],
+            task_uuid,
+            request_values.task_name,
+            0.7,
+            current_user.id,
+            captured_ctx,
+        )
     else:
         background_tasks.add_task(
             _run_ml_task,
@@ -603,7 +763,7 @@ async def execute_task(
     )
 
 
-@router.get("/tasks/{task_uuid}/results")
+@router.get("/{task_uuid}/results")
 async def get_task_results(
     task_uuid: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
@@ -617,7 +777,7 @@ async def get_task_results(
         Task results (structure depends on task type).
     """
     status = TaskManager.get_status(task_uuid)
-    if status is None:
+    if status == "UUID Not Found":
         raise HTTPException(status_code=404, detail="Task not found")
 
     result = TaskManager.get_task_result(task_uuid)
@@ -630,7 +790,7 @@ async def get_task_results(
     )
 
 
-@router.get("/tasks/{task_uuid}/status")
+@router.get("/{task_uuid}/status")
 async def get_task_status(
     task_uuid: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
@@ -644,10 +804,195 @@ async def get_task_status(
         Current task status string.
     """
     status = TaskManager.get_status(task_uuid)
-    if status is None:
+    if status == "UUID Not Found":
         raise HTTPException(status_code=404, detail="Task not found")
 
     return create_success_response(
         data={"task_uuid": task_uuid, "status": status},
         message="Task status retrieved",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Similarity computation endpoints
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/similarity-computation",
+    response_model=SuccessResponse[TaskExecutionResponse],
+)
+async def start_similarity_computation(
+    background_tasks: BackgroundTasks,
+    request_values: SimilarityComputationRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[TaskExecutionResponse]:
+    """Start a new similarity computation across a set of binaries.
+
+    Validates that all binary IDs belong to the user, then queues
+    the similarity matrix computation as a background task.
+
+    Args:
+        request_values: Similarity computation parameters.
+
+    Returns:
+        Task UUID and status for progress tracking.
+    """
+    from app.database.sql_service import SQLUtil
+
+    # Validate all binaries exist and belong to user
+    for bid in request_values.binary_ids:
+        binary = await SQLUtil.get_binary(bid)
+        if binary is None:
+            raise HTTPException(
+                status_code=404, detail=f"Binary {bid} not found"
+            )
+        if binary.uploaded_by != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    task_uuid = TaskManager().get_uuid()
+    TaskManager.register_task(task_uuid, "starting", owner_id=current_user.id)
+
+    captured_ctx = capture_request_context()
+
+    background_tasks.add_task(
+        _run_similarity_computation_task,
+        request_values.binary_ids,
+        task_uuid,
+        request_values.task_name,
+        request_values.match_threshold,
+        current_user.id,
+        captured_ctx,
+    )
+
+    logger.info(
+        "Similarity computation queued for {} binaries (uuid={})",
+        len(request_values.binary_ids),
+        task_uuid,
+    )
+
+    return create_success_response(
+        data=TaskExecutionResponse(
+            task_uuid=task_uuid,
+            task_type=TaskType.SIMILARITY_COMPUTATION.value,
+            binary_id=request_values.binary_ids[0],
+            status="starting",
+        ),
+        message="Similarity computation queued successfully",
+    )
+
+
+@router.get("/similarity-computations")
+async def list_similarity_computations(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[list[dict[str, Any]]]:
+    """List all saved similarity computations for the current user.
+
+    Returns:
+        List of computation metadata records ordered by creation date.
+    """
+    from app.database.sql_service import SQLUtil
+
+    computations = await SQLUtil.list_similarity_computations(
+        computed_by=current_user.id
+    )
+
+    result = [
+        {
+            "id": c.id,
+            "task_name": c.task_name,
+            "binary_count": c.binary_count,
+            "total_comparisons": c.total_comparisons,
+            "status": c.status,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        }
+        for c in computations
+    ]
+
+    return create_success_response(
+        data=result,
+        message="Similarity computations retrieved",
+    )
+
+
+@router.get("/similarity-computations/{computation_id}")
+async def get_similarity_computation(
+    computation_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[SimilarityMatrixResponse]:
+    """Get a specific similarity computation and its pairwise results.
+
+    Args:
+        computation_id: Database ID of the computation.
+
+    Returns:
+        Computation metadata with full similarity matrix.
+    """
+    from app.database.sql_service import SQLUtil
+
+    computation = await SQLUtil.get_similarity_computation(computation_id)
+    if computation is None:
+        raise HTTPException(status_code=404, detail="Computation not found")
+
+    if computation.computed_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Build pair responses with binary names
+    pair_responses: list[SimilarityPairResponse] = []
+    for pair in computation.pairs:
+        name_a = await SQLUtil.get_binary_name(pair.binary_a_id)
+        name_b = await SQLUtil.get_binary_name(pair.binary_b_id)
+        pair_responses.append(
+            SimilarityPairResponse(
+                binary_a_id=pair.binary_a_id,
+                binary_a_name=name_a or f"binary_{pair.binary_a_id}",
+                binary_b_id=pair.binary_b_id,
+                binary_b_name=name_b or f"binary_{pair.binary_b_id}",
+                overall_similarity=pair.overall_similarity,
+                matched_function_count=pair.matched_function_count,
+                total_function_comparisons=pair.total_function_comparisons,
+            )
+        )
+
+    response = SimilarityMatrixResponse(
+        computation_id=computation.id,
+        task_name=computation.task_name,
+        binary_count=computation.binary_count,
+        total_comparisons=computation.total_comparisons,
+        status=computation.status,
+        matrix=pair_responses,
+    )
+
+    return create_success_response(
+        data=response,
+        message="Similarity computation retrieved",
+    )
+
+
+@router.delete("/similarity-computations/{computation_id}")
+async def delete_similarity_computation(
+    computation_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[dict[str, str]]:
+    """Delete a saved similarity computation and its pairwise results.
+
+    Args:
+        computation_id: Database ID of the computation.
+
+    Returns:
+        Confirmation message.
+    """
+    from app.database.sql_service import SQLUtil
+
+    computation = await SQLUtil.get_similarity_computation(computation_id)
+    if computation is None:
+        raise HTTPException(status_code=404, detail="Computation not found")
+
+    if computation.computed_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    await SQLUtil.delete_similarity_computation(computation_id)
+
+    return create_success_response(
+        data={"id": str(computation_id)},
+        message="Similarity computation deleted",
     )

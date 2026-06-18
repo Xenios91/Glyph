@@ -6,7 +6,10 @@ from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.database.models import Base, Binary, BinaryFunction, Model, Prediction, Function, User, APIKey
+from app.database.models import (
+    Base, Binary, BinaryFunction, Model, Prediction, Function, User, APIKey,
+    SimilarityComputation, SimilarityPair,
+)
 from loguru import logger
 
 _DEFAULT_ASYNC_DATABASE_URLS: dict[str, str] = {
@@ -15,6 +18,7 @@ _DEFAULT_ASYNC_DATABASE_URLS: dict[str, str] = {
     "functions": "sqlite+aiosqlite:///data/functions.db",
     "auth": "sqlite+aiosqlite:///data/auth.db",
     "binaries": "sqlite+aiosqlite:///data/binaries.db",
+    "intelligence": "sqlite+aiosqlite:///data/intelligence.db",
 }
 
 ASYNC_DATABASE_URLS: dict[str, str] = _DEFAULT_ASYNC_DATABASE_URLS.copy()
@@ -37,6 +41,7 @@ DB_TABLE_MAP: dict[str, list[Any]] = {
     "functions": [Function.__table__],
     "auth": [User.__table__, APIKey.__table__],
     "binaries": [Binary.__table__, BinaryFunction.__table__],
+    "intelligence": [SimilarityComputation.__table__, SimilarityPair.__table__],
 }
 
 async_engines: dict[str, AsyncEngine] = {}
