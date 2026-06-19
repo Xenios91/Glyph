@@ -166,3 +166,83 @@ def test_set_cpu_cores_parametrized(cores: Any, expected: bool) -> None:
         with patch("yaml.safe_load", return_value={}):
             result = GlyphConfig.set_cpu_cores(cores)  # pyright: ignore[reportArgumentType]
             assert result is expected
+
+
+def test_get_config_value(cleanup_singleton_and_logging: Path) -> None:
+    """Test getting a configuration value by key."""
+    with patch("builtins.open", mock_open(read_data="")):
+        with patch("yaml.safe_load", return_value={}):
+            GlyphConfig.load_config()
+
+    assert GlyphConfig.get_config_value("UPLOAD_FOLDER") == "./binaries"
+    assert GlyphConfig.get_config_value("nonexistent_key") is None
+
+
+def test_set_max_file_size_valid() -> None:
+    """Test setting a valid maximum file size."""
+    assert GlyphConfig.set_max_file_size(100) is True
+    assert GlyphConfig._config["max_file_size_mb"] == 100  # pyright: ignore[reportPrivateUsage]
+
+
+def test_set_max_file_size_too_small() -> None:
+    """Test that setting file size below 1 MB returns False."""
+    assert GlyphConfig.set_max_file_size(0) is False
+    assert GlyphConfig.set_max_file_size(-1) is False
+
+
+def test_set_max_file_size_too_large() -> None:
+    """Test that setting file size above 2048 MB returns False."""
+    assert GlyphConfig.set_max_file_size(2049) is False
+
+
+def test_load_config_file_not_found() -> None:
+    """Test that load_config returns False when config file is missing."""
+    GlyphConfig._initialized = False  # pyright: ignore[reportPrivateUsage]
+    with patch("builtins.open", side_effect=FileNotFoundError):
+        result = GlyphConfig.load_config()
+    assert result is False
+
+
+def test_load_config_yaml_error() -> None:
+    """Test that load_config returns False on YAML parse error."""
+    GlyphConfig._initialized = False  # pyright: ignore[reportPrivateUsage]
+    with patch("builtins.open", mock_open(read_data="invalid: yaml: [")):
+        with patch("yaml.safe_load", side_effect=yaml.YAMLError("bad yaml")):
+            result = GlyphConfig.load_config()
+    assert result is False
+
+
+def test_load_config_idempotent() -> None:
+    """Test that loading config twice does not reset it."""
+    with patch("builtins.open", mock_open(read_data="")):
+        with patch("yaml.safe_load", return_value={"cpu_cores": 4}):
+            GlyphConfig.load_config()
+            GlyphConfig.load_config()
+    assert GlyphConfig._config["cpu_cores"] == 4  # pyright: ignore[reportPrivateUsage]
+
+
+def test_set_cpu_cores_bool_rejected() -> None:
+    """Test that boolean values are rejected for CPU cores."""
+    assert GlyphConfig.set_cpu_cores(True) is False  # pyright: ignore[reportArgumentType]
+    assert GlyphConfig.set_cpu_cores(False) is False  # pyright: ignore[reportArgumentType]
+
+
+def test_get_settings() -> None:
+    """Test that get_settings returns a GlyphSettings instance."""
+    import app.config.settings as settings_module
+    from app.config.settings import get_settings
+    # Reset singleton to force initialization
+    settings_module._settings = None
+    settings = get_settings()
+    assert settings is not None
+    assert settings.jwt_algorithm == "HS256"
+    # Second call should return cached instance
+    settings2 = get_settings()
+    assert settings is settings2
+
+
+def test_reload_settings() -> None:
+    """Test that reload_settings creates a fresh instance."""
+    from app.config.settings import reload_settings
+    settings = reload_settings()
+    assert settings is not None

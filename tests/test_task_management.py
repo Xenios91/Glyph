@@ -211,3 +211,112 @@ def test_callback_invoked_on_completion(
     # Instead, verify the callback is registered and the future is tracked.
     assert "1234" in event_watcher._callbacks  # pyright: ignore[reportPrivateUsage]
     assert "1234" in event_watcher._watched_futures  # pyright: ignore[reportPrivateUsage]
+
+
+def test_register_task(task_manager: TaskManager) -> None:
+    """Test registering a task in the active tasks registry."""
+    task_manager.register_task("test-uuid", "starting", owner_id=42)
+
+    assert task_manager.get_status("test-uuid") == "starting"
+
+
+def test_register_task_without_owner(task_manager: TaskManager) -> None:
+    """Test registering a task without an owner."""
+    task_manager.register_task("test-uuid-no-owner", "queued")
+
+    assert task_manager.get_status("test-uuid-no-owner") == "queued"
+
+
+def test_verify_task_owner_owns_task(task_manager: TaskManager) -> None:
+    """Test that owner can access their task."""
+    task_manager.register_task("test-uuid", "starting", owner_id=42)
+
+    assert task_manager.verify_task_owner("test-uuid", 42) is True
+
+
+def test_verify_task_owner_wrong_owner(task_manager: TaskManager) -> None:
+    """Test that non-owner cannot access task."""
+    task_manager.register_task("test-uuid", "starting", owner_id=42)
+
+    assert task_manager.verify_task_owner("test-uuid", 99) is False
+
+
+def test_verify_task_owner_no_owner_set(task_manager: TaskManager) -> None:
+    """Test that tasks without owner are accessible by anyone."""
+    task_manager.register_task("test-uuid", "starting")
+
+    assert task_manager.verify_task_owner("test-uuid", 42) is True
+
+
+def test_set_status_ownership_check_fails(task_manager: TaskManager) -> None:
+    """Test that set_status fails when ownership check fails."""
+    task_manager.register_task("test-uuid", "starting", owner_id=42)
+
+    result = task_manager.set_status("test-uuid", "complete", owner_id=99)
+
+    assert result is False
+    assert task_manager.get_status("test-uuid") == "starting"
+
+
+def test_set_status_with_valid_owner(task_manager: TaskManager) -> None:
+    """Test that set_status succeeds with valid owner."""
+    task_manager.register_task("test-uuid", "starting", owner_id=42)
+
+    result = task_manager.set_status("test-uuid", "complete", owner_id=42)
+
+    assert result is True
+    assert task_manager.get_status("test-uuid") == "complete"
+
+
+def test_set_task_result(task_manager: TaskManager) -> None:
+    """Test storing and retrieving a task result."""
+    task_manager.register_task("test-uuid", "starting")
+    task_manager.set_task_result("test-uuid", {"data": "result"})
+
+    assert task_manager.get_task_result("test-uuid") == {"data": "result"}
+
+
+def test_get_task_result_not_found(task_manager: TaskManager) -> None:
+    """Test getting result for non-existent task returns None."""
+    result = task_manager.get_task_result("non-existent")
+
+    assert result is None
+
+
+def test_remove_task(task_manager: TaskManager) -> None:
+    """Test removing a task from the registry."""
+    task_manager.register_task("test-uuid", "starting", owner_id=42)
+    task_manager.set_task_result("test-uuid", {"data": "result"})
+    task_manager.remove_task("test-uuid")
+
+    assert task_manager.get_status("test-uuid") == "UUID Not Found"
+    assert task_manager.get_task_result("test-uuid") is None
+
+
+def test_remove_nonexistent_task(task_manager: TaskManager) -> None:
+    """Test removing a task that doesn't exist doesn't error."""
+    task_manager.remove_task("non-existent")
+
+
+def test_get_executor(task_manager: TaskManager) -> None:
+    """Test getting the process pool executor."""
+    from concurrent.futures import ProcessPoolExecutor
+
+    executor = task_manager._get_executor()
+
+    assert isinstance(executor, ProcessPoolExecutor)
+
+
+def test_shutdown_executor(task_manager: TaskManager) -> None:
+    """Test shutting down the executor."""
+    task_manager._shutdown_executor()
+
+    assert task_manager.exec_pool is None
+    assert task_manager._executor_shutdown is True
+
+
+def test_signal_handler(task_manager: TaskManager) -> None:
+    """Test signal handler calls shutdown."""
+    task_manager._signal_handler(15, None)
+
+    assert task_manager._executor_shutdown is True
