@@ -61,6 +61,7 @@ dev = [
     "mypy>=1.14.0",
     "pre-commit>=4.0.0",
     "pylint>=3.3.0",
+    "pytest-xdist>=3.6.0",
 ]
 test = [
     "playwright>=1.59.0",
@@ -137,7 +138,7 @@ warn_unused_ignores = true
 warn_no_return = true
 strict_optional = true
 plugins = ["pydantic.mypy"]
-exclude = ["tests/e2e", "app/plugin"]
+exclude = ["tests/e2e"]
 mypy_path = "app"
 
 [[tool.mypy.overrides]]
@@ -180,7 +181,7 @@ filterwarnings = [
 # Coverage configuration
 [tool.coverage.run]
 source = ["app"]
-omit = ["tests/*", "app/plugin/*"]
+omit = ["tests/*"]
 
 [tool.coverage.report]
 exclude_lines = [

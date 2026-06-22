@@ -2,41 +2,26 @@
 
 from typing import Any
 
-import pytest
 from unittest.mock import Mock, patch, AsyncMock
-from fastapi.testclient import TestClient
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
+import pytest
 
-from app.api.v1.endpoints.predictions import router as predictions_router
 from app.auth.dependencies import get_current_active_user
 from tests.conftest import set_dependency_override
 
 
+def _make_mock_user() -> Mock:
+    """Create a mock user for dependency overrides."""
+    mock_user = Mock()
+    mock_user.id = 1
+    mock_user.username = "testuser"
+    mock_user.email = "test@example.com"
+    mock_user.is_active = True
+    mock_user.is_superuser = False
+    return mock_user
+
+
 class TestPredictionsRouter:
     """Tests for predictions router endpoints."""
-
-    @pytest.fixture
-    def client(self) -> TestClient:
-        """Create test client with predictions router."""
-        app = FastAPI()
-        try:
-            app.mount("/static", StaticFiles(directory="static"), name="static")
-        except Exception:
-            pass
-        app.include_router(predictions_router, prefix="/predictions")
-        return TestClient(app)
-
-    @staticmethod
-    def mock_current_user() -> Mock:
-        """Mock function that returns a mock user."""
-        mock_user = Mock()
-        mock_user.id = 1
-        mock_user.username = "testuser"
-        mock_user.email = "test@example.com"
-        mock_user.is_active = True
-        mock_user.is_superuser = False
-        return mock_user
 
     @patch("app.api.v1.endpoints.predictions._run_prediction_task")
     @patch("app.api.v1.endpoints.predictions.PredictionPersistanceUtil")
@@ -48,7 +33,7 @@ class TestPredictionsRouter:
         mock_task_manager: Any,
         mock_pred_persistance: Any,
         mock_run_prediction_task: Any,
-        client: TestClient,
+        predictions_client: Any,
     ) -> None:
         """Test creating a prediction task successfully."""
         mock_pred_persistance.is_task_name_unique = AsyncMock(return_value=True)
@@ -58,9 +43,9 @@ class TestPredictionsRouter:
         mock_pred_req_instance = Mock()
         mock_pred_req_instance.uuid = "test-uuid-123"
         mock_prediction_request.return_value = mock_pred_req_instance
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.post(
+        response = predictions_client.post(
             "/predictions/predict",
             json={
                 "modelName": "test_model",
@@ -83,13 +68,13 @@ class TestPredictionsRouter:
         mock_prediction_request: Any,
         mock_task_manager: Any,
         mock_pred_persistance: Any,
-        client: TestClient,
+        predictions_client: Any,
     ) -> None:
         """Test prediction with existing task name returns 409."""
         mock_pred_persistance.is_task_name_unique = AsyncMock(return_value=False)
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.post(
+        response = predictions_client.post(
             "/predictions/predict",
             json={
                 "modelName": "test_model",
@@ -114,7 +99,7 @@ class TestPredictionsRouter:
         mock_task_manager: Any,
         mock_pred_persistance: Any,
         mock_run_prediction_task: Any,
-        client: TestClient,
+        predictions_client: Any,
     ) -> None:
         """Test creating a prediction task with custom UUID."""
         mock_pred_persistance.is_task_name_unique = AsyncMock(return_value=True)
@@ -124,9 +109,9 @@ class TestPredictionsRouter:
         mock_pred_req_instance = Mock()
         mock_pred_req_instance.uuid = "custom-uuid-456"
         mock_prediction_request.return_value = mock_pred_req_instance
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.post(
+        response = predictions_client.post(
             "/predictions/predict",
             json={
                 "modelName": "test_model",
@@ -149,13 +134,13 @@ class TestPredictionsRouter:
         mock_prediction_request: Any,
         mock_task_manager: Any,
         mock_pred_persistance: Any,
-        client: TestClient,
+        predictions_client: Any,
     ) -> None:
         """Test prediction task creation error."""
         mock_pred_persistance.is_task_name_unique = AsyncMock(side_effect=Exception("Test error"))
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.post(
+        response = predictions_client.post(
             "/predictions/predict",
             json={
                 "modelName": "test_model",
@@ -171,7 +156,7 @@ class TestPredictionsRouter:
         assert "PREDICTION_ERROR" in detail.get("error", {}).get("code", "")
 
     @patch("app.api.v1.endpoints.predictions.PredictionPersistanceUtil")
-    def test_get_prediction_success_json(self, mock_pred_persistance: Any, client: TestClient) -> None:
+    def test_get_prediction_success_json(self, mock_pred_persistance: Any, predictions_client: Any) -> None:
         """Test getting a prediction successfully with JSON response."""
         class SimplePrediction:
             def __init__(self) -> None:
@@ -181,9 +166,9 @@ class TestPredictionsRouter:
 
         mock_prediction = SimplePrediction()
         mock_pred_persistance.get_predictions = AsyncMock(return_value=mock_prediction)
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.get(
+        response = predictions_client.get(
             "/predictions/getPrediction",
             params={"task_name": "test_task", "model_name": "test_model"},
             headers={"Accept": "application/json"},
@@ -196,12 +181,12 @@ class TestPredictionsRouter:
         assert data["data"]["prediction"]["model_name"] == "test_model"
 
     @patch("app.api.v1.endpoints.predictions.PredictionPersistanceUtil")
-    def test_get_prediction_not_found(self, mock_pred_persistance: Any, client: TestClient) -> None:
+    def test_get_prediction_not_found(self, mock_pred_persistance: Any, predictions_client: Any) -> None:
         """Test getting a prediction that doesn't exist."""
         mock_pred_persistance.get_predictions = AsyncMock(return_value=None)
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.get(
+        response = predictions_client.get(
             "/predictions/getPrediction",
             params={"task_name": "nonexistent_task", "model_name": "test_model"},
             headers={"Accept": "application/json"},
@@ -214,12 +199,12 @@ class TestPredictionsRouter:
         assert "PREDICTION_NOT_FOUND" in detail.get("error", {}).get("code", "")
 
     @patch("app.api.v1.endpoints.predictions.PredictionPersistanceUtil")
-    def test_delete_prediction_success(self, mock_pred_persistance: Any, client: TestClient) -> None:
+    def test_delete_prediction_success(self, mock_pred_persistance: Any, predictions_client: Any) -> None:
         """Test deleting a prediction successfully."""
         mock_pred_persistance.delete_prediction = AsyncMock()
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.delete(
+        response = predictions_client.delete(
             "/predictions/deletePrediction",
             params={"task_name": "test_task"},
         )
@@ -230,7 +215,7 @@ class TestPredictionsRouter:
         assert "Prediction deleted successfully" in data["message"]
 
     @patch("app.api.v1.endpoints.predictions.FunctionPersistanceUtil")
-    def test_get_prediction_details_success_json(self, mock_func_persistance: Any, client: TestClient) -> None:
+    def test_get_prediction_details_success_json(self, mock_func_persistance: Any, predictions_client: Any) -> None:
         """Test getting prediction details successfully with JSON response."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
@@ -239,9 +224,9 @@ class TestPredictionsRouter:
             "tokens": "test tokens",
             "prediction": "test_prediction",
         })
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.get(
+        response = predictions_client.get(
             "/predictions/getPredictionDetails",
             params={
                 "task_name": "test_task",
@@ -258,12 +243,12 @@ class TestPredictionsRouter:
         assert data["data"]["task_name"] == "test_task"
 
     @patch("app.api.v1.endpoints.predictions.FunctionPersistanceUtil")
-    def test_get_prediction_details_retrieval_error(self, mock_func_persistance: Any, client: TestClient) -> None:
+    def test_get_prediction_details_retrieval_error(self, mock_func_persistance: Any, predictions_client: Any) -> None:
         """Test getting prediction details with retrieval error."""
         mock_func_persistance.get_function = AsyncMock(side_effect=IndexError("Test error"))
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.get(
+        response = predictions_client.get(
             "/predictions/getPredictionDetails",
             params={
                 "task_name": "test_task",
@@ -280,7 +265,7 @@ class TestPredictionsRouter:
         assert "RETRIEVAL_ERROR" in detail.get("error", {}).get("code", "")
 
     @patch("app.api.v1.endpoints.predictions.FunctionPersistanceUtil")
-    def test_get_prediction_details_html_basic(self, mock_func_persistance: Any, client: TestClient) -> None:
+    def test_get_prediction_details_html_basic(self, mock_func_persistance: Any, predictions_client: Any) -> None:
         """Test getting prediction details with HTML response."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
@@ -289,9 +274,9 @@ class TestPredictionsRouter:
             "tokens": "test tokens",
             "prediction": "test_prediction",
         })
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.get(
+        response = predictions_client.get(
             "/predictions/getPredictionDetails",
             params={
                 "task_name": "test_task",
@@ -305,7 +290,7 @@ class TestPredictionsRouter:
         assert "text/html" in response.headers.get("content-type", "")
 
     @patch("app.api.v1.endpoints.predictions.FunctionPersistanceUtil")
-    def test_get_prediction_details_html_response(self, mock_func_persistance: Any, client: TestClient) -> None:
+    def test_get_prediction_details_html_response(self, mock_func_persistance: Any, predictions_client: Any) -> None:
         """Test getting prediction details with HTML response."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
@@ -314,9 +299,9 @@ class TestPredictionsRouter:
             "tokens": "test tokens",
             "prediction": "test_prediction",
         })
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.get(
+        response = predictions_client.get(
             "/predictions/getPredictionDetails",
             params={
                 "task_name": "test_task",
@@ -337,12 +322,12 @@ class TestPredictionsRouter:
         mock_prediction_request: Any,
         mock_task_manager: Any,
         mock_pred_persistance: Any,
-        client: TestClient,
+        predictions_client: Any,
     ) -> None:
         """Test prediction with empty taskName raises 400."""
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.post(
+        response = predictions_client.post(
             "/predictions/predict",
             json={
                 "modelName": "test_model",
@@ -365,12 +350,12 @@ class TestPredictionsRouter:
         mock_prediction_request: Any,
         mock_task_manager: Any,
         mock_pred_persistance: Any,
-        client: TestClient,
+        predictions_client: Any,
     ) -> None:
         """Test prediction with whitespace-only taskName raises 400."""
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.post(
+        response = predictions_client.post(
             "/predictions/predict",
             json={
                 "modelName": "test_model",
@@ -386,7 +371,7 @@ class TestPredictionsRouter:
         assert "TASK_NAME_REQUIRED" in detail.get("error", {}).get("code", "")
 
     @patch("app.api.v1.endpoints.predictions.PredictionPersistanceUtil")
-    def test_get_prediction_html_response(self, mock_pred_persistance: Any, client: TestClient) -> None:
+    def test_get_prediction_html_response(self, mock_pred_persistance: Any, predictions_client: Any) -> None:
         """Test getting a prediction with HTML response."""
         class SimplePrediction:
             def __init__(self) -> None:
@@ -396,9 +381,9 @@ class TestPredictionsRouter:
 
         mock_prediction = SimplePrediction()
         mock_pred_persistance.get_predictions = AsyncMock(return_value=mock_prediction)
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.get(
+        response = predictions_client.get(
             "/predictions/getPrediction",
             params={"task_name": "test_task", "model_name": "test_model"},
             headers={"Accept": "text/html"},
@@ -409,12 +394,12 @@ class TestPredictionsRouter:
         assert b"test_task" in response.content
 
     @patch("app.api.v1.endpoints.predictions.PredictionPersistanceUtil")
-    def test_delete_predictions_success(self, mock_pred_persistance: Any, client: TestClient) -> None:
+    def test_delete_predictions_success(self, mock_pred_persistance: Any, predictions_client: Any) -> None:
         """Test batch deleting predictions successfully."""
         mock_pred_persistance.delete_prediction = AsyncMock()
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.delete(
+        response = predictions_client.delete(
             "/predictions/deletePredictions",
             params={"task_names": "task1,task2,task3"},
         )
@@ -427,11 +412,11 @@ class TestPredictionsRouter:
         assert "Deleted 3 prediction(s)" in data["message"]
 
     @patch("app.api.v1.endpoints.predictions.PredictionPersistanceUtil")
-    def test_delete_predictions_empty_task_names(self, mock_pred_persistance: Any, client: TestClient) -> None:
+    def test_delete_predictions_empty_task_names(self, mock_pred_persistance: Any, predictions_client: Any) -> None:
         """Test batch delete with empty task names raises 400."""
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.delete(
+        response = predictions_client.delete(
             "/predictions/deletePredictions",
             params={"task_names": "   "},
         )
@@ -443,15 +428,15 @@ class TestPredictionsRouter:
         assert "INVALID_TASK_NAMES" in detail.get("error", {}).get("code", "")
 
     @patch("app.api.v1.endpoints.predictions.PredictionPersistanceUtil")
-    def test_delete_predictions_partial_failure(self, mock_pred_persistance: Any, client: TestClient) -> None:
+    def test_delete_predictions_partial_failure(self, mock_pred_persistance: Any, predictions_client: Any) -> None:
         """Test batch delete with some failures."""
         def side_effect(name: str) -> None:
             if name == "bad_task":
                 raise RuntimeError("DB error")
         mock_pred_persistance.delete_prediction = AsyncMock(side_effect=side_effect)
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.delete(
+        response = predictions_client.delete(
             "/predictions/deletePredictions",
             params={"task_names": "good_task,bad_task,another_good"},
         )
@@ -465,15 +450,15 @@ class TestPredictionsRouter:
         assert "failed to delete 1" in data["message"]
 
     @patch("app.api.v1.endpoints.predictions.FunctionPersistanceUtil")
-    def test_get_prediction_details_function_not_found(self, mock_func_persistance: Any, client: TestClient) -> None:
+    def test_get_prediction_details_function_not_found(self, mock_func_persistance: Any, predictions_client: Any) -> None:
         """Test getting prediction details when function doesn't exist."""
         mock_func_persistance.get_function = AsyncMock(return_value=None)
         mock_func_persistance.get_prediction_function = AsyncMock(return_value=None)
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
         with patch("app.api.v1.endpoints.predictions.format_code") as mock_format:
             mock_format.return_value = ""
-            response = client.get(
+            response = predictions_client.get(
                 "/predictions/getPredictionDetails",
                 params={
                     "task_name": "test_task",
@@ -490,13 +475,13 @@ class TestPredictionsRouter:
         assert "FUNCTION_NOT_FOUND" in detail.get("error", {}).get("code", "")
 
     @patch("app.api.v1.endpoints.predictions.FunctionPersistanceUtil")
-    def test_get_prediction_details_type_error(self, mock_func_persistance: Any, client: TestClient) -> None:
+    def test_get_prediction_details_type_error(self, mock_func_persistance: Any, predictions_client: Any) -> None:
         """Test getting prediction details with TypeError."""
         mock_func_persistance.get_function = AsyncMock(return_value=Mock(tokens="tokens"))
         mock_func_persistance.get_prediction_function = AsyncMock(side_effect=TypeError("bad data"))
-        set_dependency_override(client, get_current_active_user, self.mock_current_user)
+        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
 
-        response = client.get(
+        response = predictions_client.get(
             "/predictions/getPredictionDetails",
             params={
                 "task_name": "test_task",

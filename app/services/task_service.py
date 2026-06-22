@@ -32,7 +32,7 @@ class TaskService:
         is responsible for monitoring futures and invoking callbacks when they complete.
         This method simply manages the queue lifecycle.
         """
-        while True:
+        while True:  # pragma: no cover
             try:
                 item: tuple[Any, Any] = cls.service_queue.get(block=True)
                 task = item[0]
@@ -44,3 +44,18 @@ class TaskService:
                 clear_request_context()
             finally:
                 cls.service_queue.task_done()
+
+    @classmethod
+    def _reset_for_testing(cls) -> None:
+        """Reset singleton state and clear the service queue for test isolation."""
+        cls.__instance = None
+        old_queue = cls.service_queue
+        cls.service_queue = queue.Queue()
+        # Drain the old queue to avoid leaving items
+        while not old_queue.empty():
+            try:
+                old_queue.get_nowait()
+                old_queue.task_done()
+            except queue.Empty:
+                break
+        logger.debug("TaskService state reset for testing")

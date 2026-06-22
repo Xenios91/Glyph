@@ -136,6 +136,10 @@ def _scan_function_names(functions: list[dict[str, Any]]) -> list[ScanResult]:
     Detects functions whose names directly match dangerous function names
     from the catalog (e.g., a function named 'strcpy').
 
+    Skips results where the function name matches the dangerous function name
+    (case-insensitive), since those are thunks/import stubs that produce
+    misleading "printf found in printf" output.
+
     Args:
         functions: List of function dictionaries.
 
@@ -155,25 +159,11 @@ def _scan_function_names(functions: list[dict[str, Any]]) -> list[ScanResult]:
         tokens = func_info.get("tokenList", [])
         for _, entry in FUNCTION_LOOKUP.items():
             if func_name.lower() == entry.name.lower():
-                # Extract usage context from tokens if available
-                usage_context = _extract_usage_context(tokens, entry.name) if tokens else []
-                containing_code = _format_full_function_code(tokens) if tokens else ""
-                result = ScanResult(
-                    function_name=entry.name,
-                    containing_function=func_name,
-                    entrypoint=func_info.get("lowAddress", "0x0"),
-                    category=entry.category,
-                    severity=entry.severity,
-                    cwe=entry.cwe,
-                    description=entry.description,
-                    safe_alternative=entry.safe_alternative,
-                    usage_context=usage_context,
-                    containing_function_code=containing_code,
-                )
-                results.append(result)
+                # Skip when function name equals the dangerous function name —
+                # this is a thunk/import stub, not real code using it.
                 logger.debug(
-                    "Name scan: found '%s' (function named after dangerous function)",
-                    entry.name,
+                    "Name scan: skipping '%s' (thunk, function_name == containing_function)",
+                    func_name,
                 )
                 break  # Only match once per function
 

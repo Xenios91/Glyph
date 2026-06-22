@@ -15,14 +15,48 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch, mock_open
 # Mock heavy modules BEFORE importing from binaries.py
 # This prevents ProcessPoolExecutor from spawning child processes
 # -----------------------------------------------------------------------
-sys.modules["app.processing.task_management"] = MagicMock()
-sys.modules["app.processing.pipeline"] = MagicMock()
-sys.modules["app.services.request_handler"] = MagicMock()
-sys.modules["app.utils.persistence_util"] = MagicMock()
-sys.modules["app.processing.ghidra_processor"] = MagicMock()
+_MOCKED_MODULES = [
+    "app.processing.task_management",
+    "app.processing.pipeline",
+    "app.processing.ghidra_processor",
+]
+_original_modules: dict[str, Any] = {}
+for _mod in _MOCKED_MODULES:
+    _original_modules[_mod] = sys.modules.get(_mod)
+    sys.modules[_mod] = MagicMock()
 
 import pytest  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _module_sys_modules_isolation() -> Any:
+    """Restore original modules after this file's tests complete.
+
+    The module-level code (lines 23-26) already replaced modules with MagicMock
+    at import time. This fixture restores the originals after all tests in this
+    module have run, preventing sys.modules pollution from leaking to other tests.
+    """
+    yield
+    # Restore original modules so other test files are not affected.
+    for _mod in _MOCKED_MODULES:
+        if _original_modules[_mod] is not None:
+            sys.modules[_mod] = _original_modules[_mod]
+        else:
+            sys.modules.pop(_mod, None)
+
+
+@pytest.fixture(autouse=True)
+def _restore_sys_modules() -> Any:
+    """Re-apply fresh mocks after each test to ensure clean state.
+
+    Do NOT restore original modules here because subsequent tests in this
+    file depend on the mocks being present in sys.modules. The parent
+    _module_sys_modules_isolation fixture handles restoring originals.
+    """
+    yield
+    for _mod in _MOCKED_MODULES:
+        sys.modules[_mod] = MagicMock()
 
 from app.api.v1.endpoints.binaries import (  # noqa: E402
     sanitize_filename,
@@ -72,6 +106,26 @@ class TestValidateBinaryMimeType:
             with pytest.raises(HTTPException) as exc_info:
                 validate_binary_mime_type(b"")
             assert exc_info.value.status_code == 400
+
+    def test_magic_from_buffer_raises_exception(self) -> None:
+        """Test that magic.from_buffer raising exception triggers lines 142-144."""
+        with patch("app.api.v1.endpoints.binaries.magic") as mock_magic:
+            mock_magic.from_buffer.side_effect = OSError("magic failed")
+            with pytest.raises(HTTPException) as exc_info:
+                validate_binary_mime_type(b"test")
+            assert exc_info.value.status_code == 400
+            assert "Failed to analyze file type" in exc_info.value.detail
+
+
+class TestBinaryUploadForm:
+    """Tests for BinaryUploadForm model (line 73 ValueError path)."""
+
+    def test_strip_name_none_raises_value_error(self) -> None:
+        """Test that name=None raises ValueError (line 73)."""
+        from app.api.v1.endpoints.binaries import BinaryUploadForm
+        with pytest.raises(ValueError) as exc_info:
+            BinaryUploadForm(name=None, file=None)  # type: ignore[arg-type]
+        assert "name is required" in str(exc_info.value)
 
 
 class TestSanitizeFilename:
@@ -728,9 +782,16 @@ class TestUploadPipeline:
     Signature: _run_upload_pipeline(binary_id, file_path, task_uuid, captured_ctx=None)
     """
 
+    @patch("app.processing.steps.SaveRawFunctionsStep")
+    @patch("app.processing.steps.DecompileStep")
+    @patch("app.processing.steps.ValidationStep")
+    @patch("app.processing.pipeline.ProcessingPipeline")
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    async def test_run_upload_pipeline_success(self, mock_clear: Any, mock_tm: Any) -> None:
+    async def test_run_upload_pipeline_success(
+        self, mock_clear: Any, mock_tm: Any, mock_pipeline_cls: Any,
+        mock_validation: Any, mock_decompile: Any, mock_save: Any
+    ) -> None:
         """Test upload pipeline completes successfully."""
         from app.api.v1.endpoints.binaries import _run_upload_pipeline
 
@@ -741,20 +802,24 @@ class TestUploadPipeline:
         mock_execute = AsyncMock(return_value=mock_result)
         mock_instance = MagicMock()
         mock_instance.execute = mock_execute
+        mock_pipeline_cls.return_value = mock_instance
 
-        with patch.dict("sys.modules", {"app.processing.steps": MagicMock()}):
-            mock_pipeline = sys.modules["app.processing.pipeline"]
-            mock_pipeline.ProcessingPipeline.return_value = mock_instance
+        await _run_upload_pipeline(
+            binary_id=1,
+            file_path="/tmp/test.elf",
+            task_uuid="abc-123",
+        )
 
-            await _run_upload_pipeline(
-                binary_id=1,
-                file_path="/tmp/test.elf",
-                task_uuid="abc-123",
-            )
-
+    @patch("app.processing.steps.SaveRawFunctionsStep")
+    @patch("app.processing.steps.DecompileStep")
+    @patch("app.processing.steps.ValidationStep")
+    @patch("app.processing.pipeline.ProcessingPipeline")
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    async def test_run_upload_pipeline_error_result(self, mock_clear: Any, mock_tm: Any) -> None:
+    async def test_run_upload_pipeline_error_result(
+        self, mock_clear: Any, mock_tm: Any, mock_pipeline_cls: Any,
+        mock_validation: Any, mock_decompile: Any, mock_save: Any
+    ) -> None:
         """Test upload pipeline handles pipeline error result."""
         from app.api.v1.endpoints.binaries import _run_upload_pipeline
 
@@ -765,40 +830,48 @@ class TestUploadPipeline:
         mock_execute = AsyncMock(return_value=mock_result)
         mock_instance = MagicMock()
         mock_instance.execute = mock_execute
+        mock_pipeline_cls.return_value = mock_instance
 
-        with patch.dict("sys.modules", {"app.processing.steps": MagicMock()}):
-            mock_pipeline = sys.modules["app.processing.pipeline"]
-            mock_pipeline.ProcessingPipeline.return_value = mock_instance
+        await _run_upload_pipeline(
+            binary_id=1,
+            file_path="/tmp/test.elf",
+            task_uuid="abc-123",
+        )
 
-            await _run_upload_pipeline(
-                binary_id=1,
-                file_path="/tmp/test.elf",
-                task_uuid="abc-123",
-            )
-
+    @patch("app.processing.steps.SaveRawFunctionsStep")
+    @patch("app.processing.steps.DecompileStep")
+    @patch("app.processing.steps.ValidationStep")
+    @patch("app.processing.pipeline.ProcessingPipeline")
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    async def test_run_upload_pipeline_exception(self, mock_clear: Any, mock_tm: Any) -> None:
+    async def test_run_upload_pipeline_exception(
+        self, mock_clear: Any, mock_tm: Any, mock_pipeline_cls: Any,
+        mock_validation: Any, mock_decompile: Any, mock_save: Any
+    ) -> None:
         """Test upload pipeline handles unexpected exceptions."""
         from app.api.v1.endpoints.binaries import _run_upload_pipeline
 
         mock_instance = MagicMock()
         mock_instance.execute = AsyncMock(side_effect=RuntimeError("Unexpected error"))
+        mock_pipeline_cls.return_value = mock_instance
 
-        with patch.dict("sys.modules", {"app.processing.steps": MagicMock()}):
-            mock_pipeline = sys.modules["app.processing.pipeline"]
-            mock_pipeline.ProcessingPipeline.return_value = mock_instance
+        with pytest.raises(RuntimeError):
+            await _run_upload_pipeline(
+                binary_id=1,
+                file_path="/nonexistent.elf",
+                task_uuid="abc-123",
+            )
 
-            with pytest.raises(RuntimeError):
-                await _run_upload_pipeline(
-                    binary_id=1,
-                    file_path="/nonexistent.elf",
-                    task_uuid="abc-123",
-                )
-
+    @patch("app.processing.steps.SaveRawFunctionsStep")
+    @patch("app.processing.steps.DecompileStep")
+    @patch("app.processing.steps.ValidationStep")
+    @patch("app.processing.pipeline.ProcessingPipeline")
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    async def test_run_upload_pipeline_with_context(self, mock_clear: Any, mock_tm: Any) -> None:
+    async def test_run_upload_pipeline_with_context(
+        self, mock_clear: Any, mock_tm: Any, mock_pipeline_cls: Any,
+        mock_validation: Any, mock_decompile: Any, mock_save: Any
+    ) -> None:
         """Test upload pipeline with captured request context."""
         from app.api.v1.endpoints.binaries import _run_upload_pipeline
 
@@ -811,19 +884,16 @@ class TestUploadPipeline:
         mock_execute = AsyncMock(return_value=mock_result)
         mock_instance = MagicMock()
         mock_instance.execute = mock_execute
+        mock_pipeline_cls.return_value = mock_instance
 
         with patch("app.api.v1.endpoints.binaries.restore_request_context") as mock_restore:
-            with patch.dict("sys.modules", {"app.processing.steps": MagicMock()}):
-                mock_pipeline = sys.modules["app.processing.pipeline"]
-                mock_pipeline.ProcessingPipeline.return_value = mock_instance
-
-                await _run_upload_pipeline(
-                    binary_id=1,
-                    file_path="/tmp/test.elf",
-                    task_uuid="abc-123",
-                    captured_ctx=mock_ctx,
-                )
-                mock_restore.assert_called_once()
+            await _run_upload_pipeline(
+                binary_id=1,
+                file_path="/tmp/test.elf",
+                task_uuid="abc-123",
+                captured_ctx=mock_ctx,
+            )
+            mock_restore.assert_called_once()
 
 
 # -----------------------------------------------------------------------
@@ -839,8 +909,10 @@ class TestPipelineAnalysis:
 
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
+    @patch("app.api.v1.endpoints.binaries.FunctionPersistanceUtil.add_model_functions", new_callable=AsyncMock)
+    @patch("app.services.request_handler.TrainingRequest")
     async def test_run_pipeline_analysis_training_success(
-        self, mock_clear: Any, mock_tm: Any
+        self, mock_tr: Any, mock_add_model: Any, mock_clear: Any, mock_tm: Any
     ) -> None:
         """Test training pipeline completes successfully."""
         from app.api.v1.endpoints.binaries import _run_pipeline_analysis
@@ -855,21 +927,20 @@ class TestPipelineAnalysis:
             mock_result = MagicMock()
             mock_result.error = None
             mock_result.get = MagicMock(side_effect=lambda k, d=None: {
-                "filtered_functions": [{"name": "main"}],
+                "filtered_functions": [{"name": "main", "tokens": ["int", "main"], "filtered_tokens": ["int", "main"], "returnType": "int"}],
                 "errored_functions": [],
             }.get(k, d))
 
             mock_run = AsyncMock(return_value=mock_result)
             mock_ghidra.run_full_pipeline = mock_run
-
-            mock_persist = sys.modules["app.utils.persistence_util"].FunctionPersistanceUtil
-            mock_persist.add_model_functions = AsyncMock()
             await _run_pipeline_analysis(mock_ghidra_request, "/tmp/test.elf")
 
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
+    @patch("app.api.v1.endpoints.binaries.FunctionPersistanceUtil.add_prediction_functions", new_callable=AsyncMock)
+    @patch("app.services.request_handler.PredictionRequest")
     async def test_run_pipeline_analysis_prediction_success(
-        self, mock_clear: Any, mock_tm: Any
+        self, mock_pr: Any, mock_add_pred: Any, mock_clear: Any, mock_tm: Any
     ) -> None:
         """Test prediction pipeline completes successfully."""
         from app.api.v1.endpoints.binaries import _run_pipeline_analysis
@@ -879,21 +950,19 @@ class TestPipelineAnalysis:
         mock_ghidra_request.file_name = "test.elf"
         mock_ghidra_request.model_name = "test_model"
         mock_ghidra_request.is_training = False
+        mock_ghidra_request.name = "test_prediction"
 
         with patch("app.api.v1.endpoints.binaries.Ghidra") as mock_ghidra:
             mock_result = MagicMock()
             mock_result.error = None
             mock_result.get = MagicMock(side_effect=lambda k, d=None: {
                 "predictions": [{"name": "main", "prediction": "safe"}],
-                "filtered_functions": [{"name": "main"}],
+                "filtered_functions": [{"name": "main", "tokens": ["int", "main"], "filtered_tokens": ["int", "main"], "returnType": "int"}],
                 "errored_functions": [],
             }.get(k, d))
 
             mock_run = AsyncMock(return_value=mock_result)
             mock_ghidra.run_full_pipeline = mock_run
-
-            mock_persist = sys.modules["app.utils.persistence_util"].FunctionPersistanceUtil
-            mock_persist.add_prediction_functions = AsyncMock()
             await _run_pipeline_analysis(mock_ghidra_request, "/tmp/test.elf")
 
     @patch("app.api.v1.endpoints.binaries.TaskManager")
@@ -999,3 +1068,32 @@ class TestPipelineAnalysis:
 
                 await _run_pipeline_analysis(mock_ghidra_request, "/tmp/test.elf", captured_ctx=mock_ctx)
                 mock_restore.assert_called_once()
+
+    @patch("app.api.v1.endpoints.binaries.TaskManager")
+    @patch("app.api.v1.endpoints.binaries.clear_request_context")
+    async def test_run_pipeline_analysis_prediction_request_fails(
+        self, mock_clear: Any, mock_tm: Any
+    ) -> None:
+        """Test prediction pipeline when PredictionRequest creation raises (lines 334-336)."""
+        from app.api.v1.endpoints.binaries import _run_pipeline_analysis
+
+        mock_ghidra_request = MagicMock()
+        mock_ghidra_request.uuid = "abc-123"
+        mock_ghidra_request.is_training = False
+        mock_ghidra_request.file_name = "test.elf"
+        mock_ghidra_request.model_name = "model1"
+
+        with patch("app.api.v1.endpoints.binaries.Ghidra") as mock_ghidra:
+            mock_result = MagicMock()
+            mock_result.error = None
+            mock_result.get = MagicMock(return_value=[{"name": "func1", "tokens": ["a", "b"]}])
+
+            mock_run = AsyncMock(return_value=mock_result)
+            mock_ghidra.run_full_pipeline = mock_run
+
+            with patch("app.api.v1.endpoints.binaries.FunctionPersistanceUtil") as mock_fp:
+                mock_fp.get_predictions_list = AsyncMock(return_value=[MagicMock()])
+                # Make PredictionRequest import and initialization fail
+                with patch("app.services.request_handler.PredictionRequest", side_effect=RuntimeError("bad data")):
+                    with pytest.raises(RuntimeError):
+                        await _run_pipeline_analysis(mock_ghidra_request, "/tmp/test.elf")

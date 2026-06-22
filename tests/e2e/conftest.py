@@ -5,13 +5,18 @@ Note: Playwright has incomplete type stubs, so we suppress unknown type errors.
 See: https://github.com/microsoft/pyright/discussions/6243
 """
 
+import os
 import sys
 import subprocess
 import time
-import os
+from pathlib import Path
+
 import pytest
 import requests
 from typing import Any
+
+# Project root is two levels up from tests/e2e/
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 # Base URL for the application
 BASE_URL = "http://127.0.0.1:8000"
@@ -45,10 +50,10 @@ def server() -> Any:
     env["GLYPH_RATE_LIMIT_PASSWORD_CHANGE_WINDOW"] = "60"
     env["GLYPH_RATE_LIMIT_REFRESH_MAX"] = "100"
     env["GLYPH_RATE_LIMIT_REFRESH_WINDOW"] = "60"
-    
+
     process = subprocess.Popen(
         [sys.executable, "main.py"],
-        cwd="/workspaces/Glyph",
+        cwd=PROJECT_ROOT,
         env=env,
     )
     try:
@@ -62,9 +67,9 @@ def server() -> Any:
             process.kill()
             process.wait()
         # Clean up test database
-        db_path = "/workspaces/Glyph/test_playwright.db"
-        if os.path.exists(db_path):
-            os.remove(db_path)
+        db_path = PROJECT_ROOT / "test_playwright.db"
+        if db_path.exists():
+            db_path.unlink()
 
 
 @pytest.fixture(scope="session")

@@ -308,19 +308,23 @@ class TestScanFunctions:
         assert results == []
 
     def test_single_dangerous_function(self) -> None:
-        """Single dangerous function is detected."""
-        functions = [self._make_function("strcpy")]
-        results = scan_functions(functions)
+        """Single dangerous function call in a different function is detected."""
+        func = self._make_function(
+            "process_input",
+            tokens=["void", "process_input()", "{", "strcpy(buf,", "src);", "}"],
+        )
+        results = scan_functions([func])
         assert len(results) >= 1
         assert results[0].function_name == "strcpy"
+        assert results[0].containing_function == "process_input"
         assert results[0].severity == "High"
 
     def test_multiple_dangerous_functions(self) -> None:
-        """Multiple dangerous functions are all detected."""
+        """Multiple dangerous function calls are all detected."""
         functions = [
-            self._make_function("strcpy"),
-            self._make_function("gets"),
-            self._make_function("sprintf"),
+            self._make_function("func_a", tokens=["void", "func_a()", "{", "strcpy(a,", "b);", "}"]),
+            self._make_function("func_b", tokens=["void", "func_b()", "{", "gets(buf);", "}"]),
+            self._make_function("func_c", tokens=["void", "func_c()", "{", "sprintf(s,", "fmt);", "}"]),
         ]
         results = scan_functions(functions)
         names = {r.function_name for r in results}
@@ -331,8 +335,8 @@ class TestScanFunctions:
     def test_severity_sorting(self) -> None:
         """Results are sorted by severity (Critical first)."""
         functions = [
-            self._make_function("sprintf"),  # High
-            self._make_function("gets"),     # Critical
+            self._make_function("f1", tokens=["void", "f1()", "{", "sprintf(s,", "fmt);", "}"]),  # High
+            self._make_function("f2", tokens=["void", "f2()", "{", "gets(buf);", "}"]),           # Critical
         ]
         results = scan_functions(functions)
         assert len(results) >= 2
@@ -342,8 +346,11 @@ class TestScanFunctions:
 
     def test_entrypoint_preserved(self) -> None:
         """Memory address is preserved in result."""
-        functions = [self._make_function("strcpy", address="0xDEADBEEF")]
-        results = scan_functions(functions)
+        func = self._make_function(
+            "wrapper", address="0xDEADBEEF",
+            tokens=["void", "wrapper()", "{", "strcpy(buf,", "src);", "}"],
+        )
+        results = scan_functions([func])
         assert len(results) >= 1
         assert results[0].entrypoint == "0xDEADBEEF"
 
@@ -362,21 +369,23 @@ class TestScanFunctions:
     def test_usage_context_included(self) -> None:
         """Usage context is extracted for dangerous functions."""
         tokens = [
-            "void", "strcpy()", "{",
+            "void", "my_func()", "{",
             "char", "*", "dst", "=", "dest;",
             "strcpy(dst,", "src);",
             "}",
         ]
-        functions = [self._make_function("strcpy", tokens=tokens)]
+        functions = [self._make_function("my_func", tokens=tokens)]
         results = scan_functions(functions)
         assert len(results) >= 1
-        # Should have body context since direct match
         assert len(results[0].usage_context) > 0
 
     def test_result_has_all_fields(self) -> None:
         """ScanResult contains all required fields."""
-        functions = [self._make_function("strcpy")]
-        results = scan_functions(functions)
+        func = self._make_function(
+            "wrapper",
+            tokens=["void", "wrapper()", "{", "strcpy(buf,", "src);", "}"],
+        )
+        results = scan_functions([func])
         assert len(results) >= 1
         result = results[0]
         assert result.function_name
@@ -524,9 +533,9 @@ class TestGenerateReport:
     def test_counts_correct(self) -> None:
         """Severity counts are correct."""
         functions = [
-            self._make_function("gets"),     # Critical
-            self._make_function("strcpy"),   # High
-            self._make_function("sprintf"),  # High
+            self._make_function("f1", tokens=["void", "f1()", "{", "gets(buf);", "}"]),       # Critical
+            self._make_function("f2", tokens=["void", "f2()", "{", "strcpy(a,", "b);", "}"]), # High
+            self._make_function("f3", tokens=["void", "f3()", "{", "sprintf(s,", "f);", "}"]),# High
         ]
         report = generate_report("test_model", functions)
         assert report.total_functions_scanned == 3
@@ -542,8 +551,8 @@ class TestGenerateReport:
     def test_results_sorted(self) -> None:
         """Report results are sorted by severity."""
         functions = [
-            self._make_function("sprintf"),  # High
-            self._make_function("gets"),     # Critical
+            self._make_function("f1", tokens=["void", "f1()", "{", "sprintf(s,", "f);", "}"]),  # High
+            self._make_function("f2", tokens=["void", "f2()", "{", "gets(buf);", "}"]),         # Critical
         ]
         report = generate_report("test_model", functions)
         if len(report.results) >= 2:
@@ -572,8 +581,8 @@ class TestGenerateReport:
     def test_total_found_matches_results(self) -> None:
         """total_found matches actual results count."""
         functions = [
-            self._make_function("strcpy"),
-            self._make_function("gets"),
+            self._make_function("f1", tokens=["void", "f1()", "{", "strcpy(a,", "b);", "}"]),
+            self._make_function("f2", tokens=["void", "f2()", "{", "gets(buf);", "}"]),
         ]
         report = generate_report("test_model", functions)
         assert report.total_found == len(report.results)
@@ -581,9 +590,9 @@ class TestGenerateReport:
     def test_severity_counts_sum(self) -> None:
         """Sum of severity counts equals total_found."""
         functions = [
-            self._make_function("gets"),
-            self._make_function("strcpy"),
-            self._make_function("sprintf"),
+            self._make_function("f1", tokens=["void", "f1()", "{", "gets(buf);", "}"]),
+            self._make_function("f2", tokens=["void", "f2()", "{", "strcpy(a,", "b);", "}"]),
+            self._make_function("f3", tokens=["void", "f3()", "{", "sprintf(s,", "f);", "}"]),
         ]
         report = generate_report("test_model", functions)
         severity_sum = report.critical_count + report.high_count + report.medium_count + report.low_count

@@ -24,6 +24,14 @@ def capture_logs(level: str = "INFO", format: str = "{level}:{name}:{message}") 
     logger.remove(handler_id)
 
 
+@pytest.fixture(autouse=True)
+def reset_singletons() -> None:
+    """Reset all singleton state before each test for proper test isolation."""
+    TaskManager._reset_for_testing()
+    EventWatcher._reset_for_testing()
+    TaskService._reset_for_testing()
+
+
 @pytest.fixture
 def task_manager() -> TaskManager:
     """Provide a fresh TaskManager instance for each test."""
@@ -307,6 +315,7 @@ def test_get_executor(task_manager: TaskManager) -> None:
     assert isinstance(executor, ProcessPoolExecutor)
 
 
+@pytest.mark.xdist_group(name="task_manager_shutdown")
 def test_shutdown_executor(task_manager: TaskManager) -> None:
     """Test shutting down the executor."""
     task_manager._shutdown_executor()
@@ -315,6 +324,7 @@ def test_shutdown_executor(task_manager: TaskManager) -> None:
     assert task_manager._executor_shutdown is True
 
 
+@pytest.mark.xdist_group(name="task_manager_shutdown")
 def test_signal_handler(task_manager: TaskManager) -> None:
     """Test signal handler calls shutdown."""
     task_manager._signal_handler(15, None)

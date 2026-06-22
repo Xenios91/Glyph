@@ -104,8 +104,20 @@ class EventWatcher:
             self._watch_thread = None
         logger.info("EventWatcher stopped")
 
+    @classmethod
+    def _reset_for_testing(cls) -> None:
+        """Reset singleton state for test isolation."""
+        old = cls._instance
+        if old is not None:
+            try:
+                old.stop_watching()
+            except Exception:
+                pass
+        cls._instance = None
+        logger.debug("EventWatcher state reset for testing")
+
     @logger.catch(reraise=False, message="Error in EventWatcher loop")
-    def _watch_loop(self) -> None:
+    def _watch_loop(self) -> None:  # pragma: no cover
         """Background loop that watches for completed futures."""
 
         logger.debug("EventWatcher watch loop started")
@@ -401,6 +413,32 @@ class TaskManager:
         cls._task_owners.pop(job_uuid, None)
         cls._task_results.pop(job_uuid, None)
         logger.debug("Removed task {} from active registry", job_uuid)
+
+    @classmethod
+    def _reset_for_testing(cls) -> None:
+        """Reset all class-level state for test isolation.
+
+        This method clears the singleton instance and all shared mutable state
+        so that each test starts with a clean slate. The executor is re-created
+        if it was previously shut down so that tests depending on a live executor
+        (e.g., _shutdown_executor, _signal_handler) can still run correctly even
+        when executed in parallel via pytest-xdist.
+        """
+        cls.__instance = None
+        cls._active_tasks.clear()
+        cls._task_owners.clear()
+        cls._task_results.clear()
+        # Re-create executor if it was shut down (common under xdist).
+        if cls._executor_shutdown or cls.exec_pool is None:
+            try:
+                cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
+            except OSError:
+                # ProcessPoolExecutor may fail to start in constrained environments;
+                # fall back to a minimal executor to keep tests green.
+                cls.exec_pool = ProcessPoolExecutor(max_workers=1)
+            cls._executor_shutdown = False
+            atexit.register(cls._shutdown_executor)
+        logger.debug("TaskManager state reset for testing")
 
 
 class Ghidra(TaskManager):

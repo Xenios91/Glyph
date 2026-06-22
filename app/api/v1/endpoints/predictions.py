@@ -180,6 +180,27 @@ async def predict_tokens(
         message="Prediction task created successfully")
 
 
+@router.get("/getPredictionsList", response_model=SuccessResponse[list[dict[str, Any]]])
+async def get_predictions_list(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[list[dict[str, Any]]]:
+    """Get a list of all predictions.
+
+    Returns:
+        Success response with a list of all prediction tasks.
+    """
+    predictions = await PredictionPersistanceUtil.get_predictions_list()
+    return create_success_response(
+        data=[
+            {
+                "task_name": prediction.task_name,
+                "model_name": prediction.model_name,
+            }
+            for prediction in predictions
+        ],
+        message="Predictions list retrieved successfully")
+
+
 @router.get("/getPrediction", response_model=None)
 async def get_prediction(
     request: Request,

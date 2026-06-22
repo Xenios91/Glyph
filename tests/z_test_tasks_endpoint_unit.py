@@ -3,17 +3,23 @@ import sys
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 # Mock heavy modules BEFORE any app imports to prevent ProcessPoolExecutor spawning
-sys.modules["app.processing.task_management"] = MagicMock()
-sys.modules["app.processing.pipeline"] = MagicMock()
-sys.modules["app.processing.steps"] = MagicMock()
-sys.modules["app.services.request_handler"] = MagicMock()
-sys.modules["app.utils.persistence_util"] = MagicMock()
-sys.modules["app.services.binary_similarity_service"] = MagicMock()
-sys.modules["app.services.code_reuse_detector"] = MagicMock()
-sys.modules["app.services.dangerous_function_scanner"] = MagicMock()
+_MOCKED_MODULES = [
+    "app.processing.task_management",
+    "app.processing.pipeline",
+    "app.processing.steps",
+    "app.services.request_handler",
+    "app.utils.persistence_util",
+    "app.services.binary_similarity_service",
+    "app.services.code_reuse_detector",
+    "app.services.dangerous_function_scanner",
+]
+_original_modules: dict[str, Any] = {}
+for _mod in _MOCKED_MODULES:
+    _original_modules[_mod] = sys.modules.get(_mod)
+    sys.modules[_mod] = MagicMock()
+
+import pytest  # noqa: E402
 
 from app.api.v1.endpoints.tasks import (  # noqa: E402
     _run_code_reuse_task,  # noqa: F401
@@ -31,6 +37,37 @@ from app.api.v1.endpoints.tasks import (  # noqa: E402
 from app.database.models import User  # noqa: E402
 from app.utils.request_context import CapturedContext  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _module_sys_modules_isolation() -> Any:
+    """Restore original modules after this file's tests complete.
+
+    The module-level code (lines 17-20) already replaced modules with MagicMock
+    at import time. This fixture restores the originals after all tests in this
+    module have run, preventing sys.modules pollution from leaking to other tests.
+    """
+    yield
+    # Restore original modules so other test files are not affected.
+    for _mod in _MOCKED_MODULES:
+        if _original_modules[_mod] is not None:
+            sys.modules[_mod] = _original_modules[_mod]
+        else:
+            sys.modules.pop(_mod, None)
+
+
+@pytest.fixture(autouse=True)
+def _restore_sys_modules() -> Any:
+    """Re-apply fresh mocks after each test to ensure clean state.
+
+    Do NOT restore original modules here because subsequent tests in this
+    file depend on the mocks being present in sys.modules. The parent
+    _module_sys_modules_isolation fixture handles restoring originals.
+    """
+    yield
+    # Re-apply mocks to ensure clean state for next test.
+    for _mod in _MOCKED_MODULES:
+        sys.modules[_mod] = MagicMock()
 
 
 # ---------------------------------------------------------------------------
