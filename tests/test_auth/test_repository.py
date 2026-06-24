@@ -53,8 +53,14 @@ async def db() -> Any:
 
 @pytest.fixture
 def password_hasher() -> PasswordHasherService:
-    """Create a password hasher for testing."""
-    return PasswordHasherService()
+    """Create a password hasher for testing with low memory cost."""
+    return PasswordHasherService(
+        time_cost=1,
+        memory_cost=1024,  # 1 MiB - low enough for constrained environments
+        parallelism=1,
+        hash_len=16,
+        salt_len=8,
+    )
 
 
 class TestPasswordHasherService:
@@ -99,9 +105,9 @@ class TestPasswordHasherService:
 class TestUserRepository:
     """Test cases for UserRepository."""
 
-    async def test_create_user(self, db: Any) -> None:
+    async def test_create_user(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test creating a user."""
-        repo = UserRepository(db)
+        repo = UserRepository(db, password_hasher)
         
         user = await repo.create_user(
             username="testuser",
@@ -118,9 +124,9 @@ class TestUserRepository:
         assert user.is_active is True
         assert user.hashed_password != "test_password_123"
 
-    async def test_get_by_id(self, db: Any) -> None:
+    async def test_get_by_id(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test getting user by ID."""
-        repo = UserRepository(db)
+        repo = UserRepository(db, password_hasher)
         
         created_user = await repo.create_user(
             username="testuser",
@@ -132,9 +138,9 @@ class TestUserRepository:
         assert retrieved is not None
         assert retrieved.id == created_user.id
 
-    async def test_get_by_username(self, db: Any) -> None:
+    async def test_get_by_username(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test getting user by username."""
-        repo = UserRepository(db)
+        repo = UserRepository(db, password_hasher)
         
         await repo.create_user(
             username="testuser_username",
@@ -146,9 +152,9 @@ class TestUserRepository:
         assert retrieved is not None
         assert retrieved.username == "testuser_username"
 
-    async def test_get_by_email(self, db: Any) -> None:
+    async def test_get_by_email(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test getting user by email."""
-        repo = UserRepository(db)
+        repo = UserRepository(db, password_hasher)
         
         await repo.create_user(
             username="testuser_email",
@@ -160,9 +166,9 @@ class TestUserRepository:
         assert retrieved is not None
         assert retrieved.email == "test_email@example.com"
 
-    async def test_verify_credentials_correct(self, db: Any) -> None:
+    async def test_verify_credentials_correct(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test verifying correct credentials."""
-        repo = UserRepository(db)
+        repo = UserRepository(db, password_hasher)
         
         await repo.create_user(
             username="testuser_verify_correct",
@@ -174,9 +180,9 @@ class TestUserRepository:
         assert user is not None
         assert user.username == "testuser_verify_correct"
 
-    async def test_verify_credentials_incorrect(self, db: Any) -> None:
+    async def test_verify_credentials_incorrect(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test verifying incorrect credentials."""
-        repo = UserRepository(db)
+        repo = UserRepository(db, password_hasher)
         
         await repo.create_user(
             username="testuser_verify_incorrect",
@@ -187,9 +193,9 @@ class TestUserRepository:
         user = await repo.verify_credentials("testuser_verify_incorrect", "wrong_password")
         assert user is None
 
-    async def test_update_user(self, db: Any) -> None:
+    async def test_update_user(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test updating user."""
-        repo = UserRepository(db)
+        repo = UserRepository(db, password_hasher)
         
         user = await repo.create_user(
             username="testuser",
@@ -202,9 +208,9 @@ class TestUserRepository:
         assert updated.full_name == "Updated Name"
         assert updated.email == "updated@example.com"
 
-    async def test_change_password(self, db: Any) -> None:
+    async def test_change_password(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test changing password."""
-        repo = UserRepository(db)
+        repo = UserRepository(db, password_hasher)
         
         user = await repo.create_user(
             username="testuser_change_password",
@@ -222,9 +228,9 @@ class TestUserRepository:
         user = await repo.verify_credentials("testuser_change_password", "new_password_123")
         assert user is not None
 
-    async def test_delete_user(self, db: Any) -> None:
+    async def test_delete_user(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test deleting user."""
-        repo = UserRepository(db)
+        repo = UserRepository(db, password_hasher)
         
         user = await repo.create_user(
             username="testuser",
@@ -239,13 +245,79 @@ class TestUserRepository:
         deleted = await repo.get_by_id(user.id)
         assert deleted is None
 
+    async def test_get_by_id_not_found(self, db: Any, password_hasher: PasswordHasherService) -> None:
+        """Test getting non-existent user by ID returns None."""
+        repo = UserRepository(db, password_hasher)
+        retrieved = await repo.get_by_id(99999)
+        assert retrieved is None
+
+    async def test_get_by_username_not_found(self, db: Any, password_hasher: PasswordHasherService) -> None:
+        """Test getting non-existent user by username returns None."""
+        repo = UserRepository(db, password_hasher)
+        retrieved = await repo.get_by_username("nonexistent")
+        assert retrieved is None
+
+    async def test_get_by_email_not_found(self, db: Any, password_hasher: PasswordHasherService) -> None:
+        """Test getting non-existent user by email returns None."""
+        repo = UserRepository(db, password_hasher)
+        retrieved = await repo.get_by_email("nonexistent@example.com")
+        assert retrieved is None
+
+    async def test_verify_credentials_nonexistent_user(self, db: Any, password_hasher: PasswordHasherService) -> None:
+        """Test verify_credentials returns None and performs timing attack prevention for unknown user."""
+        repo = UserRepository(db, password_hasher)
+        user = await repo.verify_credentials("nonexistent_user", "any_password")
+        assert user is None
+
+    async def test_verify_credentials_rehash(self, db: Any) -> None:
+        """Test verify_credentials rehashes password when hash parameters are outdated."""
+        # Create a hasher with very low params so the hash is "outdated" for a different hasher
+        old_hasher = PasswordHasherService(
+            time_cost=1, memory_cost=512, parallelism=1, hash_len=16, salt_len=8
+        )
+        repo = UserRepository(db, old_hasher)
+
+        await repo.create_user(
+            username="testuser_rehash",
+            email="rehash@example.com",
+            password="test_password_123",
+        )
+
+        # Now verify with a different hasher that has higher params — the hash should need rehashing
+        new_hasher = PasswordHasherService(
+            time_cost=2, memory_cost=32768, parallelism=2, hash_len=32, salt_len=16
+        )
+        repo_new = UserRepository(db, new_hasher)
+        user = await repo_new.verify_credentials("testuser_rehash", "test_password_123")
+        assert user is not None
+        # The hash should have been rehashed by the new hasher
+        assert new_hasher.needs_rehash(user.hashed_password) is False
+
+    async def test_update_user_not_found(self, db: Any, password_hasher: PasswordHasherService) -> None:
+        """Test updating non-existent user returns None."""
+        repo = UserRepository(db, password_hasher)
+        updated = await repo.update_user(99999, full_name="No One")
+        assert updated is None
+
+    async def test_change_password_not_found(self, db: Any, password_hasher: PasswordHasherService) -> None:
+        """Test changing password for non-existent user returns False."""
+        repo = UserRepository(db, password_hasher)
+        success = await repo.change_password(99999, "new_password")
+        assert success is False
+
+    async def test_delete_user_not_found(self, db: Any, password_hasher: PasswordHasherService) -> None:
+        """Test deleting non-existent user returns False."""
+        repo = UserRepository(db, password_hasher)
+        success = await repo.delete_user(99999)
+        assert success is False
+
 
 class TestAPIKeyRepository:
     """Test cases for APIKeyRepository."""
 
-    async def test_create_api_key(self, db: Any) -> None:
+    async def test_create_api_key(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test creating an API key."""
-        user_repo = UserRepository(db)
+        user_repo = UserRepository(db, password_hasher)
         api_key_repo = APIKeyRepository(db)
         
         user = await user_repo.create_user(
@@ -268,9 +340,9 @@ class TestAPIKeyRepository:
         assert secret.startswith("glp_")
         assert api_key_record.hashed_key != secret
 
-    async def test_verify_and_get(self, db: Any) -> None:
+    async def test_verify_and_get(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test verifying and getting API key."""
-        user_repo = UserRepository(db)
+        user_repo = UserRepository(db, password_hasher)
         api_key_repo = APIKeyRepository(db)
         
         user = await user_repo.create_user(
@@ -297,9 +369,9 @@ class TestAPIKeyRepository:
         verified = await api_key_repo.verify_and_get("glp_invalid_key_here")
         assert verified is None
 
-    async def test_get_user_api_keys(self, db: Any) -> None:
+    async def test_get_user_api_keys(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test getting user's API keys."""
-        user_repo = UserRepository(db)
+        user_repo = UserRepository(db, password_hasher)
         api_key_repo = APIKeyRepository(db)
         
         user = await user_repo.create_user(
@@ -314,9 +386,9 @@ class TestAPIKeyRepository:
         keys = await api_key_repo.get_user_api_keys(user.id)
         assert len(keys) == 2
 
-    async def test_delete_api_key(self, db: Any) -> None:
+    async def test_delete_api_key(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test deleting API key."""
-        user_repo = UserRepository(db)
+        user_repo = UserRepository(db, password_hasher)
         api_key_repo = APIKeyRepository(db)
         
         user = await user_repo.create_user(
@@ -337,9 +409,9 @@ class TestAPIKeyRepository:
         deleted = await api_key_repo.get_by_id(api_key_record.id)
         assert deleted is None
 
-    async def test_deactivate_api_key(self, db: Any) -> None:
+    async def test_deactivate_api_key(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test deactivating API key."""
-        user_repo = UserRepository(db)
+        user_repo = UserRepository(db, password_hasher)
         api_key_repo = APIKeyRepository(db)
         
         user = await user_repo.create_user(
@@ -364,3 +436,89 @@ class TestAPIKeyRepository:
         # Verify deactivated key cannot be used
         verified = await api_key_repo.verify_and_get(secret)
         assert verified is None
+
+    async def test_generate_api_key_format(self, db: Any) -> None:
+        """Test generate_api_key produces correctly prefixed keys."""
+        api_key_repo = APIKeyRepository(db)
+        key = api_key_repo.generate_api_key()
+        assert key.startswith("glp_")
+        assert len(key) > 8
+
+    async def test_hash_and_verify_api_key(self, db: Any) -> None:
+        """Test hash_api_key and verify_api_key work together."""
+        api_key_repo = APIKeyRepository(db)
+        raw_key = api_key_repo.generate_api_key()
+        hashed = api_key_repo.hash_api_key(raw_key)
+
+        assert hashed != raw_key
+        assert api_key_repo.verify_api_key(raw_key, hashed) is True
+        assert api_key_repo.verify_api_key("glp_wrong_key", hashed) is False
+
+    async def test_verify_and_get_invalid_prefix(self, db: Any) -> None:
+        """Test verify_and_get rejects keys without glp_ prefix."""
+        api_key_repo = APIKeyRepository(db)
+        verified = await api_key_repo.verify_and_get("invalid_prefix_key")
+        assert verified is None
+
+    async def test_verify_and_get_expired_key(
+        self, db: Any, password_hasher: PasswordHasherService
+    ) -> None:
+        """Test verify_and_get rejects expired API keys."""
+        from datetime import datetime, timedelta, timezone
+
+        user_repo = UserRepository(db, password_hasher)
+        api_key_repo = APIKeyRepository(db)
+
+        user = await user_repo.create_user(
+            username="testuser_expired",
+            email="expired@example.com",
+            password="test_password_123",
+        )
+
+        api_key_record, secret = await api_key_repo.create_api_key(
+            user_id=user.id,
+            name="Expired Key",
+            expires_days=30,
+        )
+
+        # Manually expire the key
+        api_key_record.expires_at = datetime.now(timezone.utc) - timedelta(days=1)
+        await db.flush()
+
+        verified = await api_key_repo.verify_and_get(secret)
+        assert verified is None
+
+    async def test_deactivate_api_key_not_found(self, db: Any) -> None:
+        """Test deactivating non-existent API key returns False."""
+        api_key_repo = APIKeyRepository(db)
+        success = await api_key_repo.deactivate_api_key(99999)
+        assert success is False
+
+    async def test_delete_api_key_not_found(self, db: Any) -> None:
+        """Test deleting non-existent API key returns False."""
+        api_key_repo = APIKeyRepository(db)
+        success = await api_key_repo.delete_api_key(99999)
+        assert success is False
+
+    async def test_create_api_key_no_expiration(
+        self, db: Any, password_hasher: PasswordHasherService
+    ) -> None:
+        """Test creating an API key without expiration."""
+        user_repo = UserRepository(db, password_hasher)
+        api_key_repo = APIKeyRepository(db)
+
+        user = await user_repo.create_user(
+            username="testuser_no_expiry",
+            email="no_expiry@example.com",
+            password="test_password_123",
+        )
+
+        api_key_record, secret = await api_key_repo.create_api_key(
+            user_id=user.id,
+            name="No Expiry Key",
+        )
+
+        assert api_key_record.expires_at is None
+        # Key should still verify successfully
+        verified = await api_key_repo.verify_and_get(secret)
+        assert verified is not None

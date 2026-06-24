@@ -429,7 +429,11 @@ function initUploadPage() {
             if (file) {
                 // Check if file is a valid binary type
                 const validTypes = ['application/x-executable', 'application/octet-stream', 'application/x-sharedlib'];
-                const fileType = file.type || 'application/octet-stream';
+                let fileType = file.type || 'application/octet-stream';
+                // Override MIME type for .bin files to match server-side behavior
+                if (file.name.toLowerCase().endsWith('.bin')) {
+                    fileType = 'application/x-sharedlib';
+                }
                 
                 if (!validTypes.includes(fileType) && !file.name.match(/\.(exe|dll|so|bin|elf)$/i)) {
                     Toast.warning('File may not be a valid binary. Upload will continue but analysis may fail.');

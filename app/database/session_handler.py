@@ -1,12 +1,16 @@
 """Database session management for Glyph application."""
 
+from contextlib import asynccontextmanager
 from typing import Any
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool
 
-from app.database.models import Base, Binary, BinaryFunction, Model, Prediction, Function, User, APIKey
+from app.database.models import (
+    Base, Binary, BinaryFunction, Model, Prediction, Function, User, APIKey,
+    SimilarityComputation, SimilarityPair,
+)
 from loguru import logger
 
 _DEFAULT_ASYNC_DATABASE_URLS: dict[str, str] = {
@@ -15,6 +19,7 @@ _DEFAULT_ASYNC_DATABASE_URLS: dict[str, str] = {
     "functions": "sqlite+aiosqlite:///data/functions.db",
     "auth": "sqlite+aiosqlite:///data/auth.db",
     "binaries": "sqlite+aiosqlite:///data/binaries.db",
+    "intelligence": "sqlite+aiosqlite:///data/intelligence.db",
 }
 
 ASYNC_DATABASE_URLS: dict[str, str] = _DEFAULT_ASYNC_DATABASE_URLS.copy()
@@ -37,6 +42,7 @@ DB_TABLE_MAP: dict[str, list[Any]] = {
     "functions": [Function.__table__],
     "auth": [User.__table__, APIKey.__table__],
     "binaries": [Binary.__table__, BinaryFunction.__table__],
+    "intelligence": [SimilarityComputation.__table__, SimilarityPair.__table__],
 }
 
 async_engines: dict[str, AsyncEngine] = {}
@@ -58,8 +64,7 @@ def _create_engine(url: str) -> AsyncEngine:
     engine = create_async_engine(
         url,
         echo=False,
-        poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
+        poolclass=NullPool,
     )
     event.listen(engine.sync_engine, "connect", _configure_sqlite)
     return engine
@@ -84,15 +89,35 @@ async def init_async_databases() -> None:
 
 
 async def get_async_session(database: str = "auth") -> AsyncSession:
-    """Get an async database session."""
+    """Get an async database session.
+
+    Prefer using :func:`async_session` context manager for automatic cleanup.
+    """
     if database not in async_session_factories:
         raise ValueError(f"Invalid database name: {database}. Must be one of: {list(async_session_factories.keys())}")
 
     return async_session_factories[database]()
 
 
+@asynccontextmanager
+async def async_session(database: str = "auth"):
+    """Async context manager for database sessions.
+
+    Ensures the session is properly closed after use.
+
+    Example:
+        async with async_session("auth") as session:
+            await session.execute(...)
+    """
+    session = await get_async_session(database)
+    try:
+        yield session
+    finally:
+        await session.close()
+
+
 async def close_async_session(session: AsyncSession) -> None:
-    """Close an async database session."""
+    """Close an async database session (legacy, prefer async_session context manager)."""
     await session.close()
 
 

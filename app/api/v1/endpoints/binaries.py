@@ -12,7 +12,7 @@ import uuid
 from pathlib import Path
 
 import magic
-from typing import Annotated, Any, Union
+from typing import Annotated, Any, Literal, Union
 
 from fastapi import (
     APIRouter,
@@ -21,6 +21,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     Request,
     UploadFile)
 from starlette.responses import HTMLResponse
@@ -33,6 +34,8 @@ from app.utils.persistence_util import FunctionPersistanceUtil
 from app.utils.responses import (
     create_success_response,
     create_error_response,
+    create_paginated_response,
+    PaginatedResponse,
     SuccessResponse)
 from app.templates import templates
 from loguru import logger
@@ -141,12 +144,18 @@ def validate_binary_mime_type(file_content: bytes) -> None:
         mime_type = magic.from_buffer(file_content[:1024], mime=True)
     except Exception:
         logger.exception("Failed to detect MIME type")
-        raise HTTPException(status_code=400, detail="Failed to analyze file type")
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="MIME_DETECTION_FAILED",
+                error_message="Failed to analyze file type").model_dump())
 
     if mime_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{mime_type}' not allowed. Expected binary/ELF format")
+            detail=create_error_response(
+                error_code="INVALID_FILE_TYPE",
+                error_message=f"File type '{mime_type}' not allowed. Expected binary/ELF format").model_dump())
 
 
 def sanitize_filename(filename: str) -> str:
@@ -164,13 +173,25 @@ def sanitize_filename(filename: str) -> str:
         HTTPException: If filename contains invalid characters.
     """
     if not filename:
-        raise HTTPException(status_code=400, detail="Empty filename")
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="EMPTY_FILENAME",
+                error_message="Empty filename").model_dump())
 
     if ".." in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename characters")
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="INVALID_FILENAME",
+                error_message="Invalid filename characters").model_dump())
 
     if "\x00" in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename characters")
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="INVALID_FILENAME",
+                error_message="Invalid filename characters").model_dump())
 
     return Path(filename).name
 
@@ -406,6 +427,9 @@ async def post_upload_binary(
         )
 
     mime_type = magic.from_buffer(file_content[:1024], mime=True)
+    # Override MIME type for .bin files
+    if binary_file.filename and binary_file.filename.lower().endswith(".bin"):
+        mime_type = "application/x-sharedlib"
     if mime_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=400,
@@ -478,32 +502,36 @@ async def post_upload_binary(
     return result
 
 
-@router.get("/list", response_model=SuccessResponse[BinaryListResponse])
+@router.get("/list", response_model=SuccessResponse[PaginatedResponse[BinaryListItem]])
 async def list_binaries(
     current_user: Annotated[User, Depends(get_current_active_user)],
-) -> SuccessResponse[BinaryListResponse]:
-    """List all binaries uploaded by the current user."""
+    page: Annotated[int, Query(ge=1, description="Page number (1-based)")] = 1,
+    page_size: Annotated[int, Query(ge=1, le=200, description="Items per page")] = 50,
+) -> SuccessResponse[PaginatedResponse[BinaryListItem]]:
+    """List binaries uploaded by the current user with pagination."""
     from app.database.sql_service import SQLUtil
 
-    binaries = await SQLUtil.get_binaries_by_user(current_user.id)
+    total = await SQLUtil.count_binaries_by_user(current_user.id)
+    offset = (page - 1) * page_size
+    binaries = await SQLUtil.get_binaries_by_user(current_user.id, offset=offset, limit=page_size)
 
     items: list[BinaryListItem] = []
     for b in binaries:
         # Count functions
-        functions = await SQLUtil.get_binary_functions(b.id)
+        function_count = await SQLUtil.count_binary_functions(b.id)
         items.append(
             BinaryListItem(
                 id=b.id,
                 name=b.name,
                 file_size=b.file_size,
                 mime_type=b.mime_type,
-                function_count=len(functions),
+                function_count=function_count,
                 created_at=b.created_at.isoformat(),
             )
         )
 
     return create_success_response(
-        data=BinaryListResponse(binaries=items),
+        data=create_paginated_response(items, total, page, page_size),
         message="Binaries retrieved successfully",
     )
 
@@ -538,10 +566,18 @@ async def get_binary_detail(
 
     binary = await SQLUtil.get_binary(binary_id)
     if binary is None:
-        raise HTTPException(status_code=404, detail="Binary not found")
+        raise HTTPException(
+            status_code=404,
+            detail=create_error_response(
+                error_code="BINARY_NOT_FOUND",
+                error_message="Binary not found").model_dump())
 
     if binary.uploaded_by != current_user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(
+            status_code=403,
+            detail=create_error_response(
+                error_code="ACCESS_DENIED",
+                error_message="Access denied").model_dump())
 
     functions = await SQLUtil.get_binary_functions(binary_id)
 
@@ -576,22 +612,53 @@ class BinaryFunctionsResponse(BaseModel):
     functions: list[BinaryFunctionItem]
 
 
-@router.get("/functions/{binary_id}", response_model=SuccessResponse[BinaryFunctionsResponse])
+class BulkUploadItem(BaseModel):
+    """Individual result item for bulk binary upload."""
+
+    binary_id: int | None = None
+    uuid: str | None = None
+    name: str
+    status: Literal["success", "error"]
+    error: str | None = None
+
+
+class BinaryBulkUploadResponse(BaseModel):
+    """Response schema for bulk binary upload."""
+
+    results: list[BulkUploadItem]
+    total: int
+    successful: int
+    failed: int
+
+
+@router.get("/functions/{binary_id}", response_model=SuccessResponse[PaginatedResponse[BinaryFunctionItem]])
 async def list_binary_functions(
     binary_id: int,
     current_user: Annotated[User, Depends(get_current_active_user)],
-) -> SuccessResponse[BinaryFunctionsResponse]:
-    """List all decompiled functions for a specific binary."""
+    page: Annotated[int, Query(ge=1, description="Page number (1-based)")] = 1,
+    page_size: Annotated[int, Query(ge=1, le=200, description="Items per page")] = 50,
+) -> SuccessResponse[PaginatedResponse[BinaryFunctionItem]]:
+    """List decompiled functions for a specific binary with pagination."""
     from app.database.sql_service import SQLUtil
 
     binary = await SQLUtil.get_binary(binary_id)
     if binary is None:
-        raise HTTPException(status_code=404, detail="Binary not found")
+        raise HTTPException(
+            status_code=404,
+            detail=create_error_response(
+                error_code="BINARY_NOT_FOUND",
+                error_message="Binary not found").model_dump())
 
     if binary.uploaded_by != current_user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(
+            status_code=403,
+            detail=create_error_response(
+                error_code="ACCESS_DENIED",
+                error_message="Access denied").model_dump())
 
-    functions = await SQLUtil.get_binary_functions(binary_id)
+    total = await SQLUtil.count_binary_functions(binary_id)
+    offset = (page - 1) * page_size
+    functions = await SQLUtil.get_binary_functions(binary_id, offset=offset, limit=page_size)
 
     items: list[BinaryFunctionItem] = []
     for fn in functions:
@@ -605,7 +672,7 @@ async def list_binary_functions(
         )
 
     return create_success_response(
-        data=BinaryFunctionsResponse(functions=items),
+        data=create_paginated_response(items, total, page, page_size),
         message="Functions retrieved successfully",
     )
 
@@ -620,14 +687,169 @@ async def delete_binary(
 
     binary = await SQLUtil.get_binary(binary_id)
     if binary is None:
-        raise HTTPException(status_code=404, detail="Binary not found")
+        raise HTTPException(
+            status_code=404,
+            detail=create_error_response(
+                error_code="BINARY_NOT_FOUND",
+                error_message="Binary not found").model_dump())
 
     if binary.uploaded_by != current_user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(
+            status_code=403,
+            detail=create_error_response(
+                error_code="ACCESS_DENIED",
+                error_message="Access denied").model_dump())
 
     await SQLUtil.delete_binary(binary_id)
 
     return create_success_response(
         data={"message": f"Binary '{binary.name}' deleted successfully"},
         message="Binary deleted successfully",
+    )
+
+
+def _upload_single_binary(
+    binary_file: UploadFile,
+    name: str,
+    current_user: User,
+    background_tasks: BackgroundTasks,
+) -> BulkUploadItem:
+    """Upload a single binary file and return the result.
+
+    Args:
+        binary_file: The binary file to upload.
+        name: Human-readable name for the binary.
+        current_user: The authenticated user uploading the file.
+        background_tasks: FastAPI background tasks handler.
+
+    Returns:
+        BulkUploadItem with success or error status.
+    """
+    settings = get_settings()
+    max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
+
+    try:
+        form_data = BinaryUploadForm(name=name)
+
+        if not binary_file.filename:
+            return BulkUploadItem(name=name, status="error", error="No filename provided")
+
+        file_content = binary_file.file.read()
+        if len(file_content) > max_file_size_bytes:
+            actual_size_mb = len(file_content) / (1024 * 1024)
+            return BulkUploadItem(
+                name=name,
+                status="error",
+                error=f"File size ({actual_size_mb:.2f}MB) exceeds maximum ({settings.max_file_size_mb}MB)",
+            )
+
+        mime_type = magic.from_buffer(file_content[:1024], mime=True)
+        if mime_type not in ALLOWED_MIME_TYPES:
+            return BulkUploadItem(
+                name=name,
+                status="error",
+                error=f"File type '{mime_type}' not allowed",
+            )
+
+        unique_filename = f"{uuid.uuid4()}"
+        upload_folder = settings.upload_folder
+        os.makedirs(upload_folder, exist_ok=True)
+        os.chmod(upload_folder, stat.S_IRWXU)
+
+        file_path = os.path.join(upload_folder, unique_filename)
+
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
+
+        from app.database.sql_service import SQLUtil
+
+        binary_id = SQLUtil.save_binary(
+            name=form_data.name,
+            file_path=file_path,
+            file_size=len(file_content),
+            mime_type=mime_type,
+            uploaded_by=current_user.id,
+        )
+
+        task_uuid = str(uuid.uuid4())
+        TaskManager.register_task(task_uuid, "starting", owner_id=current_user.id)
+
+        captured_ctx = capture_request_context()
+        background_tasks.add_task(
+            _run_upload_pipeline, binary_id, file_path, task_uuid, captured_ctx
+        )
+
+        logger.info("Bulk upload: binary {} saved (id={}, uuid={})", name, binary_id, task_uuid)
+
+        return BulkUploadItem(
+            binary_id=binary_id,
+            uuid=task_uuid,
+            name=name,
+            status="success",
+        )
+
+    except Exception as e:
+        logger.exception("Bulk upload failed for file: {}", name)
+        return BulkUploadItem(name=name, status="error", error=str(e))
+
+
+@router.post(
+    "/uploadBulk",
+    response_model=SuccessResponse[BinaryBulkUploadResponse],
+    summary="Bulk upload binaries",
+    description=(
+        "Upload multiple binary files in a single request. Each file is "
+        "processed independently and a background decompilation task is "
+        "queued for each. Returns a summary with per-file status."
+    ),
+)
+async def post_upload_bulk(
+    background_tasks: BackgroundTasks,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    files: Annotated[
+        list[UploadFile],
+        File(..., description="Binary files to upload (up to 20)"),
+    ],
+    names: Annotated[
+        str,
+        Form(
+            ...,
+            description=(
+                "Comma-separated names for each binary. Must match the number "
+                "of files. If fewer names are provided, filenames are used."
+            ),
+        ),
+    ],
+) -> SuccessResponse[BinaryBulkUploadResponse]:
+    """Upload multiple binaries and queue decompilation tasks for each."""
+    if len(files) > 20:
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="TOO_MANY_FILES",
+                error_message="Maximum 20 files per bulk upload",
+            ).model_dump(),
+        )
+
+    # Parse names
+    name_list = [n.strip() for n in names.split(",") if n.strip()]
+    results: list[BulkUploadItem] = []
+
+    for idx, file in enumerate(files):
+        name = name_list[idx] if idx < len(name_list) else (file.filename or f"binary_{idx}")
+        result = _upload_single_binary(file, name, current_user, background_tasks)
+        results.append(result)
+
+    successful = sum(1 for r in results if r.status == "success")
+    failed = sum(1 for r in results if r.status == "error")
+
+    return create_success_response(
+        data=BinaryBulkUploadResponse(
+            results=results,
+            total=len(results),
+            successful=successful,
+            failed=failed,
+        ),
+        message=f"Bulk upload complete: {successful} succeeded, {failed} failed",
     )

@@ -78,7 +78,7 @@ class TestRegisterEndpoint:
         )
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "already registered" in response.json()["detail"]
+        assert "already registered" in response.json()["error"]["message"]
 
     def test_register_duplicate_email(self, auth_client: TestClient) -> None:
         """Test registration with duplicate email."""
@@ -103,7 +103,7 @@ class TestRegisterEndpoint:
         )
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "already registered" in response.json()["detail"]
+        assert "already registered" in response.json()["error"]["message"]
 
     def test_register_invalid_email(self, auth_client: TestClient) -> None:
         """Test registration with invalid email."""
@@ -446,3 +446,260 @@ class TestAPIKeyEndpoints:
         
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["message"] == "API key deleted successfully"
+
+    def test_delete_api_key_not_found(self, auth_client: TestClient) -> None:
+        """Test deleting a non-existent API key."""
+        # Register user and login
+        auth_client.post(
+            "/auth/register",
+            json={
+                "username": "testuser_delete_not_found",
+                "email": "test_delete_not_found@example.com",
+                "password": "test_password_123"
+            }
+        )
+        login_response = auth_client.post(
+            "/auth/token",
+            data={"username": "testuser_delete_not_found", "password": "test_password_123"}
+        )
+        access_token = login_response.json()["access_token"]
+
+        # Try to delete non-existent key
+        response = auth_client.delete(
+            "/auth/api-keys/99999",
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert "not found" in response.json()["error"]["message"]
+
+    def test_delete_api_key_not_authorized(self, auth_client: TestClient) -> None:
+        """Test deleting another user's API key."""
+        # Create two users
+        auth_client.post(
+            "/auth/register",
+            json={
+                "username": "user_a",
+                "email": "user_a@example.com",
+                "password": "test_password_123"
+            }
+        )
+        auth_client.post(
+            "/auth/register",
+            json={
+                "username": "user_b",
+                "email": "user_b@example.com",
+                "password": "test_password_123"
+            }
+        )
+
+        # Login as user_a and create a key
+        login_a = auth_client.post(
+            "/auth/token",
+            data={"username": "user_a", "password": "test_password_123"}
+        )
+        token_a = login_a.json()["access_token"]
+        create_resp = auth_client.post(
+            "/auth/api-keys",
+            headers={"Authorization": f"Bearer {token_a}"},
+            json={"name": "UserA Key", "permissions": ["read"]}
+        )
+        key_id = create_resp.json()["id"]
+
+        # Login as user_b and try to delete user_a's key
+        login_b = auth_client.post(
+            "/auth/token",
+            data={"username": "user_b", "password": "test_password_123"}
+        )
+        token_b = login_b.json()["access_token"]
+
+        response = auth_client.delete(
+            f"/auth/api-keys/{key_id}",
+            headers={"Authorization": f"Bearer {token_b}"}
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestChangePasswordEndpoint:
+    """Test cases for /auth/change-password endpoint."""
+
+    def test_change_password_success(self, auth_client: TestClient) -> None:
+        """Test successful password change."""
+        suffix = get_unique_suffix()
+        username = f"testuser_change_pw_{suffix}"
+        email = f"test_change_pw_{suffix}@example.com"
+        # Register and login
+        auth_client.post(
+            "/auth/register",
+            json={
+                "username": username,
+                "email": email,
+                "password": "old_password_123"
+            }
+        )
+        login_response = auth_client.post(
+            "/auth/token",
+            data={"username": username, "password": "old_password_123"}
+        )
+        access_token = login_response.json()["access_token"]
+
+        # Change password
+        response = auth_client.post(
+            "/auth/change-password",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={
+                "current_password": "old_password_123",
+                "new_password": "new_password_456"
+            }
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["message"] == "Password changed successfully"
+
+    def test_change_password_wrong_current(self, auth_client: TestClient) -> None:
+        """Test password change with wrong current password."""
+        suffix = get_unique_suffix()
+        username = f"testuser_wrong_pw_{suffix}"
+        email = f"test_wrong_pw_{suffix}@example.com"
+        # Register and login
+        auth_client.post(
+            "/auth/register",
+            json={
+                "username": username,
+                "email": email,
+                "password": "correct_password_123"
+            }
+        )
+        login_response = auth_client.post(
+            "/auth/token",
+            data={"username": username, "password": "correct_password_123"}
+        )
+        access_token = login_response.json()["access_token"]
+
+        # Try to change with wrong current password
+        response = auth_client.post(
+            "/auth/change-password",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={
+                "current_password": "wrong_password",
+                "new_password": "new_password_456"
+            }
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "incorrect" in response.json()["error"]["message"]
+
+
+class TestUpdateProfileEndpoint:
+    """Test cases for /auth/update-profile endpoint."""
+
+    def test_update_profile_success(self, auth_client: TestClient) -> None:
+        """Test successful profile update."""
+        suffix = get_unique_suffix()
+        username = f"testuser_update_{suffix}"
+        email = f"test_update_{suffix}@example.com"
+        # Register and login
+        auth_client.post(
+            "/auth/register",
+            json={
+                "username": username,
+                "email": email,
+                "password": "test_password_123"
+            }
+        )
+        login_response = auth_client.post(
+            "/auth/token",
+            data={"username": username, "password": "test_password_123"}
+        )
+        access_token = login_response.json()["access_token"]
+
+        # Update profile
+        response = auth_client.post(
+            "/auth/update-profile",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={
+                "full_name": "Updated Name",
+                "email": f"updated_{suffix}@example.com"
+            }
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["full_name"] == "Updated Name"
+        assert data["email"] == f"updated_{suffix}@example.com"
+
+    def test_update_profile_unauthorized(self, auth_client: TestClient) -> None:
+        """Test profile update without authentication."""
+        response = auth_client.post(
+            "/auth/update-profile",
+            json={"full_name": "Test", "email": "test@example.com"}
+        )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+class TestLogoutHTMLRedirect:
+    """Test logout with HTML accept header."""
+
+    def test_logout_html_redirect(self, auth_client: TestClient) -> None:
+        """Test logout returns redirect when Accept is text/html."""
+        suffix = get_unique_suffix()
+        username = f"testuser_logout_html_{suffix}"
+        email = f"test_logout_html_{suffix}@example.com"
+        # Register and login
+        auth_client.post(
+            "/auth/register",
+            json={
+                "username": username,
+                "email": email,
+                "password": "test_password_123"
+            }
+        )
+        login_response = auth_client.post(
+            "/auth/token",
+            data={"username": username, "password": "test_password_123"}
+        )
+        access_token = login_response.json()["access_token"]
+
+        # Logout with Accept: text/html
+        response = auth_client.get(
+            "/auth/logout",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "text/html"
+            },
+            follow_redirects=False
+        )
+
+        assert response.status_code == 303
+
+
+class TestLoginBlockedUser:
+    """Test login with blocked user."""
+
+    def test_login_blocked_user(self, auth_client: TestClient) -> None:
+        """Test login returns 429 when user is blocked."""
+        with pytest.MonkeyPatch.context() as mp:
+            # Mock is_blocked to return True
+            mp.setattr("app.auth.endpoints.is_blocked", lambda *a, **k: True)
+
+            response = auth_client.post(
+                "/auth/token",
+                data={"username": "blocked_user", "password": "any_password"}
+            )
+
+            assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+
+class TestRefreshTokenEdgeCases:
+    """Test edge cases for /auth/refresh endpoint."""
+
+    def test_refresh_empty_string_token(self, auth_client: TestClient) -> None:
+        """Test refresh with empty string token."""
+        response = auth_client.post(
+            "/auth/refresh",
+            json={"refresh_token": ""}
+        )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED

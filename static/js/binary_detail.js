@@ -1,6 +1,6 @@
 /**
  * Glyph - Binary Detail JavaScript
- * Loads and displays binary details and functions
+ * Loads and displays binary details, functions, and call graph
  */
 'use strict';
 
@@ -19,8 +19,74 @@
     // ============================================================
 
     document.addEventListener('DOMContentLoaded', function () {
+        initTabs();
         loadBinaryDetail();
     });
+
+    // ============================================================
+    // Tab Navigation
+    // ============================================================
+
+    /**
+     * Initialize tab switching
+     */
+    function initTabs() {
+        var tabButtons = document.querySelectorAll('.tab-btn');
+        if (!tabButtons || tabButtons.length === 0) return;
+
+        tabButtons.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var targetTab = btn.getAttribute('data-tab');
+                switchTab(targetTab);
+            });
+
+            // Keyboard support
+            btn.addEventListener('keydown', function (e) {
+                var tabList = Array.prototype.slice.call(tabButtons);
+                var currentIndex = tabList.indexOf(btn);
+                var newIndex = currentIndex;
+
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    newIndex = (currentIndex + 1) % tabList.length;
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    newIndex = (currentIndex - 1 + tabList.length) % tabList.length;
+                } else if (e.key === 'Home') {
+                    e.preventDefault();
+                    newIndex = 0;
+                } else if (e.key === 'End') {
+                    e.preventDefault();
+                    newIndex = tabList.length - 1;
+                }
+
+                if (newIndex !== currentIndex) {
+                    tabList[newIndex].focus();
+                    tabList[newIndex].click();
+                }
+            });
+        });
+    }
+
+    /**
+     * Switch to the specified tab
+     * @param {string} tabId
+     */
+    function switchTab(tabId) {
+        var tabButtons = document.querySelectorAll('.tab-btn');
+        var tabPanels = document.querySelectorAll('.tab-panel');
+
+        tabButtons.forEach(function (btn) {
+            var isActive = btn.getAttribute('data-tab') === tabId;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        tabPanels.forEach(function (panel) {
+            var panelId = 'panel-' + tabId;
+            panel.classList.toggle('active', panel.id === panelId);
+        });
+    }
 
     // ============================================================
     // Load Binary Detail
@@ -139,7 +205,7 @@
                 throw new Error(data.detail || 'Failed to load functions');
             }
 
-            var functions = data.data ? data.data.functions : [];
+            var functions = data.data ? data.data.items : [];
 
             if (!functions || functions.length === 0) {
                 if (functionsEmpty) functionsEmpty.style.display = 'block';

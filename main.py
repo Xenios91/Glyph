@@ -76,24 +76,36 @@ class CSPMiddleware:
         "form-action 'self'"
     )
 
-    SECURITY_HEADERS: list[tuple[bytes, bytes]] = [
+    _SECURITY_HEADERS_NO_HSTS: list[tuple[bytes, bytes]] = [
         (b"x-content-type-options", b"nosniff"),
         (b"x-frame-options", b"DENY"),
-        (b"strict-transport-security", b"max-age=31536000; includeSubDomains; preload"),
         (b"referrer-policy", b"strict-origin-when-cross-origin"),
         (b"permissions-policy", b"geolocation=(), camera=(), microphone=()"),
     ]
 
+    _HSTS_HEADER: tuple[bytes, bytes] = (
+        b"strict-transport-security",
+        b"max-age=31536000; includeSubDomains; preload",
+    )
+
     def __init__(
         self,
         app: Callable[[Any, Any, Any], Awaitable[None]],
+        use_https: bool = False,
     ) -> None:
         """Initialize the CSP middleware.
 
         Args:
             app: The downstream ASGI application.
+            use_https: Whether HTTPS is enabled. HSTS header is only included
+                when True to avoid breaking development environments.
         """
         self.app = app
+        self._security_headers: list[tuple[bytes, bytes]] = (
+            [self._HSTS_HEADER] + self._SECURITY_HEADERS_NO_HSTS
+            if use_https
+            else list(self._SECURITY_HEADERS_NO_HSTS)
+        )
 
     async def __call__(
         self,
@@ -120,7 +132,7 @@ class CSPMiddleware:
             if message["type"] == "http.response.start":
                 headers: list[tuple[bytes, bytes]] = list(message.get("headers", []))
                 headers.append((b"content-security-policy", csp_header.encode("utf-8")))
-                headers.extend(self.SECURITY_HEADERS)
+                headers.extend(self._security_headers)
                 message["headers"] = headers
             await send(message)
 
@@ -274,7 +286,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     logger.info("Rate limiter registered: slowapi")
 
-    app.add_middleware(CSPMiddleware)
+    app.add_middleware(CSPMiddleware, use_https=settings.use_https)
     logger.info("Middleware registered: CSPMiddleware")
 
     app.add_middleware(
@@ -357,6 +369,22 @@ async def favicon() -> FileResponse:
     return FileResponse("static/favicon.ico")
 
 
+# Mapping of HTTP status codes to machine-readable error codes.
+_STATUS_ERROR_CODE: dict[int, str] = {
+    400: "BAD_REQUEST",
+    401: "UNAUTHORIZED",
+    403: "FORBIDDEN",
+    404: "NOT_FOUND",
+    409: "CONFLICT",
+    413: "PAYLOAD_TOO_LARGE",
+    422: "VALIDATION_ERROR",
+    429: "RATE_LIMITED",
+    500: "INTERNAL_SERVER_ERROR",
+    503: "SERVICE_UNAVAILABLE",
+    507: "INSUFFICIENT_STORAGE",
+}
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLResponse | JSONResponse | RedirectResponse:
     """Handle HTTP exceptions with appropriate response format.
@@ -397,9 +425,16 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
             status_code=exc.status_code,
         )
 
+    from app.utils.responses import create_error_response
+
+    error_code = _STATUS_ERROR_CODE.get(exc.status_code, "HTTP_ERROR")
+    error_response = create_error_response(
+        error_code=error_code,
+        error_message=str(exc.detail),
+    )
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": str(exc.detail)}
+        content=error_response.model_dump(),
     )
 
 
@@ -427,9 +462,15 @@ async def general_exception_handler(request: Request, exc: Exception) -> HTMLRes
             status_code=500,
         )
 
+    from app.utils.responses import create_error_response
+
+    error_response = create_error_response(
+        error_code="INTERNAL_SERVER_ERROR",
+        error_message="An unexpected error occurred. Please try again later.",
+    )
     return JSONResponse(
         status_code=500,
-        content={"detail": "An unexpected error occurred. Please try again later."}
+        content=error_response.model_dump(),
     )
 
 

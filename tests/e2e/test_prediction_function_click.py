@@ -52,7 +52,7 @@ def test_prediction_details_endpoint_returns_correct_data(page: Any, server: Any
     requests.post(f"{BASE_URL}/auth/register", json=register_data)
     
     login_data = {"username": username, "password": "testtest"}
-    login_resp = requests.post(f"{BASE_URL}/auth/login", json=login_data)
+    login_resp = requests.post(f"{BASE_URL}/auth/token", data=login_data)
     token = login_resp.json().get("access_token")
     
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}

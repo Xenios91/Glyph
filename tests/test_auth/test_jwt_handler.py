@@ -116,3 +116,40 @@ class TestJWTHandler:
         payload = jwt_handler.verify_token(refresh_token)
         assert payload["sub"] == "456"
         assert payload["type"] == "refresh"
+
+    def test_create_access_token_protected_claim_override(self, jwt_handler: JWTHandler) -> None:
+        """Test that overriding protected claims raises ValueError."""
+        with pytest.raises(ValueError, match="Cannot override protected claims"):
+            jwt_handler.create_access_token("123", extra_claims={"sub": "hacker"})
+
+    def test_create_refresh_token_protected_claim_override(self, jwt_handler: JWTHandler) -> None:
+        """Test that overriding protected claims on refresh raises ValueError."""
+        with pytest.raises(ValueError, match="Cannot override protected claims"):
+            jwt_handler.create_refresh_token("123", extra_claims={"exp": "hacker"})
+
+    def test_verify_access_token_bad_signature(self) -> None:
+        """Test that a token with wrong signature raises BadSignatureError."""
+        from app.auth.jwt_handler import BadSignatureError
+        handler1 = JWTHandler(secret_key="secret_a", algorithm="HS256")
+        handler2 = JWTHandler(secret_key="secret_b", algorithm="HS256")
+        token = handler1.create_access_token("123")
+        with pytest.raises(BadSignatureError):
+            handler2.verify_access_token(token)
+
+    def test_verify_refresh_token_bad_signature(self) -> None:
+        """Test that a refresh token with wrong signature raises BadSignatureError."""
+        from app.auth.jwt_handler import BadSignatureError
+        handler1 = JWTHandler(secret_key="secret_a", algorithm="HS256")
+        handler2 = JWTHandler(secret_key="secret_b", algorithm="HS256")
+        token = handler1.create_refresh_token("123")
+        with pytest.raises(BadSignatureError):
+            handler2.verify_refresh_token(token)
+
+    def test_verify_token_bad_signature(self) -> None:
+        """Test that verify_token raises BadSignatureError on wrong signature."""
+        from app.auth.jwt_handler import BadSignatureError
+        handler1 = JWTHandler(secret_key="secret_a", algorithm="HS256")
+        handler2 = JWTHandler(secret_key="secret_b", algorithm="HS256")
+        token = handler1.create_access_token("123")
+        with pytest.raises(BadSignatureError):
+            handler2.verify_token(token)

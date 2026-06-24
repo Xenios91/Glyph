@@ -60,11 +60,13 @@ Glyph is an architecture-independent binary analysis tool that uses NLP techniqu
 - **`router.py`** - Centralized API router with versioning support
 - **`types.py`** - Shared API type definitions
 - **`v1/endpoints/`** - Version 1 API endpoints:
-  - `binaries.py` - Binary upload and management
-  - `predictions.py` - Prediction task management
-  - `models.py` - Model management
-  - `status.py` - Task status checking
-  - `config.py` - Configuration endpoints
+  - `binaries.py` - Binary upload, listing, detail, functions, and deletion
+  - `predictions.py` - Prediction task creation, listing, detail, and deletion
+  - `models.py` - Model management (delete, function retrieval)
+  - `status.py` - Task status checking and updates
+  - `config.py` - Configuration save endpoints
+  - `dangerous_functions.py` - Dangerous function scanning and catalog browsing
+  - `tasks.py` - Task execution, results, status, and similarity computations
 
 ### Authentication Layer (`app/auth/`)
 

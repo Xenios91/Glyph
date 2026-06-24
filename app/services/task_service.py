@@ -1,10 +1,19 @@
 """Service module for Glyph application background tasks."""
 
-import queue
-from typing import Any
+from __future__ import annotations
+
+import asyncio
+from typing import Any, Protocol
+
 
 from loguru import logger
 from app.utils.request_context import restore_request_context, clear_request_context
+
+
+class _TaskRequest(Protocol):
+    """Protocol for objects that have a uuid attribute used as task identifier."""
+
+    uuid: str
 
 
 class TaskService:
@@ -13,10 +22,13 @@ class TaskService:
     Queue items should be tuples of (request, captured_context) where
     captured_context is a CapturedContext snapshot taken on the request
     thread before queuing.
+
+    The service loop runs as an asyncio task, consuming items from an
+    async queue and restoring the captured request context for each job.
     """
 
-    service_queue: queue.Queue[tuple[Any, Any]] = queue.Queue()
-    __instance: Any = None
+    _service_queue: asyncio.Queue[tuple[_TaskRequest, Any]] | None = None
+    __instance: "TaskService | None" = None
 
     def __new__(cls) -> "TaskService":
         """Create or return the singleton instance of TaskService."""
@@ -24,17 +36,29 @@ class TaskService:
             cls.__instance = super().__new__(cls)
         return cls.__instance
 
+    def __init__(self) -> None:
+        """Initialize the async service queue (idempotent)."""
+        if self._service_queue is None:
+            self._service_queue = asyncio.Queue()
+
+    @property
+    def service_queue(self) -> asyncio.Queue[tuple[_TaskRequest, Any]]:
+        """Return the async service queue."""
+        return self._service_queue  # type: ignore[return-value]
+
     @classmethod
-    def start_service(cls) -> None:
+    async def start_service(cls) -> None:
         """Start the service loop to process tasks from the queue.
 
         Note: This service no longer calls .result() on futures. The EventWatcher
         is responsible for monitoring futures and invoking callbacks when they complete.
         This method simply manages the queue lifecycle.
         """
-        while True:
+        instance = cls()
+        queue = instance.service_queue
+        while True:  # pragma: no cover
             try:
-                item: tuple[Any, Any] = cls.service_queue.get(block=True)
+                item: tuple[_TaskRequest, Any] = await queue.get()
                 task = item[0]
                 captured_ctx = item[1]
                 job_uuid: str = task.uuid
@@ -43,4 +67,23 @@ class TaskService:
                     "Job queued: {}", job_uuid)
                 clear_request_context()
             finally:
-                cls.service_queue.task_done()
+                queue.task_done()
+
+    @classmethod
+    def _reset_for_testing(cls) -> None:
+        """Reset singleton state and clear the service queue for test isolation."""
+        cls.__instance = None
+        old_queue = cls._service_queue
+        cls._service_queue = asyncio.Queue()
+        # Drain the old queue to avoid leaving items
+        if old_queue is not None:
+            while not old_queue.empty():
+                try:
+                    old_queue.get_nowait()
+                    try:
+                        old_queue.task_done()
+                    except ValueError:
+                        pass  # Items added via _queue.append() don't increment unfinished_tasks
+                except asyncio.QueueEmpty:
+                    break
+        logger.debug("TaskService state reset for testing")

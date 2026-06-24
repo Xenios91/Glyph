@@ -227,3 +227,54 @@ class TestProcessingPipeline:
         result = await pipeline.execute(ctx)
         assert result.exc_info is not False
         assert result.status == "error"
+
+
+class TestStepsHelpers:
+    """Tests for helper functions in app.processing.steps."""
+
+    def test_remove_comments_breaks_on_unclosed(self) -> None:
+        """Test that unclosed comments are handled."""
+        from app.processing.steps import _remove_comments
+        # Unclosed comment - should break at /*
+        result = _remove_comments(["int", "x", "=", "1;", "/*", "unclosed"])
+        assert "/*" not in result
+
+    def test_remove_comments_removes_closed_comment(self) -> None:
+        """Test that closed comments are removed."""
+        from app.processing.steps import _remove_comments
+        result = _remove_comments(["int", "x", "=", "1;", "/*", "comment", "*/", "int", "y"])
+        assert "/*" not in result
+        assert "*/" not in result
+        assert "comment" not in result
+
+    def test_filter_tokens_empty_token(self) -> None:
+        """Test that empty tokens are skipped in filtering."""
+        from app.processing.steps import _filter_tokens
+        result = _filter_tokens(["", "  ", "valid"])
+        assert "" not in result
+        assert "  " not in result
+        assert "valid" in result
+
+    def test_filter_tokens_hex_replacement(self) -> None:
+        """Test that hex values are replaced with HEX."""
+        from app.processing.steps import _filter_tokens
+        result = _filter_tokens(["0xDEAD"])
+        assert "HEX" in result
+
+    def test_filter_tokens_fun_replacement(self) -> None:
+        """Test that FUN_ tokens are replaced with FUNCTION."""
+        from app.processing.steps import _filter_tokens
+        result = _filter_tokens(["FUN_00401000"])
+        assert "FUNCTION" in result
+
+    def test_filter_tokens_undefined_replacement(self) -> None:
+        """Test that undefinedN tokens are replaced."""
+        from app.processing.steps import _filter_tokens
+        result = _filter_tokens(["undefined1"])
+        assert "undefined" in result
+
+    def test_filter_tokens_variable_replacement(self) -> None:
+        """Test that variable tokens are replaced with VARIABLE."""
+        from app.processing.steps import _filter_tokens
+        result = _filter_tokens(["local_10", "param_1"])
+        assert "VARIABLE" in result

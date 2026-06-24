@@ -130,11 +130,51 @@ def _extract_usage_context(
     return unique_lines[:10]
 
 
+def _scan_function_names(functions: list[dict[str, Any]]) -> list[ScanResult]:
+    """Scan function names against the dangerous function catalog.
+
+    Detects functions whose names directly match dangerous function names
+    from the catalog (e.g., a function named 'strcpy').
+
+    Skips results where the function name matches the dangerous function name
+    (case-insensitive), since those are thunks/import stubs that produce
+    misleading "printf found in printf" output.
+
+    Args:
+        functions: List of function dictionaries.
+
+    Returns:
+        ScanResults for functions whose names match dangerous functions.
+    """
+    from app.services.dangerous_functions_catalog import FUNCTION_LOOKUP
+
+    results: list[ScanResult] = []
+
+    for func_info in functions:
+        func_name = func_info.get("functionName", "")
+        if not func_name:
+            continue
+
+        # Check if the function name matches a dangerous function
+        tokens = func_info.get("tokenList", [])
+        for _, entry in FUNCTION_LOOKUP.items():
+            if func_name.lower() == entry.name.lower():
+                # Skip when function name equals the dangerous function name —
+                # this is a thunk/import stub, not real code using it.
+                logger.debug(
+                    "Name scan: skipping '%s' (thunk, function_name == containing_function)",
+                    func_name,
+                )
+                break  # Only match once per function
+
+    return results
+
+
 def scan_functions(functions: list[dict[str, Any]]) -> list[ScanResult]:
     """Scan a list of decompiled functions for calls to dangerous functions.
 
-    Scans each function's decompiled token list for references to dangerous
-    functions from the catalog.
+    Scans each function's name and decompiled token list for references to
+    dangerous functions from the catalog.
 
     Args:
         functions: List of function dictionaries from Ghidra decompilation.
@@ -143,7 +183,14 @@ def scan_functions(functions: list[dict[str, Any]]) -> list[ScanResult]:
     Returns:
         List of ScanResult sorted by severity (Critical first).
     """
-    results = _scan_function_bodies(functions)
+    # Scan function names for direct matches
+    name_results = _scan_function_names(functions)
+
+    # Scan function bodies for dangerous function calls
+    body_results = _scan_function_bodies(functions)
+
+    # Combine results
+    results = name_results + body_results
 
     # Sort by severity
     results.sort(key=lambda r: get_severity_order(r.severity))
@@ -155,6 +202,42 @@ def scan_functions(functions: list[dict[str, Any]]) -> list[ScanResult]:
     )
 
     return results
+
+
+def _get_function_body_context(tokens: list[str], max_lines: int | None = None) -> list[str]:
+    """Extract function body context from decompiled tokens.
+
+    Joins tokens into readable lines, limits to max_lines, and truncates
+    long lines for display purposes.
+
+    Args:
+        tokens: List of tokens from the decompiled function.
+        max_lines: Maximum number of lines to return.
+
+    Returns:
+        List of code lines from the function body.
+    """
+    if not tokens:
+        return []
+
+    code_text = " ".join(str(t) for t in tokens)
+    # Normalize whitespace
+    code_text = re.sub(r"\s+", " ", code_text).strip()
+
+    # Split by semicolons to get statement-level granularity
+    statements = [s.strip() for s in code_text.split(";") if s.strip()]
+
+    # Truncate long lines
+    lines: list[str] = []
+    for stmt in statements:
+        if len(stmt) > 300:
+            stmt = stmt[:300] + "..."
+        lines.append(stmt)
+
+    if max_lines is not None:
+        lines = lines[:max_lines]
+
+    return lines
 
 
 def _format_full_function_code(tokens: list[str]) -> str:

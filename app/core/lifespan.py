@@ -4,7 +4,7 @@ Handles startup and shutdown events including database initialization,
 task service startup, event watcher configuration, and graceful cleanup.
 """
 
-import threading
+import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -59,8 +59,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         raise RuntimeError("Async database initialization failed.") from e
 
     try:
-        threading.Thread(target=TaskService.start_service, daemon=True).start()
-        logger.info("Task service started in background thread")
+        asyncio_task = asyncio.create_task(TaskService.start_service())
+        logger.info("Task service started as async background task")
     except Exception as e:
         logger.exception("Failed to start TaskService")
         raise RuntimeError("Task service startup failed.") from e

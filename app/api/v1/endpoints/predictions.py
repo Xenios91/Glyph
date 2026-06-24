@@ -4,8 +4,6 @@ Provides endpoints for submitting prediction requests, retrieving
 prediction results, and managing prediction tasks.
 """
 
-import asyncio
-import contextvars
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
@@ -20,7 +18,12 @@ from app.services.request_handler import PredictionRequest
 from app.processing.task_management import TaskManager
 from app.utils.common import format_code
 from loguru import logger
-from app.utils.responses import create_success_response, create_error_response, SuccessResponse
+from app.utils.responses import (
+    create_success_response,
+    create_error_response,
+    create_paginated_response,
+    PaginatedResponse,
+    SuccessResponse)
 from app.templates import templates
 from app.utils.logging_utils import catch_http_exception
 from app.utils.request_context import (
@@ -41,13 +44,15 @@ class PredictTokensRequest(BaseModel):
 
     Attributes:
         modelName: Name of the trained model to use for prediction.
+        taskName: Name of the task (binary) to predict on.
         uuid: Optional custom UUID for the prediction task.
     """
 
     modelName: str
+    taskName: str
     uuid: str | None = None
 
-    model_config = {"extra": "allow"}
+    model_config = {"extra": "forbid"}
 
 
 async def _execute_prediction(
@@ -118,7 +123,7 @@ async def _execute_prediction(
         )
 
 
-def _run_prediction_task(
+async def _run_prediction_task(
     prediction_request: PredictionRequest,
     captured_ctx: CapturedContext | None = None,
 ) -> None:
@@ -133,10 +138,7 @@ def _run_prediction_task(
         captured_ctx: Captured request context for logging propagation.
     """
     try:
-        asyncio.run(
-            _execute_prediction(prediction_request, captured_ctx),
-            context=contextvars.copy_context(),  # pyright: ignore[reportCallIssue]
-        )
+        await _execute_prediction(prediction_request, captured_ctx)
     except Exception:
         logger.exception("Prediction task failed: {}", prediction_request.uuid)
         raise
@@ -144,13 +146,17 @@ def _run_prediction_task(
         clear_request_context()
 
 
-@router.post("/predict", status_code=201, response_model=SuccessResponse[dict[str, Any]])
+@router.post("/predict", status_code=201, response_model=SuccessResponse[dict[str, Any]],
+    summary="Create a prediction task",
+    description="Run a prediction on a binary using a trained ML model. Queues the prediction as a background task.",
+)
 @catch_http_exception(status_code=400, error_code="PREDICTION_ERROR")
 async def predict_tokens(
     background_tasks: BackgroundTasks,
     request_values: PredictTokensRequest,
     current_user: Annotated[User, Depends(get_current_active_user)]
 ) -> SuccessResponse[dict[str, Any]]:
+    """Run a prediction on a binary using a trained ML model."""
     model_name = request_values.modelName
     uuid = request_values.uuid or TaskManager().get_uuid()
     data = request_values.model_dump()
@@ -180,13 +186,46 @@ async def predict_tokens(
         message="Prediction task created successfully")
 
 
-@router.get("/getPrediction", response_model=None)
+@router.get("/getPredictionsList", response_model=SuccessResponse[PaginatedResponse[dict[str, Any]]])
+async def get_predictions_list(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    page: Annotated[int, Query(ge=1, description="Page number (1-based)")] = 1,
+    page_size: Annotated[int, Query(ge=1, le=200, description="Items per page")] = 50,
+) -> SuccessResponse[PaginatedResponse[dict[str, Any]]]:
+    """Get a paginated list of all predictions.
+
+    Returns:
+        Success response with a paginated list of prediction tasks.
+    """
+    all_predictions = await PredictionPersistanceUtil.get_predictions_list()
+    total = len(all_predictions)
+    offset = (page - 1) * page_size
+    page_predictions = all_predictions[offset:offset + page_size]
+
+    items: list[dict[str, Any]] = [
+        {
+            "task_name": prediction.task_name,
+            "model_name": prediction.model_name,
+        }
+        for prediction in page_predictions
+    ]
+
+    return create_success_response(
+        data=create_paginated_response(items, total, page, page_size),
+        message="Predictions list retrieved successfully")
+
+
+@router.get("/getPrediction", response_model=None,
+    summary="Get prediction results",
+    description="Get the results of a specific prediction task for a model.",
+)
 async def get_prediction(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     task_name: TaskName = Query(...)
 ) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
+    """Get the results of a specific prediction task for a model."""
     prediction = await PredictionPersistanceUtil.get_predictions(task_name, model_name)
 
     if not prediction:
@@ -220,12 +259,16 @@ async def get_prediction(
         message="Prediction retrieved successfully")
 
 
-@router.delete("/deletePrediction")
+@router.delete("/deletePrediction",
+    summary="Delete a prediction",
+    description="Delete a single prediction task by task name.",
+)
 @catch_http_exception(status_code=500, error_code="DELETE_ERROR", message="Failed to delete prediction")
 async def delete_prediction(
     current_user: Annotated[User, Depends(get_current_active_user)],
     task_name: TaskName = Query(...)
 ) -> SuccessResponse[dict[str, Any]]:
+    """Delete a single prediction task by task name."""
     await PredictionPersistanceUtil.delete_prediction(task_name)
 
     return create_success_response(
@@ -233,12 +276,16 @@ async def delete_prediction(
         message="Prediction deleted successfully")
 
 
-@router.delete("/deletePredictions", response_model=SuccessResponse[dict[str, Any]])
+@router.delete("/deletePredictions", response_model=SuccessResponse[dict[str, Any]],
+    summary="Delete multiple predictions",
+    description="Delete multiple prediction tasks by comma-separated task names.",
+)
 @catch_http_exception(status_code=500, error_code="DELETE_PREDICTIONS_ERROR", message="Failed to delete predictions")
 async def delete_predictions(
     current_user: Annotated[User, Depends(get_current_active_user)],
     task_names: str = Query(...)
 ) -> SuccessResponse[dict[str, Any]]:
+    """Delete multiple prediction tasks by comma-separated task names."""
     names = [name.strip() for name in task_names.split(",") if name.strip()]
     if not names:
         raise HTTPException(
@@ -265,7 +312,16 @@ async def delete_predictions(
     return create_success_response(data=data, message=message)
 
 
-@router.get("/getPredictionDetails", response_model=None)
+@router.get(
+    "/getPredictionDetails",
+    response_model=None,
+    summary="Get prediction details",
+    description=(
+        "Retrieve detailed prediction results for a specific function by comparing "
+        "model tokens against prediction tokens. Supports both JSON and HTML responses "
+        "based on the Accept header."
+    ),
+)
 async def get_prediction_details(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],

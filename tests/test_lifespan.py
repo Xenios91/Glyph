@@ -21,10 +21,10 @@ class TestLifespan:
     @patch("app.core.lifespan.init_async_databases")
     @patch("app.core.lifespan.get_settings")
     @patch("app.core.lifespan.TaskService")
-    @patch("app.core.lifespan.threading")
+    @patch("app.core.lifespan.asyncio.create_task")
     async def test_lifespan_startup_success(
         self,
-        mock_threading: Any,
+        mock_create_task: Any,
         mock_task_service: Any,
         mock_get_settings: Any,
         mock_init_async_databases: Any,
@@ -35,17 +35,13 @@ class TestLifespan:
         mock_get_settings.return_value = Mock()
         mock_init_async_databases.return_value = None
         mock_dispose_async_engines.return_value = None
-
-        mock_thread = Mock()
-        mock_threading.Thread.return_value = mock_thread
-        mock_thread.start = Mock()
+        mock_create_task.return_value = Mock()
 
         async with lifespan(mock_app):
             # Verify startup was called
             mock_get_settings.assert_called_once()
             mock_init_async_databases.assert_called_once()
-            mock_threading.Thread.assert_called_once()
-            mock_thread.start.assert_called_once()
+            mock_create_task.assert_called_once()
 
     @patch("app.core.lifespan.get_settings")
     async def test_lifespan_startup_config_failure(
@@ -78,10 +74,10 @@ class TestLifespan:
     @patch("app.core.lifespan.init_async_databases")
     @patch("app.core.lifespan.get_settings")
     @patch("app.core.lifespan.TaskService")
-    @patch("app.core.lifespan.threading")
+    @patch("app.core.lifespan.asyncio.create_task")
     async def test_lifespan_startup_task_service_failure(
         self,
-        mock_threading: Any,
+        mock_create_task: Any,
         mock_task_service: Any,
         mock_get_settings: Any,
         mock_init_async_databases: Any,
@@ -92,10 +88,7 @@ class TestLifespan:
         mock_get_settings.return_value = Mock()
         mock_init_async_databases.return_value = None
         mock_dispose_async_engines.return_value = None
-
-        mock_thread = Mock()
-        mock_threading.Thread.return_value = mock_thread
-        mock_thread.start.side_effect = Exception("Task service error")
+        mock_create_task.side_effect = Exception("Task service error")
 
         with pytest.raises(RuntimeError, match="Task service startup failed"):
             async with lifespan(mock_app):
@@ -105,10 +98,10 @@ class TestLifespan:
     @patch("app.core.lifespan.init_async_databases")
     @patch("app.core.lifespan.get_settings")
     @patch("app.core.lifespan.TaskService")
-    @patch("app.core.lifespan.threading")
+    @patch("app.core.lifespan.asyncio.create_task")
     async def test_lifespan_shutdown(
         self,
-        mock_threading: Any,
+        mock_create_task: Any,
         mock_task_service: Any,
         mock_get_settings: Any,
         mock_init_async_databases: Any,
@@ -119,10 +112,7 @@ class TestLifespan:
         mock_get_settings.return_value = Mock()
         mock_init_async_databases.return_value = None
         mock_dispose_async_engines.return_value = None
-
-        mock_thread = Mock()
-        mock_threading.Thread.return_value = mock_thread
-        mock_thread.start = Mock()
+        mock_create_task.return_value = Mock()
 
         # Use a flag to track if we entered the context
         entered = False
@@ -138,10 +128,10 @@ class TestLifespan:
     @patch("app.core.lifespan.init_async_databases")
     @patch("app.core.lifespan.get_settings")
     @patch("app.core.lifespan.TaskService")
-    @patch("app.core.lifespan.threading")
+    @patch("app.core.lifespan.asyncio.create_task")
     async def test_lifespan_exception_during_yield(
         self,
-        mock_threading: Any,
+        mock_create_task: Any,
         mock_task_service: Any,
         mock_get_settings: Any,
         mock_init_async_databases: Any,
@@ -152,10 +142,7 @@ class TestLifespan:
         mock_get_settings.return_value = Mock()
         mock_init_async_databases.return_value = None
         mock_dispose_async_engines.return_value = None
-
-        mock_thread = Mock()
-        mock_threading.Thread.return_value = mock_thread
-        mock_thread.start = Mock()
+        mock_create_task.return_value = Mock()
 
         with pytest.raises(ValueError, match="Test exception"):
             async with lifespan(mock_app):
@@ -170,12 +157,12 @@ class TestLifespan:
     @patch("app.core.lifespan.init_async_databases")
     @patch("app.core.lifespan.get_settings")
     @patch("app.core.lifespan.TaskService")
-    @patch("app.core.lifespan.threading")
+    @patch("app.core.lifespan.asyncio.create_task")
     @patch("app.core.lifespan.EventWatcher")
     async def test_lifespan_starts_event_watcher(
         self,
         mock_event_watcher_class: Any,
-        mock_threading: Any,
+        mock_create_task: Any,
         mock_task_service: Any,
         mock_get_settings: Any,
         mock_init_async_databases: Any,
@@ -186,10 +173,7 @@ class TestLifespan:
         mock_get_settings.return_value = Mock()
         mock_init_async_databases.return_value = None
         mock_dispose_async_engines.return_value = None
-
-        mock_thread = Mock()
-        mock_threading.Thread.return_value = mock_thread
-        mock_thread.start = Mock()
+        mock_create_task.return_value = Mock()
 
         mock_event_watcher_instance = Mock()
         mock_event_watcher_class.return_value = mock_event_watcher_instance
@@ -205,12 +189,12 @@ class TestLifespan:
     @patch("app.core.lifespan.init_async_databases")
     @patch("app.core.lifespan.get_settings")
     @patch("app.core.lifespan.TaskService")
-    @patch("app.core.lifespan.threading")
+    @patch("app.core.lifespan.asyncio.create_task")
     @patch("app.core.lifespan.EventWatcher")
     async def test_lifespan_stops_event_watcher_on_shutdown(
         self,
         mock_event_watcher_class: Any,
-        mock_threading: Any,
+        mock_create_task: Any,
         mock_task_service: Any,
         mock_get_settings: Any,
         mock_init_async_databases: Any,
@@ -221,10 +205,7 @@ class TestLifespan:
         mock_get_settings.return_value = Mock()
         mock_init_async_databases.return_value = None
         mock_dispose_async_engines.return_value = None
-
-        mock_thread = Mock()
-        mock_threading.Thread.return_value = mock_thread
-        mock_thread.start = Mock()
+        mock_create_task.return_value = Mock()
 
         mock_event_watcher_instance = Mock()
         mock_event_watcher_class.return_value = mock_event_watcher_instance

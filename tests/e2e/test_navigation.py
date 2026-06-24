@@ -129,8 +129,8 @@ class TestAuthenticatedNavigation:
         page.wait_for_selector("#code-reuse-menu.is-open", state="visible", timeout=5000)
 
         # Check menu items are visible
-        upload_link = page.locator('a[role="menuitem"][aria-label="Upload Binary"]')
-        expect(upload_link).to_be_visible()
+        library_link = page.locator('a[role="menuitem"][aria-label="Binary Library"]')
+        expect(library_link).to_be_visible()
 
         models_link = page.locator('a[role="menuitem"][aria-label="Models"]')
         expect(models_link).to_be_visible()

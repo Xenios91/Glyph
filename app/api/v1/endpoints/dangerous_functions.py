@@ -56,7 +56,7 @@ class ScanRequest(BaseModel):
     taskName: str | None = None
     binaryId: int | None = None
 
-    model_config = {"extra": "allow"}
+    model_config = {"extra": "forbid"}
 
 
 class ScanResultDict(BaseModel):

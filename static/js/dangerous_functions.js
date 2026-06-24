@@ -61,7 +61,7 @@ async function loadAvailableTargets() {
 
         if (binariesResponse.ok) {
             const binariesResult = await binariesResponse.json();
-            availableBinaries = binariesResult.data?.binaries || [];
+            availableBinaries = binariesResult.data?.items || [];
         }
 
         // Check for binary_id URL parameter before populating dropdowns

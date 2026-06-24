@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     LargeBinary,
@@ -315,3 +316,90 @@ class APIKey(Base):
     )
     
     user: Mapped["User"] = relationship(back_populates="api_keys")
+
+
+class SimilarityComputation(Base):
+    """Model representing a saved similarity computation task.
+
+    Stores the metadata and results of a pairwise similarity
+    computation across a set of binaries.
+
+    Attributes:
+        id: Primary key
+        task_name: Human-readable name for this computation
+        computed_by: User ID who initiated the computation
+        binary_count: Number of binaries compared
+        total_comparisons: Number of pairwise comparisons made
+        status: Computation status (pending, processing, completed, error)
+        created_at: Timestamp when the computation was created
+        modified_at: Timestamp when the computation was last modified
+    """
+
+    __tablename__ = "similarity_computations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    task_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    computed_by: Mapped[int] = mapped_column(Integer, nullable=False)
+    binary_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_comparisons: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
+
+    pairs: Mapped[list["SimilarityPair"]] = relationship(
+        back_populates="computation",
+        cascade="save-update, merge, delete, delete-orphan",
+    )
+
+
+class SimilarityPair(Base):
+    """Model representing a single pairwise similarity result.
+
+    Attributes:
+        id: Primary key
+        computation_id: Foreign key to SimilarityComputation.id
+        binary_a_id: First binary in the pair
+        binary_b_id: Second binary in the pair
+        overall_similarity: Average similarity score across matched functions
+        matched_function_count: Number of function pairs above threshold
+        total_function_comparisons: Total function pairs compared
+        created_at: Timestamp when the comparison was computed
+    """
+
+    __tablename__ = "similarity_pairs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    computation_id: Mapped[int] = mapped_column(
+        ForeignKey("similarity_computations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    binary_a_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    binary_b_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    overall_similarity: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    matched_function_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_function_comparisons: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    computation: Mapped["SimilarityComputation"] = relationship(back_populates="pairs")
+
+    __table_args__ = (
+        UniqueConstraint("computation_id", "binary_a_id", "binary_b_id",
+                        name="uq_similarity_pair_computation_binaries"),
+    )

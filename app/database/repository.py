@@ -1,5 +1,6 @@
 """User and API key repository for authentication operations."""
 
+import json
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -12,15 +13,30 @@ from app.database.models import User, APIKey
 from loguru import logger
 class PasswordHasherService:
     """Service for password hashing using Argon2id."""
-    
-    def __init__(self) -> None:
-        """Initialize the password hasher with recommended settings."""
+
+    def __init__(
+        self,
+        time_cost: int | None = None,
+        memory_cost: int | None = None,
+        parallelism: int | None = None,
+        hash_len: int | None = None,
+        salt_len: int | None = None,
+    ) -> None:
+        """Initialize the password hasher with recommended settings.
+
+        Args:
+            time_cost: Number of iterations. Defaults to 2.
+            memory_cost: Memory to use in KiB. Defaults to 32768.
+            parallelism: Degree of parallelism. Defaults to 2.
+            hash_len: Length of the hash. Defaults to 32.
+            salt_len: Length of the salt. Defaults to 16.
+        """
         self.ph = PasswordHasher(
-            time_cost=2,
-            memory_cost=65536,
-            parallelism=4,
-            hash_len=32,
-            salt_len=16
+            time_cost=time_cost if time_cost is not None else 2,
+            memory_cost=memory_cost if memory_cost is not None else 32768,
+            parallelism=parallelism if parallelism is not None else 2,
+            hash_len=hash_len if hash_len is not None else 32,
+            salt_len=salt_len if salt_len is not None else 16,
         )
     
     def hash_password(self, password: str) -> str:
@@ -67,9 +83,15 @@ class PasswordHasherService:
 class UserRepository:
     """Repository for user operations."""
 
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, password_hasher: PasswordHasherService | None = None) -> None:
+        """Initialize UserRepository.
+
+        Args:
+            db: Async database session.
+            password_hasher: Optional password hasher service. Uses default settings if not provided.
+        """
         self.db = db
-        self.password_hasher = PasswordHasherService()
+        self.password_hasher = password_hasher if password_hasher is not None else PasswordHasherService()
 
     async def create_user(
         self,
@@ -87,7 +109,7 @@ class UserRepository:
             email=email,
             hashed_password=hashed_password,
             full_name=full_name,
-            permissions=str(permissions or [])
+            permissions=json.dumps(permissions or [])
         )
         
         self.db.add(user)
@@ -255,7 +277,7 @@ class APIKeyRepository:
             name=name,
             hashed_key=hashed_key,
             key_prefix=key_prefix,
-            permissions=str(permissions or ["read"]),
+            permissions=json.dumps(permissions or ["read"]),
             expires_at=expires_at
         )
         

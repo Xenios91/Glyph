@@ -61,7 +61,12 @@ def _persist_config_changes(settings: Any) -> None:
         raise
 
 
-@router.post("/save", response_model=SuccessResponse[dict[str, Any]])
+@router.post(
+    "/save",
+    response_model=SuccessResponse[dict[str, Any]],
+    summary="Save configuration",
+    description="Update and persist application configuration settings to config.yml.",
+)
 async def save_config(
     payload: ConfigPayload,
     current_user: Annotated[User, Depends(get_current_active_user)]

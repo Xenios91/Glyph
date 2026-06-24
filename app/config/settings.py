@@ -3,8 +3,6 @@
 import os
 import secrets
 from pathlib import Path
-from typing import Any
-
 from loguru import logger
 
 from pydantic import Field, BaseModel
@@ -13,8 +11,6 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
     PydanticBaseSettingsSource,
 )
-
-import yaml
 
 MAX_CPU_CORES = os.cpu_count() or 1
 
@@ -166,97 +162,3 @@ def reload_settings() -> GlyphSettings:
     global _settings
     _settings = GlyphSettings()
     return _settings
-
-
-class GlyphConfig:
-    """Configuration manager for Glyph application (legacy compatibility)."""
-
-    _config: dict[str, Any] = {}
-    _initialized = False
-
-    @staticmethod
-    def load_config() -> bool:
-        """Load configuration from config.yml file.
-
-        Returns:
-            bool: True if configuration loaded successfully, False otherwise.
-        """
-        if not GlyphConfig._initialized:
-            try:
-                with open("config.yml", "r", encoding="utf-8") as config_file:
-                    GlyphConfig._config = yaml.safe_load(config_file) or {}
-
-                GlyphConfig._config["UPLOAD_FOLDER"] = "./binaries"
-                GlyphConfig._initialized = True
-                return True
-            except FileNotFoundError:
-                logger.error("config.yml not found")
-                return False
-            except yaml.YAMLError:
-                logger.exception("Failed to parse config.yml")
-                return False
-        return GlyphConfig._initialized
-
-    @staticmethod
-    def get_config_value(value: str) -> Any | None:
-        """Get a configuration value by key.
-
-        Args:
-            value: The configuration key to retrieve.
-
-        Returns:
-            The configuration value or None if not found.
-        """
-        return GlyphConfig._config.get(value)
-
-    @staticmethod
-    def set_max_file_size(size: int) -> bool:
-        """Set the maximum file size limit for a file upload.
-
-        Args:
-            size (int): The maximum file size in megabytes.
-
-        Returns:
-            Bool: True if the maximum file size is set successfully, False otherwise.
-
-        Raises:
-            ValueError: If the maximum file size is negative.
-        """
-        if size < 1:
-            logger.warning("Invalid file size: {} MB (must be at least 1 MB)", size)
-            return False
-
-        if size > 2048:
-            logger.warning("Invalid file size: {} MB (maximum is {} MB)", size, 2048)
-            return False
-
-        GlyphConfig._config["max_file_size_mb"] = size
-        return True
-
-    @staticmethod
-    def set_cpu_cores(cores: int) -> bool:
-        """Set the number of CPU cores available for analysis.
-
-        Args:
-            cores (int): The number of CPU cores to use.
-
-        Returns:
-            Bool: True if the number of CPU cores is set successfully, False otherwise.
-
-        Raises:
-            ValueError: If the number of CPU cores is negative.
-        """
-        if isinstance(cores, bool) or not isinstance(cores, int):  # pyright: ignore[reportUnnecessaryIsInstance]
-            logger.warning("Invalid CPU cores: {} (must be an integer)", cores)
-            return False
-
-        if cores <= 0:
-            logger.warning("Invalid CPU cores: {} (must be positive)", cores)
-            return False
-
-        if cores > MAX_CPU_CORES:
-            logger.warning("Invalid CPU cores: {} (maximum is {})", cores, MAX_CPU_CORES)
-            return False
-
-        GlyphConfig._config["cpu_cores"] = cores
-        return True

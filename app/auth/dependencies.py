@@ -12,7 +12,7 @@ from app.database.repository import APIKeyRepository
 from app.auth.security_logger import log_api_key_usage
 from app.config.settings import get_settings
 from app.database.models import User
-from app.database.session_handler import get_async_session, close_async_session
+from app.database.session_handler import async_session
 from loguru import logger
 from app.utils.request_context import set_request_context
 
@@ -41,22 +41,20 @@ def get_jwt_handler() -> JWTHandler:
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Get an async database session for auth, committing on success."""
-    session = await get_async_session("auth")
-    try:
-        yield session
-        await session.commit()
-    except HTTPException:
-        await session.rollback()
-        raise
-    except RequestValidationError:
-        await session.rollback()
-        raise
-    except Exception:
-        await session.rollback()
-        logger.exception("Database session error, rolling back")
-        raise
-    finally:
-        await close_async_session(session)
+    async with async_session("auth") as session:
+        try:
+            yield session
+            await session.commit()
+        except HTTPException:
+            await session.rollback()
+            raise
+        except RequestValidationError:
+            await session.rollback()
+            raise
+        except Exception:
+            await session.rollback()
+            logger.exception("Database session error, rolling back")
+            raise
 
 
 async def get_current_user(
