@@ -7,14 +7,12 @@ types of analysis workflows beyond ML training and prediction.
 Python 3.11+
 """
 
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
 from loguru import logger
-
-import sys
-
 
 
 @dataclass
@@ -64,6 +62,7 @@ class PipelineContext:
             value: The value to store.
         """
         self.data[key] = value
+
 
 class PipelineStep(ABC):
     """Abstract base class for pipeline steps.
@@ -158,10 +157,8 @@ class ProcessingPipeline:
             The final pipeline context after all steps complete.
         """
         logger.info(
-            "Starting pipeline '{}' execution for UUID {} with {} steps",
-            self._name,
-            context.uuid,
-            len(self._steps))
+            "Starting pipeline '{}' execution for UUID {} with {} steps", self._name, context.uuid, len(self._steps)
+        )
 
         for step in self._steps:
             try:
@@ -170,25 +167,20 @@ class ProcessingPipeline:
 
                 if context.error is not None:
                     context.status = "error"
-                    logger.error(
-                        "Step {} failed: {}", step.get_name(), context.error)
+                    logger.error("Step {} failed: {}", step.get_name(), context.error)
                     break
 
-                logger.debug(
-                    "Step {} completed", step.get_name()
-                )
+                logger.debug("Step {} completed", step.get_name())
 
             except Exception as step_error:
                 context.status = "error"
                 context.error = str(step_error)
                 context.exc_info = sys.exc_info()
-                logger.exception(
-                    "Step {} raised exception", step.get_name())
+                logger.exception("Step {} raised exception", step.get_name())
                 break
 
         if context.status != "error":
             context.status = "complete"
-            logger.info(
-                "Pipeline '{}' execution completed", self._name)
+            logger.info("Pipeline '{}' execution completed", self._name)
 
         return context

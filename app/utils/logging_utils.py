@@ -8,8 +8,9 @@ Key features:
 """
 
 import inspect
+from collections.abc import Callable
 from functools import wraps
-from typing import TypeVar, Callable, ParamSpec, cast
+from typing import ParamSpec, TypeVar, cast
 
 from fastapi import HTTPException
 from loguru import logger
@@ -21,9 +22,7 @@ _P = ParamSpec("_P")
 
 
 def catch_http_exception(
-    status_code: int = 500,
-    error_code: str = "INTERNAL_ERROR",
-    message: str | None = None
+    status_code: int = 500, error_code: str = "INTERNAL_ERROR", message: str | None = None
 ) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
     """Decorator that catches exceptions, logs them with logger.exception(),
     and raises an HTTPException.
@@ -49,10 +48,12 @@ def catch_http_exception(
     Returns:
         Decorated function with preserved signature.
     """
+
     def decorator(func: Callable[_P, _R]) -> Callable[_P, _R]:
         log_msg = message or f"Error in {func.__name__}"
 
         if inspect.iscoroutinefunction(func):
+
             @wraps(func)
             async def async_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
                 try:
@@ -63,11 +64,12 @@ def catch_http_exception(
                     logger.exception(log_msg)
                     raise HTTPException(
                         status_code=status_code,
-                        detail=create_error_response(
-                            error_code=error_code,
-                            error_message=str(exc)).model_dump()) from exc
+                        detail=create_error_response(error_code=error_code, error_message=str(exc)).model_dump(),
+                    ) from exc
+
             return cast(Callable[_P, _R], async_wrapper)
         else:
+
             @wraps(func)
             def sync_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
                 try:
@@ -78,9 +80,9 @@ def catch_http_exception(
                     logger.exception(log_msg)
                     raise HTTPException(
                         status_code=status_code,
-                        detail=create_error_response(
-                            error_code=error_code,
-                            error_message=str(exc)).model_dump()) from exc
+                        detail=create_error_response(error_code=error_code, error_message=str(exc)).model_dump(),
+                    ) from exc
+
             return cast(Callable[_P, _R], sync_wrapper)
 
     return decorator

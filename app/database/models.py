@@ -1,6 +1,6 @@
 """SQLAlchemy ORM models for Glyph database abstraction layer."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 from sqlalchemy import (
     Boolean,
@@ -22,16 +22,16 @@ Base = declarative_base(cls=AsyncAttrs)
 
 def get_utc_now() -> datetime:
     """Get the current UTC time.
-    
+
     Returns:
         Current UTC datetime with timezone info.
     """
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Model(Base):
     """Model representing a trained ML model in the database.
-    
+
     Attributes:
         id: Primary key
         model_name: Unique name identifier for the model
@@ -40,9 +40,9 @@ class Model(Base):
         created_at: Timestamp when the model was created
         modified_at: Timestamp when the model was last modified
     """
-    
+
     __tablename__ = "models"
-    
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     model_name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     model_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
@@ -64,7 +64,7 @@ class Model(Base):
 
 class Prediction(Base):
     """Model representing a prediction task in the database.
-    
+
     Attributes:
         id: Primary key
         task_name: Name of the prediction task
@@ -73,9 +73,9 @@ class Prediction(Base):
         created_at: Timestamp when the prediction was created
         modified_at: Timestamp when the prediction was last modified
     """
-    
+
     __tablename__ = "predictions"
-    
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     task_name: Mapped[str] = mapped_column(String(64), nullable=False)
     model_name: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -94,14 +94,12 @@ class Prediction(Base):
         nullable=False,
     )
 
-    __table_args__ = (
-        UniqueConstraint("task_name", "model_name", name="uq_predictions_task_model"),
-    )
+    __table_args__ = (UniqueConstraint("task_name", "model_name", name="uq_predictions_task_model"),)
 
 
 class Function(Base):
     """Model representing a function extracted from a binary.
-    
+
     Attributes:
         id: Primary key
         model_name: Name of the model this function belongs to
@@ -111,9 +109,9 @@ class Function(Base):
         created_at: Timestamp when the function was created
         modified_at: Timestamp when the function was last modified
     """
-    
+
     __tablename__ = "functions"
-    
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     model_name: Mapped[str] = mapped_column(String(64), nullable=False)
     function_name: Mapped[str] = mapped_column(String(256), nullable=False)
@@ -133,9 +131,7 @@ class Function(Base):
         nullable=False,
     )
 
-    __table_args__ = (
-        UniqueConstraint("model_name", "function_name", name="uq_functions_model_function"),
-    )
+    __table_args__ = (UniqueConstraint("model_name", "function_name", name="uq_functions_model_function"),)
 
 
 class Binary(Base):
@@ -203,9 +199,7 @@ class BinaryFunction(Base):
     __tablename__ = "binary_functions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    binary_id: Mapped[int] = mapped_column(
-        ForeignKey("binaries.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    binary_id: Mapped[int] = mapped_column(ForeignKey("binaries.id", ondelete="CASCADE"), nullable=False, index=True)
     function_name: Mapped[str] = mapped_column(String(256), nullable=False)
     entrypoint: Mapped[str] = mapped_column(String(16), nullable=False)
     raw_code: Mapped[str] = mapped_column(Text, nullable=False)
@@ -225,14 +219,12 @@ class BinaryFunction(Base):
 
     binary: Mapped["Binary"] = relationship(back_populates="functions")
 
-    __table_args__ = (
-        UniqueConstraint("binary_id", "function_name", name="uq_binary_functions_binary_name"),
-    )
+    __table_args__ = (UniqueConstraint("binary_id", "function_name", name="uq_binary_functions_binary_name"),)
 
 
 class User(Base):
     """Model representing a user in the database.
-    
+
     Attributes:
         id: Primary key
         username: Unique username
@@ -244,9 +236,9 @@ class User(Base):
         created_at: Timestamp when the user was created
         modified_at: Timestamp when the user was last modified
     """
-    
+
     __tablename__ = "users"
-    
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
@@ -267,7 +259,7 @@ class User(Base):
         onupdate=get_utc_now,
         nullable=False,
     )
-    
+
     api_keys: Mapped[list["APIKey"]] = relationship(
         back_populates="user",
         cascade="save-update, merge, delete, delete-orphan",
@@ -276,7 +268,7 @@ class User(Base):
 
 class APIKey(Base):
     """Model representing an API key for programmatic access.
-    
+
     Attributes:
         id: Primary key
         user_id: Foreign key to User
@@ -289,11 +281,13 @@ class APIKey(Base):
         last_used_at: Timestamp when the key was last used
         created_at: Timestamp when the key was created
     """
-    
+
     __tablename__ = "api_keys"
-    
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     hashed_key: Mapped[str] = mapped_column(String(256), nullable=False)
     key_prefix: Mapped[str] = mapped_column(String(8), nullable=False, index=True)
@@ -314,7 +308,7 @@ class APIKey(Base):
         onupdate=get_utc_now,
         nullable=False,
     )
-    
+
     user: Mapped["User"] = relationship(back_populates="api_keys")
 
 
@@ -400,6 +394,7 @@ class SimilarityPair(Base):
     computation: Mapped["SimilarityComputation"] = relationship(back_populates="pairs")
 
     __table_args__ = (
-        UniqueConstraint("computation_id", "binary_a_id", "binary_b_id",
-                        name="uq_similarity_pair_computation_binaries"),
+        UniqueConstraint(
+            "computation_id", "binary_a_id", "binary_b_id", name="uq_similarity_pair_computation_binaries"
+        ),
     )

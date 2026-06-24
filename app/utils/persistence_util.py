@@ -4,6 +4,7 @@ from io import BytesIO
 from typing import Any
 
 import joblib
+from loguru import logger
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
@@ -11,8 +12,7 @@ from sklearn.pipeline import Pipeline
 from app.database.models import Function as FunctionModel
 from app.database.sql_service import SQLUtil
 from app.services.request_handler import Prediction, PredictionRequest, TrainingRequest
-from loguru import logger
-from app.utils.secure_deserializer import secure_load, SecureDeserializationError
+from app.utils.secure_deserializer import SecureDeserializationError, secure_load
 
 
 class MLTask:
@@ -27,9 +27,7 @@ class MLTask:
         """
         return Pipeline(
             [
-                (
-                    "preprocessor",
-                    TfidfVectorizer(ngram_range=(2, 4), norm="l2", sublinear_tf=True)),
+                ("preprocessor", TfidfVectorizer(ngram_range=(2, 4), norm="l2", sublinear_tf=True)),
                 ("clf", MultinomialNB(alpha=1e-8)),
             ]
         )
@@ -63,9 +61,7 @@ class PredictionPersistanceUtil:
         """
         if not task_name.strip() or not model_name.strip():
             raise ValueError("task_name and model_name must be non-empty strings")
-        return await SQLUtil.get_predictions(
-            task_name.strip(), model_name.strip()
-        )
+        return await SQLUtil.get_predictions(task_name.strip(), model_name.strip())
 
     @staticmethod
     async def delete_prediction(task_name: str, model_name: str | None = None) -> None:
@@ -144,9 +140,7 @@ class MLPersistanceUtil:
             await SQLUtil.save_model(model_name, serialized_encoder, serialized_model)
         except Exception as error:
             logger.exception("Failed to serialize model '{}'", model_name)
-            raise RuntimeError(
-                f"Could not serialize model data for '{model_name}'"
-            ) from error
+            raise RuntimeError(f"Could not serialize model data for '{model_name}'") from error
 
     @staticmethod
     async def load_model(model_name: str) -> tuple[Any, Any]:
@@ -180,17 +174,11 @@ class MLPersistanceUtil:
 
             return loaded_model, label_encoder
         except SecureDeserializationError as error:
-            logger.exception(
-                "Secure deserialization blocked model '{}'", model_name)
-            raise RuntimeError(
-                f"Model data for '{model_name}' failed security validation"
-            ) from error
+            logger.exception("Secure deserialization blocked model '{}'", model_name)
+            raise RuntimeError(f"Model data for '{model_name}' failed security validation") from error
         except Exception as error:
-            logger.exception(
-                "Failed to deserialize model '{}'", model_name)
-            raise RuntimeError(
-                f"Could not deserialize model data for '{model_name}'"
-            ) from error
+            logger.exception("Failed to deserialize model '{}'", model_name)
+            raise RuntimeError(f"Could not deserialize model data for '{model_name}'") from error
 
     @staticmethod
     async def get_models_list() -> list[str]:
@@ -286,9 +274,7 @@ class FunctionPersistanceUtil:
             await SQLUtil.save_functions(training_request.model_name, functions)
 
     @staticmethod
-    async def add_prediction_functions(
-        prediction_request: PredictionRequest, predictions: list[str]
-    ) -> None:
+    async def add_prediction_functions(prediction_request: PredictionRequest, predictions: list[str]) -> None:
         """Add prediction functions to the database.
 
         Args:
@@ -304,9 +290,7 @@ class FunctionPersistanceUtil:
                 updated_function = function.copy()
                 updated_function["prediction"] = predictions[ctr]
                 functions[ctr] = updated_function
-            await SQLUtil.save_predictions(
-                task_name, prediction_request.model_name, functions
-            )
+            await SQLUtil.save_predictions(task_name, prediction_request.model_name, functions)
         elif functions:
             logger.warning(
                 "Mismatch between functions ({}) and predictions ({}) for task '{}'",
@@ -316,9 +300,7 @@ class FunctionPersistanceUtil:
             )
 
     @staticmethod
-    async def get_prediction_function(
-        task_name: str, model_name: str, function_name: str
-    ) -> dict[str, Any]:
+    async def get_prediction_function(task_name: str, model_name: str, function_name: str) -> dict[str, Any]:
         """Get a prediction function by task, model, and function name.
 
         Args:
@@ -334,12 +316,9 @@ class FunctionPersistanceUtil:
         """
         if not task_name or not model_name or not function_name:
             raise ValueError("All arguments must be non-empty strings")
-        result: dict[str, Any] = await SQLUtil.get_prediction_function(
-            task_name, model_name, function_name
-        )
+        result: dict[str, Any] = await SQLUtil.get_prediction_function(task_name, model_name, function_name)
         if not result:
             raise ValueError(
                 f"Prediction function for task '{task_name}', model '{model_name}', function '{function_name}' not found."
             )
         return result
-

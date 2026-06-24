@@ -6,21 +6,21 @@ for database operations.
 
 from app.database.models import Base, Binary, BinaryFunction, Function, Model, Prediction
 from app.database.repository import APIKeyRepository, PasswordHasherService, UserRepository
-from app.database.session_handler import init_async_databases, dispose_async_engines
+from app.database.session_handler import dispose_async_engines, init_async_databases
 
 __all__ = [
+    "APIKeyRepository",
     # Models
     "Base",
     "Binary",
     "BinaryFunction",
-    "Model",
-    "Prediction",
     "Function",
+    "Model",
+    "PasswordHasherService",
+    "Prediction",
     # Repositories
     "UserRepository",
-    "APIKeyRepository",
-    "PasswordHasherService",
+    "dispose_async_engines",
     # Session management
     "init_async_databases",
-    "dispose_async_engines",
 ]

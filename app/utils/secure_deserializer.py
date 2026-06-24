@@ -11,13 +11,12 @@ Security measures:
 """
 
 import io
-from typing import Any, Set, Type
+from typing import Any
 
 from joblib.numpy_pickle import NumpyUnpickler
-
 from loguru import logger
 
-ALLOWED_CLASSES: Set[str] = {
+ALLOWED_CLASSES: set[str] = {
     "sklearn.pipeline.Pipeline",
     "sklearn.feature_extraction.text.TfidfVectorizer",
     "sklearn.feature_extraction.text.TfidfTransformer",
@@ -43,7 +42,7 @@ ALLOWED_CLASSES: Set[str] = {
     "joblib.numpy_pickle.NumpyArrayWrapper",
 }
 
-BLOCKED_BUILTINS: Set[str] = {
+BLOCKED_BUILTINS: set[str] = {
     "builtins.eval",
     "builtins.exec",
     "builtins.__import__",
@@ -108,77 +107,68 @@ BLOCKED_BUILTINS: Set[str] = {
 }
 
 
-
 class SecureDeserializationError(Exception):
     """Raised when secure deserialization detects a potential security threat."""
+
     pass
 
 
 class RestrictedNumpyUnpickler(NumpyUnpickler):
     """A restricted numpy unpickler that only allows safe classes.
-    
+
     This class extends joblib's NumpyUnpickler to validate each class before
     deserialization, preventing arbitrary code execution attacks.
     """
-    
-    def __init__(self, file: Any, allowed_classes: Set[str] | None = None):
+
+    def __init__(self, file: Any, allowed_classes: set[str] | None = None):
         super().__init__(  # type: ignore[call-arg]
-            filename="",
-            file_handle=file,
-            ensure_native_byte_order=False
+            filename="", file_handle=file, ensure_native_byte_order=False
         )
         self.allowed_classes = allowed_classes or ALLOWED_CLASSES
-    
-    def find_class(self, module: str, name: str) -> Type[Any]:
+
+    def find_class(self, module: str, name: str) -> type[Any]:
         """Override find_class to restrict which classes can be unpickled.
-        
+
         Args:
             module: The module name of the class.
             name: The class name.
-            
+
         Returns:
             The class object if allowed, otherwise raises SecureDeserializationError.
-            
+
         Raises:
             SecureDeserializationError: If the class is not in the whitelist.
         """
         class_name = f"{module}.{name}"
 
         if class_name in BLOCKED_BUILTINS:
-            logger.warning(
-                "Blocked deserialization of explicitly dangerous class: {}",
-                class_name
-            )
+            logger.warning("Blocked deserialization of explicitly dangerous class: {}", class_name)
             raise SecureDeserializationError(
                 f"Deserialization of '{class_name}' is explicitly blocked for security reasons."
             )
-        
+
         if class_name not in self.allowed_classes:
-            logger.warning(
-                "Blocked deserialization of class not in whitelist: {}",
-                class_name
-            )
+            logger.warning("Blocked deserialization of class not in whitelist: {}", class_name)
             raise SecureDeserializationError(
-                f"Deserialization of '{class_name}' is not allowed. "
-                "Only whitelisted classes can be deserialized."
+                f"Deserialization of '{class_name}' is not allowed. Only whitelisted classes can be deserialized."
             )
-        
+
         return super().find_class(module, name)
 
 
-def secure_load(file_like: io.BytesIO, allowed_classes: Set[str] | None = None) -> Any:
+def secure_load(file_like: io.BytesIO, allowed_classes: set[str] | None = None) -> Any:
     """Safely load a joblib/pickled object with class validation.
-    
+
     This function provides a secure alternative to joblib.load() by validating
     all classes before deserialization.
-    
+
     Args:
         file_like: A file-like object containing pickled data.
         allowed_classes: Optional set of allowed class names (fully qualified).
-        
+
     Returns:
         The deserialized object.
-        
+
     Raises:
         SecureDeserializationError: If the data contains disallowed classes.
         joblib.NumpyUnpicklingError: If the data is not valid joblib format.
@@ -186,12 +176,10 @@ def secure_load(file_like: io.BytesIO, allowed_classes: Set[str] | None = None) 
     try:
         unpickler = RestrictedNumpyUnpickler(file_like, allowed_classes)
         result = unpickler.load()
-        
+
         return result
     except SecureDeserializationError:
         raise
     except Exception as e:
         logger.exception("Unexpected error during deserialization")
         raise SecureDeserializationError(f"Deserialization failed: {e}") from e
-
-

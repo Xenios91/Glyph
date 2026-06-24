@@ -5,15 +5,14 @@ task service startup, event watcher configuration, and graceful cleanup.
 """
 
 import asyncio
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
-
-from loguru import logger
 
 from fastapi import FastAPI
+from loguru import logger
 
 from app.config.settings import get_settings
-from app.database.session_handler import init_async_databases, dispose_async_engines
+from app.database.session_handler import dispose_async_engines, init_async_databases
 from app.processing.task_management import EventWatcher
 from app.services.task_service import TaskService
 
@@ -59,7 +58,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         raise RuntimeError("Async database initialization failed.") from e
 
     try:
-        asyncio_task = asyncio.create_task(TaskService.start_service())
+        task = asyncio.create_task(TaskService.start_service())
+        task.add_done_callback(
+            lambda t: (
+                logger.warning("Task service background task completed")
+                if t.exception() is None
+                else logger.error("Task service background task failed: %s", t.exception())
+            )
+        )
         logger.info("Task service started as async background task")
     except Exception as e:
         logger.exception("Failed to start TaskService")

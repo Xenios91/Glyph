@@ -4,22 +4,22 @@
 --extra-index-url https://pypi.org/simple/
 
 # Core framework
-fastapi>=0.136.1
-uvicorn[standard]>=0.46.0
+fastapi>=0.138.0
+uvicorn[standard]>=0.49.0
 uvloop>=0.22.1
-starlette>=1.0.1
+starlette>=1.3.1
 Jinja2>=3.1.6
 
 # Data processing / ML
 joblib>=1.5.3
-numpy>=2.4.3
-pandas>=3.0.1
-scikit-learn>=1.8.0
+numpy>=2.4.6
+pandas>=3.0.3
+scikit-learn>=1.9.0
 scipy>=1.17.1
 
 # Configuration / Validation
-pydantic>=2.12.5
-pydantic-settings>=2.13.1
+pydantic>=2.13.4
+pydantic-settings>=2.14.2
 pydantic-extra-types>=2.11.1
 python-dotenv>=1.2.2
 PyYAML>=6.0.3
@@ -44,5 +44,5 @@ aiosqlite>=0.22.1
 SQLAlchemy>=2.0.48,<2.2
 
 # Observability
-sentry-sdk>=2.59.0
-rich>=14.3.3
+sentry-sdk>=2.63.0
+rich>=15.0.0

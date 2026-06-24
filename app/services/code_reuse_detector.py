@@ -81,9 +81,7 @@ def _longest_common_subsequence(a: list[str], b: list[str]) -> int:
     return prev[n]
 
 
-def compute_similarity(
-    source_tokens: list[str], target_tokens: list[str], threshold: float = 0.7
-) -> float:
+def compute_similarity(source_tokens: list[str], target_tokens: list[str], threshold: float = 0.7) -> float:
     """Compute similarity score between two filtered token sequences.
 
     Combines Jaccard similarity on token sets with LCS ratio on
@@ -138,8 +136,8 @@ async def compare_binaries(
         or None if the target binary has no functions.
     """
     from app.database.sql_service import SQLUtil
-    from app.processing.steps import TokenizeStep, FilterStep
     from app.processing.pipeline import PipelineContext
+    from app.processing.steps import FilterStep, TokenizeStep
 
     # Load target binary functions
     target_functions = await SQLUtil.get_binary_functions(target_binary_id)
@@ -217,11 +215,7 @@ async def compare_binaries(
                 }
             )
 
-    overall_similarity = (
-        round(sum(similarity_scores) / len(similarity_scores), 4)
-        if similarity_scores
-        else 0.0
-    )
+    overall_similarity = round(sum(similarity_scores) / len(similarity_scores), 4) if similarity_scores else 0.0
 
     return {
         "target_binary_id": target_binary_id,

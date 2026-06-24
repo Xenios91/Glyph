@@ -3,15 +3,23 @@
 from contextlib import asynccontextmanager
 from typing import Any
 
+from loguru import logger
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.database.models import (
-    Base, Binary, BinaryFunction, Model, Prediction, Function, User, APIKey,
-    SimilarityComputation, SimilarityPair,
+    APIKey,
+    Base,
+    Binary,
+    BinaryFunction,
+    Function,
+    Model,
+    Prediction,
+    SimilarityComputation,
+    SimilarityPair,
+    User,
 )
-from loguru import logger
 
 _DEFAULT_ASYNC_DATABASE_URLS: dict[str, str] = {
     "models": "sqlite+aiosqlite:///data/models.db",
@@ -35,6 +43,7 @@ def reset_database_urls() -> None:
     """Reset database URLs to defaults."""
     ASYNC_DATABASE_URLS.clear()
     ASYNC_DATABASE_URLS.update(_DEFAULT_ASYNC_DATABASE_URLS)
+
 
 DB_TABLE_MAP: dict[str, list[Any]] = {
     "models": [Model.__table__],

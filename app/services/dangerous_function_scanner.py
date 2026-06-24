@@ -14,8 +14,8 @@ from typing import Any
 from loguru import logger
 
 from app.services.dangerous_functions_catalog import (
-    get_severity_order,
     Severity,
+    get_severity_order,
 )
 
 
@@ -74,9 +74,7 @@ class ScanReport:
     results: list[ScanResult] = field(default_factory=lambda: list[ScanResult]())
 
 
-def _extract_usage_context(
-    tokens: list[str], dangerous_function_name: str
-) -> list[str]:
+def _extract_usage_context(tokens: list[str], dangerous_function_name: str) -> list[str]:
     """Extract lines from decompiled tokens that reference the dangerous function.
 
     Joins the token list into a readable string, splits into lines,
@@ -113,10 +111,9 @@ def _extract_usage_context(
     # e.g., if the dangerous function was assigned to a function pointer
     for stmt in statements:
         # Match patterns like: (*func_ptr)(args) where func_ptr might point to dangerous func
-        if "(*" in stmt and pattern.search(stmt):
-            if stmt not in matching_lines and len(matching_lines) < 10:
-                truncated = stmt[:300] + "..." if len(stmt) > 300 else stmt
-                matching_lines.append(truncated)
+        if "(*" in stmt and pattern.search(stmt) and stmt not in matching_lines and len(matching_lines) < 10:
+            truncated = stmt[:300] + "..." if len(stmt) > 300 else stmt
+            matching_lines.append(truncated)
 
     # Deduplicate while preserving order
     seen: set[str] = set()
@@ -156,7 +153,7 @@ def _scan_function_names(functions: list[dict[str, Any]]) -> list[ScanResult]:
             continue
 
         # Check if the function name matches a dangerous function
-        tokens = func_info.get("tokenList", [])
+        func_info.get("tokenList", [])
         for _, entry in FUNCTION_LOOKUP.items():
             if func_name.lower() == entry.name.lower():
                 # Skip when function name equals the dangerous function name —
@@ -292,7 +289,6 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
         code_text = " ".join(str(t) for t in tokens)
         code_text = re.sub(r"\s+", " ", code_text).strip()
 
-
         # Check for each dangerous function in the code text
         for _, entry in FUNCTION_LOOKUP.items():
             # Skip if the containing function IS the dangerous function itself
@@ -303,9 +299,7 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
 
             # Primary: Case-insensitive word boundary match
             # \b matches between word and non-word chars (e.g., before '(' in 'strcpy(')
-            pattern = re.compile(
-                r'\b' + re.escape(entry.name) + r'\b', re.IGNORECASE
-            )
+            pattern = re.compile(r"\b" + re.escape(entry.name) + r"\b", re.IGNORECASE)
             if pattern.search(code_text):
                 found = True
 
@@ -324,21 +318,11 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
                         break
                     # Check character before match (if any)
                     # Treat _ as part of identifier (like regex \b does)
-                    before_ok = (
-                        pos == 0
-                        or (
-                            not code_text_lower[pos - 1].isalnum()
-                            and code_text_lower[pos - 1] != "_"
-                        )
-                    )
+                    before_ok = pos == 0 or (not code_text_lower[pos - 1].isalnum() and code_text_lower[pos - 1] != "_")
                     # Check character after match (if any)
                     end_pos = pos + len(df_name_lower_entry)
-                    after_ok = (
-                        end_pos >= len(code_text_lower)
-                        or (
-                            not code_text_lower[end_pos].isalnum()
-                            and code_text_lower[end_pos] != "_"
-                        )
+                    after_ok = end_pos >= len(code_text_lower) or (
+                        not code_text_lower[end_pos].isalnum() and code_text_lower[end_pos] != "_"
                     )
                     if before_ok and after_ok:
                         found = True
@@ -372,8 +356,7 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
     results.sort(key=lambda r: get_severity_order(r.severity))
 
     logger.info(
-        "Body scan: found {} dangerous function calls in {} functions "
-        "({} had tokens, {} had matches)",
+        "Body scan: found {} dangerous function calls in {} functions ({} had tokens, {} had matches)",
         len(results),
         total_funcs,
         funcs_with_tokens,

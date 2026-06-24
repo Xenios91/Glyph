@@ -1,10 +1,11 @@
 """Bridge middleware to connect asgi-correlation-id with Glyph request context."""
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from starlette.types import Receive, Send, Scope
+from starlette.types import Receive, Scope, Send
 
-from app.utils.request_context import set_request_context, clear_request_context
+from app.utils.request_context import clear_request_context, set_request_context
 
 
 class CorrelationIdBridgeMiddleware:

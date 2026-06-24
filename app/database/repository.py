@@ -2,15 +2,18 @@
 
 import json
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 import bcrypt
-from argon2 import PasswordHasher, exceptions as argon2_exceptions
+from argon2 import PasswordHasher
+from argon2 import exceptions as argon2_exceptions
+from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import User, APIKey
-from loguru import logger
+from app.database.models import APIKey, User
+
+
 class PasswordHasherService:
     """Service for password hashing using Argon2id."""
 
@@ -38,18 +41,18 @@ class PasswordHasherService:
             hash_len=hash_len if hash_len is not None else 32,
             salt_len=salt_len if salt_len is not None else 16,
         )
-    
+
     def hash_password(self, password: str) -> str:
         """Hash a password using Argon2id.
-        
+
         Args:
             password: Plain text password to hash
-            
+
         Returns:
             Hashed password string
         """
         return self.ph.hash(password)
-    
+
     def verify_password(self, password: str, hashed_password: str) -> bool:
         """Verify a password against its hash.
 
@@ -67,13 +70,13 @@ class PasswordHasherService:
             return False
         except argon2_exceptions.InvalidHashError:
             return False
-    
+
     def needs_rehash(self, hashed_password: str) -> bool:
         """Check if a password hash needs to be rehashed.
-        
+
         Args:
             hashed_password: Hashed password to check
-            
+
         Returns:
             True if the hash needs to be rehashed
         """
@@ -99,24 +102,24 @@ class UserRepository:
         email: str,
         password: str,
         full_name: str | None = None,
-        permissions: list[str] | None = None
+        permissions: list[str] | None = None,
     ) -> User:
         """Create a new user."""
         hashed_password = self.password_hasher.hash_password(password)
-        
+
         user = User(
             username=username,
             email=email,
             hashed_password=hashed_password,
             full_name=full_name,
-            permissions=json.dumps(permissions or [])
+            permissions=json.dumps(permissions or []),
         )
-        
+
         self.db.add(user)
         await self.db.flush()
         await self.db.refresh(user)
         return user
-    
+
     async def get_by_id(self, user_id: int) -> User | None:
         """Retrieve a user by their ID.
 
@@ -152,11 +155,7 @@ class UserRepository:
         result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
-    _DUMMY_HASH = (
-        "$argon2id$v=19$m=65536,t=2,p=4"
-        "$IaW8lT+iFVnKaCPWA+ArYg"
-        "$/rEI6zn8/LYoQNpbGs9wpH/qiB4ggeLb7B9UhCS/gDc"
-    )
+    _DUMMY_HASH = "$argon2id$v=19$m=65536,t=2,p=4$IaW8lT+iFVnKaCPWA+ArYg$/rEI6zn8/LYoQNpbGs9wpH/qiB4ggeLb7B9UhCS/gDc"
 
     async def verify_credentials(self, username: str, password: str) -> User | None:
         """Verify user credentials and rehash if needed."""
@@ -172,40 +171,36 @@ class UserRepository:
                 logger.bind(user_id=user.id).info("Password hash rehashed")
             return user
         return None
-    
+
     async def update_user(
-        self,
-        user_id: int,
-        full_name: str | None = None,
-        email: str | None = None,
-        is_active: bool | None = None
+        self, user_id: int, full_name: str | None = None, email: str | None = None, is_active: bool | None = None
     ) -> User | None:
         """Update a user's information."""
         user = await self.get_by_id(user_id)
         if not user:
             return None
-        
+
         if full_name is not None:
             user.full_name = full_name
         if email is not None:
             user.email = email
         if is_active is not None:
             user.is_active = is_active
-        
+
         await self.db.flush()
         await self.db.refresh(user)
         return user
-    
+
     async def change_password(self, user_id: int, new_password: str) -> bool:
         """Change a user's password."""
         user = await self.get_by_id(user_id)
         if not user:
             return False
-        
+
         user.hashed_password = self.password_hasher.hash_password(new_password)
         await self.db.flush()
         return True
-    
+
     async def delete_user(self, user_id: int) -> bool:
         """Delete a user."""
         user = await self.get_by_id(user_id)
@@ -242,7 +237,7 @@ class APIKeyRepository:
         Returns:
             The bcrypt hash of the API key.
         """
-        return bcrypt.hashpw(api_key.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        return bcrypt.hashpw(api_key.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     def verify_api_key(self, api_key: str, hashed_key: str) -> bool:
         """Verify a plain-text API key against its bcrypt hash.
@@ -254,14 +249,10 @@ class APIKeyRepository:
         Returns:
             True if the key matches, False otherwise.
         """
-        return bcrypt.checkpw(api_key.encode('utf-8'), hashed_key.encode('utf-8'))
+        return bcrypt.checkpw(api_key.encode("utf-8"), hashed_key.encode("utf-8"))
 
     async def create_api_key(
-        self,
-        user_id: int,
-        name: str,
-        permissions: list[str] | None = None,
-        expires_days: int | None = None
+        self, user_id: int, name: str, permissions: list[str] | None = None, expires_days: int | None = None
     ) -> tuple[APIKey, str]:
         """Create a new API key for a user. Returns (APIKey, plain_text_key)."""
         api_key = self.generate_api_key()
@@ -270,22 +261,22 @@ class APIKeyRepository:
 
         expires_at = None
         if expires_days:
-            expires_at = datetime.now(timezone.utc) + timedelta(days=expires_days)
-        
+            expires_at = datetime.now(UTC) + timedelta(days=expires_days)
+
         api_key_record = APIKey(
             user_id=user_id,
             name=name,
             hashed_key=hashed_key,
             key_prefix=key_prefix,
             permissions=json.dumps(permissions or ["read"]),
-            expires_at=expires_at
+            expires_at=expires_at,
         )
-        
+
         self.db.add(api_key_record)
         await self.db.flush()
         await self.db.refresh(api_key_record)
         return api_key_record, api_key
-    
+
     async def get_by_id(self, key_id: int) -> APIKey | None:
         """Retrieve an API key by its ID.
 
@@ -340,37 +331,37 @@ class APIKeyRepository:
             logger.bind(key_id=api_key_record.id).debug("API key verification failed: key inactive")
             return None
 
-        if api_key_record.expires_at and datetime.now(timezone.utc) > api_key_record.expires_at:
+        if api_key_record.expires_at and datetime.now(UTC) > api_key_record.expires_at:
             logger.bind(key_id=api_key_record.id).debug("API key verification failed: key expired")
             return None
 
-        api_key_record.last_used_at = datetime.now(timezone.utc)
+        api_key_record.last_used_at = datetime.now(UTC)
         await self.db.flush()
         logger.bind(key_id=api_key_record.id, user_id=api_key_record.user_id).debug("API key verified")
         return api_key_record
-    
+
     async def get_user_api_keys(self, user_id: int) -> list[APIKey]:
         result = await self.db.execute(
             select(APIKey).where(APIKey.user_id == user_id).order_by(APIKey.created_at.desc())
         )
         return list(result.scalars().all())
-    
+
     async def deactivate_api_key(self, key_id: int) -> bool:
         """Deactivate an API key."""
         api_key_record = await self.get_by_id(key_id)
         if not api_key_record:
             return False
-        
+
         api_key_record.is_active = False
         await self.db.flush()
         return True
-    
+
     async def delete_api_key(self, key_id: int) -> bool:
         """Delete an API key."""
         api_key_record = await self.get_by_id(key_id)
         if not api_key_record:
             return False
-        
+
         await self.db.delete(api_key_record)
         await self.db.flush()
         return True

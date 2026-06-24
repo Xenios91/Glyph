@@ -5,9 +5,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Protocol
 
-
 from loguru import logger
-from app.utils.request_context import restore_request_context, clear_request_context
+
+from app.utils.request_context import clear_request_context, restore_request_context
 
 
 class _TaskRequest(Protocol):
@@ -28,9 +28,9 @@ class TaskService:
     """
 
     _service_queue: asyncio.Queue[tuple[_TaskRequest, Any]] | None = None
-    __instance: "TaskService | None" = None
+    __instance: TaskService | None = None
 
-    def __new__(cls) -> "TaskService":
+    def __new__(cls) -> TaskService:
         """Create or return the singleton instance of TaskService."""
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
@@ -63,8 +63,7 @@ class TaskService:
                 captured_ctx = item[1]
                 job_uuid: str = task.uuid
                 restore_request_context(captured_ctx, override_task_id=job_uuid)
-                logger.debug(
-                    "Job queued: {}", job_uuid)
+                logger.debug("Job queued: {}", job_uuid)
                 clear_request_context()
             finally:
                 queue.task_done()

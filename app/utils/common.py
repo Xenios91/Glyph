@@ -1,32 +1,31 @@
 """Utility functions for code formatting and other utilities."""
 
+import re
 from typing import Any
 
 
-import re
-
 def format_code(code: str) -> str:
     """Format Ghidra C code: removes comments and enforces proper indentation.
-    
+
     Returns raw, unescaped code. HTML escaping is handled by Jinja2 auto-escaping
     when rendered in templates, and JSON responses remain clean for API consumers.
     """
-    
+
     # Non-backtracking pattern for C-style block comments.
     # Matches /* ... */ without allowing catastrophic backtracking by
     # explicitly excluding '*' from the body and handling '*' characters
     # that are not followed by '/'.
-    code = re.sub(r'/\*[^*]*\*+(?:[^/*][^*]*\*+)*/', '', code)
+    code = re.sub(r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/", "", code)
     # Non-backtracking pattern for single-line comments.
     # Matches // ... up to end of line (excluding newline).
-    code = re.sub(r'//[^\r\n]*', '', code)
+    code = re.sub(r"//[^\r\n]*", "", code)
 
     parts = code.split("{", 1)
     if len(parts) != 2:
         return code.strip()
 
     function_signature = " ".join(parts[0].strip().split())
-    
+
     function_body = parts[1].rsplit("}", 1)[0]
 
     function_body = function_body.replace(" ( ", "(").replace(" ) ", ")")
@@ -46,9 +45,10 @@ def format_code(code: str) -> str:
             start = i
             i += 1
             while i < len(function_body) and function_body[i] != '"':
-                if function_body[i] == '\\': i += 1
+                if function_body[i] == "\\":
+                    i += 1
                 i += 1
-            tokens.append(function_body[start:i+1])
+            tokens.append(function_body[start : i + 1])
             current_token = ""
         else:
             current_token += char
@@ -58,11 +58,11 @@ def format_code(code: str) -> str:
         tokens.append(current_token.strip())
 
     indent_level = 1
-    
+
     final_output = [function_signature, "{"]
-    
+
     current_line = "    " * indent_level
-    
+
     for token in tokens:
         if token == "{":
             final_output.append(current_line.rstrip() + " {")
@@ -99,11 +99,8 @@ def format_code(code: str) -> str:
 
 
 def build_prediction_details_response(
-    task_name: str,
-    model_name: str,
-    function_name: str,
-    model_tokens: str,
-    prediction_tokens: str) -> dict[str, Any]:
+    task_name: str, model_name: str, function_name: str, model_tokens: str, prediction_tokens: str
+) -> dict[str, Any]:
     """Build a standardized prediction details response.
 
     This function creates a consistent response structure for prediction details

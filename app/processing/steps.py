@@ -13,16 +13,14 @@ import re
 import sys
 from typing import Any, cast
 
-from numpy.typing import NDArray
+from loguru import logger
 from numpy import int64
+from numpy.typing import NDArray
 from sklearn.pipeline import Pipeline as SklearnPipeline
 
+from app.config.settings import get_settings
 from app.processing.pipeline import PipelineContext, PipelineStep
 from app.utils.persistence_util import MLPersistanceUtil, MLTask
-from loguru import logger
-from app.config.settings import get_settings
-
-
 
 _VARIABLE_PATTERNS = [
     r"^var\d+$",
@@ -142,10 +140,7 @@ class ValidationStep(PipelineStep):
 
         file_size = os.path.getsize(binary_path)
         if file_size > self._max_size_bytes:
-            context.error = (
-                f"Binary file exceeds maximum size: {file_size} > "
-                f"{self._max_size_bytes} bytes"
-            )
+            context.error = f"Binary file exceeds maximum size: {file_size} > {self._max_size_bytes} bytes"
             return context
 
         if file_size == 0:
@@ -165,6 +160,7 @@ class DecompileStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the decompile step."""
+
     def get_name(self) -> str:
         """Return the name of this step."""
         return "DecompileStep"
@@ -183,9 +179,7 @@ class DecompileStep(PipelineStep):
         binary_path = context.binary_path
 
         try:
-            results = await asyncio.to_thread(
-                ghidra_processor.analyze_binary_and_decompile, binary_path
-            )
+            results = await asyncio.to_thread(ghidra_processor.analyze_binary_and_decompile, binary_path)
 
             functions = results.get("functions", [])
             errored_functions = results.get("erroredFunctions", [])
@@ -193,10 +187,7 @@ class DecompileStep(PipelineStep):
             context.set("functions", functions)
             context.set("errored_functions", errored_functions)
 
-            logger.info(
-                "Decompilation completed: {} functions, {} errors",
-                len(functions),
-                len(errored_functions))
+            logger.info("Decompilation completed: {} functions, {} errors", len(functions), len(errored_functions))
 
         except Exception as decompile_error:
             context.error = f"Decompilation failed: {decompile_error}"
@@ -215,6 +206,7 @@ class TokenizeStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the tokenize step."""
+
     def get_name(self) -> str:
         """Return the name of this step."""
         return "TokenizeStep"
@@ -230,9 +222,7 @@ class TokenizeStep(PipelineStep):
         """
         functions = context.get("functions")
         if functions is None:
-            context.error = (
-                "No functions found in context - decompilation may have failed"
-            )
+            context.error = "No functions found in context - decompilation may have failed"
             return context
 
         tokenized_functions: list[dict[str, Any]] = []
@@ -246,9 +236,7 @@ class TokenizeStep(PipelineStep):
 
         context.set("tokenized_functions", tokenized_functions)
 
-        logger.debug(
-            "Tokenization completed: {} functions tokenized", len(tokenized_functions)
-        )
+        logger.debug("Tokenization completed: {} functions tokenized", len(tokenized_functions))
 
         return context
 
@@ -262,6 +250,7 @@ class FilterStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the filter step."""
+
     def get_name(self) -> str:
         """Return the name of this step."""
         return "FilterStep"
@@ -293,9 +282,7 @@ class FilterStep(PipelineStep):
 
         context.set("filtered_functions", filtered_functions)
 
-        logger.debug(
-            "Filtering completed: {} functions filtered", len(filtered_functions)
-        )
+        logger.debug("Filtering completed: {} functions filtered", len(filtered_functions))
 
         return context
 
@@ -311,6 +298,7 @@ class FeatureExtractStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the feature extraction step."""
+
     def get_name(self) -> str:
         """Return the name of this step."""
         return "FeatureExtractStep"
@@ -337,9 +325,7 @@ class FeatureExtractStep(PipelineStep):
 
         context.set("tokens", tokens)
 
-        logger.debug(
-            "Feature extraction completed: {} samples",
-            len(tokens))
+        logger.debug("Feature extraction completed: {} samples", len(tokens))
 
         return context
 
@@ -353,6 +339,7 @@ class TrainStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the train step."""
+
     def get_name(self) -> str:
         """Return the name of this step."""
         return "TrainStep"
@@ -389,10 +376,9 @@ class TrainStep(PipelineStep):
 
         label_encoder = preprocessing.LabelEncoder()
         y: NDArray[int64] = cast(
-            NDArray[int64], label_encoder.fit_transform(labels)  # type: ignore[call-arg]
+            NDArray[int64],
+            label_encoder.fit_transform(labels),  # type: ignore[call-arg]
         )
-        
-
 
         ml_pipeline: SklearnPipeline = MLTask.get_multi_class_pipeline()
 
@@ -400,7 +386,7 @@ class TrainStep(PipelineStep):
             logger.debug("Training data: {} tokens, {} labels", len(tokens), len(y))
             logger.opt(lazy=True).debug("Token sample: {}", lambda: tokens[0][:100] if tokens else "empty")
             logger.opt(lazy=True).debug("Label distribution: {}", lambda: np.bincount(y).tolist())
-            
+
             await asyncio.to_thread(ml_pipeline.fit, tokens, y)  # type: ignore[misc]
 
             await MLPersistanceUtil.save_model(model_name, label_encoder, ml_pipeline)
@@ -430,6 +416,7 @@ class PredictStep(PipelineStep):
 
     def __init__(self) -> None:
         """Initialize the predict step."""
+
     def get_name(self) -> str:
         """Return the name of this step."""
         return "PredictStep"
@@ -476,10 +463,7 @@ class PredictStep(PipelineStep):
             context.set("predictions", predicted_labels.tolist())
             context.set("prediction_probabilities", prediction_probability.tolist())
 
-            logger.info(
-                "Prediction completed: {} predictions for model '{}'",
-                len(predicted_labels),
-                model_name)
+            logger.info("Prediction completed: {} predictions for model '{}'", len(predicted_labels), model_name)
 
         except Exception as predict_error:
             context.error = f"Prediction failed: {predict_error}"
@@ -536,11 +520,13 @@ class SaveRawFunctionsStep(PipelineStep):
             raw_code = func.get("raw_code", "")
             if not raw_code:
                 continue
-            db_functions.append({
-                "function_name": func.get("functionName", "unknown"),
-                "entrypoint": func.get("lowAddress", "0"),
-                "raw_code": raw_code,
-            })
+            db_functions.append(
+                {
+                    "function_name": func.get("functionName", "unknown"),
+                    "entrypoint": func.get("lowAddress", "0"),
+                    "raw_code": raw_code,
+                }
+            )
 
         if db_functions:
             await SQLUtil.save_binary_functions(binary_id, db_functions)
@@ -599,12 +585,14 @@ class LoadBinaryFunctionsStep(PipelineStep):
             for bf in binary_functions:
                 # Split raw_code back into token-like list for TokenizeStep
                 # The TokenizeStep reads func.get("tokenList", [])
-                functions.append({
-                    "functionName": bf.function_name,
-                    "lowAddress": bf.entrypoint,
-                    "tokenList": bf.raw_code.split(),  # Space-separated tokens
-                    "raw_code": bf.raw_code,
-                })
+                functions.append(
+                    {
+                        "functionName": bf.function_name,
+                        "lowAddress": bf.entrypoint,
+                        "tokenList": bf.raw_code.split(),  # Space-separated tokens
+                        "raw_code": bf.raw_code,
+                    }
+                )
 
             context.set("functions", functions)
             logger.info("Loaded {} functions for binary {}", len(functions), binary_id)

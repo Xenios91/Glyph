@@ -10,7 +10,7 @@ vulnerable code patterns in decompiled binaries.
 """
 
 from dataclasses import dataclass
-from typing import Literal, Final
+from typing import Final, Literal
 
 Severity = Literal["Critical", "High", "Medium", "Low"]
 
@@ -154,7 +154,7 @@ _FORMAT_STRING: list[DangerousFunctionEntry] = [
         severity="High",
         cwe="CWE-134",
         description="When called with a user-controlled string as the format argument (e.g., printf(user_input)), it can leak stack data or cause crashes via %n.",
-        safe_alternative="Always use a literal format string: printf(\"%s\", user_input)",
+        safe_alternative='Always use a literal format string: printf("%s", user_input)',
     ),
     DangerousFunctionEntry(
         name="fprintf",
@@ -162,7 +162,7 @@ _FORMAT_STRING: list[DangerousFunctionEntry] = [
         severity="High",
         cwe="CWE-134",
         description="Same format string vulnerability as printf but writes to a file stream.",
-        safe_alternative="Always use a literal format string: fprintf(fp, \"%s\", user_input)",
+        safe_alternative='Always use a literal format string: fprintf(fp, "%s", user_input)',
     ),
     DangerousFunctionEntry(
         name="sprintf",
@@ -186,7 +186,7 @@ _FORMAT_STRING: list[DangerousFunctionEntry] = [
         severity="High",
         cwe="CWE-134",
         description="Logs a message to the system log. If the format parameter is user-controlled, it enables format string attacks.",
-        safe_alternative="syslog(priority, \"%s\", user_input)",
+        safe_alternative='syslog(priority, "%s", user_input)',
     ),
     DangerousFunctionEntry(
         name="vprintf",
@@ -678,9 +678,7 @@ _ALL_ENTRIES: Final[list[DangerousFunctionEntry]] = (
 )
 
 # Case-insensitive lookup: "strcpy" -> entry, "STRCPY" -> same entry
-FUNCTION_LOOKUP: Final[dict[str, DangerousFunctionEntry]] = {
-    entry.name.lower(): entry for entry in _ALL_ENTRIES
-}
+FUNCTION_LOOKUP: Final[dict[str, DangerousFunctionEntry]] = {entry.name.lower(): entry for entry in _ALL_ENTRIES}
 
 # Category -> list of entries
 CATEGORY_INDEX: Final[dict[str, list[DangerousFunctionEntry]]] = {}

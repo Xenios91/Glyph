@@ -7,19 +7,19 @@ analysis tasks (training, prediction, Ghidra decompilation).
 import asyncio
 import json
 import time
-from typing import Annotated, Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from loguru import logger
 from pydantic import BaseModel, StringConstraints
 
 from app.api.types import UUID as UUIDType
-from app.processing.task_management import TaskManager
-from loguru import logger
-from app.utils.responses import create_success_response, create_error_response, SuccessResponse
 from app.auth.dependencies import get_current_active_user
 from app.database.models import User
-
+from app.processing.task_management import TaskManager
+from app.utils.responses import SuccessResponse, create_error_response, create_success_response
 
 # Terminal task states that stop SSE streaming
 _TERMINAL_STATUSES: set[str] = {"completed", "error", "failed", "cancelled", "UUID Not Found"}
@@ -51,8 +51,7 @@ class StatusUpdatePayload(BaseModel):
     description="Retrieve the current status of a background analysis task by its UUID.",
 )
 async def get_status(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-    uuid: UUIDType = Query(...)
+    current_user: Annotated[User, Depends(get_current_active_user)], uuid: UUIDType = Query(...)
 ) -> SuccessResponse[dict[str, Any]]:
     status = TaskManager().get_status(uuid)
 
@@ -60,15 +59,12 @@ async def get_status(
         logger.warning("Status check failed: UUID {} not found", uuid)
         raise HTTPException(
             status_code=404,
-            detail=create_error_response(
-                error_code="UUID_NOT_FOUND",
-                error_message="UUID Not Found").model_dump())
+            detail=create_error_response(error_code="UUID_NOT_FOUND", error_message="UUID Not Found").model_dump(),
+        )
 
     logger.debug("Status retrieved for UUID {} status={}", uuid, status)
 
-    return create_success_response(
-        data={"status": status},
-        message="Task status retrieved successfully")
+    return create_success_response(data={"status": status}, message="Task status retrieved successfully")
 
 
 @router.post(
@@ -78,29 +74,20 @@ async def get_status(
     description="Update the status of a background analysis task. Requires task ownership.",
 )
 async def update_status(
-    payload: StatusUpdatePayload,
-    current_user: Annotated[User, Depends(get_current_active_user)]
+    payload: StatusUpdatePayload, current_user: Annotated[User, Depends(get_current_active_user)]
 ) -> SuccessResponse[dict[str, Any]]:
-    updated: bool = TaskManager().set_status(
-        payload.uuid, payload.status, owner_id=current_user.id)
+    updated: bool = TaskManager().set_status(payload.uuid, payload.status, owner_id=current_user.id)
 
     if not updated:
-        logger.warning(
-            "Status update failed: UUID {} not found or ownership denied",
-            payload.uuid)
+        logger.warning("Status update failed: UUID {} not found or ownership denied", payload.uuid)
         raise HTTPException(
             status_code=404,
-            detail=create_error_response(
-                error_code="UUID_NOT_FOUND",
-                error_message="UUID not found").model_dump())
+            detail=create_error_response(error_code="UUID_NOT_FOUND", error_message="UUID not found").model_dump(),
+        )
 
-    logger.info(
-        "Status updated for UUID {} to '{}' by user {}",
-        payload.uuid, payload.status, current_user.id)
+    logger.info("Status updated for UUID {} to '{}' by user {}", payload.uuid, payload.status, current_user.id)
 
-    return create_success_response(
-        data={"success": True},
-        message="Task status updated successfully")
+    return create_success_response(data={"success": True}, message="Task status updated successfully")
 
 
 async def _stream_task_status(
@@ -196,7 +183,9 @@ async def stream_task_status(
 
     logger.info(
         "SSE stream started for task {} (interval={:.1f}s, timeout={:.0f}s)",
-        uuid, interval, timeout,
+        uuid,
+        interval,
+        timeout,
     )
 
     return StreamingResponse(

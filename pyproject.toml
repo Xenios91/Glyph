@@ -22,17 +22,17 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastapi>=0.136.1",
-    "uvicorn[standard]>=0.46.0",
+    "fastapi>=0.138.0",
+    "uvicorn[standard]>=0.49.0",
     "uvloop>=0.22.1",
     "Jinja2>=3.1.6",
     "joblib>=1.5.3",
-    "numpy>=2.4.3",
-    "pandas>=3.0.1",
-    "scikit-learn>=1.8.0",
+    "numpy>=2.4.6",
+    "pandas>=3.0.3",
+    "scikit-learn>=1.9.0",
     "scipy>=1.17.1",
-    "pydantic>=2.12.5",
-    "pydantic-settings>=2.13.1",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
     "pydantic-extra-types>=2.11.1",
     "python-dotenv>=1.2.2",
     "python-multipart>=0.0.27",
@@ -47,26 +47,26 @@ dependencies = [
     "joserfc>=0.11.0",
     "SQLAlchemy>=2.0.48,<2.2",
     "email-validator>=2.3.0",
-    "rich>=14.3.3",
-    "sentry-sdk>=2.59.0",
-    "starlette>=1.0.1",
+    "rich>=15.0.0",
+    "sentry-sdk>=2.63.0",
+    "starlette>=1.3.1",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.0.3",
+    "pytest>=9.1.1",
     "pytest-timeout>=2.1.0",
     "pytest-cov>=5.0.0",
     "hypothesis>=6.100.0",
-    "ruff>=0.9.0",
+    "ruff>=0.15.19",
     "mypy>=1.14.0",
     "pre-commit>=4.0.0",
     "pylint>=3.3.0",
     "pytest-xdist>=3.6.0",
 ]
 test = [
-    "playwright>=1.59.0",
-    "pytest-playwright>=0.7.2",
+    "playwright>=1.60.0",
+    "pytest-playwright>=0.8.0",
 ]
 
 [project.urls]
@@ -112,11 +112,22 @@ select = [
 ignore = [
     "E501",  # line length handled by formatter
     "F401",  # unused imports (common in __init__.py)
+    "B008",  # FastAPI Depends()/File()/Query()/Form() in defaults is intentional
+    "B904",  # exception chain 'from' is cosmetic for now
+    "E701",  # multiple statements on one line (pre-existing style)
+    "N815",  # mixedCase class vars (pre-existing, would be breaking change)
+    "RUF012",  # mutable class attribute default (intentional constants)
+    "SIM105",  # suggests sys.exit() over raise SystemExit
+    "SIM116",  # suggests dict.get() over if-else (pre-existing style)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/**" = ["T20", "S101"]
+"app/processing/ghidra_processor.py" = ["N806"]  # PyGhidra Java interop class names
+"app/stubs/**" = ["N802"]  # PyGhidra Java interop stubs match Java method names
+"app/api/v1/endpoints/status.py" = ["N811"]  # UUID type alias imported as non-constant
+"app/config/settings.py" = ["N806"]  # _DEFAULT_JWT_SECRET follows module-level convention
 
 [tool.ruff.format]
 quote-style = "double"

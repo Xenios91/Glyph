@@ -7,8 +7,9 @@ enqueue=True for the file handler (thread-safe for background tasks).
 import os
 import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from loguru import logger
 
@@ -20,16 +21,27 @@ class SensitiveDataPatcher:
     """Redacts sensitive data (passwords, tokens, API keys) from log messages."""
 
     SENSITIVE_PATTERNS: list[tuple[str, str | Callable[[re.Match[str]], str]]] = [
-        (r'(?i)bearer\s+[A-Za-z0-9\-\._~\+\/]+=*', 'Bearer [REDACTED]'),
-        (r'(?i)(sqlite|postgresql|mysql|mongodb|redis)(\+[\w]+)?://\S+', '[CONNECTION_STRING_REDACTED]'),
-        (r'(?i)(?:^|[\s,;|])((?:token|secret|password|passwd|pwd)\s*[=:]\s*\S+)', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0) or "")),
-        (r'(?i)(?:^|[\s,;|])((?:api[_-]?key|apikey)\s*[=:]\s*\S+)', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0) or "")),
-        (r'(?i)(?:^|[\s,;|])((?:secret_key|jwt_secret|oauth_secret)\s*[=:]\s*\S+)', lambda m: re.sub(r'(\S+)$', '[REDACTED]', m.group(0) or "")),
-        (r'(?i)(password|token|secret)[^@]*@[A-Za-z0-9\.-]+\.[A-Za-z]{2,}', '[REDACTED]'),
+        (r"(?i)bearer\s+[A-Za-z0-9\-\._~\+\/]+=*", "Bearer [REDACTED]"),
+        (r"(?i)(sqlite|postgresql|mysql|mongodb|redis)(\+[\w]+)?://\S+", "[CONNECTION_STRING_REDACTED]"),
+        (
+            r"(?i)(?:^|[\s,;|])((?:token|secret|password|passwd|pwd)\s*[=:]\s*\S+)",
+            lambda m: re.sub(r"(\S+)$", "[REDACTED]", m.group(0) or ""),
+        ),
+        (
+            r"(?i)(?:^|[\s,;|])((?:api[_-]?key|apikey)\s*[=:]\s*\S+)",
+            lambda m: re.sub(r"(\S+)$", "[REDACTED]", m.group(0) or ""),
+        ),
+        (
+            r"(?i)(?:^|[\s,;|])((?:secret_key|jwt_secret|oauth_secret)\s*[=:]\s*\S+)",
+            lambda m: re.sub(r"(\S+)$", "[REDACTED]", m.group(0) or ""),
+        ),
+        (r"(?i)(password|token|secret)[^@]*@[A-Za-z0-9\.-]+\.[A-Za-z]{2,}", "[REDACTED]"),
     ]
 
     def __init__(self) -> None:
-        self._compiled: list[tuple[re.Pattern[str], str | Callable[[re.Match[str]], str]]] = [(re.compile(p), r) for p, r in self.SENSITIVE_PATTERNS]
+        self._compiled: list[tuple[re.Pattern[str], str | Callable[[re.Match[str]], str]]] = [
+            (re.compile(p), r) for p, r in self.SENSITIVE_PATTERNS
+        ]
 
     def __call__(self, record: dict[str, Any]) -> None:
         """Redact sensitive data from the record's message."""
@@ -66,6 +78,7 @@ def create_module_level_filter(module_levels: dict[str, str]) -> Callable[[dict[
 
 def _loguru_patcher(sensitive: SensitiveDataPatcher) -> Callable[[dict[str, Any]], None]:
     """Create the loguru patcher for sensitive data redaction and request context."""
+
     def patcher(record: dict[str, Any]) -> None:
         sensitive(record)
         ctx = get_request_context()
@@ -93,13 +106,16 @@ def setup_logging(
     colorize: bool = True,
     module_levels: dict[str, str] | None = None,
     diagnose: bool = False,
-    enqueue: bool = True) -> None:
+    enqueue: bool = True,
+) -> None:
     """Set up logging using loguru's configure() method."""
-    valid_levels = {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'TRACE'}
+    valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "TRACE"}
     if level.upper() not in valid_levels:
         raise ValueError(f"Invalid log level: '{level}'. Must be one of: {', '.join(sorted(valid_levels))}")
     if console_level.upper() not in valid_levels:
-        raise ValueError(f"Invalid console log level: '{console_level}'. Must be one of: {', '.join(sorted(valid_levels))}")
+        raise ValueError(
+            f"Invalid console log level: '{console_level}'. Must be one of: {', '.join(sorted(valid_levels))}"
+        )
 
     combined_filter = create_module_level_filter(module_levels) if module_levels else None
 
@@ -135,17 +151,21 @@ def setup_logging(
         if format == "json":
             file_handler_config["serialize"] = True
         else:
-            file_handler_config["format"] = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name} | {message}\n{exception}"
+            file_handler_config["format"] = (
+                "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name} | {message}\n{exception}"
+            )
 
         handlers.append(file_handler_config)
 
     if console_enabled:
-        handlers.append({
-            "sink": sys.stderr,
-            "level": console_level.upper(),
-            "filter": combined_filter,
-            "colorize": colorize,
-        })
+        handlers.append(
+            {
+                "sink": sys.stderr,
+                "level": console_level.upper(),
+                "filter": combined_filter,
+                "colorize": colorize,
+            }
+        )
 
     logger.configure(handlers=handlers, patcher=patcher)  # type: ignore[arg-type]
 
@@ -172,4 +192,5 @@ def setup_logging_from_config() -> None:
         colorize=log_config.console.colorize,
         module_levels=dict(log_config.module_levels) if log_config.module_levels else None,
         diagnose=diagnose,
-        enqueue=enqueue)
+        enqueue=enqueue,
+    )
