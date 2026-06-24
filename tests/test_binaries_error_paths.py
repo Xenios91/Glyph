@@ -318,6 +318,7 @@ class TestListBinariesEmpty:
         from app.auth.dependencies import get_current_active_user
 
         mock_sql_util = MagicMock()
+        mock_sql_util.count_binaries_by_user = AsyncMock(return_value=0)
         mock_sql_util.get_binaries_by_user = AsyncMock(return_value=[])
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
@@ -328,4 +329,5 @@ class TestListBinariesEmpty:
             response = client.get("/list")
             assert response.status_code == 200
             data = response.json()
-            assert data["data"]["binaries"] == []
+            assert data["data"]["items"] == []
+            assert data["data"]["total"] == 0

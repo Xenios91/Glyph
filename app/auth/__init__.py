@@ -29,7 +29,6 @@ from app.auth.schemas import (
     ChangePassword,
     RefreshTokenRequest,
     TokenResponse,
-    UserLogin,
     UserRegister,
     UserResponse,
     UserUpdate)
@@ -57,7 +56,6 @@ __all__ = [
     "ChangePassword",
     "RefreshTokenRequest",
     "TokenResponse",
-    "UserLogin",
     "UserRegister",
     "UserResponse",
     "UserUpdate",

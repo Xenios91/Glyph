@@ -7,17 +7,7 @@ import pytest
 
 from app.auth.dependencies import get_current_active_user
 from tests.conftest import set_dependency_override
-
-
-def _make_mock_user() -> Mock:
-    """Create a mock user for dependency overrides."""
-    mock_user = Mock()
-    mock_user.id = 1
-    mock_user.username = "testuser"
-    mock_user.email = "test@example.com"
-    mock_user.is_active = True
-    mock_user.is_superuser = False
-    return mock_user
+from tests.factories import make_mock_user
 
 
 class TestPredictionsRouter:
@@ -43,14 +33,13 @@ class TestPredictionsRouter:
         mock_pred_req_instance = Mock()
         mock_pred_req_instance.uuid = "test-uuid-123"
         mock_prediction_request.return_value = mock_pred_req_instance
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.post(
             "/predictions/predict",
             json={
                 "modelName": "test_model",
                 "taskName": "test_task",
-                "data": {"tokens": "test tokens"},
             },
         )
 
@@ -72,14 +61,13 @@ class TestPredictionsRouter:
     ) -> None:
         """Test prediction with existing task name returns 409."""
         mock_pred_persistance.is_task_name_unique = AsyncMock(return_value=False)
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.post(
             "/predictions/predict",
             json={
                 "modelName": "test_model",
                 "taskName": "existing_task",
-                "data": {"tokens": "test tokens"},
             },
         )
 
@@ -109,7 +97,7 @@ class TestPredictionsRouter:
         mock_pred_req_instance = Mock()
         mock_pred_req_instance.uuid = "custom-uuid-456"
         mock_prediction_request.return_value = mock_pred_req_instance
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.post(
             "/predictions/predict",
@@ -117,7 +105,6 @@ class TestPredictionsRouter:
                 "modelName": "test_model",
                 "taskName": "test_task",
                 "uuid": "custom-uuid-456",
-                "data": {"tokens": "test tokens"},
             },
         )
 
@@ -138,14 +125,13 @@ class TestPredictionsRouter:
     ) -> None:
         """Test prediction task creation error."""
         mock_pred_persistance.is_task_name_unique = AsyncMock(side_effect=Exception("Test error"))
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.post(
             "/predictions/predict",
             json={
                 "modelName": "test_model",
                 "taskName": "test_task",
-                "data": {"tokens": "test tokens"},
             },
         )
 
@@ -166,7 +152,7 @@ class TestPredictionsRouter:
 
         mock_prediction = SimplePrediction()
         mock_pred_persistance.get_predictions = AsyncMock(return_value=mock_prediction)
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.get(
             "/predictions/getPrediction",
@@ -184,7 +170,7 @@ class TestPredictionsRouter:
     def test_get_prediction_not_found(self, mock_pred_persistance: Any, predictions_client: Any) -> None:
         """Test getting a prediction that doesn't exist."""
         mock_pred_persistance.get_predictions = AsyncMock(return_value=None)
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.get(
             "/predictions/getPrediction",
@@ -202,7 +188,7 @@ class TestPredictionsRouter:
     def test_delete_prediction_success(self, mock_pred_persistance: Any, predictions_client: Any) -> None:
         """Test deleting a prediction successfully."""
         mock_pred_persistance.delete_prediction = AsyncMock()
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.delete(
             "/predictions/deletePrediction",
@@ -224,7 +210,7 @@ class TestPredictionsRouter:
             "tokens": "test tokens",
             "prediction": "test_prediction",
         })
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.get(
             "/predictions/getPredictionDetails",
@@ -246,7 +232,7 @@ class TestPredictionsRouter:
     def test_get_prediction_details_retrieval_error(self, mock_func_persistance: Any, predictions_client: Any) -> None:
         """Test getting prediction details with retrieval error."""
         mock_func_persistance.get_function = AsyncMock(side_effect=IndexError("Test error"))
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.get(
             "/predictions/getPredictionDetails",
@@ -274,7 +260,7 @@ class TestPredictionsRouter:
             "tokens": "test tokens",
             "prediction": "test_prediction",
         })
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.get(
             "/predictions/getPredictionDetails",
@@ -299,7 +285,7 @@ class TestPredictionsRouter:
             "tokens": "test tokens",
             "prediction": "test_prediction",
         })
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.get(
             "/predictions/getPredictionDetails",
@@ -325,14 +311,13 @@ class TestPredictionsRouter:
         predictions_client: Any,
     ) -> None:
         """Test prediction with empty taskName raises 400."""
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.post(
             "/predictions/predict",
             json={
                 "modelName": "test_model",
                 "taskName": "",
-                "data": {"tokens": "test tokens"},
             },
         )
 
@@ -353,14 +338,13 @@ class TestPredictionsRouter:
         predictions_client: Any,
     ) -> None:
         """Test prediction with whitespace-only taskName raises 400."""
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.post(
             "/predictions/predict",
             json={
                 "modelName": "test_model",
                 "taskName": "   ",
-                "data": {"tokens": "test tokens"},
             },
         )
 
@@ -381,7 +365,7 @@ class TestPredictionsRouter:
 
         mock_prediction = SimplePrediction()
         mock_pred_persistance.get_predictions = AsyncMock(return_value=mock_prediction)
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.get(
             "/predictions/getPrediction",
@@ -397,7 +381,7 @@ class TestPredictionsRouter:
     def test_delete_predictions_success(self, mock_pred_persistance: Any, predictions_client: Any) -> None:
         """Test batch deleting predictions successfully."""
         mock_pred_persistance.delete_prediction = AsyncMock()
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.delete(
             "/predictions/deletePredictions",
@@ -414,7 +398,7 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionPersistanceUtil")
     def test_delete_predictions_empty_task_names(self, mock_pred_persistance: Any, predictions_client: Any) -> None:
         """Test batch delete with empty task names raises 400."""
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.delete(
             "/predictions/deletePredictions",
@@ -434,7 +418,7 @@ class TestPredictionsRouter:
             if name == "bad_task":
                 raise RuntimeError("DB error")
         mock_pred_persistance.delete_prediction = AsyncMock(side_effect=side_effect)
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.delete(
             "/predictions/deletePredictions",
@@ -454,7 +438,7 @@ class TestPredictionsRouter:
         """Test getting prediction details when function doesn't exist."""
         mock_func_persistance.get_function = AsyncMock(return_value=None)
         mock_func_persistance.get_prediction_function = AsyncMock(return_value=None)
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         with patch("app.api.v1.endpoints.predictions.format_code") as mock_format:
             mock_format.return_value = ""
@@ -479,7 +463,7 @@ class TestPredictionsRouter:
         """Test getting prediction details with TypeError."""
         mock_func_persistance.get_function = AsyncMock(return_value=Mock(tokens="tokens"))
         mock_func_persistance.get_prediction_function = AsyncMock(side_effect=TypeError("bad data"))
-        set_dependency_override(predictions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.get(
             "/predictions/getPredictionDetails",

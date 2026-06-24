@@ -1,0 +1,222 @@
+/* =============================================================
+   GLYPH — Call Graph Visualization Styles
+   ============================================================= */
+
+/* ── Tab Navigation ─────────────────────────────────────────── */
+.tab-nav {
+    display: flex;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-lg);
+    border-bottom: 2px solid var(--cyan-dim);
+    padding-bottom: var(--space-sm);
+}
+
+.tab-btn {
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: var(--space-sm) var(--space-md);
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.tab-btn:hover {
+    color: var(--cyan);
+    background-color: rgba(125, 216, 216, 0.05);
+}
+
+.tab-btn.active {
+    color: var(--cyan);
+    border-color: var(--cyan-dim);
+    background-color: rgba(125, 216, 216, 0.1);
+}
+
+.tab-btn:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+/* ── Call Graph Controls ────────────────────────────────────── */
+.callgraph-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+    padding: var(--space-md);
+    background: var(--bg-panel);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 4px;
+}
+
+.callgraph-stats {
+    display: flex;
+    gap: var(--space-lg);
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.stat-item strong {
+    color: var(--cyan);
+}
+
+.callgraph-actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.callgraph-actions .cyber-btn {
+    font-size: var(--text-xs);
+    padding: var(--space-xs) var(--space-sm);
+}
+
+/* ── Graph Container ────────────────────────────────────────── */
+.graph-container {
+    position: relative;
+    width: 100%;
+    height: 600px;
+    background: var(--bg-surface);
+    border: 2px solid var(--cyan-dim);
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: grab;
+}
+
+.graph-container:active {
+    cursor: grabbing;
+}
+
+#graph-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* ── Graph Tooltip ──────────────────────────────────────────── */
+.graph-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--bg-panel);
+    border: 1px solid var(--cyan);
+    border-radius: 4px;
+    padding: var(--space-sm) var(--space-md);
+    font-family: var(--font-code);
+    font-size: var(--text-xs);
+    color: var(--text-primary);
+    max-width: 300px;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.graph-tooltip .tooltip-name {
+    color: var(--cyan);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--space-2xs);
+}
+
+.graph-tooltip .tooltip-detail {
+    color: var(--text-muted);
+    line-height: var(--leading-normal);
+}
+
+/* ── Graph Legend ───────────────────────────────────────────── */
+.graph-legend {
+    position: absolute;
+    bottom: var(--space-md);
+    right: var(--space-md);
+    background: rgba(13, 13, 26, 0.9);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 4px;
+    padding: var(--space-sm) var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    z-index: 10;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.legend-dot.entry {
+    background: var(--yellow);
+    box-shadow: 0 0 6px var(--yellow);
+}
+
+.legend-dot.normal {
+    background: var(--cyan);
+    box-shadow: 0 0 4px var(--cyan-dim);
+}
+
+.legend-dot.selected {
+    background: var(--magenta);
+    box-shadow: 0 0 6px var(--magenta);
+}
+
+.legend-dot.dimmed {
+    background: var(--text-muted);
+    opacity: 0.3;
+}
+
+/* ── Detail Section ─────────────────────────────────────────── */
+.detail-section {
+    background: var(--bg-panel);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 4px;
+    padding: var(--space-lg);
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .callgraph-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .callgraph-stats {
+        justify-content: center;
+    }
+
+    .callgraph-actions {
+        justify-content: center;
+    }
+
+    .graph-container {
+        height: 400px;
+    }
+
+    .tab-nav {
+        flex-wrap: wrap;
+    }
+
+    .tab-btn {
+        flex: 1;
+        min-width: 100px;
+        text-align: center;
+    }
+}

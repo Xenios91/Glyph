@@ -112,127 +112,145 @@ class TestGetDb:
     @pytest.mark.asyncio
     async def test_get_db_yields_session_and_commits(self) -> None:
         """Test that get_db yields a session and commits on success."""
-        with mock.patch("app.auth.dependencies.get_async_session") as mock_get_session:
-            with mock.patch("app.auth.dependencies.close_async_session") as mock_close:
-                mock_session = mock.AsyncMock()
-                mock_get_session.return_value = mock_session
+        mock_session = mock.AsyncMock()
+        mock_context = mock.AsyncMock()
+        mock_context.__aenter__ = mock.AsyncMock(return_value=mock_session)
+        mock_context.__aexit__ = mock.AsyncMock(return_value=None)
 
-                gen = get_db()
-                session = await gen.asend(None)
+        with mock.patch("app.auth.dependencies.async_session") as mock_async_session:
+            mock_async_session.return_value = mock_context
 
-                assert session is mock_session
-                mock_get_session.assert_awaited_once_with("auth")
+            gen = get_db()
+            session = await gen.asend(None)
 
-                # Trigger commit path
-                try:
-                    await gen.athrow(HTTPException(status_code=404))
-                except HTTPException:
-                    pass
+            assert session is mock_session
+            mock_async_session.assert_called_once_with("auth")
 
-                # Should rollback on HTTPException, then close
-                mock_session.rollback.assert_awaited_once()
-                mock_close.assert_awaited_once_with(mock_session)
+            # Trigger rollback path via HTTPException
+            try:
+                await gen.athrow(HTTPException(status_code=404))
+            except HTTPException:
+                pass
+
+            # Should rollback on HTTPException
+            mock_session.rollback.assert_awaited_once()
+            mock_context.__aexit__.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_db_commits_on_success(self) -> None:
         """Test that get_db commits when no exception occurs."""
-        with mock.patch("app.auth.dependencies.get_async_session") as mock_get_session:
-            with mock.patch("app.auth.dependencies.close_async_session") as mock_close:
-                mock_session = mock.AsyncMock()
-                mock_get_session.return_value = mock_session
+        mock_session = mock.AsyncMock()
+        mock_context = mock.AsyncMock()
+        mock_context.__aenter__ = mock.AsyncMock(return_value=mock_session)
+        mock_context.__aexit__ = mock.AsyncMock(return_value=None)
 
-                gen = get_db()
-                session = await gen.asend(None)
+        with mock.patch("app.auth.dependencies.async_session") as mock_async_session:
+            mock_async_session.return_value = mock_context
 
-                assert session is mock_session
+            gen = get_db()
+            session = await gen.asend(None)
 
-                # Normal completion - send None to trigger commit
-                try:
-                    await gen.asend(None)
-                except StopAsyncIteration:
-                    pass
+            assert session is mock_session
 
-                mock_session.commit.assert_awaited_once()
-                mock_close.assert_awaited_once_with(mock_session)
+            # Normal completion - send None to trigger commit
+            try:
+                await gen.asend(None)
+            except StopAsyncIteration:
+                pass
+
+            mock_session.commit.assert_awaited_once()
+            mock_context.__aexit__.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_db_rollback_on_http_exception(self) -> None:
         """Test that get_db rolls back on HTTPException."""
-        with mock.patch("app.auth.dependencies.get_async_session") as mock_get_session:
-            with mock.patch("app.auth.dependencies.close_async_session") as mock_close:
-                mock_session = mock.AsyncMock()
-                mock_get_session.return_value = mock_session
+        mock_session = mock.AsyncMock()
+        mock_context = mock.AsyncMock()
+        mock_context.__aenter__ = mock.AsyncMock(return_value=mock_session)
+        mock_context.__aexit__ = mock.AsyncMock(return_value=None)
 
-                gen = get_db()
-                await gen.asend(None)
+        with mock.patch("app.auth.dependencies.async_session") as mock_async_session:
+            mock_async_session.return_value = mock_context
 
-                try:
-                    await gen.athrow(HTTPException(status_code=401))
-                except HTTPException:
-                    pass
+            gen = get_db()
+            await gen.asend(None)
 
-                mock_session.rollback.assert_awaited_once()
-                mock_session.commit.assert_not_awaited()
-                mock_close.assert_awaited_once()
+            try:
+                await gen.athrow(HTTPException(status_code=401))
+            except HTTPException:
+                pass
+
+            mock_session.rollback.assert_awaited_once()
+            mock_session.commit.assert_not_awaited()
+            mock_context.__aexit__.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_db_rollback_on_request_validation_error(self) -> None:
         """Test that get_db rolls back on RequestValidationError."""
-        with mock.patch("app.auth.dependencies.get_async_session") as mock_get_session:
-            with mock.patch("app.auth.dependencies.close_async_session") as mock_close:
-                mock_session = mock.AsyncMock()
-                mock_get_session.return_value = mock_session
+        mock_session = mock.AsyncMock()
+        mock_context = mock.AsyncMock()
+        mock_context.__aenter__ = mock.AsyncMock(return_value=mock_session)
+        mock_context.__aexit__ = mock.AsyncMock(return_value=None)
 
-                gen = get_db()
-                await gen.asend(None)
+        with mock.patch("app.auth.dependencies.async_session") as mock_async_session:
+            mock_async_session.return_value = mock_context
 
-                try:
-                    await gen.athrow(RequestValidationError(errors=[]))
-                except RequestValidationError:
-                    pass
+            gen = get_db()
+            await gen.asend(None)
 
-                mock_session.rollback.assert_awaited_once()
-                mock_session.commit.assert_not_awaited()
-                mock_close.assert_awaited_once()
+            try:
+                await gen.athrow(RequestValidationError(errors=[]))
+            except RequestValidationError:
+                pass
+
+            mock_session.rollback.assert_awaited_once()
+            mock_session.commit.assert_not_awaited()
+            mock_context.__aexit__.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_db_rollback_on_generic_exception(self) -> None:
         """Test that get_db rolls back on generic exceptions."""
-        with mock.patch("app.auth.dependencies.get_async_session") as mock_get_session:
-            with mock.patch("app.auth.dependencies.close_async_session") as mock_close:
-                mock_session = mock.AsyncMock()
-                mock_get_session.return_value = mock_session
+        mock_session = mock.AsyncMock()
+        mock_context = mock.AsyncMock()
+        mock_context.__aenter__ = mock.AsyncMock(return_value=mock_session)
+        mock_context.__aexit__ = mock.AsyncMock(return_value=None)
 
-                gen = get_db()
-                await gen.asend(None)
+        with mock.patch("app.auth.dependencies.async_session") as mock_async_session:
+            mock_async_session.return_value = mock_context
 
-                try:
-                    await gen.athrow(RuntimeError("db error"))
-                except RuntimeError:
-                    pass
+            gen = get_db()
+            await gen.asend(None)
 
-                mock_session.rollback.assert_awaited_once()
-                mock_session.commit.assert_not_awaited()
-                mock_close.assert_awaited_once()
+            try:
+                await gen.athrow(RuntimeError("db error"))
+            except RuntimeError:
+                pass
+
+            mock_session.rollback.assert_awaited_once()
+            mock_session.commit.assert_not_awaited()
+            mock_context.__aexit__.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_db_always_closes_session(self) -> None:
-        """Test that session is always closed in finally block."""
-        with mock.patch("app.auth.dependencies.get_async_session") as mock_get_session:
-            with mock.patch("app.auth.dependencies.close_async_session") as mock_close:
-                mock_session = mock.AsyncMock()
-                mock_get_session.return_value = mock_session
+        """Test that session context manager exit is always called."""
+        mock_session = mock.AsyncMock()
+        mock_context = mock.AsyncMock()
+        mock_context.__aenter__ = mock.AsyncMock(return_value=mock_session)
+        mock_context.__aexit__ = mock.AsyncMock(return_value=None)
 
-                gen = get_db()
-                await gen.asend(None)
+        with mock.patch("app.auth.dependencies.async_session") as mock_async_session:
+            mock_async_session.return_value = mock_context
 
-                # Throw exception to trigger finally
-                try:
-                    await gen.athrow(Exception("unexpected"))
-                except Exception:
-                    pass
+            gen = get_db()
+            await gen.asend(None)
 
-                mock_close.assert_awaited_once_with(mock_session)
+            # Throw exception to trigger finally
+            try:
+                await gen.athrow(Exception("unexpected"))
+            except Exception:
+                pass
+
+            mock_context.__aexit__.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------

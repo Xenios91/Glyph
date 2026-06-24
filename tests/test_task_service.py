@@ -1,9 +1,10 @@
 """Unit tests for task service."""
+import asyncio
 from typing import Any
 
-import queue
 import pytest
 from unittest.mock import MagicMock
+
 from app.services.task_service import TaskService
 
 
@@ -15,7 +16,7 @@ def clean_queue() -> Any:
         try:
             TaskService().service_queue.get_nowait()
             TaskService().service_queue.task_done()
-        except queue.Empty:
+        except asyncio.QueueEmpty:
             # Break when queue is empty to avoid infinite loops
             break
     yield
@@ -24,7 +25,7 @@ def clean_queue() -> Any:
         try:
             TaskService().service_queue.get_nowait()
             TaskService().service_queue.task_done()
-        except queue.Empty:
+        except asyncio.QueueEmpty:
             # Break when queue is empty to avoid infinite loops
             break
 
@@ -41,59 +42,63 @@ class TestTaskService:
     def test_service_queue_exists(self, clean_queue: Any) -> None:
         """Test that service_queue is initialized."""
         service = TaskService()
-        assert hasattr(service, 'service_queue')
+        assert hasattr(service, "service_queue")
 
-    def test_service_queue_put_and_get(self, clean_queue: Any) -> None:
+    @pytest.mark.asyncio
+    async def test_service_queue_put_and_get(self, clean_queue: Any) -> None:
         """Test that items can be put and retrieved from queue."""
         service = TaskService()
         test_item = (MagicMock(), MagicMock())
-        service.service_queue.put(test_item)
-        retrieved = service.service_queue.get()
+        await service.service_queue.put(test_item)
+        retrieved = await service.service_queue.get()
         assert retrieved == test_item
         service.service_queue.task_done()
 
-    def test_service_queue_task_done(self, clean_queue: Any) -> None:
+    @pytest.mark.asyncio
+    async def test_service_queue_task_done(self, clean_queue: Any) -> None:
         """Test that task_done is called after processing."""
         service = TaskService()
         test_item = (MagicMock(), MagicMock())
-        service.service_queue.put(test_item)
-        service.service_queue.get()
+        await service.service_queue.put(test_item)
+        await service.service_queue.get()
         service.service_queue.task_done()
         # Queue should be empty now
         assert service.service_queue.empty()
 
-    def test_task_processing_success(self, clean_queue: Any) -> None:
+    @pytest.mark.asyncio
+    async def test_task_processing_success(self, clean_queue: Any) -> None:
         """Test that successful task processing completes without error."""
         mock_future = MagicMock()
         mock_future.result.return_value = None
 
         mock_request = MagicMock()
         mock_request.uuid = "test-uuid"
-        TaskService().service_queue.put((mock_request, mock_future))
+        await TaskService().service_queue.put((mock_request, mock_future))
 
-        task = TaskService().service_queue.get(block=False)
+        task = await TaskService().service_queue.get()
         # Simulate what TaskService.start_service does
         task[1].result()  # Should not raise
         TaskService().service_queue.task_done()
-        
+
         assert TaskService().service_queue.empty()
 
-    def test_task_processing_failure_handling(self, clean_queue: Any) -> None:
+    @pytest.mark.asyncio
+    async def test_task_processing_failure_handling(self, clean_queue: Any) -> None:
         """Test that failed task processing handles exceptions gracefully."""
         mock_future = MagicMock()
         mock_future.result.side_effect = Exception("Task failed")
 
         mock_request = MagicMock()
         mock_request.uuid = "test-uuid"
-        TaskService().service_queue.put((mock_request, mock_future))
+        await TaskService().service_queue.put((mock_request, mock_future))
 
-        task = TaskService().service_queue.get(block=False)
-        
+        task = await TaskService().service_queue.get()
+
         # Simulate what TaskService.start_service does - catch the exception
         try:
             task[1].result()
         except Exception:
             pass  # Expected exception
-        
+
         TaskService().service_queue.task_done()
         assert TaskService().service_queue.empty()

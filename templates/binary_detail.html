@@ -1,6 +1,7 @@
 {% extends "layout.html" %}
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/binary_library.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/call_graph.css') }}">
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
@@ -18,33 +19,103 @@
 
     <!-- Main Content Card -->
     <div id="detail-content" class="cyber-container binary-detail-card" style="display: none;">
-        <!-- Binary Info Section -->
-        <div class="detail-section">
-            <div class="detail-section-title">INFORMATION</div>
-            <div class="summary-grid" id="info-grid">
+
+        <!-- Tab Navigation -->
+        <div class="tab-nav" role="tablist" aria-label="Binary detail sections">
+            <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-info" id="tab-info" data-tab="info">INFORMATION</button>
+            <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-functions" id="tab-functions" data-tab="functions">FUNCTIONS</button>
+            <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-callgraph" id="tab-callgraph" data-tab="callgraph">CALL GRAPH</button>
+        </div>
+
+        <!-- Info Panel -->
+        <div class="tab-panel active" id="panel-info" role="tabpanel" aria-labelledby="tab-info">
+            <div class="detail-section">
+                <div class="summary-grid" id="info-grid">
+                </div>
             </div>
         </div>
 
-        <!-- Functions Section -->
-        <div class="detail-section">
-            <div class="detail-section-title">FUNCTIONS</div>
+        <!-- Functions Panel -->
+        <div class="tab-panel" id="panel-functions" role="tabpanel" aria-labelledby="tab-functions">
+            <div class="detail-section">
+                <div id="functions-empty" class="empty-state" style="display: none;">
+                    <p>No functions found. The binary may still be processing.</p>
+                </div>
 
-            <div id="functions-empty" class="empty-state" style="display: none;">
-                <p>No functions found. The binary may still be processing.</p>
+                <div id="functions-table-wrapper" class="table-wrapper" style="display: none;">
+                    <table class="cyber-table" role="grid" aria-label="Binary functions">
+                        <thead>
+                            <tr>
+                                <th scope="col">Function Name</th>
+                                <th scope="col">Entrypoint</th>
+                                <th scope="col">Lines</th>
+                            </tr>
+                        </thead>
+                        <tbody id="functions-tbody">
+                        </tbody>
+                    </table>
+                </div>
             </div>
+        </div>
 
-            <div id="functions-table-wrapper" class="table-wrapper" style="display: none;">
-                <table class="cyber-table" role="grid" aria-label="Binary functions">
-                    <thead>
-                        <tr>
-                            <th scope="col">Function Name</th>
-                            <th scope="col">Entrypoint</th>
-                            <th scope="col">Lines</th>
-                        </tr>
-                    </thead>
-                    <tbody id="functions-tbody">
-                    </tbody>
-                </table>
+        <!-- Call Graph Panel -->
+        <div class="tab-panel" id="panel-callgraph" role="tabpanel" aria-labelledby="tab-callgraph">
+            <div class="detail-section">
+                <!-- Call Graph Controls -->
+                <div class="callgraph-controls">
+                    <div class="callgraph-stats" id="callgraph-stats">
+                        <span class="stat-item">Nodes: <strong id="stat-nodes">0</strong></span>
+                        <span class="stat-item">Edges: <strong id="stat-edges">0</strong></span>
+                        <span class="stat-item">Entry Points: <strong id="stat-entry-points">0</strong></span>
+                    </div>
+                    <div class="callgraph-actions">
+                        <button class="cyber-btn is-primary" id="btn-load-graph" type="button">LOAD GRAPH</button>
+                        <button class="cyber-btn is-secondary" id="btn-reset-view" type="button" disabled>RESET VIEW</button>
+                        <button class="cyber-btn is-secondary" id="btn-export-svg" type="button" disabled>EXPORT SVG</button>
+                    </div>
+                </div>
+
+                <!-- Call Graph Loading -->
+                <div id="graph-loading" class="loading-indicator" style="display: none;">
+                    <span class="loading-spinner"></span>
+                    <span>Generating call graph...</span>
+                </div>
+
+                <!-- Call Graph Empty State -->
+                <div id="graph-empty" class="empty-state" style="display: none;">
+                    <p>No call data available. The binary may not have been decompiled yet.</p>
+                </div>
+
+                <!-- Call Graph Canvas Container -->
+                <div id="graph-container" class="graph-container" style="display: none;">
+                    <canvas id="graph-canvas"></canvas>
+                    <!-- Tooltip -->
+                    <div id="graph-tooltip" class="graph-tooltip" style="display: none;"></div>
+                    <!-- Legend -->
+                    <div class="graph-legend">
+                        <div class="legend-item">
+                            <span class="legend-dot entry"></span>
+                            <span>Entry Point</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-dot normal"></span>
+                            <span>Regular Function</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-dot selected"></span>
+                            <span>Selected</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-dot dimmed"></span>
+                            <span>Dimmed (unrelated)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Call Graph Error -->
+                <div id="graph-error" class="cyber-container is-danger" style="display: none;">
+                    <p class="empty-state" id="graph-error-message">Failed to load call graph.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -64,5 +135,6 @@
 {% endblock content %}
 
 {% block scripts %}
+<script src="{{ url_for('static', path='js/call_graph.js') }}" defer></script>
 <script src="{{ url_for('static', path='js/binary_detail.js') }}" defer></script>
 {% endblock scripts %}

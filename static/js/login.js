@@ -78,7 +78,7 @@ function initLoginForm() {
                 }, 500);
             } else {
                 const error = await response.json();
-                const errorMessage = error.detail || 'Login failed';
+                const errorMessage = error?.error?.message || error?.detail || 'Login failed';
                 showError('login-error', errorMessage);
                 Toast.error(errorMessage);
             }

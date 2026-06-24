@@ -1,5 +1,6 @@
 """User and API key repository for authentication operations."""
 
+import json
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -108,7 +109,7 @@ class UserRepository:
             email=email,
             hashed_password=hashed_password,
             full_name=full_name,
-            permissions=str(permissions or [])
+            permissions=json.dumps(permissions or [])
         )
         
         self.db.add(user)
@@ -276,7 +277,7 @@ class APIKeyRepository:
             name=name,
             hashed_key=hashed_key,
             key_prefix=key_prefix,
-            permissions=str(permissions or ["read"]),
+            permissions=json.dumps(permissions or ["read"]),
             expires_at=expires_at
         )
         

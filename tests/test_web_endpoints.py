@@ -1,10 +1,13 @@
 """Tests for web endpoints."""
 
+import logging
 from typing import Any
 
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from fastapi.testclient import TestClient
+
+logger = logging.getLogger(__name__)
 
 
 class TestWebEndpoints:
@@ -397,8 +400,8 @@ class TestWebEndpoints:
         app.dependency_overrides[get_optional_user] = lambda: None
         try:
             app.mount("/static", StaticFiles(directory="static"), name="static")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to mount static files: %s", exc)
 
         with TestClient(app) as test_client:
             response = test_client.get(
@@ -442,8 +445,8 @@ class TestWebEndpoints:
         app.dependency_overrides[get_optional_user] = lambda: None
         try:
             app.mount("/static", StaticFiles(directory="static"), name="static")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to mount static files: %s", exc)
 
         with TestClient(app) as test_client:
             response = test_client.get(
@@ -517,8 +520,8 @@ class TestWebEndpoints:
             app.dependency_overrides[get_jwt_handler] = lambda: mock_jwt
             try:
                 app.mount("/static", StaticFiles(directory="static"), name="static")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to mount static files: %s", exc)
 
             with TestClient(app) as test_client:
                 response = test_client.post(
@@ -569,8 +572,8 @@ class TestWebEndpoints:
             app.dependency_overrides[get_jwt_handler] = lambda: mock_jwt
             try:
                 app.mount("/static", StaticFiles(directory="static"), name="static")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to mount static files: %s", exc)
 
             with TestClient(app) as test_client:
                 response = test_client.post(
@@ -605,8 +608,8 @@ class TestWebEndpoints:
             app.dependency_overrides[get_jwt_handler] = lambda: mock_jwt
             try:
                 app.mount("/static", StaticFiles(directory="static"), name="static")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to mount static files: %s", exc)
 
             with TestClient(app) as test_client:
                 response = test_client.post(
@@ -644,8 +647,8 @@ class TestWebEndpoints:
             app.dependency_overrides[get_jwt_handler] = lambda: mock_jwt
             try:
                 app.mount("/static", StaticFiles(directory="static"), name="static")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to mount static files: %s", exc)
 
             with TestClient(app) as test_client:
                 response = test_client.post(
@@ -683,8 +686,8 @@ class TestWebEndpoints:
             app.dependency_overrides[get_db] = mock_db_gen
             try:
                 app.mount("/static", StaticFiles(directory="static"), name="static")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to mount static files: %s", exc)
 
             with TestClient(app) as test_client:
                 response = test_client.post(
@@ -726,8 +729,8 @@ class TestWebEndpoints:
             app.dependency_overrides[get_db] = mock_db_gen
             try:
                 app.mount("/static", StaticFiles(directory="static"), name="static")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to mount static files: %s", exc)
 
             with TestClient(app) as test_client:
                 response = test_client.post(
@@ -765,8 +768,8 @@ class TestWebEndpoints:
             app.dependency_overrides[get_db] = mock_db_gen
             try:
                 app.mount("/static", StaticFiles(directory="static"), name="static")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to mount static files: %s", exc)
 
             with TestClient(app) as test_client:
                 response = test_client.post(
@@ -805,8 +808,8 @@ class TestWebEndpoints:
             app.dependency_overrides[get_db] = mock_db_gen
             try:
                 app.mount("/static", StaticFiles(directory="static"), name="static")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to mount static files: %s", exc)
 
             with TestClient(app) as test_client:
                 response = test_client.post(

@@ -344,7 +344,7 @@
                 throw new Error(data.detail || 'Failed to load binaries');
             }
 
-            var binaries = data.data ? data.data.binaries : [];
+            var binaries = data.data ? data.data.items : [];
 
             if (loadingEl) loadingEl.style.display = 'none';
 

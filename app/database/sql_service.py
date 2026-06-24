@@ -4,7 +4,7 @@ from io import BytesIO
 from typing import Any, cast
 
 import joblib  # type: ignore[import-no-untyped]
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, exists, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -839,11 +839,59 @@ class SQLUtil:
             await close_async_session(session)
 
     @staticmethod
-    async def get_binaries_by_user(user_id: int) -> list[Binary]:
-        """List all binaries uploaded by a specific user.
+    async def count_binaries_by_user(user_id: int) -> int:
+        """Count the number of binaries uploaded by a specific user.
 
         Args:
             user_id: The user primary key.
+
+        Returns:
+            Total count of binaries for the user.
+        """
+        session: AsyncSession = await get_async_session("binaries")
+        try:
+            result = await session.execute(
+                select(func.count()).where(Binary.uploaded_by == user_id)
+            )
+            return result.scalar_one()
+        except Exception:
+            logger.exception("Failed to count binaries for user {}", user_id)
+            raise
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
+    async def count_binary_functions(binary_id: int) -> int:
+        """Count the number of functions for a specific binary.
+
+        Args:
+            binary_id: The binary primary key.
+
+        Returns:
+            Total count of functions for the binary.
+        """
+        session: AsyncSession = await get_async_session("binaries")
+        try:
+            result = await session.execute(
+                select(func.count()).where(BinaryFunction.binary_id == binary_id)
+            )
+            return result.scalar_one()
+        except Exception:
+            logger.exception("Failed to count functions for binary {}", binary_id)
+            raise
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
+    async def get_binaries_by_user(
+        user_id: int, *, offset: int = 0, limit: int = 50
+    ) -> list[Binary]:
+        """List binaries uploaded by a specific user with pagination.
+
+        Args:
+            user_id: The user primary key.
+            offset: Number of records to skip.
+            limit: Maximum number of records to return.
 
         Returns:
             List of Binary ORM objects (expunged from session).
@@ -854,6 +902,8 @@ class SQLUtil:
                 select(Binary)
                 .where(Binary.uploaded_by == user_id)
                 .order_by(Binary.created_at.desc())
+                .offset(offset)
+                .limit(limit)
             )
             binaries = result.scalars().all()
             for b in binaries:
@@ -928,22 +978,31 @@ class SQLUtil:
             await close_async_session(session)
 
     @staticmethod
-    async def get_binary_functions(binary_id: int) -> list[BinaryFunction]:
-        """Load all raw functions for a binary.
+    async def get_binary_functions(
+        binary_id: int, offset: int = 0, limit: int | None = None
+    ) -> list[BinaryFunction]:
+        """Load raw functions for a binary with optional pagination.
 
         Args:
             binary_id: Parent binary primary key.
+            offset: Number of rows to skip (for pagination).
+            limit: Maximum number of rows to return (for pagination).
 
         Returns:
             List of BinaryFunction ORM objects (expunged).
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
-            result = await session.execute(
+            query = (
                 select(BinaryFunction)
                 .where(BinaryFunction.binary_id == binary_id)
                 .order_by(BinaryFunction.function_name)
             )
+            if offset > 0:
+                query = query.offset(offset)
+            if limit is not None:
+                query = query.limit(limit)
+            result = await session.execute(query)
             functions = result.scalars().all()
             for f in functions:
                 session.expunge(f)

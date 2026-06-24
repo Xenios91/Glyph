@@ -4,9 +4,51 @@ Provides similarity-based function comparison between decompiled binaries
 using token-level analysis (Jaccard similarity + LCS ratio).
 """
 
-from typing import Any
+from typing import Any, TypedDict
 
 from loguru import logger
+
+
+class FunctionDict(TypedDict, total=False):
+    """Typed dict representing a decompiled function.
+
+    Attributes:
+        functionName: Name of the function.
+        lowAddress: Entry point address of the function.
+        tokenList: List of tokens from decompiled code.
+        tokens: Space-separated token string.
+        raw_code: Raw decompiled C source code.
+        returnType: Return type of the function.
+        parameterCount: Number of function parameters.
+        highAddress: End address of the function body.
+        error: Error message if decompilation failed.
+    """
+
+    functionName: str
+    lowAddress: str
+    tokenList: list[str]
+    tokens: str
+    raw_code: str
+    returnType: str
+    parameterCount: int
+    highAddress: str
+    error: str
+
+
+class CodeReuseComparisonResult(TypedDict):
+    """Result of a code reuse comparison between binaries.
+
+    Attributes:
+        target_binary_id: Database id of the target binary.
+        target_binary_name: Human-readable name of the target binary.
+        matched_functions: List of matched function pairs with similarity scores.
+        overall_similarity: Average similarity score across all matched functions.
+    """
+
+    target_binary_id: int
+    target_binary_name: str
+    matched_functions: list[dict[str, Any]]
+    overall_similarity: float
 
 
 def _longest_common_subsequence(a: list[str], b: list[str]) -> int:
@@ -75,10 +117,10 @@ def compute_similarity(
 
 
 async def compare_binaries(
-    source_functions: list[dict[str, Any]],
+    source_functions: list[FunctionDict],
     target_binary_id: int,
     match_threshold: float = 0.7,
-) -> dict[str, Any] | None:
+) -> CodeReuseComparisonResult | None:
     """Compare source functions against all functions in a target binary.
 
     Loads raw functions from the target binary, applies in-memory

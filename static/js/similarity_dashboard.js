@@ -49,8 +49,8 @@
             var response = await authenticatedFetch('/api/v1/binaries/list');
             var data = await response.json();
 
-            if (data.success && data.data && data.data.binaries) {
-                binaries = data.data.binaries.map(function (b) {
+            if (data.success && data.data && data.data.items) {
+                binaries = data.data.items.map(function (b) {
                     return { id: b.id, name: b.name };
                 });
                 renderBinaryCheckboxes();

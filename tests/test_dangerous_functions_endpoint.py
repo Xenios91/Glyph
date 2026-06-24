@@ -8,17 +8,7 @@ import pytest
 
 from app.auth.dependencies import get_current_active_user
 from tests.conftest import set_dependency_override
-
-
-def _make_mock_user() -> Any:
-    """Create a mock user for dependency overrides."""
-    mock_user = Mock()
-    mock_user.id = 1
-    mock_user.username = "testuser"
-    mock_user.email = "test@example.com"
-    mock_user.is_active = True
-    mock_user.is_superuser = False
-    return mock_user
+from tests.factories import make_mock_user
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +124,7 @@ class TestGetAvailableModels:
 
     def test_get_available_models(self, dangerous_functions_client: Any) -> None:
         """Test retrieving available models and prediction tasks."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml, \
              patch("app.api.v1.endpoints.dangerous_functions.PredictionPersistanceUtil") as mock_pred:
@@ -153,7 +143,7 @@ class TestGetAvailableModels:
 
     def test_get_available_models_empty(self, dangerous_functions_client: Any) -> None:
         """Test empty models and predictions list."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml, \
              patch("app.api.v1.endpoints.dangerous_functions.PredictionPersistanceUtil") as mock_pred:
@@ -194,7 +184,7 @@ class TestScanEndpoint:
 
     def test_scan_missing_target(self, dangerous_functions_client: Any) -> None:
         """Test scan with neither modelName nor taskName returns 400."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         response = dangerous_functions_client.post(
             "/dangerous-functions/scan",
@@ -205,7 +195,7 @@ class TestScanEndpoint:
 
     def test_scan_model_not_found(self, dangerous_functions_client: Any) -> None:
         """Test scan with nonexistent model returns 404."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml:
             mock_ml.check_name = AsyncMock(return_value=False)
@@ -219,7 +209,7 @@ class TestScanEndpoint:
 
     def test_scan_task_not_found(self, dangerous_functions_client: Any) -> None:
         """Test scan with nonexistent task returns 404."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         with patch("app.api.v1.endpoints.dangerous_functions.PredictionPersistanceUtil") as mock_pred:
             mock_pred.get_predictions_list = AsyncMock(return_value=[])
@@ -233,7 +223,7 @@ class TestScanEndpoint:
 
     def test_scan_model_no_functions(self, dangerous_functions_client: Any) -> None:
         """Test scan of model with no functions returns empty report."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml, \
              patch("app.api.v1.endpoints.dangerous_functions.FunctionPersistanceUtil") as mock_func:
@@ -252,7 +242,7 @@ class TestScanEndpoint:
 
     def test_scan_model_with_dangerous_functions(self, dangerous_functions_client: Any) -> None:
         """Test scan detects dangerous functions in model."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         mock_funcs = [
             self._make_mock_function("vuln_func1", "0x401000", "char buf[100]; strcpy(buf, src);"),
@@ -281,7 +271,7 @@ class TestScanEndpoint:
 
     def test_scan_report_structure(self, dangerous_functions_client: Any) -> None:
         """Test scan report has correct structure."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         mock_funcs = [
             self._make_mock_function("sprintf", "0x401000", "sprintf(buf, fmt, arg);"),
@@ -310,7 +300,7 @@ class TestScanEndpoint:
 
     def test_scan_result_structure(self, dangerous_functions_client: Any) -> None:
         """Test individual scan results have correct structure."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         mock_funcs = [
             self._make_mock_function("my_func", "0xDEADBEEF", "strcpy(dst, src); return 0;"),
@@ -341,7 +331,7 @@ class TestScanEndpoint:
 
     def test_scan_preserves_entrypoint(self, dangerous_functions_client: Any) -> None:
         """Test that memory address is preserved in results."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         mock_funcs = [
             self._make_mock_function("my_wrapper", "0xCAFE0000", "gets(buf);"),
@@ -363,7 +353,7 @@ class TestScanEndpoint:
 
     def test_scan_results_sorted_by_severity(self, dangerous_functions_client: Any) -> None:
         """Test that results are sorted by severity (Critical first)."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         mock_funcs = [
             self._make_mock_function("f1", "0x401000", "sprintf(buf, fmt);"),  # High
@@ -400,7 +390,7 @@ class TestScanEndpoint:
 
     def test_scan_by_task_name(self, dangerous_functions_client: Any) -> None:
         """Test scanning by prediction task name."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         # Create mock prediction with pickled function data
         mock_prediction = Mock()
@@ -427,7 +417,7 @@ class TestScanEndpoint:
 
     def test_scan_model_and_task_preference(self, dangerous_functions_client: Any) -> None:
         """Test that modelName takes precedence when both provided."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         mock_funcs = [
             self._make_mock_function("strcpy", "0x401000", "strcpy(buf, src);"),

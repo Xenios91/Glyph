@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app.api.v1.endpoints.config import ConfigPayload
 from app.api.v1.endpoints.status import StatusUpdatePayload
@@ -54,27 +55,26 @@ class TestPredictTokensRequest:
 
     def test_predict_tokens_request_minimal(self) -> None:
         """Test PredictTokensRequest with minimal fields."""
-        request = PredictTokensRequest(modelName="test_model")
+        request = PredictTokensRequest(modelName="test_model", taskName="test_task")
         assert request.modelName == "test_model"
+        assert request.taskName == "test_task"
         assert request.uuid is None
 
     def test_predict_tokens_request_with_uuid(self) -> None:
         """Test PredictTokensRequest with UUID."""
-        request = PredictTokensRequest(modelName="test_model", uuid="test-uuid")
+        request = PredictTokensRequest(modelName="test_model", taskName="test_task", uuid="test-uuid")
         assert request.modelName == "test_model"
+        assert request.taskName == "test_task"
         assert request.uuid == "test-uuid"
 
     def test_predict_tokens_request_extra_fields(self) -> None:
-        """Test PredictTokensRequest allows extra fields for taskName and data."""
-        request = PredictTokensRequest(
-            modelName="test_model",
-            **{"taskName": "test_task", "extra_field": "extra_value"}
-        )
-        assert request.modelName == "test_model"
-        # Extra fields are accessible via model_dump() due to extra: "allow"
-        dumped = request.model_dump()
-        assert dumped.get("taskName") == "test_task"
-        assert dumped.get("extra_field") == "extra_value"
+        """Test PredictTokensRequest rejects extra fields."""
+        with pytest.raises(ValidationError) as exc_info:
+            PredictTokensRequest(
+                modelName="test_model",
+                **{"taskName": "test_task", "extra_field": "extra_value"}
+            )
+        assert "Extra" in str(exc_info.value)
 
 
 class TestConfigRouter:

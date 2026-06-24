@@ -62,19 +62,8 @@ from app.api.v1.endpoints.binaries import (  # noqa: E402
     sanitize_filename,
     validate_binary_mime_type,
 )
-from app.database.models import User  # noqa: E402
 from app.database import sql_service  # noqa: E402  # Ensure loaded for patching
-
-
-def mock_get_current_user() -> User:
-    """Mock current active user for testing."""
-    return User(
-        id=1,
-        username="testuser",
-        email="test@example.com",
-        hashed_password="hashed_password",
-        is_active=True,
-    )
+from tests.factories import make_user  # noqa: E402
 
 
 # -----------------------------------------------------------------------
@@ -211,7 +200,7 @@ class TestUploadBinaryEndpoint:
         mock_sql_util = MagicMock()
         mock_sql_util.save_binary = AsyncMock(return_value=1)
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
         mock_request = MagicMock()
         mock_request.headers = {"accept": "application/json"}
         mock_bg = BackgroundTasks()
@@ -268,7 +257,7 @@ class TestUploadBinaryEndpoint:
         mock_request = MagicMock()
         mock_request.headers = {"accept": "application/json"}
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
         mock_bg = BackgroundTasks()
 
         with pytest.raises(HTTPException) as exc_info:
@@ -317,7 +306,7 @@ class TestUploadBinaryEndpoint:
         mock_request = MagicMock()
         mock_request.headers = {"accept": "application/json"}
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
         mock_bg = BackgroundTasks()
 
         with pytest.raises(HTTPException) as exc_info:
@@ -366,7 +355,7 @@ class TestUploadBinaryEndpoint:
         mock_request = MagicMock()
         mock_request.headers = {"accept": "application/json"}
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
         mock_bg = BackgroundTasks()
 
         with pytest.raises(HTTPException) as exc_info:
@@ -412,7 +401,7 @@ class TestUploadBinaryEndpoint:
         mock_request = MagicMock()
         mock_request.headers = {"accept": "application/json"}
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
         mock_bg = BackgroundTasks()
 
         with pytest.raises(HTTPException) as exc_info:
@@ -462,7 +451,7 @@ class TestUploadBinaryEndpoint:
         mock_sql_util = MagicMock()
         mock_sql_util.save_binary = AsyncMock(return_value=1)
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
         mock_request = MagicMock()
         mock_request.headers.get.return_value = "text/html"
         mock_bg = BackgroundTasks()
@@ -507,7 +496,7 @@ class TestListBinariesEndpoint:
         mock_sql_util.get_binaries_by_user = AsyncMock(return_value=[mock_binary])
         mock_sql_util.get_binary_functions = AsyncMock(return_value=[MagicMock()])
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             result = await list_binaries(current_user=mock_user)
@@ -521,7 +510,7 @@ class TestListBinariesEndpoint:
         mock_sql_util = MagicMock()
         mock_sql_util.get_binaries_by_user = AsyncMock(return_value=[])
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             result = await list_binaries(current_user=mock_user)
@@ -549,7 +538,7 @@ class TestListBinsEndpoint:
         mock_sql_util.get_binaries_by_user = AsyncMock(return_value=[mock_binary])
         mock_sql_util.get_binary_functions = AsyncMock(return_value=[MagicMock()])
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             result = await list_bins(current_user=mock_user)
@@ -563,7 +552,7 @@ class TestListBinsEndpoint:
         mock_sql_util = MagicMock()
         mock_sql_util.get_binaries_by_user = AsyncMock(return_value=[])
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             result = await list_bins(current_user=mock_user)
@@ -599,7 +588,7 @@ class TestBinaryDetailEndpoint:
         mock_sql_util.get_binary = AsyncMock(return_value=mock_binary)
         mock_sql_util.get_binary_functions = AsyncMock(return_value=[MagicMock()])
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             result = await get_binary_detail(binary_id=1, current_user=mock_user)
@@ -613,7 +602,7 @@ class TestBinaryDetailEndpoint:
         mock_sql_util = MagicMock()
         mock_sql_util.get_binary = AsyncMock(return_value=None)
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             with pytest.raises(HTTPException) as exc_info:
@@ -631,7 +620,7 @@ class TestBinaryDetailEndpoint:
         mock_sql_util = MagicMock()
         mock_sql_util.get_binary = AsyncMock(return_value=mock_binary)
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             with pytest.raises(HTTPException) as exc_info:
@@ -667,7 +656,7 @@ class TestListBinaryFunctionsEndpoint:
         mock_sql_util.get_binary = AsyncMock(return_value=mock_binary)
         mock_sql_util.get_binary_functions = AsyncMock(return_value=[mock_func])
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             result = await list_binary_functions(binary_id=1, current_user=mock_user)
@@ -681,7 +670,7 @@ class TestListBinaryFunctionsEndpoint:
         mock_sql_util = MagicMock()
         mock_sql_util.get_binary = AsyncMock(return_value=None)
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             with pytest.raises(HTTPException) as exc_info:
@@ -699,7 +688,7 @@ class TestListBinaryFunctionsEndpoint:
         mock_sql_util = MagicMock()
         mock_sql_util.get_binary = AsyncMock(return_value=mock_binary)
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             with pytest.raises(HTTPException) as exc_info:
@@ -728,7 +717,7 @@ class TestDeleteBinaryEndpoint:
         mock_sql_util.get_binary = AsyncMock(return_value=mock_binary)
         mock_sql_util.delete_binary = AsyncMock(return_value=None)
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             with patch("app.api.v1.endpoints.binaries.os") as mock_os:
@@ -745,7 +734,7 @@ class TestDeleteBinaryEndpoint:
         mock_sql_util = MagicMock()
         mock_sql_util.get_binary = AsyncMock(return_value=None)
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             with pytest.raises(HTTPException) as exc_info:
@@ -763,7 +752,7 @@ class TestDeleteBinaryEndpoint:
         mock_sql_util = MagicMock()
         mock_sql_util.get_binary = AsyncMock(return_value=mock_binary)
 
-        mock_user = mock_get_current_user()
+        mock_user = make_user()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             with pytest.raises(HTTPException) as exc_info:

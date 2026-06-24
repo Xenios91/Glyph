@@ -10,6 +10,8 @@ from typing import Any
 
 from loguru import logger
 
+from app.services.code_reuse_detector import FunctionDict
+
 
 @dataclass
 class SimilarityMatrixEntry:
@@ -76,7 +78,7 @@ class BinarySimilarityService:
         binary_name = await SQLUtil.get_binary_name(binary_id)
 
         # Build function dicts from raw BinaryFunction records
-        function_dicts: list[dict[str, Any]] = [
+        function_dicts: list[FunctionDict] = [
             {
                 "functionName": bf.function_name,
                 "lowAddress": bf.entrypoint,

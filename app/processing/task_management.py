@@ -111,8 +111,8 @@ class EventWatcher:
         if old is not None:
             try:
                 old.stop_watching()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Error during EventWatcher stop_watching in reset: %s", e)
         cls._instance = None
         logger.debug("EventWatcher state reset for testing")
 
@@ -297,7 +297,7 @@ class TaskManager:
         if job_uuid in cls._active_tasks:
             return cls._active_tasks[job_uuid]
 
-        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
+        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
@@ -319,7 +319,7 @@ class TaskManager:
         """
         status_list: dict[str, str] = dict(cls._active_tasks)
 
-        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
+        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)
         for task in queue_list:
             status: str = task[0].status
             model_name: str = task[0].model_name
@@ -369,7 +369,7 @@ class TaskManager:
             logger.debug("Updated task {} status to '{}'", job_uuid, status)
             return True
 
-        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue.queue)
+        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:

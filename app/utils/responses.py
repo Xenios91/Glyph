@@ -1,9 +1,10 @@
 """Unified response format for Glyph API."""
 
 from datetime import datetime, timezone
+from math import ceil
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_validator, field_serializer
 
 T = TypeVar("T")
 
@@ -62,6 +63,56 @@ class ErrorDetails(BaseModel):
     message: str = Field(..., description="Human-readable error message")
     details: dict[str, Any] | None = Field(
         default=None, description="Additional error context"
+    )
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """Standardized paginated response wrapper.
+
+    Use this when returning large collections that need pagination.
+    Provides total count, current page, and total pages metadata.
+    """
+
+    items: list[T] = Field(..., description="Items on the current page")
+    total: int = Field(..., description="Total number of items across all pages")
+    page: int = Field(..., ge=1, description="Current page number (1-based)")
+    page_size: int = Field(..., ge=1, le=200, description="Number of items per page")
+    total_pages: int = Field(..., ge=0, description="Total number of pages")
+
+    @field_validator("total_pages", mode="before")
+    @classmethod
+    def compute_total_pages(cls, v: int | None, info: Any) -> int:
+        """Compute total pages from total and page_size if not provided."""
+        if v is not None and v > 0:
+            return v
+        total = info.data.get("total", 0)
+        page_size = info.data.get("page_size", 1)
+        return ceil(total / page_size) if page_size > 0 else 0
+
+
+def create_paginated_response(
+    items: list[T],
+    total: int,
+    page: int,
+    page_size: int,
+) -> PaginatedResponse[T]:
+    """Factory function to create a paginated response.
+
+    Args:
+        items: The items on the current page.
+        total: Total number of items across all pages.
+        page: Current page number (1-based).
+        page_size: Number of items per page.
+
+    Returns:
+        A PaginatedResponse instance.
+    """
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=ceil(total / page_size) if page_size > 0 else 0,
     )
 
 

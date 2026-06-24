@@ -121,7 +121,7 @@ function initRegisterForm() {
                 }, 1000);
             } else {
                 const error = await response.json();
-                const errorMessage = error.detail || 'Registration failed';
+                const errorMessage = error?.error?.message || error?.detail || 'Registration failed';
                 showError('register-error', errorMessage);
                 Toast.error(errorMessage);
             }

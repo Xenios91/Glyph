@@ -7,31 +7,6 @@ from typing import Any, cast
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
-class UserCreate(BaseModel):
-    """Schema for creating a new user."""
-    
-    username: str = Field(..., min_length=3, max_length=64, description="Username")
-    email: EmailStr = Field(..., description="Email address")
-    password: str = Field(..., min_length=8, max_length=128, description="Password")
-    full_name: str | None = Field(None, max_length=128, description="Full name")
-
-
-class UserRegister(BaseModel):
-    """Schema for user registration."""
-    
-    username: str = Field(..., min_length=3, max_length=64, description="Username")
-    email: EmailStr = Field(..., description="Email address")
-    password: str = Field(..., min_length=8, max_length=128, description="Password")
-    full_name: str | None = Field(None, max_length=128, description="Full name")
-
-
-class UserLogin(BaseModel):
-    """Schema for user login."""
-    
-    username: str = Field(..., description="Username")
-    password: str = Field(..., description="Password")
-
-
 class TokenResponse(BaseModel):
     """Schema for token response."""
     
@@ -52,6 +27,15 @@ class UserResponse(BaseModel):
     created_at: datetime = Field(..., description="Creation timestamp")
     
     model_config = {"from_attributes": True}
+
+
+class UserRegister(BaseModel):
+    """Schema for user registration."""
+    
+    username: str = Field(..., min_length=3, max_length=64, description="Username")
+    email: EmailStr = Field(..., description="Email address")
+    password: str = Field(..., min_length=8, max_length=128, description="Password")
+    full_name: str | None = Field(None, max_length=128, description="Full name")
 
 
 class UserUpdate(BaseModel):

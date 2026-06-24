@@ -5,15 +5,7 @@ from typing import Any
 from unittest.mock import Mock, patch, AsyncMock
 
 from tests.conftest import set_dependency_override, clear_dependency_overrides
-
-
-def _make_mock_user() -> Mock:
-    """Create a mock user for dependency overrides."""
-    mock_user = Mock()
-    mock_user.id = 1
-    mock_user.username = "test_user"
-    mock_user.is_active = True
-    return mock_user
+from tests.factories import make_mock_user
 
 
 class TestModelsRouter:
@@ -26,7 +18,7 @@ class TestModelsRouter:
         from app.auth.dependencies import get_current_active_user
         mock_ml_persistance.delete_model = AsyncMock()
         mock_pred_persistance.delete_model_predictions = AsyncMock()
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.delete("/models/deleteModel", params={"model_name": "test_model"})
@@ -46,7 +38,7 @@ class TestModelsRouter:
         """Test deleting a model that raises an error."""
         from app.auth.dependencies import get_current_active_user
         mock_ml_persistance.delete_model = AsyncMock(side_effect=Exception("Database error"))
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.delete("/models/deleteModel", params={"model_name": "test_model"})
@@ -70,7 +62,7 @@ class TestModelsRouter:
         mock_func.entrypoint = "0x1000"
         mock_func.tokens = "test tokens"
         mock_func_persistance.get_function = AsyncMock(return_value=mock_func)
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -87,7 +79,7 @@ class TestModelsRouter:
     def test_get_function_empty_function_name(self, models_client: Any) -> None:
         """Test getting a function with empty function_name returns 400."""
         from app.auth.dependencies import get_current_active_user
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -107,7 +99,7 @@ class TestModelsRouter:
     def test_get_function_empty_model_name(self, models_client: Any) -> None:
         """Test getting a function with empty model_name returns 400."""
         from app.auth.dependencies import get_current_active_user
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -129,7 +121,7 @@ class TestModelsRouter:
         """Test getting a function that doesn't exist returns 404."""
         from app.auth.dependencies import get_current_active_user
         mock_func_persistance.get_function = AsyncMock(return_value=None)
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -162,7 +154,7 @@ class TestModelsRouter:
         mock_func2.entrypoint = "0x2000"
         mock_func2.tokens = "tokens2"
         mock_func_persistance.get_functions = AsyncMock(return_value=[mock_func1, mock_func2])
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -184,7 +176,7 @@ class TestModelsRouter:
         """Test getting functions when none exist."""
         from app.auth.dependencies import get_current_active_user
         mock_func_persistance.get_functions = AsyncMock(return_value=[])
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -212,7 +204,7 @@ class TestModelsRouter:
         mock_func_persistance.get_prediction_function = AsyncMock(return_value={
             "tokens": "prediction tokens",
         })
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -247,7 +239,7 @@ class TestModelsRouter:
         mock_func_persistance.get_prediction_function = AsyncMock(return_value={
             "tokens": "prediction tokens",
         })
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -280,7 +272,7 @@ class TestModelsRouter:
             "tokens": "model tokens",
         })
         mock_func_persistance.get_prediction_function = AsyncMock(return_value=None)
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -306,7 +298,7 @@ class TestModelsRouter:
         """Test getting prediction details when retrieval fails returns 400."""
         from app.auth.dependencies import get_current_active_user
         mock_func_persistance.get_function = AsyncMock(side_effect=TypeError("Invalid data type"))
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -337,7 +329,7 @@ class TestModelsRouter:
         mock_func.entrypoint = "0x1000"
         mock_func.tokens = "test tokens"
         mock_func_persistance.get_function = AsyncMock(return_value=mock_func)
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -361,7 +353,7 @@ class TestModelsRouter:
         mock_func1.entrypoint = "0x1000"
         mock_func1.tokens = "tokens1"
         mock_func_persistance.get_functions = AsyncMock(return_value=[mock_func1])
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -385,7 +377,7 @@ class TestModelsRouter:
         mock_func_persistance.get_prediction_function = AsyncMock(return_value={
             "tokens": "prediction tokens",
         })
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.get(
@@ -410,7 +402,7 @@ class TestModelsRouter:
         from app.auth.dependencies import get_current_active_user
         mock_ml_persistance.delete_model = AsyncMock()
         mock_pred_persistance.delete_model_predictions = AsyncMock()
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.delete(
@@ -435,7 +427,7 @@ class TestModelsRouter:
         # First call succeeds, second raises, third succeeds
         mock_ml_persistance.delete_model = AsyncMock(side_effect=[None, Exception("DB error"), None])
         mock_pred_persistance.delete_model_predictions = AsyncMock()
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.delete(
@@ -455,7 +447,7 @@ class TestModelsRouter:
     def test_delete_models_empty_names(self, models_client: Any) -> None:
         """Test deleting models with empty name list returns 400."""
         from app.auth.dependencies import get_current_active_user
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.delete(
@@ -474,7 +466,7 @@ class TestModelsRouter:
     def test_delete_models_whitespace_only_names(self, models_client: Any) -> None:
         """Test deleting models with whitespace-only names returns 400."""
         from app.auth.dependencies import get_current_active_user
-        set_dependency_override(models_client, get_current_active_user, _make_mock_user)
+        set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
             response = models_client.delete(

@@ -12,8 +12,14 @@ def format_code(code: str) -> str:
     when rendered in templates, and JSON responses remain clean for API consumers.
     """
     
-    code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)
-    code = re.sub(r'//.*', '', code)
+    # Non-backtracking pattern for C-style block comments.
+    # Matches /* ... */ without allowing catastrophic backtracking by
+    # explicitly excluding '*' from the body and handling '*' characters
+    # that are not followed by '/'.
+    code = re.sub(r'/\*[^*]*\*+(?:[^/*][^*]*\*+)*/', '', code)
+    # Non-backtracking pattern for single-line comments.
+    # Matches // ... up to end of line (excluding newline).
+    code = re.sub(r'//[^\r\n]*', '', code)
 
     parts = code.split("{", 1)
     if len(parts) != 2:

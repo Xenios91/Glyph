@@ -1,8 +1,11 @@
 import glob
+import logging
 import os
 import sys
 from typing import Any
 from unittest import mock
+
+logger = logging.getLogger(__name__)
 
 # Set generous rate limits for tests BEFORE any app imports.
 # This ensures rate_limiter.py picks up these values at module load time.
@@ -42,8 +45,8 @@ def _cleanup_sqlite_files() -> None:
     for filepath in glob.glob(pattern):
         try:
             os.remove(filepath)
-        except OSError:
-            pass
+        except OSError as exc:
+            logger.debug("Failed to clean up SQLite file %s: %s", filepath, exc)
 
 
 def pytest_unconfigure(config: Any) -> None:
@@ -159,8 +162,8 @@ def _mount_static_files(app: Any) -> None:
 
     try:
         app.mount("/static", StaticFiles(directory="static"), name="static")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed to mount static files: %s", exc)
 
 
 def create_app_client(

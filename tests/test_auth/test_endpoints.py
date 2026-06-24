@@ -78,7 +78,7 @@ class TestRegisterEndpoint:
         )
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "already registered" in response.json()["detail"]
+        assert "already registered" in response.json()["error"]["message"]
 
     def test_register_duplicate_email(self, auth_client: TestClient) -> None:
         """Test registration with duplicate email."""
@@ -103,7 +103,7 @@ class TestRegisterEndpoint:
         )
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "already registered" in response.json()["detail"]
+        assert "already registered" in response.json()["error"]["message"]
 
     def test_register_invalid_email(self, auth_client: TestClient) -> None:
         """Test registration with invalid email."""
@@ -471,7 +471,7 @@ class TestAPIKeyEndpoints:
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
-        assert "not found" in response.json()["detail"]
+        assert "not found" in response.json()["error"]["message"]
 
     def test_delete_api_key_not_authorized(self, auth_client: TestClient) -> None:
         """Test deleting another user's API key."""
@@ -588,7 +588,7 @@ class TestChangePasswordEndpoint:
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "incorrect" in response.json()["detail"]
+        assert "incorrect" in response.json()["error"]["message"]
 
 
 class TestUpdateProfileEndpoint:

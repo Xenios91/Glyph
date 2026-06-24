@@ -42,6 +42,7 @@ dependencies = [
     "asgi-correlation-id>=4.3.4",
     "slowapi>=0.1.9",
     "argon2-cffi>=25.1.0",
+    "bcrypt>=5.0.0",
     "aiosqlite>=0.22.1",
     "joserfc>=0.11.0",
     "SQLAlchemy>=2.0.48,<2.2",
@@ -69,10 +70,10 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-org/glyph"
-Repository = "https://github.com/your-org/glyph"
-Documentation = "https://github.com/your-org/glyph/docs"
-Issues = "https://github.com/your-org/glyph/issues"
+Homepage = "https://github.com/glyph-ml/glyph"
+Repository = "https://github.com/glyph-ml/glyph"
+Documentation = "https://github.com/glyph-ml/glyph/docs"
+Issues = "https://github.com/glyph-ml/glyph/issues"
 
 [project.scripts]
 glyph = "main:create_app"
@@ -139,12 +140,10 @@ warn_no_return = true
 strict_optional = true
 plugins = ["pydantic.mypy"]
 exclude = ["tests/e2e"]
-mypy_path = "app"
+mypy_path = "app/stubs:app"
 
 [[tool.mypy.overrides]]
 module = [
-    "ghidra.*",
-    "pyghidra.*",
     "joserfc.*",
     "slowapi.*",
     "loguru.*",
@@ -181,7 +180,7 @@ filterwarnings = [
 # Coverage configuration
 [tool.coverage.run]
 source = ["app"]
-omit = ["tests/*"]
+omit = ["tests/*", "app/stubs/*"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -192,6 +191,7 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
     "@abstractmethod",
+    "abc.abstractmethod",
 ]
 show_missing = true
 fail_under = 70

@@ -28,7 +28,7 @@
             }
 
             const data = await response.json();
-            const binaries = data.data && data.data.binaries ? data.data.binaries : [];
+            const binaries = data.data && data.data.items ? data.data.items : [];
 
             if (binaries.length === 0) {
                 select.innerHTML = '<option value="" disabled selected hidden>NO BINARIES AVAILABLE</option>';

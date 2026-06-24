@@ -71,8 +71,8 @@ def test_get_status(
     sample_captured_context: CapturedContext,
 ) -> None:
     """Test task status retrieval from queue."""
-    # Queue stores tuples of (request, captured_context) like the actual implementation
-    TaskService().service_queue.put((sample_training_request, sample_captured_context))
+    # Insert directly into the underlying deque (what TaskManager.get_status reads)
+    TaskService().service_queue._queue.append((sample_training_request, sample_captured_context))
 
     status = task_manager.get_status("1234")
 
@@ -92,7 +92,7 @@ def test_set_status(
     sample_captured_context: CapturedContext,
 ) -> None:
     """Test updating task status."""
-    TaskService().service_queue.put((sample_training_request, sample_captured_context))
+    TaskService().service_queue._queue.append((sample_training_request, sample_captured_context))
 
     result = task_manager.set_status("1234", "complete")
 
@@ -114,7 +114,7 @@ def test_get_all_status(
     sample_captured_context: CapturedContext,
 ) -> None:
     """Test retrieving status for all tasks."""
-    TaskService().service_queue.put((sample_training_request, sample_captured_context))
+    TaskService().service_queue._queue.append((sample_training_request, sample_captured_context))
 
     all_status = task_manager.get_all_status()
 
