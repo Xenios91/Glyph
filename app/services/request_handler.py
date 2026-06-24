@@ -1,13 +1,12 @@
 """Request handler module for processing training and prediction requests."""
 
 import json
-from uuid import uuid4
-from typing import Any, cast
 from pathlib import Path
+from typing import Any, cast
+from uuid import uuid4
+
 import pandas as pd
-
 from loguru import logger
-
 
 
 class DataHandler:
@@ -109,10 +108,7 @@ class TrainingRequest(DataHandler):
         try:
             self.bin_name = self.json_dict["binaryName"]
             functions_temp = list(self.get_functions())
-            unique_functions = [
-                json.loads(t)
-                for t in {json.dumps(d, sort_keys=True) for d in functions_temp}
-            ]
+            unique_functions = [json.loads(t) for t in {json.dumps(d, sort_keys=True) for d in functions_temp}]
 
             for function in unique_functions:
                 token_list = function["tokenList"]
@@ -154,9 +150,7 @@ class PredictionRequest(DataHandler):
         super().__init__(req_uuid, data, model_name)
         self.task_name = data.get("taskName") or data.get("task_name", "")
         if not self.task_name:
-            raise ValueError(
-                "Data must contain 'taskName' or 'task_name' key"
-            )
+            raise ValueError("Data must contain 'taskName' or 'task_name' key")
         self._load_data()
 
     def _load_data(self) -> None:
@@ -170,10 +164,7 @@ class PredictionRequest(DataHandler):
         """
         try:
             functions_temp = list(self.get_functions())
-            unique_functions = [
-                json.loads(t)
-                for t in {json.dumps(d, sort_keys=True) for d in functions_temp}
-            ]
+            unique_functions = [json.loads(t) for t in {json.dumps(d, sort_keys=True) for d in functions_temp}]
 
             for function in unique_functions:
                 token_list = function["tokenList"]
@@ -210,13 +201,7 @@ class GhidraRequest:
     ml_class_type: str
     uuid: str
 
-    def __init__(
-        self,
-        filename: str,
-        is_training: bool,
-        model_name: str,
-        name: str,
-        ml_class_type: str) -> None:
+    def __init__(self, filename: str, is_training: bool, model_name: str, name: str, ml_class_type: str) -> None:
         """Initialize a Ghidra analysis request.
 
         Args:
@@ -247,9 +232,7 @@ class Prediction:
     task_name: str
     predictions: list[dict[str, Any]]
 
-    def __init__(
-        self, task_name: str, model_name: str, pred: list[dict[str, Any]]
-    ) -> None:
+    def __init__(self, task_name: str, model_name: str, pred: list[dict[str, Any]]) -> None:
         """Initialize a prediction result.
 
         Args:

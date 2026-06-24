@@ -7,17 +7,16 @@ from decompiled binary data.
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from loguru import logger
 from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_active_user
 from app.database.models import User
 from app.utils.responses import (
-    create_success_response,
-    create_error_response,
     SuccessResponse,
+    create_error_response,
+    create_success_response,
 )
-from loguru import logger
-
 
 router = APIRouter()
 

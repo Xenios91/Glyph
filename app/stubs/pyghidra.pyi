@@ -7,9 +7,9 @@ which interface with Ghidra's Java API via JPype.
 from typing import Any
 
 started: bool
+
 def start() -> None: ...
 def stop() -> None: ...
-
 def open_program(
     file_path: str,
     project_location: str = ...,

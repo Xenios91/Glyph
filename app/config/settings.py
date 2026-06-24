@@ -3,13 +3,13 @@
 import os
 import secrets
 from pathlib import Path
-from loguru import logger
 
-from pydantic import Field, BaseModel
+from loguru import logger
+from pydantic import BaseModel, Field
 from pydantic_settings import (
     BaseSettings,
-    YamlConfigSettingsSource,
     PydanticBaseSettingsSource,
+    YamlConfigSettingsSource,
 )
 
 MAX_CPU_CORES = os.cpu_count() or 1
@@ -17,6 +17,7 @@ MAX_CPU_CORES = os.cpu_count() or 1
 
 class LoggingFileConfig(BaseModel):
     """File logging configuration."""
+
     path: str = "logs/glyph.log"
     rotation: str = Field(default="50 MB", description="Loguru rotation string (e.g., '50 MB', '00:00', '1 week')")
     retention: str = Field(default="10 days", description="Loguru retention string (e.g., '10 days', '1 month')")
@@ -24,6 +25,7 @@ class LoggingFileConfig(BaseModel):
 
 class LoggingConsoleConfig(BaseModel):
     """Console logging configuration."""
+
     enabled: bool = True
     level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     colorize: bool = True
@@ -31,12 +33,14 @@ class LoggingConsoleConfig(BaseModel):
 
 class LoggingRequestTracingConfig(BaseModel):
     """Request tracing configuration."""
+
     enabled: bool = True
     header_name: str = "X-Request-ID"
 
 
 class LoggingConfig(BaseModel):
     """Logging configuration."""
+
     level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     format: str = Field(default="json", pattern="^(json|text)$")
     file: LoggingFileConfig = Field(default_factory=LoggingFileConfig)
@@ -49,45 +53,32 @@ class GlyphSettings(BaseSettings):
     """Pydantic-based configuration for Glyph application."""
 
     prediction_probability_threshold: float = Field(
-        default=50.0,
-        ge=0,
-        le=100,
-        description="Minimum probability threshold for predictions (0-100)")
-
-    max_file_size_mb: int = Field(
-        default=512, ge=1, le=2048, description="Maximum file size for uploads in MB"
+        default=50.0, ge=0, le=100, description="Minimum probability threshold for predictions (0-100)"
     )
 
-    cpu_cores: int = Field(
-        default=2, ge=1, le=32, description="Number of CPU cores for processing"
-    )
+    max_file_size_mb: int = Field(default=512, ge=1, le=2048, description="Maximum file size for uploads in MB")
 
-    upload_folder: Path = Field(
-        default=Path("./binaries"), description="Upload directory"
-    )
+    cpu_cores: int = Field(default=2, ge=1, le=32, description="Number of CPU cores for processing")
+
+    upload_folder: Path = Field(default=Path("./binaries"), description="Upload directory")
 
     jwt_secret_key: str = Field(
-        default="change-me-in-production",
-        description="Secret key for JWT signing (must be changed in production)"
+        default="change-me-in-production", description="Secret key for JWT signing (must be changed in production)"
     )
     jwt_algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=15)
     refresh_token_expire_days: int = Field(default=7)
-    
+
     oauth2_enabled: bool = Field(default=False)
     oauth2_session_secret: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
-    
-    use_https: bool = Field(
-        default=False,
-        description="Whether the application is deployed behind HTTPS/TLS"
-    )
+
+    use_https: bool = Field(default=False, description="Whether the application is deployed behind HTTPS/TLS")
     trusted_proxies: list[str] = Field(
-        default_factory=list,
-        description="List of trusted proxy IPs/CIDRs for X-Forwarded-For"
+        default_factory=list, description="List of trusted proxy IPs/CIDRs for X-Forwarded-For"
     )
-    
+
     auth_enabled: bool = Field(default=True, description="Whether authentication is enabled")
-    
+
     logging: LoggingConfig = LoggingConfig()
 
     model_config = {"env_prefix": "GLYPH_", "extra": "ignore"}

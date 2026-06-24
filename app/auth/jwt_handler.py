@@ -1,21 +1,18 @@
 """JWT handler using joserfc for token generation and verification."""
 
 import base64
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 from joserfc import jwt
+from joserfc.errors import BadSignatureError as JoserfcBadSignatureError
+from joserfc.errors import ClaimError as JoserfcClaimError
+from joserfc.errors import DecodeError as JoserfcDecodeError
+from joserfc.errors import InvalidTokenError as JoserfcInvalidTokenError
+from joserfc.errors import JoseError
 from joserfc.jwk import OctKey
 from joserfc.jwt import JWTClaimsRegistry
-from joserfc.errors import (
-    JoseError,
-    InvalidTokenError as JoserfcInvalidTokenError,
-    DecodeError as JoserfcDecodeError,
-    BadSignatureError as JoserfcBadSignatureError,
-    ClaimError as JoserfcClaimError)
-
 from loguru import logger
-
 
 
 class InvalidTokenError(Exception):
@@ -24,6 +21,7 @@ class InvalidTokenError(Exception):
     This exception is raised during token verification when the token
     fails validation checks such as expiration, audience, or type.
     """
+
     pass
 
 
@@ -33,6 +31,7 @@ class DecodeError(Exception):
     This exception is raised when the token structure is malformed
     or cannot be parsed as a valid JWT.
     """
+
     pass
 
 
@@ -42,6 +41,7 @@ class BadSignatureError(Exception):
     This exception indicates that the token signature does not match
     the expected signature, suggesting tampering or an incorrect secret.
     """
+
     pass
 
 
@@ -61,56 +61,48 @@ class JWTHandler:
         secret_b64 = base64.urlsafe_b64encode(secret_key.encode("utf-8")).decode("utf-8")
         self._key = OctKey.import_key({"k": secret_b64, "kty": "oct"})
 
-    def create_access_token(
-        self,
-        subject: str,
-        extra_claims: dict[str, Any] | None = None
-    ) -> str:
+    def create_access_token(self, subject: str, extra_claims: dict[str, Any] | None = None) -> str:
         """Generate an access token."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": subject,
             "iat": now,
             "exp": now + timedelta(minutes=self.access_token_expire_minutes),
-            "type": "access"
+            "type": "access",
         }
-        
+
         if extra_claims:
             _protected_claims = {"sub", "iat", "exp", "type"}
             overlap = set(extra_claims.keys()) & _protected_claims
             if overlap:
                 raise ValueError(f"Cannot override protected claims: {overlap}")
             payload.update(extra_claims)
-        
+
         token = jwt.encode({"alg": self.algorithm}, payload, self._key)
         logger.debug("Access token created for subject {}", subject)
         return token
-    
-    def create_refresh_token(
-        self,
-        subject: str,
-        extra_claims: dict[str, Any] | None = None
-    ) -> str:
+
+    def create_refresh_token(self, subject: str, extra_claims: dict[str, Any] | None = None) -> str:
         """Generate a refresh token."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": subject,
             "iat": now,
             "exp": now + timedelta(days=self.refresh_token_expire_days),
-            "type": "refresh"
+            "type": "refresh",
         }
-        
+
         if extra_claims:
             _protected_claims = {"sub", "iat", "exp", "type"}
             overlap = set(extra_claims.keys()) & _protected_claims
             if overlap:
                 raise ValueError(f"Cannot override protected claims: {overlap}")
             payload.update(extra_claims)
-        
+
         token = jwt.encode({"alg": self.algorithm}, payload, self._key)
         logger.debug("Refresh token created for subject {}", subject)
         return token
-    
+
     def _validate_claims(self, claims: dict[str, Any]) -> None:
         """Validate JWT claims using JWTClaimsRegistry."""
         registry = JWTClaimsRegistry()
@@ -118,6 +110,29 @@ class JWTHandler:
             registry.validate(claims)
         except JoserfcClaimError as e:
             raise InvalidTokenError(str(e)) from e
+
+    def _handle_verification_error(
+        self,
+        e: Exception,
+        context: str,
+    ) -> None:
+        """Handle JWT verification errors with consistent logging and re-raising.
+
+        Args:
+            e: The original exception.
+            context: Context string for logging (e.g., "Access token verification").
+
+        Raises:
+            BadSignatureError: If the error is a bad signature.
+            InvalidTokenError: For all other JWT-related errors.
+        """
+        if isinstance(e, (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError)):
+            logger.warning("{} failed: {}", context, type(e).__name__)
+            if isinstance(e, JoserfcBadSignatureError):
+                raise BadSignatureError(f"Invalid signature: {e}") from e
+            raise InvalidTokenError(f"Invalid token: {e}") from e
+        logger.warning("{} error: {}", context, type(e).__name__)
+        raise InvalidTokenError(f"Failed to verify token: {e}") from e
 
     def verify_access_token(self, token: str) -> dict[str, Any]:
         """Verify and decode an access token."""
@@ -131,14 +146,12 @@ class JWTHandler:
 
             logger.debug("Access token verified for subject {}", decoded.claims.get("sub"))
             return dict(decoded.claims)
-        except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
-            logger.warning("Access token verification failed: {}", type(e).__name__)
-            if isinstance(e, JoserfcBadSignatureError):
-                raise BadSignatureError(f"Invalid signature: {e}") from e
-            raise InvalidTokenError(f"Invalid token: {e}") from e
+        except InvalidTokenError:
+            raise
+        except BadSignatureError:
+            raise
         except Exception as e:
-            logger.warning("Access token verification error: {}", type(e).__name__)
-            raise InvalidTokenError(f"Failed to verify token: {e}") from e
+            self._handle_verification_error(e, "Access token verification")
 
     def verify_refresh_token(self, token: str) -> dict[str, Any]:
         """Verify and decode a refresh token."""
@@ -152,14 +165,12 @@ class JWTHandler:
 
             logger.debug("Refresh token verified for subject {}", decoded.claims.get("sub"))
             return dict(decoded.claims)
-        except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
-            logger.warning("Refresh token verification failed: {}", type(e).__name__)
-            if isinstance(e, JoserfcBadSignatureError):
-                raise BadSignatureError(f"Invalid signature: {e}") from e
-            raise InvalidTokenError(f"Invalid token: {e}") from e
+        except InvalidTokenError:
+            raise
+        except BadSignatureError:
+            raise
         except Exception as e:
-            logger.warning("Refresh token verification error: {}", type(e).__name__)
-            raise InvalidTokenError(f"Failed to verify token: {e}") from e
+            self._handle_verification_error(e, "Refresh token verification")
 
     def verify_token(self, token: str) -> dict[str, Any]:
         """Verify and decode any token (access or refresh).
@@ -181,11 +192,9 @@ class JWTHandler:
 
             logger.debug("Token verified for subject {} type {}", decoded.claims.get("sub"), decoded.claims.get("type"))
             return dict(decoded.claims)
-        except (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError) as e:
-            logger.warning("Token verification failed: {}", type(e).__name__)
-            if isinstance(e, JoserfcBadSignatureError):
-                raise BadSignatureError(f"Invalid signature: {e}") from e
-            raise InvalidTokenError(f"Invalid token: {e}") from e
+        except InvalidTokenError:
+            raise
+        except BadSignatureError:
+            raise
         except Exception as e:
-            logger.warning("Token verification error: {}", type(e).__name__)
-            raise InvalidTokenError(f"Failed to verify token: {e}") from e
+            self._handle_verification_error(e, "Token verification")

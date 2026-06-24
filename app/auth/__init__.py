@@ -17,11 +17,10 @@ from app.auth.dependencies import (
     get_db,
     get_jwt_handler,
     get_optional_user,
-    oauth2_scheme)
+    oauth2_scheme,
+)
 from app.auth.endpoints import router as auth_router
 from app.auth.jwt_handler import JWTHandler
-from app.auth.security_logger import is_blocked
-from app.database.repository import APIKeyRepository, PasswordHasherService, UserRepository
 from app.auth.schemas import (
     APIKeyCreate,
     APIKeyResponse,
@@ -31,32 +30,36 @@ from app.auth.schemas import (
     TokenResponse,
     UserRegister,
     UserResponse,
-    UserUpdate)
+    UserUpdate,
+)
+from app.auth.security_logger import is_blocked
+from app.database.repository import APIKeyRepository, PasswordHasherService, UserRepository
+
 __all__ = [
+    # Schemas
+    "APIKeyCreate",
+    "APIKeyRepository",
+    "APIKeyResponse",
+    "APIKeyWithSecret",
+    "ChangePassword",
+    # Classes
+    "JWTHandler",
+    "PasswordHasherService",
+    "RefreshTokenRequest",
+    "TokenResponse",
+    "UserRegister",
+    "UserRepository",
+    "UserResponse",
+    "UserUpdate",
+    # Router
+    "auth_router",
     # Dependencies
     "get_current_active_user",
     "get_current_user",
     "get_db",
     "get_jwt_handler",
     "get_optional_user",
-    "oauth2_scheme",
-    # Router
-    "auth_router",
-    # Classes
-    "JWTHandler",
-    "APIKeyRepository",
-    "PasswordHasherService",
-    "UserRepository",
     # Security
     "is_blocked",
-    # Schemas
-    "APIKeyCreate",
-    "APIKeyResponse",
-    "APIKeyWithSecret",
-    "ChangePassword",
-    "RefreshTokenRequest",
-    "TokenResponse",
-    "UserRegister",
-    "UserResponse",
-    "UserUpdate",
+    "oauth2_scheme",
 ]

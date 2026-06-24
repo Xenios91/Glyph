@@ -30,7 +30,7 @@ FROM python:3.12-slim AS production
 # Set labels
 LABEL maintainer="glyph-team"
 LABEL description="Glyph - Architecture-independent binary analysis tool"
-LABEL version="0.1.0"
+LABEL version="0.2.0"
 
 # Create non-root user
 RUN groupadd -r glyph && useradd -r -g glyph -d /app -m glyph

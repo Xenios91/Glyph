@@ -4,18 +4,24 @@ from io import BytesIO
 from typing import Any, cast
 
 import joblib  # type: ignore[import-no-untyped]
+from loguru import logger
 from sqlalchemy import delete, exists, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import (
-    Binary, BinaryFunction, Model, Prediction, Function, get_utc_now,
-    SimilarityComputation, SimilarityPair,
+    Binary,
+    BinaryFunction,
+    Function,
+    Model,
+    Prediction,
+    SimilarityComputation,
+    SimilarityPair,
+    get_utc_now,
 )
-from app.database.session_handler import get_async_session, close_async_session
+from app.database.session_handler import close_async_session, get_async_session
 from app.services.request_handler import Prediction as PredictionResult
-from loguru import logger
-from app.utils.secure_deserializer import secure_load, SecureDeserializationError
+from app.utils.secure_deserializer import SecureDeserializationError, secure_load
 
 
 class SQLUtil:
@@ -70,7 +76,7 @@ class SQLUtil:
                     Model.model_data: ins.excluded.model_data,
                     Model.label_encoder_data: ins.excluded.label_encoder_data,
                     Model.modified_at: ins.excluded.modified_at,
-                }
+                },
             )
             await session.execute(stmt)
             await session.commit()
@@ -119,9 +125,7 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("models")
         try:
-            result = await session.execute(
-                select(Model).where(Model.model_name == model_name)
-            )
+            result = await session.execute(select(Model).where(Model.model_name == model_name))
             model = result.scalar_one_or_none()
             if model is None:
                 logger.warning("Model '{}' not found", model_name)
@@ -150,9 +154,7 @@ class SQLUtil:
 
         session: AsyncSession = await get_async_session("models")
         try:
-            await session.execute(
-                delete(Model).where(Model.model_name == model_name)
-            )
+            await session.execute(delete(Model).where(Model.model_name == model_name))
             await session.commit()
             logger.info("Model '{}' deleted", model_name)
         except Exception:
@@ -192,13 +194,9 @@ class SQLUtil:
                         )
                     )
                 except SecureDeserializationError:
-                    logger.exception(
-                        "Secure deserialization blocked prediction '{}'", pred.task_name
-                    )
+                    logger.exception("Secure deserialization blocked prediction '{}'", pred.task_name)
                 except Exception:
-                    logger.exception(
-                        "Failed to deserialize prediction '{}'", pred.task_name
-                    )
+                    logger.exception("Failed to deserialize prediction '{}'", pred.task_name)
         except Exception:
             logger.exception("Failed to retrieve predictions list")
         finally:
@@ -237,23 +235,15 @@ class SQLUtil:
                         type(raw_prediction_data).__name__,
                     )
                     return None
-                prediction_data: list[dict[str, Any]] = cast(
-                    list[dict[str, Any]], raw_prediction_data
-                )
+                prediction_data: list[dict[str, Any]] = cast(list[dict[str, Any]], raw_prediction_data)
             except SecureDeserializationError:
-                logger.exception(
-                    "Secure deserialization blocked prediction for task '{}'", task_name
-                )
+                logger.exception("Secure deserialization blocked prediction for task '{}'", task_name)
                 return None
             except Exception:
-                logger.exception(
-                    "Failed to deserialize prediction for task '{}'", task_name
-                )
+                logger.exception("Failed to deserialize prediction for task '{}'", task_name)
                 return None
 
-            return PredictionResult(
-                task_name=task_name, model_name=model_name, pred=prediction_data
-            )
+            return PredictionResult(task_name=task_name, model_name=model_name, pred=prediction_data)
         except Exception:
             logger.exception("Failed to retrieve predictions for task '{}'", task_name)
             return None
@@ -291,7 +281,7 @@ class SQLUtil:
                 set_={
                     Prediction.functions_data: ins.excluded.functions_data,
                     Prediction.modified_at: ins.excluded.modified_at,
-                }
+                },
             )
             await session.execute(stmt)
             await session.commit()
@@ -304,9 +294,7 @@ class SQLUtil:
             await close_async_session(session)
 
     @staticmethod
-    async def get_prediction_function(
-        task_name: str, model_name: str, function_name: str
-    ) -> dict[str, Any]:
+    async def get_prediction_function(task_name: str, model_name: str, function_name: str) -> dict[str, Any]:
         """Get a specific function prediction from the database.
 
         Args:
@@ -337,9 +325,7 @@ class SQLUtil:
                         type(raw_predictions).__name__,
                     )
                     return {}
-                predictions: list[dict[str, Any]] = cast(
-                    list[dict[str, Any]], raw_predictions
-                )
+                predictions: list[dict[str, Any]] = cast(list[dict[str, Any]], raw_predictions)
                 for function in predictions:
                     if function.get("functionName") == function_name:
                         return function
@@ -392,7 +378,7 @@ class SQLUtil:
                     Function.entrypoint: ins.excluded.entrypoint,
                     Function.tokens: ins.excluded.tokens,
                     Function.modified_at: ins.excluded.modified_at,
-                }
+                },
             )
             await session.execute(stmt)
             await session.commit()
@@ -574,16 +560,8 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("intelligence")
         try:
-            await session.execute(
-                delete(SimilarityPair).where(
-                    SimilarityPair.computation_id == computation_id
-                )
-            )
-            await session.execute(
-                delete(SimilarityComputation).where(
-                    SimilarityComputation.id == computation_id
-                )
-            )
+            await session.execute(delete(SimilarityPair).where(SimilarityPair.computation_id == computation_id))
+            await session.execute(delete(SimilarityComputation).where(SimilarityComputation.id == computation_id))
             await session.commit()
             logger.info("Similarity computation {} deleted", computation_id)
         except Exception:
@@ -609,9 +587,7 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("functions")
         try:
-            result = await session.execute(
-                select(Function).where(Function.model_name == model_name)
-            )
+            result = await session.execute(select(Function).where(Function.model_name == model_name))
             functions = list(result.scalars().all())
             session.expunge_all()
             return functions
@@ -669,13 +645,9 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("functions")
         try:
-            await session.execute(
-                delete(Function).where(Function.model_name == model_name)
-            )
+            await session.execute(delete(Function).where(Function.model_name == model_name))
             await session.commit()
-            logger.info(
-                "Functions for model '{}' deleted", model_name
-            )
+            logger.info("Functions for model '{}' deleted", model_name)
         except Exception:
             await session.rollback()
             logger.exception("Failed to delete functions for model '{}'", model_name)
@@ -707,9 +679,7 @@ class SQLUtil:
                 )
                 logger.info("Prediction for task '{}' model '{}' deleted", task_name, model_name)
             else:
-                await session.execute(
-                    delete(Prediction).where(Prediction.task_name == task_name)
-                )
+                await session.execute(delete(Prediction).where(Prediction.task_name == task_name))
                 logger.info("Prediction for task '{}' deleted", task_name)
             await session.commit()
         except Exception:
@@ -730,9 +700,7 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
-            await session.execute(
-                delete(Prediction).where(Prediction.model_name == model_name)
-            )
+            await session.execute(delete(Prediction).where(Prediction.model_name == model_name))
             await session.commit()
             logger.info("Predictions for model '{}' deleted", model_name)
         except Exception:
@@ -756,9 +724,7 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("models")
         try:
-            result = await session.execute(
-                select(exists().where(Model.model_name == model_name))
-            )
+            result = await session.execute(select(exists().where(Model.model_name == model_name)))
             return result.scalar_one() is True
         except Exception:
             logger.exception("Failed to check if model '{}' exists", model_name)
@@ -850,9 +816,7 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
-            result = await session.execute(
-                select(func.count()).where(Binary.uploaded_by == user_id)
-            )
+            result = await session.execute(select(func.count()).where(Binary.uploaded_by == user_id))
             return result.scalar_one()
         except Exception:
             logger.exception("Failed to count binaries for user {}", user_id)
@@ -872,9 +836,7 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
-            result = await session.execute(
-                select(func.count()).where(BinaryFunction.binary_id == binary_id)
-            )
+            result = await session.execute(select(func.count()).where(BinaryFunction.binary_id == binary_id))
             return result.scalar_one()
         except Exception:
             logger.exception("Failed to count functions for binary {}", binary_id)
@@ -883,9 +845,7 @@ class SQLUtil:
             await close_async_session(session)
 
     @staticmethod
-    async def get_binaries_by_user(
-        user_id: int, *, offset: int = 0, limit: int = 50
-    ) -> list[Binary]:
+    async def get_binaries_by_user(user_id: int, *, offset: int = 0, limit: int = 50) -> list[Binary]:
         """List binaries uploaded by a specific user with pagination.
 
         Args:
@@ -978,9 +938,7 @@ class SQLUtil:
             await close_async_session(session)
 
     @staticmethod
-    async def get_binary_functions(
-        binary_id: int, offset: int = 0, limit: int | None = None
-    ) -> list[BinaryFunction]:
+    async def get_binary_functions(binary_id: int, offset: int = 0, limit: int | None = None) -> list[BinaryFunction]:
         """Load raw functions for a binary with optional pagination.
 
         Args:
@@ -1042,9 +1000,7 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
-            result = await session.execute(
-                select(Binary.name).where(Binary.id == binary_id)
-            )
+            result = await session.execute(select(Binary.name).where(Binary.id == binary_id))
             return result.scalars().first()
         except Exception:
             logger.exception("Failed to get name for binary {}", binary_id)
@@ -1066,9 +1022,7 @@ class SQLUtil:
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
-            result = await session.execute(
-                select(exists().where(Prediction.task_name == task_name))
-            )
+            result = await session.execute(select(exists().where(Prediction.task_name == task_name)))
             return result.scalar_one() is True
         except Exception:
             logger.exception("Failed to check if task '{}' exists", task_name)

@@ -183,11 +183,7 @@ class BinarySimilarityService:
                     matched_count += 1
                     similarity_scores.append(best_score)
 
-            overall = (
-                round(sum(similarity_scores) / len(similarity_scores), 4)
-                if similarity_scores
-                else 0.0
-            )
+            overall = round(sum(similarity_scores) / len(similarity_scores), 4) if similarity_scores else 0.0
 
             entries.append(
                 SimilarityMatrixEntry(
@@ -223,14 +219,14 @@ class BinarySimilarityService:
         if clamped < 0.5:
             # White to yellow
             t = clamped * 2  # 0 to 1
-            r = int(255)
+            r = 255
             g = int(255 * (1 - t) + 255 * t)
             b = int(255 * (1 - t))
         else:
             # Yellow to red
             t = (clamped - 0.5) * 2  # 0 to 1
-            r = int(255)
+            r = 255
             g = int(255 * (1 - t))
-            b = int(0)
+            b = 0
 
         return f"#{r:02x}{g:02x}{b:02x}"

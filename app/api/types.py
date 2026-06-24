@@ -1,13 +1,12 @@
 """Shared type annotations for FastAPI endpoints."""
 
-from enum import Enum
-
-from typing_extensions import Annotated
+from enum import StrEnum
+from typing import Annotated
 
 from pydantic import StringConstraints
 
 
-class TaskType(str, Enum):
+class TaskType(StrEnum):
     """Types of analysis tasks that can be performed on a binary."""
 
     CODE_REUSE = "code_reuse"
@@ -17,37 +16,16 @@ class TaskType(str, Enum):
     SIMILARITY_COMPUTATION = "similarity_computation"
 
 
-ModelName = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=128)
-]
+ModelName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
 
-FunctionName = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=256)
-]
+FunctionName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=256)]
 
-TaskName = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=128)
-]
+TaskName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
 
-UUID = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=64)
-]
+UUID = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
 
-BinaryName = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=256)
-]
+BinaryName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=256)]
 
-MLClassType = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=64)
-]
+MLClassType = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
 
-StatusMessage = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=512)
-]
+StatusMessage = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=512)]

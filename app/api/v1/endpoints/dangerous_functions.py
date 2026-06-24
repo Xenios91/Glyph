@@ -11,6 +11,7 @@ from io import BytesIO
 from typing import Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from loguru import logger
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_active_user
@@ -28,13 +29,12 @@ from app.services.dangerous_functions_catalog import (
 )
 from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
 from app.utils.responses import (
-    create_error_response,
-    create_success_response,
     ErrorResponse,
     SuccessResponse,
+    create_error_response,
+    create_success_response,
 )
-from app.utils.secure_deserializer import secure_load, SecureDeserializationError
-from loguru import logger
+from app.utils.secure_deserializer import SecureDeserializationError, secure_load
 
 router = APIRouter()
 
@@ -42,6 +42,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 # Request / Response schemas
 # ---------------------------------------------------------------------------
+
 
 class ScanRequest(BaseModel):
     """Request schema for initiating a dangerous function scan.
@@ -135,6 +136,7 @@ class CatalogEntryDict(BaseModel):
 # Helper functions
 # ---------------------------------------------------------------------------
 
+
 def _scan_result_to_dict(result: ScanResult) -> ScanResultDict:
     """Convert a ScanResult dataclass to a ScanResultDict model.
 
@@ -205,6 +207,7 @@ def _functions_to_dicts(functions: list[Any]) -> list[dict[str, Any]]:
 # Endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/catalog")
 async def get_catalog(
     request: Request,
@@ -221,10 +224,7 @@ async def get_catalog(
     Returns:
         Success response with catalog entries.
     """
-    if category:
-        entries = get_entries_by_category(category)
-    else:
-        entries = get_all_entries()
+    entries = get_entries_by_category(category) if category else get_all_entries()
 
     catalog = [
         CatalogEntryDict(
@@ -248,7 +248,7 @@ async def get_catalog(
 async def get_catalog_entry(
     request: Request,
     function_name: str,
-) -> Union[SuccessResponse[Any], ErrorResponse]:
+) -> SuccessResponse[Any] | ErrorResponse:
     """Get a specific dangerous function catalog entry.
 
     Args:

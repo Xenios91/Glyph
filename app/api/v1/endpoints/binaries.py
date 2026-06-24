@@ -10,43 +10,34 @@ import shutil
 import stat
 import uuid
 from pathlib import Path
-
-import magic
 from typing import Annotated, Any, Literal, Union
 
-from fastapi import (
-    APIRouter,
-    BackgroundTasks,
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    Query,
-    Request,
-    UploadFile)
-from starlette.responses import HTMLResponse
-from pydantic import BaseModel, Field, field_validator
-
-from app.config.settings import get_settings
-from app.services.request_handler import GhidraRequest
-from app.processing.task_management import Ghidra, TaskManager
-from app.utils.persistence_util import FunctionPersistanceUtil
-from app.utils.responses import (
-    create_success_response,
-    create_error_response,
-    create_paginated_response,
-    PaginatedResponse,
-    SuccessResponse)
-from app.templates import templates
+import magic
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from loguru import logger
+from pydantic import BaseModel, Field, field_validator
+from starlette.responses import HTMLResponse
+
+from app.auth.dependencies import get_current_active_user
+from app.config.settings import get_settings
+from app.database.models import User
+from app.processing.task_management import Ghidra, TaskManager
+from app.services.request_handler import GhidraRequest
+from app.templates import templates
+from app.utils.persistence_util import FunctionPersistanceUtil
 from app.utils.request_context import (
     CapturedContext,
     capture_request_context,
-    restore_request_context,
     clear_request_context,
+    restore_request_context,
 )
-from app.auth.dependencies import get_current_active_user
-from app.database.models import User
+from app.utils.responses import (
+    PaginatedResponse,
+    SuccessResponse,
+    create_error_response,
+    create_paginated_response,
+    create_success_response,
+)
 
 
 class BinaryUploadForm(BaseModel):
@@ -147,15 +138,18 @@ def validate_binary_mime_type(file_content: bytes) -> None:
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="MIME_DETECTION_FAILED",
-                error_message="Failed to analyze file type").model_dump())
+                error_code="MIME_DETECTION_FAILED", error_message="Failed to analyze file type"
+            ).model_dump(),
+        )
 
     if mime_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
                 error_code="INVALID_FILE_TYPE",
-                error_message=f"File type '{mime_type}' not allowed. Expected binary/ELF format").model_dump())
+                error_message=f"File type '{mime_type}' not allowed. Expected binary/ELF format",
+            ).model_dump(),
+        )
 
 
 def sanitize_filename(filename: str) -> str:
@@ -175,23 +169,24 @@ def sanitize_filename(filename: str) -> str:
     if not filename:
         raise HTTPException(
             status_code=400,
-            detail=create_error_response(
-                error_code="EMPTY_FILENAME",
-                error_message="Empty filename").model_dump())
+            detail=create_error_response(error_code="EMPTY_FILENAME", error_message="Empty filename").model_dump(),
+        )
 
     if ".." in filename:
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_FILENAME",
-                error_message="Invalid filename characters").model_dump())
+                error_code="INVALID_FILENAME", error_message="Invalid filename characters"
+            ).model_dump(),
+        )
 
     if "\x00" in filename:
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_FILENAME",
-                error_message="Invalid filename characters").model_dump())
+                error_code="INVALID_FILENAME", error_message="Invalid filename characters"
+            ).model_dump(),
+        )
 
     return Path(filename).name
 
@@ -213,8 +208,8 @@ async def _run_upload_pipeline(
         task_uuid: Task UUID for progress tracking.
         captured_ctx: Captured request context for logging propagation.
     """
-    from app.processing.steps import ValidationStep, DecompileStep, SaveRawFunctionsStep
-    from app.processing.pipeline import ProcessingPipeline, PipelineContext
+    from app.processing.pipeline import PipelineContext, ProcessingPipeline
+    from app.processing.steps import DecompileStep, SaveRawFunctionsStep, ValidationStep
 
     try:
         if captured_ctx is not None:
@@ -242,9 +237,7 @@ async def _run_upload_pipeline(
 
         if result.error:
             TaskManager.set_status(task_uuid, "error")
-            logger.opt(exception=result.exc_info).error(
-                "Upload pipeline failed: {}", result.error
-            )
+            logger.opt(exception=result.exc_info).error("Upload pipeline failed: {}", result.error)
         else:
             functions_saved = result.get("functions_saved", 0)
             logger.info(
@@ -261,9 +254,7 @@ async def _run_upload_pipeline(
     finally:
         import asyncio
 
-        asyncio.get_event_loop().call_later(
-            10, lambda: TaskManager.remove_task(task_uuid)
-        )
+        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
         clear_request_context()
 
 
@@ -293,9 +284,7 @@ async def _run_pipeline_analysis(
 
         if result.error:
             TaskManager.set_status(task_uuid, "error")
-            logger.opt(exception=result.exc_info).error(
-                "Pipeline execution failed: {}", result.error
-            )
+            logger.opt(exception=result.exc_info).error("Pipeline execution failed: {}", result.error)
         else:
             logger.info("Pipeline execution completed")
 
@@ -317,9 +306,7 @@ async def _run_pipeline_analysis(
                         data=training_data,
                     )
                     await FunctionPersistanceUtil.add_model_functions(training_request)
-                    logger.debug(
-                        "Functions saved for model {}", ghidra_request.model_name
-                    )
+                    logger.debug("Functions saved for model {}", ghidra_request.model_name)
             else:
                 predictions = result.get("predictions")
                 filtered_functions = result.get("filtered_functions")
@@ -346,12 +333,8 @@ async def _run_pipeline_analysis(
                             model_name=ghidra_request.model_name,
                             data=prediction_data,
                         )
-                        await FunctionPersistanceUtil.add_prediction_functions(
-                            prediction_request, predictions
-                        )
-                        logger.debug(
-                            "Predictions saved for task {}", ghidra_request.name
-                        )
+                        await FunctionPersistanceUtil.add_prediction_functions(prediction_request, predictions)
+                        logger.debug("Predictions saved for task {}", ghidra_request.name)
                     except Exception:
                         logger.exception("Failed to create PredictionRequest")
                         raise
@@ -365,9 +348,7 @@ async def _run_pipeline_analysis(
     finally:
         import asyncio
 
-        asyncio.get_event_loop().call_later(
-            10, lambda: TaskManager.remove_task(task_uuid)
-        )
+        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
         clear_request_context()
 
 
@@ -378,7 +359,7 @@ async def post_upload_binary(
     current_user: Annotated[User, Depends(get_current_active_user)],
     binary_file: UploadFile = File(...),
     name: str = Form(...),
-) -> Union[SuccessResponse[BinaryUploadResponse], HTMLResponse]:
+) -> SuccessResponse[BinaryUploadResponse] | HTMLResponse:
     """Upload a binary and store raw decompiled functions.
 
     The binary file is saved to disk, metadata is stored in the
@@ -474,9 +455,7 @@ async def post_upload_binary(
     TaskManager.register_task(task_uuid, "starting", owner_id=current_user.id)
 
     captured_ctx = capture_request_context()
-    background_tasks.add_task(
-        _run_upload_pipeline, binary_id, file_path, task_uuid, captured_ctx
-    )
+    background_tasks.add_task(_run_upload_pipeline, binary_id, file_path, task_uuid, captured_ctx)
     logger.info(
         "Binary uploaded to: {}, background task queued (uuid={}), returning response now",
         file_path,
@@ -568,16 +547,14 @@ async def get_binary_detail(
     if binary is None:
         raise HTTPException(
             status_code=404,
-            detail=create_error_response(
-                error_code="BINARY_NOT_FOUND",
-                error_message="Binary not found").model_dump())
+            detail=create_error_response(error_code="BINARY_NOT_FOUND", error_message="Binary not found").model_dump(),
+        )
 
     if binary.uploaded_by != current_user.id:
         raise HTTPException(
             status_code=403,
-            detail=create_error_response(
-                error_code="ACCESS_DENIED",
-                error_message="Access denied").model_dump())
+            detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
+        )
 
     functions = await SQLUtil.get_binary_functions(binary_id)
 
@@ -645,16 +622,14 @@ async def list_binary_functions(
     if binary is None:
         raise HTTPException(
             status_code=404,
-            detail=create_error_response(
-                error_code="BINARY_NOT_FOUND",
-                error_message="Binary not found").model_dump())
+            detail=create_error_response(error_code="BINARY_NOT_FOUND", error_message="Binary not found").model_dump(),
+        )
 
     if binary.uploaded_by != current_user.id:
         raise HTTPException(
             status_code=403,
-            detail=create_error_response(
-                error_code="ACCESS_DENIED",
-                error_message="Access denied").model_dump())
+            detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
+        )
 
     total = await SQLUtil.count_binary_functions(binary_id)
     offset = (page - 1) * page_size
@@ -662,7 +637,7 @@ async def list_binary_functions(
 
     items: list[BinaryFunctionItem] = []
     for fn in functions:
-        line_count = fn.raw_code.count('\n') + 1 if fn.raw_code else 0
+        line_count = fn.raw_code.count("\n") + 1 if fn.raw_code else 0
         items.append(
             BinaryFunctionItem(
                 function_name=fn.function_name,
@@ -689,16 +664,14 @@ async def delete_binary(
     if binary is None:
         raise HTTPException(
             status_code=404,
-            detail=create_error_response(
-                error_code="BINARY_NOT_FOUND",
-                error_message="Binary not found").model_dump())
+            detail=create_error_response(error_code="BINARY_NOT_FOUND", error_message="Binary not found").model_dump(),
+        )
 
     if binary.uploaded_by != current_user.id:
         raise HTTPException(
             status_code=403,
-            detail=create_error_response(
-                error_code="ACCESS_DENIED",
-                error_message="Access denied").model_dump())
+            detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
+        )
 
     await SQLUtil.delete_binary(binary_id)
 
@@ -776,9 +749,7 @@ def _upload_single_binary(
         TaskManager.register_task(task_uuid, "starting", owner_id=current_user.id)
 
         captured_ctx = capture_request_context()
-        background_tasks.add_task(
-            _run_upload_pipeline, binary_id, file_path, task_uuid, captured_ctx
-        )
+        background_tasks.add_task(_run_upload_pipeline, binary_id, file_path, task_uuid, captured_ctx)
 
         logger.info("Bulk upload: binary {} saved (id={}, uuid={})", name, binary_id, task_uuid)
 

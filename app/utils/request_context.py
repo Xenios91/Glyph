@@ -7,7 +7,6 @@ and restore_request_context() to explicitly pass context snapshots.
 from contextvars import ContextVar
 from dataclasses import dataclass
 
-
 _request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 _user_id_var: ContextVar[int | None] = ContextVar("user_id", default=None)
 _username_var: ContextVar[str | None] = ContextVar("username", default=None)
@@ -85,6 +84,7 @@ class RequestContext:
     def task_id(self, value: str | None) -> None:
         _task_id_var.set(value)
 
+
 def get_request_context() -> RequestContext:
     """Get the current request context."""
     return RequestContext()
@@ -92,6 +92,7 @@ def get_request_context() -> RequestContext:
 
 class _UnsetSentinel:
     """Sentinel to distinguish "not provided" from "explicitly set to None"."""
+
     __slots__ = ()
 
     def __repr__(self) -> str:
@@ -106,7 +107,8 @@ def set_request_context(
     user_id: int | None | _UnsetSentinel = _UNSET,
     username: str | None | _UnsetSentinel = _UNSET,
     task_id: str | None | _UnsetSentinel = _UNSET,
-    clear_unset: bool = False) -> None:
+    clear_unset: bool = False,
+) -> None:
     """Set the current request context.
 
     Args:

@@ -6,13 +6,13 @@ This module provides core functionality including:
 """
 
 from app.core.lifespan import lifespan
-from app.core.rate_limiter import limiter, LOGIN_LIMIT, REGISTER_LIMIT, PASSWORD_CHANGE_LIMIT, REFRESH_LIMIT
+from app.core.rate_limiter import LOGIN_LIMIT, PASSWORD_CHANGE_LIMIT, REFRESH_LIMIT, REGISTER_LIMIT, limiter
 
 __all__ = [
-    "lifespan",
-    "limiter",
     "LOGIN_LIMIT",
-    "REGISTER_LIMIT",
     "PASSWORD_CHANGE_LIMIT",
     "REFRESH_LIMIT",
+    "REGISTER_LIMIT",
+    "lifespan",
+    "limiter",
 ]

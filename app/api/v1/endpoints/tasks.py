@@ -8,6 +8,7 @@ import asyncio
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from loguru import logger
 from pydantic import BaseModel, Field
 
 from app.api.types import TaskType
@@ -17,15 +18,14 @@ from app.processing.task_management import TaskManager
 from app.utils.request_context import (
     CapturedContext,
     capture_request_context,
-    restore_request_context,
     clear_request_context,
+    restore_request_context,
 )
 from app.utils.responses import (
-    create_success_response,
     SuccessResponse,
+    create_error_response,
+    create_success_response,
 )
-from loguru import logger
-
 
 router = APIRouter()
 
@@ -33,6 +33,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 # Request / Response schemas
 # ---------------------------------------------------------------------------
+
 
 class TaskExecutionRequest(BaseModel):
     """Request schema for executing an analysis task on a binary.
@@ -93,6 +94,7 @@ class CodeReuseResults(BaseModel):
 # Similarity computation schemas
 # ---------------------------------------------------------------------------
 
+
 class SimilarityComputationRequest(BaseModel):
     """Request schema for starting a similarity computation."""
 
@@ -134,6 +136,7 @@ class SimilarityComputationListResponse(BaseModel):
 # Background task handlers
 # ---------------------------------------------------------------------------
 
+
 async def _run_code_reuse_task(
     binary_id: int,
     task_uuid: str,
@@ -152,9 +155,9 @@ async def _run_code_reuse_task(
         task_name: Human-readable task name.
         captured_ctx: Captured request context.
     """
-    from app.processing.steps import TokenizeStep, FilterStep
-    from app.processing.pipeline import PipelineContext
     from app.database.sql_service import SQLUtil
+    from app.processing.pipeline import PipelineContext
+    from app.processing.steps import FilterStep, TokenizeStep
     from app.services.code_reuse_detector import compare_binaries
 
     try:
@@ -254,9 +257,7 @@ async def _run_code_reuse_task(
         logger.exception("Code reuse task failed")
         raise
     finally:
-        asyncio.get_event_loop().call_later(
-            10, lambda: TaskManager.remove_task(task_uuid)
-        )
+        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
         clear_request_context()
 
 
@@ -277,9 +278,9 @@ async def _run_dangerous_functions_task(
         task_name: Human-readable task name.
         captured_ctx: Captured request context.
     """
-    from app.processing.steps import TokenizeStep, FilterStep
-    from app.processing.pipeline import PipelineContext
     from app.database.sql_service import SQLUtil
+    from app.processing.pipeline import PipelineContext
+    from app.processing.steps import FilterStep, TokenizeStep
     from app.services.dangerous_function_scanner import generate_report
 
     try:
@@ -379,9 +380,7 @@ async def _run_dangerous_functions_task(
         logger.exception("Dangerous function scan task failed")
         raise
     finally:
-        asyncio.get_event_loop().call_later(
-            10, lambda: TaskManager.remove_task(task_uuid)
-        )
+        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
         clear_request_context()
 
 
@@ -408,15 +407,15 @@ async def _run_ml_task(
         ml_class_type: Classification type (for training).
         captured_ctx: Captured request context.
     """
+    from app.processing.pipeline import PipelineContext, ProcessingPipeline
     from app.processing.steps import (
-        LoadBinaryFunctionsStep,
-        TokenizeStep,
-        FilterStep,
         FeatureExtractStep,
-        TrainStep,
+        FilterStep,
+        LoadBinaryFunctionsStep,
         PredictStep,
+        TokenizeStep,
+        TrainStep,
     )
-    from app.processing.pipeline import ProcessingPipeline, PipelineContext
 
     try:
         if captured_ctx is not None:
@@ -466,9 +465,7 @@ async def _run_ml_task(
 
         if result.error:
             TaskManager.set_status(task_uuid, "error")
-            logger.opt(exception=result.exc_info).error(
-                "ML pipeline failed: {}", result.error
-            )
+            logger.opt(exception=result.exc_info).error("ML pipeline failed: {}", result.error)
         else:
             # Persist results to the database
             filtered_functions = result.get("filtered_functions")
@@ -519,9 +516,7 @@ async def _run_ml_task(
                             model_name=model_name,
                             data=prediction_data,
                         )
-                        await FunctionPersistanceUtil.add_prediction_functions(
-                            prediction_request, predictions
-                        )
+                        await FunctionPersistanceUtil.add_prediction_functions(prediction_request, predictions)
                         logger.info(
                             "Predictions saved for task '{}' ({} predictions)",
                             task_name,
@@ -539,9 +534,7 @@ async def _run_ml_task(
         logger.exception("ML task failed")
         raise
     finally:
-        asyncio.get_event_loop().call_later(
-            10, lambda: TaskManager.remove_task(task_uuid)
-        )
+        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
         clear_request_context()
 
 
@@ -648,15 +641,14 @@ async def _run_similarity_computation_task(
             logger.exception("Failed to persist error state for similarity computation")
         raise
     finally:
-        asyncio.get_event_loop().call_later(
-            10, lambda: TaskManager.remove_task(task_uuid)
-        )
+        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
         clear_request_context()
 
 
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/execute", response_model=SuccessResponse[TaskExecutionResponse])
 async def execute_task(
@@ -683,34 +675,30 @@ async def execute_task(
     if binary is None:
         raise HTTPException(
             status_code=404,
-            detail=create_error_response(
-                error_code="BINARY_NOT_FOUND",
-                error_message="Binary not found").model_dump())
+            detail=create_error_response(error_code="BINARY_NOT_FOUND", error_message="Binary not found").model_dump(),
+        )
 
     if binary.uploaded_by != current_user.id:
         raise HTTPException(
             status_code=403,
-            detail=create_error_response(
-                error_code="ACCESS_DENIED",
-                error_message="Access denied").model_dump())
+            detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
+        )
 
     # Validate task-specific parameters
-    if request_values.task_type in (TaskType.ML_TRAINING, TaskType.ML_PREDICTION):
-        if not request_values.model_name:
-            raise HTTPException(
-                status_code=400,
-                detail=create_error_response(
-                    error_code="MISSING_MODEL_NAME",
-                    error_message="model_name is required for ML tasks").model_dump(),
-            )
-    if request_values.task_type == TaskType.ML_TRAINING:
-        if not request_values.ml_class_type:
-            raise HTTPException(
-                status_code=400,
-                detail=create_error_response(
-                    error_code="MISSING_ML_CLASS_TYPE",
-                    error_message="ml_class_type is required for ML training").model_dump(),
-            )
+    if request_values.task_type in (TaskType.ML_TRAINING, TaskType.ML_PREDICTION) and not request_values.model_name:
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="MISSING_MODEL_NAME", error_message="model_name is required for ML tasks"
+            ).model_dump(),
+        )
+    if request_values.task_type == TaskType.ML_TRAINING and not request_values.ml_class_type:
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="MISSING_ML_CLASS_TYPE", error_message="ml_class_type is required for ML training"
+            ).model_dump(),
+        )
 
     task_uuid = TaskManager().get_uuid()
     TaskManager.register_task(task_uuid, "starting", owner_id=current_user.id)
@@ -790,17 +778,17 @@ async def get_task_results(
     if status == "UUID Not Found":
         raise HTTPException(
             status_code=404,
-            detail=create_error_response(
-                error_code="TASK_NOT_FOUND",
-                error_message="Task not found").model_dump())
+            detail=create_error_response(error_code="TASK_NOT_FOUND", error_message="Task not found").model_dump(),
+        )
 
     result = TaskManager.get_task_result(task_uuid)
     if result is None and status == "completed":
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="TASK_RESULTS_NOT_AVAILABLE",
-                error_message="Task results not available").model_dump())
+                error_code="TASK_RESULTS_NOT_AVAILABLE", error_message="Task results not available"
+            ).model_dump(),
+        )
 
     return create_success_response(
         data={"task_uuid": task_uuid, "status": status, "result": result},
@@ -825,9 +813,8 @@ async def get_task_status(
     if status == "UUID Not Found":
         raise HTTPException(
             status_code=404,
-            detail=create_error_response(
-                error_code="TASK_NOT_FOUND",
-                error_message="Task not found").model_dump())
+            detail=create_error_response(error_code="TASK_NOT_FOUND", error_message="Task not found").model_dump(),
+        )
 
     return create_success_response(
         data={"task_uuid": task_uuid, "status": status},
@@ -838,6 +825,7 @@ async def get_task_status(
 # ---------------------------------------------------------------------------
 # Similarity computation endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post(
     "/similarity-computation",
@@ -865,15 +853,12 @@ async def start_similarity_computation(
     for bid in request_values.binary_ids:
         binary = await SQLUtil.get_binary(bid)
         if binary is None:
-            raise HTTPException(
-                status_code=404, detail=f"Binary {bid} not found"
-            )
+            raise HTTPException(status_code=404, detail=f"Binary {bid} not found")
         if binary.uploaded_by != current_user.id:
             raise HTTPException(
                 status_code=403,
-                detail=create_error_response(
-                    error_code="ACCESS_DENIED",
-                    error_message="Access denied").model_dump())
+                detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
+            )
 
     task_uuid = TaskManager().get_uuid()
     TaskManager.register_task(task_uuid, "starting", owner_id=current_user.id)
@@ -918,9 +903,7 @@ async def list_similarity_computations(
     """
     from app.database.sql_service import SQLUtil
 
-    computations = await SQLUtil.list_similarity_computations(
-        computed_by=current_user.id
-    )
+    computations = await SQLUtil.list_similarity_computations(computed_by=current_user.id)
 
     result = [
         {
@@ -960,15 +943,15 @@ async def get_similarity_computation(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="COMPUTATION_NOT_FOUND",
-                error_message="Computation not found").model_dump())
+                error_code="COMPUTATION_NOT_FOUND", error_message="Computation not found"
+            ).model_dump(),
+        )
 
     if computation.computed_by != current_user.id:
         raise HTTPException(
             status_code=403,
-            detail=create_error_response(
-                error_code="ACCESS_DENIED",
-                error_message="Access denied").model_dump())
+            detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
+        )
 
     # Build pair responses with binary names
     pair_responses: list[SimilarityPairResponse] = []
@@ -1022,15 +1005,15 @@ async def delete_similarity_computation(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="COMPUTATION_NOT_FOUND",
-                error_message="Computation not found").model_dump())
+                error_code="COMPUTATION_NOT_FOUND", error_message="Computation not found"
+            ).model_dump(),
+        )
 
     if computation.computed_by != current_user.id:
         raise HTTPException(
             status_code=403,
-            detail=create_error_response(
-                error_code="ACCESS_DENIED",
-                error_message="Access denied").model_dump())
+            detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
+        )
 
     await SQLUtil.delete_similarity_computation(computation_id)
 

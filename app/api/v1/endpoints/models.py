@@ -7,54 +7,47 @@ as well as accessing function details and prediction information.
 from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from loguru import logger
 from starlette.responses import HTMLResponse
 
-from app.api.types import ModelName, FunctionName, TaskName
+from app.api.types import FunctionName, ModelName, TaskName
 from app.auth.dependencies import get_current_active_user
 from app.database.models import User
-from app.utils.persistence_util import (
-    FunctionPersistanceUtil,
-    MLPersistanceUtil,
-    PredictionPersistanceUtil)
-from app.utils.helpers import ACCEPT_TYPE
-from app.utils.common import format_code, build_prediction_details_response
-from loguru import logger
-from app.utils.responses import (
-    create_success_response,
-    create_error_response,
-    SuccessResponse)
 from app.templates import templates
+from app.utils.common import build_prediction_details_response, format_code
+from app.utils.helpers import ACCEPT_TYPE
 from app.utils.logging_utils import catch_http_exception
-
+from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
+from app.utils.responses import SuccessResponse, create_error_response, create_success_response
 
 router = APIRouter()
 
 
-@router.delete("/deleteModel", response_model=SuccessResponse[dict[str, Any]],
+@router.delete(
+    "/deleteModel",
+    response_model=SuccessResponse[dict[str, Any]],
     summary="Delete a model",
     description="Delete a trained ML model by name and all associated predictions.",
 )
 @catch_http_exception(status_code=500, error_code="DELETE_MODEL_ERROR", message="Failed to delete model")
 async def delete_model(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-    model_name: ModelName = Query(...)
+    current_user: Annotated[User, Depends(get_current_active_user)], model_name: ModelName = Query(...)
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete a trained ML model by name and all associated predictions."""
     await MLPersistanceUtil.delete_model(model_name)
     await PredictionPersistanceUtil.delete_model_predictions(model_name)
-    return create_success_response(
-        data={},
-        message="Model deleted successfully")
+    return create_success_response(data={}, message="Model deleted successfully")
 
 
-@router.delete("/deleteModels", response_model=SuccessResponse[dict[str, Any]],
+@router.delete(
+    "/deleteModels",
+    response_model=SuccessResponse[dict[str, Any]],
     summary="Delete multiple models",
     description="Delete multiple trained ML models by comma-separated names.",
 )
 @catch_http_exception(status_code=500, error_code="DELETE_MODELS_ERROR", message="Failed to delete models")
 async def delete_models(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-    model_names: str = Query(...)
+    current_user: Annotated[User, Depends(get_current_active_user)], model_names: str = Query(...)
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete multiple trained ML models by comma-separated names."""
     names = [name.strip() for name in model_names.split(",") if name.strip()]
@@ -62,8 +55,9 @@ async def delete_models(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_MODEL_NAMES",
-                error_message="At least one model name must be provided").model_dump())
+                error_code="INVALID_MODEL_NAMES", error_message="At least one model name must be provided"
+            ).model_dump(),
+        )
 
     deleted: list[str] = []
     failed: list[str] = []
@@ -84,7 +78,9 @@ async def delete_models(
     return create_success_response(data=data, message=message)
 
 
-@router.get("/getFunction", response_model=None,
+@router.get(
+    "/getFunction",
+    response_model=None,
     summary="Get a single function",
     description="Get decompiled code for a single function from a model.",
 )
@@ -92,32 +88,33 @@ async def get_function(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
-    function_name: FunctionName = Query(...)
-) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
+    function_name: FunctionName = Query(...),
+) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
     """Get decompiled code for a single function from a model."""
     if not model_name or not model_name.strip():
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_MODEL_NAME",
-                error_message="model_name must be a non-empty string").model_dump())
+                error_code="INVALID_MODEL_NAME", error_message="model_name must be a non-empty string"
+            ).model_dump(),
+        )
     if not function_name or not function_name.strip():
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_FUNCTION_NAME",
-                error_message="function_name must be a non-empty string").model_dump())
+                error_code="INVALID_FUNCTION_NAME", error_message="function_name must be a non-empty string"
+            ).model_dump(),
+        )
 
-    function_information = await FunctionPersistanceUtil.get_function(
-        model_name.strip(), function_name.strip()
-    )
+    function_information = await FunctionPersistanceUtil.get_function(model_name.strip(), function_name.strip())
 
     if function_information is None:
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="FUNCTION_NOT_FOUND",
-                error_message="Function not found").model_dump())
+                error_code="FUNCTION_NOT_FOUND", error_message="Function not found"
+            ).model_dump(),
+        )
 
     f_name = function_information.function_name
     f_entry = function_information.entrypoint
@@ -135,7 +132,8 @@ async def get_function(
                 "function_entry": f_entry,
                 "tokens": f_tokens,
                 "user": current_user,
-            })
+            },
+        )
 
     return create_success_response(
         data={
@@ -144,18 +142,21 @@ async def get_function(
             "entrypoint": f_entry,
             "tokens": function_information.tokens,
         },
-        message="Function retrieved successfully")
+        message="Function retrieved successfully",
+    )
 
 
-@router.get("/getFunctions", response_model=None,
+@router.get(
+    "/getFunctions",
+    response_model=None,
     summary="List model functions",
     description="List all extracted functions for a trained model.",
 )
 async def get_functions(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    model_name: ModelName = Query(...)
-) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
+    model_name: ModelName = Query(...),
+) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
     """List all extracted functions for a trained model."""
     functions = await FunctionPersistanceUtil.get_functions(model_name)
 
@@ -170,7 +171,8 @@ async def get_functions(
                 "model_name": model_name,
                 "functions": functions,
                 "user": current_user,
-            })
+            },
+        )
 
     return create_success_response(
         data={
@@ -184,10 +186,13 @@ async def get_functions(
                 for f in functions
             ]
         },
-        message="Functions retrieved successfully")
+        message="Functions retrieved successfully",
+    )
 
 
-@router.get("/getPredictionDetails", response_model=None,
+@router.get(
+    "/getPredictionDetails",
+    response_model=None,
     summary="Get prediction details",
     description="Get detailed prediction results for a specific function, comparing model and prediction tokens.",
 )
@@ -196,21 +201,20 @@ async def get_prediction_details(
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
-    task_name: TaskName = Query(...)
-) -> Union[SuccessResponse[dict[str, Any]], HTMLResponse]:
+    task_name: TaskName = Query(...),
+) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
     """Get detailed prediction results for a specific function, comparing model and prediction tokens."""
     try:
         model_info = await FunctionPersistanceUtil.get_function(model_name, function_name)
-        prediction_data = await FunctionPersistanceUtil.get_prediction_function(
-            task_name, model_name, function_name
-        )
+        prediction_data = await FunctionPersistanceUtil.get_prediction_function(task_name, model_name, function_name)
 
         if not prediction_data:
             raise HTTPException(
                 status_code=404,
                 detail=create_error_response(
-                    error_code="PREDICTION_NOT_FOUND",
-                    error_message="Prediction not found").model_dump())
+                    error_code="PREDICTION_NOT_FOUND", error_message="Prediction not found"
+                ).model_dump(),
+            )
 
         # Model function lookup is optional - the binary may not have been used
         # during model training, so the function may not exist in the functions DB.
@@ -227,8 +231,9 @@ async def get_prediction_details(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="RETRIEVAL_ERROR",
-                error_message="Could not retrieve details").model_dump())
+                error_code="RETRIEVAL_ERROR", error_message="Could not retrieve details"
+            ).model_dump(),
+        )
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
@@ -243,10 +248,10 @@ async def get_prediction_details(
                 "model_tokens": model_tokens,
                 "prediction_tokens": prediction_tokens,
                 "user": current_user,
-            })
+            },
+        )
 
     return create_success_response(
-        data=build_prediction_details_response(
-            task_name, model_name, function_name, model_tokens, prediction_tokens
-        ),
-        message="Prediction details retrieved successfully")
+        data=build_prediction_details_response(task_name, model_name, function_name, model_tokens, prediction_tokens),
+        message="Prediction details retrieved successfully",
+    )

@@ -11,18 +11,20 @@ import signal
 import threading
 import time
 import uuid
-from concurrent.futures import Future, ProcessPoolExecutor, wait, FIRST_COMPLETED
-from typing import Any, Callable
+from collections.abc import Callable
+from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
+from typing import Any
+
+from loguru import logger
 
 from app.config.settings import MAX_CPU_CORES
+from app.processing.pipeline import PipelineContext
 from app.services.request_handler import GhidraRequest
 from app.services.task_service import TaskService
-from app.processing.pipeline import PipelineContext
-from loguru import logger
 from app.utils.request_context import (
     CapturedContext,
-    restore_request_context,
     clear_request_context,
+    restore_request_context,
 )
 
 
@@ -84,9 +86,7 @@ class EventWatcher:
 
         self._watching = True
         self._stop_event = threading.Event()
-        self._watch_thread = threading.Thread(
-            target=self._watch_loop, name="EventWatcher", daemon=True
-        )
+        self._watch_thread = threading.Thread(target=self._watch_loop, name="EventWatcher", daemon=True)
         self._watch_thread.start()
         logger.info("EventWatcher started")
 
@@ -126,9 +126,7 @@ class EventWatcher:
             futures_only: list[Future[None]] = []
             with self._data_lock:
                 if self._watched_futures:
-                    futures_only = [
-                        task[1] for task in self._watched_futures.values()
-                    ]
+                    futures_only = [task[1] for task in self._watched_futures.values()]
 
             if not futures_only:
                 time.sleep(2.5)
@@ -157,27 +155,20 @@ class EventWatcher:
                     captured_ctx = target_task[2]
                     try:
                         if captured_ctx is not None:
-                            restore_request_context(
-                                captured_ctx, override_task_id=target_uuid)
+                            restore_request_context(captured_ctx, override_task_id=target_uuid)
                         target_callback(request, future)
                         logger.debug("Callback invoked for job {}", target_uuid)
                     except Exception:
-                        logger.exception(
-                            "Callback failed for job {}", target_uuid)
+                        logger.exception("Callback failed for job {}", target_uuid)
                     finally:
                         clear_request_context()
 
                 with self._data_lock:
-                    if (
-                        self._watched_futures.get(target_uuid)
-                        and self._watched_futures[target_uuid][1] is future
-                    ):
+                    if self._watched_futures.get(target_uuid) and self._watched_futures[target_uuid][1] is future:
                         del self._watched_futures[target_uuid]
                         logger.debug("Cleaned up job {}", target_uuid)
                     else:
-                        logger.debug(
-                            "Job {} re-registered by callback, keeping alive",
-                            target_uuid)
+                        logger.debug("Job {} re-registered by callback, keeping alive", target_uuid)
 
             time.sleep(0.5)
 
@@ -250,7 +241,7 @@ class TaskManager:
         """Generate a unique UUID.
 
         UUID4 uses 122 random bits, making collision probability
-        approximately 1 in 5.3×10^36 - statistically impossible for practical use.
+        approximately 1 in 5.3x10^36 - statistically impossible for practical use.
 
         Returns:
             A unique UUID string.
@@ -277,9 +268,7 @@ class TaskManager:
         cls._active_tasks[job_uuid] = initial_status
         if owner_id is not None:
             cls._task_owners[job_uuid] = owner_id
-        logger.debug(
-            "Registered task {} with status '{}' owner={}",
-            job_uuid, initial_status, owner_id)
+        logger.debug("Registered task {} with status '{}' owner={}", job_uuid, initial_status, owner_id)
 
     @classmethod
     def get_status(cls, job_uuid: str) -> str:
@@ -360,8 +349,7 @@ class TaskManager:
             or ownership verification failed.
         """
         if owner_id is not None and not cls.verify_task_owner(job_uuid, owner_id):
-            logger.warning(
-                "Ownership check failed for task {} by user {}", job_uuid, owner_id)
+            logger.warning("Ownership check failed for task {} by user {}", job_uuid, owner_id)
             return False
 
         if job_uuid in cls._active_tasks:
@@ -466,27 +454,27 @@ class Ghidra(TaskManager):
         Returns:
             The pipeline context with analysis results.
         """
-        from app.processing.steps import (
-            ValidationStep,
-            DecompileStep,
-            TokenizeStep,
-            FilterStep,
-            FeatureExtractStep,
-            TrainStep,
-            PredictStep)
         from app.processing.pipeline import ProcessingPipeline
+        from app.processing.steps import (
+            DecompileStep,
+            FeatureExtractStep,
+            FilterStep,
+            PredictStep,
+            TokenizeStep,
+            TrainStep,
+            ValidationStep,
+        )
 
         context = PipelineContext(
             uuid=ghidra_request.uuid,
             binary_path=file_path,
-            pipeline_type="ml_training"
-            if ghidra_request.is_training
-            else "ml_prediction",
+            pipeline_type="ml_training" if ghidra_request.is_training else "ml_prediction",
             metadata={
                 "model_name": ghidra_request.model_name,
                 "name": ghidra_request.name,
                 "ml_class_type": ghidra_request.ml_class_type,
-            })
+            },
+        )
 
         if ghidra_request.is_training:
             pipeline = ProcessingPipeline(
@@ -498,7 +486,8 @@ class Ghidra(TaskManager):
                     FilterStep(),
                     FeatureExtractStep(),
                     TrainStep(),
-                ])
+                ],
+            )
         else:
             pipeline = ProcessingPipeline(
                 "ML Prediction Pipeline",
@@ -509,5 +498,6 @@ class Ghidra(TaskManager):
                     FilterStep(),
                     FeatureExtractStep(),
                     PredictStep(),
-                ])
+                ],
+            )
         return await pipeline.execute(context)

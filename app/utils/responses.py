@@ -1,10 +1,10 @@
 """Unified response format for Glyph API."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from math import ceil
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_validator, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_serializer, field_validator
 
 T = TypeVar("T")
 
@@ -12,12 +12,8 @@ T = TypeVar("T")
 class Metadata(BaseModel):
     """Response metadata."""
 
-    timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        description="Response timestamp in UTC")
-    request_id: str | None = Field(
-        default=None,
-        description="Unique request identifier for tracing")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Response timestamp in UTC")
+    request_id: str | None = Field(default=None, description="Unique request identifier for tracing")
 
     @field_serializer("timestamp")
     def serialize_timestamp(self, value: datetime) -> str:
@@ -40,9 +36,7 @@ class SuccessResponse(BaseModel, Generic[T]):
 
     success: bool = Field(True, description="Response status indicator")
     data: T | None = Field(default=None, description="Response data payload")
-    message: str | None = Field(
-        default=None, description="Optional human-readable message"
-    )
+    message: str | None = Field(default=None, description="Optional human-readable message")
     metadata: SerializeAsAny[Metadata] = Field(default_factory=Metadata, description="Response metadata")
 
 
@@ -61,9 +55,7 @@ class ErrorDetails(BaseModel):
 
     code: str = Field(..., description="Error code identifier")
     message: str = Field(..., description="Human-readable error message")
-    details: dict[str, Any] | None = Field(
-        default=None, description="Additional error context"
-    )
+    details: dict[str, Any] | None = Field(default=None, description="Additional error context")
 
 
 class PaginatedResponse(BaseModel, Generic[T]):
@@ -117,9 +109,8 @@ def create_paginated_response(
 
 
 def create_success_response(
-    data: T | None = None,
-    message: str | None = None,
-    request_id: str | None = None) -> SuccessResponse[T]:
+    data: T | None = None, message: str | None = None, request_id: str | None = None
+) -> SuccessResponse[T]:
     """Factory function to create a success response.
 
     Args:
@@ -131,17 +122,13 @@ def create_success_response(
         A SuccessResponse instance.
     """
     return SuccessResponse(
-        success=True,
-        data=data,
-        message=message,
-        metadata=Metadata(request_id=request_id) if request_id else Metadata())
+        success=True, data=data, message=message, metadata=Metadata(request_id=request_id) if request_id else Metadata()
+    )
 
 
 def create_error_response(
-    error_code: str,
-    error_message: str,
-    details: dict[str, Any] | None = None,
-    request_id: str | None = None) -> ErrorResponse:
+    error_code: str, error_message: str, details: dict[str, Any] | None = None, request_id: str | None = None
+) -> ErrorResponse:
     """Factory function to create an error response.
 
     Args:
@@ -157,4 +144,5 @@ def create_error_response(
     return ErrorResponse(
         success=False,
         error=error_details.model_dump(),
-        metadata=Metadata(request_id=request_id) if request_id else Metadata())
+        metadata=Metadata(request_id=request_id) if request_id else Metadata(),
+    )

@@ -79,10 +79,7 @@ class CallGraph:
                 }
                 for node in self.nodes.values()
             ],
-            "edges": [
-                {"caller": e.caller, "callee": e.callee, "call_count": e.call_count}
-                for e in self.edges
-            ],
+            "edges": [{"caller": e.caller, "callee": e.callee, "call_count": e.call_count} for e in self.edges],
             "total_nodes": len(self.nodes),
             "total_edges": len(self.edges),
         }
@@ -91,18 +88,45 @@ class CallGraph:
 # Regex pattern to match function calls in C code.
 # Matches identifier followed by opening parenthesis, excluding common
 # false positives like control flow keywords.
-_CALL_PATTERN = re.compile(
-    r'\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\('
-)
+_CALL_PATTERN = re.compile(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(")
 
 # Keywords and patterns that look like function calls but are not.
 _NON_CALL_KEYWORDS: set[str] = {
-    "if", "else", "for", "while", "do", "switch", "case", "return",
-    "sizeof", "typeof", "alignof", "offsetof", "typedef", "struct",
-    "union", "enum", "void", "int", "char", "short", "long", "float",
-    "double", "unsigned", "signed", "const", "static", "volatile",
-    "extern", "register", "auto", "goto", "break", "continue",
-    "default", "typedef",
+    "if",
+    "else",
+    "for",
+    "while",
+    "do",
+    "switch",
+    "case",
+    "return",
+    "sizeof",
+    "typeof",
+    "alignof",
+    "offsetof",
+    "typedef",
+    "struct",
+    "union",
+    "enum",
+    "void",
+    "int",
+    "char",
+    "short",
+    "long",
+    "float",
+    "double",
+    "unsigned",
+    "signed",
+    "const",
+    "static",
+    "volatile",
+    "extern",
+    "register",
+    "auto",
+    "goto",
+    "break",
+    "continue",
+    "default",
 }
 
 
@@ -137,7 +161,7 @@ class CallGraphService:
 
         # Collect known function names for filtering
         known_functions = {f.function_name for f in functions}
-        function_map = {f.function_name: f for f in functions}
+        {f.function_name: f for f in functions}
 
         graph = CallGraph(binary_id=binary_id, known_functions=known_functions)
 
