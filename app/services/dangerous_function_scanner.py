@@ -75,17 +75,19 @@ class ScanReport:
 
 
 def _extract_usage_context(tokens: list[str], dangerous_function_name: str) -> list[str]:
-    """Extract lines from decompiled tokens that reference the dangerous function.
+    """Extract lines from decompiled tokens that call the dangerous function.
 
     Joins the token list into a readable string, splits into lines,
-    and returns lines that contain the dangerous function name.
+    and returns lines that contain a call to the dangerous function.
+    Only matches actual function calls (name followed by '('), not
+    occurrences inside string literals or comments.
 
     Args:
         tokens: List of tokens from the decompiled function.
         dangerous_function_name: Name of the dangerous function to search for.
 
     Returns:
-        List of code lines referencing the dangerous function.
+        List of code lines calling the dangerous function.
     """
     if not tokens:
         return []
@@ -97,7 +99,12 @@ def _extract_usage_context(tokens: list[str], dangerous_function_name: str) -> l
     # Split by semicolons to get statement-level granularity
     statements = [s.strip() for s in code_text.split(";") if s.strip()]
 
-    pattern = re.compile(re.escape(dangerous_function_name), re.IGNORECASE)
+    # Match actual function calls: function name followed by '(' with optional whitespace
+    # Uses word boundary before the name to avoid matching partial identifiers
+    # and requires '(' after to ensure it's a call, not just a mention in a string
+    pattern = re.compile(
+        r"\b" + re.escape(dangerous_function_name) + r"\s*\(", re.IGNORECASE
+    )
     matching_lines: list[str] = []
 
     for stmt in statements:
@@ -130,62 +137,25 @@ def _extract_usage_context(tokens: list[str], dangerous_function_name: str) -> l
 def _scan_function_names(functions: list[dict[str, Any]]) -> list[ScanResult]:
     """Scan function names against the dangerous function catalog.
 
-    Detects functions whose names directly match dangerous function names
-    from the catalog (e.g., a function named 'strcpy').
+    Previously detected functions whose names directly match dangerous function
+    names from the catalog (e.g., a function named 'strcpy'). However, this
+    produced misleading self-references like "sprintf found in sprintf" since
+    such functions are typically library exports or import stubs, not code
+    that uses the dangerous function.
 
-    Skips results where the function name matches the dangerous function name
-    (case-insensitive), since those are thunks/import stubs that produce
-    misleading "printf found in printf" output.
+    The body scan (_scan_function_bodies) already properly detects dangerous
+    function calls within function bodies and skips self-references, so this
+    name-based scan is no longer needed.
 
     Args:
         functions: List of function dictionaries.
 
     Returns:
-        ScanResults for functions whose names match dangerous functions.
+        Empty list (name-based scan is deprecated in favor of body scan).
     """
-    from app.services.dangerous_functions_catalog import FUNCTION_LOOKUP
-
-    results: list[ScanResult] = []
-
-    for func_info in functions:
-        func_name = func_info.get("functionName", "")
-        if not func_name:
-            continue
-
-        tokens = func_info.get("tokenList", [])
-        for _, entry in FUNCTION_LOOKUP.items():
-            if func_name.lower() == entry.name.lower():
-                # Skip thunks/import stubs: when the function has no body, it's
-                # likely just an import stub rather than real code using the function.
-                if not tokens:
-                    logger.debug(
-                        "Name scan: skipping '%s' (thunk/import stub, no function body)",
-                        func_name,
-                    )
-                    break
-
-                usage_context = _extract_usage_context(tokens, entry.name)
-                result = ScanResult(
-                    function_name=entry.name,
-                    containing_function=func_name,
-                    entrypoint=func_info.get("lowAddress", "0x0"),
-                    category=entry.category,
-                    severity=entry.severity,
-                    cwe=entry.cwe,
-                    description=entry.description,
-                    safe_alternative=entry.safe_alternative,
-                    usage_context=usage_context,
-                    containing_function_code=_format_full_function_code(tokens),
-                )
-                results.append(result)
-                logger.debug(
-                    "Name scan: found '%s' as function name (entrypoint %s)",
-                    entry.name,
-                    func_info.get("lowAddress", "0x0"),
-                )
-                break  # Only match once per function
-
-    return results
+    # Name-based scan removed to avoid self-referencing false positives.
+    # The body scan (_scan_function_bodies) handles all real detections.
+    return []
 
 
 def scan_functions(functions: list[dict[str, Any]]) -> list[ScanResult]:
@@ -318,37 +288,33 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
 
             found = False
 
-            # Primary: Case-insensitive word boundary match
-            # \b matches between word and non-word chars (e.g., before '(' in 'strcpy(')
-            pattern = re.compile(r"\b" + re.escape(entry.name) + r"\b", re.IGNORECASE)
-            if pattern.search(code_text):
+            # Primary: Match actual function calls - name followed by '(' with optional whitespace
+            # This avoids false positives from string literals containing the function name
+            # e.g., "The system is down" won't match system()
+            call_pattern = re.compile(
+                r"\b" + re.escape(entry.name) + r"\s*\(", re.IGNORECASE
+            )
+            if call_pattern.search(code_text):
                 found = True
 
-            # Fallback: Substring match for edge cases where Ghidra tokens
-            # might combine the function name with punctuation in unexpected
-            # ways. Treat alphanumeric AND underscore as identifier characters
-            # (same as regex \b) to avoid false positives like
-            # 'my_strcpy_wrapper' matching 'strcpy'.
+            # Fallback: Check for function pointer assignments that might reference
+            # the dangerous function, e.g., "func_ptr = system" or "&system"
             if not found:
-                df_name_lower_entry = entry.name.lower()
-                code_text_lower = code_text.lower()
-                idx = 0
-                while idx < len(code_text_lower):
-                    pos = code_text_lower.find(df_name_lower_entry, idx)
-                    if pos == -1:
-                        break
-                    # Check character before match (if any)
-                    # Treat _ as part of identifier (like regex \b does)
-                    before_ok = pos == 0 or (not code_text_lower[pos - 1].isalnum() and code_text_lower[pos - 1] != "_")
-                    # Check character after match (if any)
-                    end_pos = pos + len(df_name_lower_entry)
-                    after_ok = end_pos >= len(code_text_lower) or (
-                        not code_text_lower[end_pos].isalnum() and code_text_lower[end_pos] != "_"
-                    )
-                    if before_ok and after_ok:
-                        found = True
-                        break
-                    idx = pos + 1
+                ptr_pattern = re.compile(
+                    r"(?:=\s*|&\s*)" + re.escape(entry.name) + r"(?![a-zA-Z0-9_])", re.IGNORECASE
+                )
+                if ptr_pattern.search(code_text):
+                    # Only consider this a match if it looks like an assignment or address-of
+                    # and NOT inside a quoted string (basic heuristic: check for nearby quotes)
+                    matches = list(ptr_pattern.finditer(code_text))
+                    for m in matches:
+                        start = m.start()
+                        # Count quotes before this match to detect if inside a string
+                        preceding_text = code_text[:start]
+                        quote_count = preceding_text.count('"') - preceding_text.count('\\"')
+                        if quote_count % 2 == 0:  # Even quotes means we're outside a string
+                            found = True
+                            break
 
             if found:
                 funcs_with_match += 1
