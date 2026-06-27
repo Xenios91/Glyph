@@ -63,8 +63,61 @@ class DataHandler:
                 unique_functions.append(func)
         self.json_dict["functionsMap"]["functions"] = unique_functions
 
-    def _load_data(self) -> None:
-        """Load and process data. Override in subclasses."""
+    @staticmethod
+    def _deduplicate_functions(functions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Deduplicate functions based on JSON serialization.
+
+        Serializes each function to a JSON string (with sorted keys) to use
+        as a deduplication key, then deserializes back. This ensures that
+        functions with identical content are treated as duplicates regardless
+        of key ordering.
+
+        Args:
+            functions: List of function dictionaries to deduplicate.
+
+        Returns:
+            Deduplicated list of function dictionaries.
+        """
+        return [json.loads(t) for t in {json.dumps(d, sort_keys=True) for d in functions}]
+
+    @staticmethod
+    def _convert_tokens(functions: list[dict[str, Any]]) -> None:
+        """Convert token lists to space-separated strings in place.
+
+        For each function dictionary, reads the "tokenList" field and joins
+        it into a single space-separated string stored in the "tokens" field.
+
+        Args:
+            functions: List of function dictionaries to process (modified in place).
+        """
+        for function in functions:
+            token_list = function["tokenList"]
+            tokens = " ".join(cast(list[str], token_list))
+            function["tokens"] = tokens
+
+    def _load_data(self, error_label: str) -> None:
+        """Load and process function data into a DataFrame.
+
+        Shared implementation used by TrainingRequest and PredictionRequest.
+        Subclasses call this from their own _load_data() with an appropriate
+        error label for logging.
+
+        Args:
+            error_label: Label used in error messages (e.g., "training", "prediction").
+
+        Raises:
+            ValueError: If the data is invalid or processing fails.
+        """
+        try:
+            functions_temp = list(self.get_functions())
+            unique_functions = self._deduplicate_functions(functions_temp)
+            self._convert_tokens(unique_functions)
+            self.data = pd.DataFrame(unique_functions)
+        except Exception as load_exception:
+            logger.exception("Failed to process %s data", error_label)
+            exc = ValueError("invalid dataset")
+            exc.add_note(f"Error processing {error_label} data for UUID: {self.uuid}")
+            raise exc from load_exception
 
     def get_functions(self) -> list[dict[str, Any]]:
         """Get the list of functions from the request data.
@@ -102,25 +155,14 @@ class TrainingRequest(DataHandler):
     def _load_data(self) -> None:
         """Load and process training data.
 
+        Extracts the binary name and delegates to the shared base
+        implementation for function deduplication and token conversion.
+
         Raises:
             ValueError: If the training data is invalid.
         """
-        try:
-            self.bin_name = self.json_dict["binaryName"]
-            functions_temp = list(self.get_functions())
-            unique_functions = [json.loads(t) for t in {json.dumps(d, sort_keys=True) for d in functions_temp}]
-
-            for function in unique_functions:
-                token_list = function["tokenList"]
-                tokens = " ".join(cast(list[str], token_list))
-                function["tokens"] = tokens
-
-            self.data = pd.DataFrame(unique_functions)
-        except Exception as tr_exception:
-            logger.exception("Failed to process training data")
-            exc = ValueError("invalid dataset")
-            exc.add_note(f"Error processing training data for UUID: {self.uuid}")
-            raise exc from tr_exception
+        self.bin_name = self.json_dict["binaryName"]
+        super()._load_data(error_label="training")
 
 
 class PredictionRequest(DataHandler):
@@ -156,27 +198,12 @@ class PredictionRequest(DataHandler):
     def _load_data(self) -> None:
         """Load and process prediction data.
 
-        Converts token lists to space-separated strings and builds
-        a DataFrame for ML prediction.
+        Delegates to base class shared implementation.
 
         Raises:
             ValueError: If the prediction data is invalid.
         """
-        try:
-            functions_temp = list(self.get_functions())
-            unique_functions = [json.loads(t) for t in {json.dumps(d, sort_keys=True) for d in functions_temp}]
-
-            for function in unique_functions:
-                token_list = function["tokenList"]
-                tokens = " ".join(cast(list[str], token_list))
-                function["tokens"] = tokens
-
-            self.data = pd.DataFrame(unique_functions)
-        except Exception as unknown_exception:
-            logger.exception("Failed to process prediction data")
-            exc = ValueError("invalid dataset")
-            exc.add_note(f"Error processing prediction data for UUID: {self.uuid}")
-            raise exc from unknown_exception
+        super()._load_data(error_label="prediction")
 
 
 class GhidraRequest:

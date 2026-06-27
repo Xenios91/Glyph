@@ -167,14 +167,14 @@ class TestXForwardedForTrust:
             assert ip == "1.2.3.4"
 
     def test_xff_first_ip_extracted(self) -> None:
-        """First IP from X-Forwarded-For chain should be used."""
+        """Rightmost non-trusted IP from X-Forwarded-For chain should be used."""
         request = MagicMock()
         request.headers = {"X-Forwarded-For": "1.2.3.4, 5.6.7.8, 9.10.11.12"}
         request.client.host = "10.0.0.1"
         with patch("app.config.settings.get_settings") as mock_settings:
             mock_settings.return_value.trusted_proxies = ["10.0.0.1"]
             ip = get_client_ip(request)
-            assert ip == "1.2.3.4"
+            assert ip == "9.10.11.12"
 
 
 class TestBlockedBuiltins:

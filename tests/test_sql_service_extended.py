@@ -45,8 +45,8 @@ class TestSQLUtilErrorPaths:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.model_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.model_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB write failed"):
                     await SQLUtil.save_model("err_model", b"enc", b"mod")
                 mock_error.rollback.assert_awaited_once()
@@ -56,8 +56,8 @@ class TestSQLUtilErrorPaths:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB read failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.model_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.model_repository.close_async_session", new=AsyncMock()):
                 result = await SQLUtil.get_models_list()
                 assert result == set()
 
@@ -66,8 +66,8 @@ class TestSQLUtilErrorPaths:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB query failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.model_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.model_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB query failed"):
                     await SQLUtil.get_model("err_model")
 
@@ -78,8 +78,8 @@ class TestSQLUtilErrorPaths:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.model_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.model_repository.close_async_session", new=AsyncMock()):
                 with patch.object(SQLUtil, "delete_model_predictions", new=AsyncMock()):
                     with patch.object(SQLUtil, "delete_functions", new=AsyncMock()):
                         with pytest.raises(Exception, match="DB delete failed"):
@@ -93,8 +93,8 @@ class TestSQLUtilErrorPaths:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.prediction_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.prediction_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB save failed"):
                     await SQLUtil.save_predictions("task", "model", [{"functionName": "f1"}])
                 mock_error.rollback.assert_awaited_once()
@@ -104,8 +104,8 @@ class TestSQLUtilErrorPaths:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB read failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.prediction_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.prediction_repository.close_async_session", new=AsyncMock()):
                 result = await SQLUtil.get_predictions("task", "model")
                 assert result is None
 
@@ -116,8 +116,8 @@ class TestSQLUtilErrorPaths:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.function_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.function_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB del func failed"):
                     await SQLUtil.delete_functions("err_model")
                 mock_error.rollback.assert_awaited_once()
@@ -129,8 +129,8 @@ class TestSQLUtilErrorPaths:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.prediction_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.prediction_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB del pred failed"):
                     await SQLUtil.delete_prediction("err_task")
                 mock_error.rollback.assert_awaited_once()
@@ -142,8 +142,8 @@ class TestSQLUtilErrorPaths:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.prediction_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.prediction_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB del model preds failed"):
                     await SQLUtil.delete_model_predictions("err_model")
                 mock_error.rollback.assert_awaited_once()
@@ -153,8 +153,8 @@ class TestSQLUtilErrorPaths:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB check failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.model_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.model_repository.close_async_session", new=AsyncMock()):
                 result = await SQLUtil.model_name_exists("err_model")
                 assert result is False
 
@@ -163,8 +163,8 @@ class TestSQLUtilErrorPaths:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB check failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.prediction_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.prediction_repository.close_async_session", new=AsyncMock()):
                 result = await SQLUtil.task_name_exists("err_task")
                 assert result is False
 
@@ -213,8 +213,8 @@ class TestSQLUtilBinaryOperations:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB query failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.binary_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.binary_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB query failed"):
                     await SQLUtil.get_binary(1)
 
@@ -250,8 +250,8 @@ class TestSQLUtilBinaryOperations:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB query failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.binary_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.binary_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB query failed"):
                     await SQLUtil.get_binaries_by_user(1)
 
@@ -275,8 +275,8 @@ class TestSQLUtilBinaryOperations:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.binary_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.binary_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB del binary failed"):
                     await SQLUtil.delete_binary(1)
                 mock_error.rollback.assert_awaited_once()
@@ -333,8 +333,8 @@ class TestSQLUtilBinaryOperations:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.binary_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.binary_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB save funcs failed"):
                     await SQLUtil.save_binary_functions(1, [{"function_name": "f", "entrypoint": False, "raw_code": "c"}])
                 mock_error.rollback.assert_awaited_once()
@@ -356,8 +356,8 @@ class TestSQLUtilBinaryOperations:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB query failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.binary_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.binary_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB query failed"):
                     await SQLUtil.get_binary_functions(1)
 
@@ -378,8 +378,8 @@ class TestSQLUtilBinaryOperations:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB query failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.binary_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.binary_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB query failed"):
                     await SQLUtil.get_all_binary_ids()
 
@@ -405,8 +405,8 @@ class TestSQLUtilBinaryOperations:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB query failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.binary_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.binary_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB query failed"):
                     await SQLUtil.get_binary_name(1)
 
@@ -417,8 +417,8 @@ class TestSQLUtilBinaryOperations:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.binary_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.binary_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB add failed"):
                     await SQLUtil.save_binary("err", "/tmp/e", 1, "m", 1)
                 mock_error.rollback.assert_awaited_once()
@@ -476,8 +476,8 @@ class TestSQLUtilSimilarityComputation:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.similarity_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.similarity_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB create failed"):
                     await SQLUtil.create_similarity_computation("fail_task", 1, 2)
                 mock_error.rollback.assert_awaited_once()
@@ -503,8 +503,8 @@ class TestSQLUtilSimilarityComputation:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.similarity_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.similarity_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB update failed"):
                     await SQLUtil.update_similarity_computation_status(1, "running")
                 mock_error.rollback.assert_awaited_once()
@@ -533,8 +533,8 @@ class TestSQLUtilSimilarityComputation:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.similarity_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.similarity_repository.close_async_session", new=AsyncMock()):
                 pairs = [SimilarityPair(binary_a_id=1, binary_b_id=2, overall_similarity=0.5, matched_function_count=3, total_function_comparisons=5)]
                 with pytest.raises(Exception, match="DB save pairs failed"):
                     await SQLUtil.save_similarity_pairs(1, pairs)
@@ -557,8 +557,8 @@ class TestSQLUtilSimilarityComputation:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB read failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.similarity_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.similarity_repository.close_async_session", new=AsyncMock()):
                 result = await SQLUtil.get_similarity_computation(1)
                 assert result is None
 
@@ -582,8 +582,8 @@ class TestSQLUtilSimilarityComputation:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB list failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.similarity_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.similarity_repository.close_async_session", new=AsyncMock()):
                 comps = await SQLUtil.list_similarity_computations()
                 assert comps == []
 
@@ -602,8 +602,8 @@ class TestSQLUtilSimilarityComputation:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.similarity_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.similarity_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB delete failed"):
                     await SQLUtil.delete_similarity_computation(1)
                 mock_error.rollback.assert_awaited_once()
@@ -617,8 +617,8 @@ class TestSQLUtilFunctionErrorPaths:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB read failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.function_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.function_repository.close_async_session", new=AsyncMock()):
                 funcs = await SQLUtil.get_functions("err_model")
                 assert funcs == []
 
@@ -627,8 +627,8 @@ class TestSQLUtilFunctionErrorPaths:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB read failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.function_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.function_repository.close_async_session", new=AsyncMock()):
                 func = await SQLUtil.get_function("err_model", "main")
                 assert func is None
 
@@ -688,8 +688,8 @@ class TestSQLUtilPredictionDeserializationErrors:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB session failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.prediction_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.prediction_repository.close_async_session", new=AsyncMock()):
                 results = await SQLUtil.get_predictions_list()
                 assert results == []
 
@@ -786,8 +786,8 @@ class TestSQLUtilPredictionDeserializationErrors:
         mock_error = AsyncMock()
         mock_error.execute = AsyncMock(side_effect=Exception("DB session failed"))
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.prediction_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.prediction_repository.close_async_session", new=AsyncMock()):
                 result = await SQLUtil.get_prediction_function("task", "model", "func")
                 assert result == {}
 
@@ -798,8 +798,8 @@ class TestSQLUtilPredictionDeserializationErrors:
         mock_error.commit = AsyncMock()
         mock_error.rollback = AsyncMock()
 
-        with patch("app.database.sql_service.get_async_session", return_value=mock_error):
-            with patch("app.database.sql_service.close_async_session", new=AsyncMock()):
+        with patch("app.database.function_repository.get_async_session", return_value=mock_error):
+            with patch("app.database.function_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB save failed"):
                     await SQLUtil.save_functions("err_model", [{"functionName": "f", "lowAddress": "0", "tokenList": []}])
                 mock_error.rollback.assert_awaited_once()

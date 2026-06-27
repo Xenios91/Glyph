@@ -26,17 +26,32 @@ def _build_rate_limit(max_requests: int, window_seconds: int, env_prefix: str) -
 
 
 def rate_limit_key_func(request: Request) -> str:
-    """Extract client IP for rate limiting, respecting trusted proxies."""
+    """Extract client IP for rate limiting, respecting trusted proxies.
+
+    When the direct connection is from a trusted proxy, extract the real client
+    IP from X-Forwarded-For by walking the chain right-to-left and returning
+    the first (rightmost) IP that is NOT a trusted proxy. This prevents attackers
+    from spoofing the client IP by injecting fake entries into the header.
+    """
     from app.config.settings import get_settings
 
     settings = get_settings()
     client = getattr(request, "client", None)
     direct_ip = client.host if client and hasattr(client, "host") else "unknown"
 
-    if settings.trusted_proxies and direct_ip in settings.trusted_proxies:
+    trusted_proxies = set(settings.trusted_proxies) if settings.trusted_proxies else set()
+
+    if trusted_proxies and direct_ip in trusted_proxies:
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
+            # X-Forwarded-For format: client_ip, proxy1_ip, proxy2_ip, ...
+            # Walk right-to-left to find the first non-proxy IP (the real client).
+            ips = [ip.strip() for ip in forwarded_for.split(",") if ip.strip()]
+            for ip in reversed(ips):
+                if ip not in trusted_proxies:
+                    return ip
+            # All IPs in the chain are trusted proxies; fall back to the leftmost.
+            return ips[0] if ips else direct_ip
 
     return direct_ip
 

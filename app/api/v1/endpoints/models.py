@@ -6,18 +6,18 @@ as well as accessing function details and prediction information.
 
 from typing import Annotated, Any, Union
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
-from starlette.responses import HTMLResponse
 
 from app.api.types import FunctionName, ModelName, TaskName
 from app.auth.dependencies import get_current_active_user
+from app.database.function_repository import FunctionRepository
+from app.database.model_repository import ModelRepository
 from app.database.models import User
-from app.templates import templates
+from app.database.prediction_repository import PredictionRepository
+from app.services.prediction_service import PredictionService
 from app.utils.common import build_prediction_details_response, format_code
-from app.utils.helpers import ACCEPT_TYPE
 from app.utils.logging_utils import catch_http_exception
-from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
 from app.utils.responses import SuccessResponse, create_error_response, create_success_response
 
 router = APIRouter()
@@ -34,8 +34,8 @@ async def delete_model(
     current_user: Annotated[User, Depends(get_current_active_user)], model_name: ModelName = Query(...)
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete a trained ML model by name and all associated predictions."""
-    await MLPersistanceUtil.delete_model(model_name)
-    await PredictionPersistanceUtil.delete_model_predictions(model_name)
+    await ModelRepository.delete(model_name)
+    await PredictionService.delete_predictions_for_model(model_name)
     return create_success_response(data={}, message="Model deleted successfully")
 
 
@@ -63,8 +63,8 @@ async def delete_models(
     failed: list[str] = []
     for name in names:
         try:
-            await MLPersistanceUtil.delete_model(name)
-            await PredictionPersistanceUtil.delete_model_predictions(name)
+            await ModelRepository.delete(name)
+            await PredictionService.delete_predictions_for_model(name)
             deleted.append(name)
         except Exception as exc:
             logger.warning("Failed to delete model '%s': %s", name, exc)
@@ -85,11 +85,10 @@ async def delete_models(
     description="Get decompiled code for a single function from a model.",
 )
 async def get_function(
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
-) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
+) -> SuccessResponse[dict[str, Any]]:
     """Get decompiled code for a single function from a model."""
     if not model_name or not model_name.strip():
         raise HTTPException(
@@ -106,7 +105,7 @@ async def get_function(
             ).model_dump(),
         )
 
-    function_information = await FunctionPersistanceUtil.get_function(model_name.strip(), function_name.strip())
+    function_information = await FunctionRepository.get(model_name.strip(), function_name.strip())
 
     if function_information is None:
         raise HTTPException(
@@ -118,22 +117,6 @@ async def get_function(
 
     f_name = function_information.function_name
     f_entry = function_information.entrypoint
-    f_tokens = format_code(function_information.tokens)
-
-    accept = request.headers.get("Accept", "")
-    if ACCEPT_TYPE in accept:
-        return templates.TemplateResponse(
-            request,
-            "get_function.html",
-            {
-                "title": f"Glyph - Function: {f_name}",
-                "model_name": model_name,
-                "function_name": f_name,
-                "function_entry": f_entry,
-                "tokens": f_tokens,
-                "user": current_user,
-            },
-        )
 
     return create_success_response(
         data={
@@ -153,26 +136,11 @@ async def get_function(
     description="List all extracted functions for a trained model.",
 )
 async def get_functions(
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
-) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
+) -> SuccessResponse[dict[str, Any]]:
     """List all extracted functions for a trained model."""
-    functions = await FunctionPersistanceUtil.get_functions(model_name)
-
-    accept = request.headers.get("Accept", "")
-    if ACCEPT_TYPE in accept:
-        return templates.TemplateResponse(
-            request,
-            "get_symbols.html",
-            {
-                "title": f"Glyph - Model: {model_name}",
-                "bin_name": "test",
-                "model_name": model_name,
-                "functions": functions,
-                "user": current_user,
-            },
-        )
+    functions = await FunctionRepository.get_functions(model_name)
 
     return create_success_response(
         data={
@@ -197,16 +165,15 @@ async def get_functions(
     description="Get detailed prediction results for a specific function, comparing model and prediction tokens.",
 )
 async def get_prediction_details(
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
     task_name: TaskName = Query(...),
-) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
+) -> SuccessResponse[dict[str, Any]]:
     """Get detailed prediction results for a specific function, comparing model and prediction tokens."""
     try:
-        model_info = await FunctionPersistanceUtil.get_function(model_name, function_name)
-        prediction_data = await FunctionPersistanceUtil.get_prediction_function(task_name, model_name, function_name)
+        model_info = await FunctionRepository.get(model_name, function_name)
+        prediction_data = await PredictionRepository.get_prediction_function(task_name, model_name, function_name)
 
         if not prediction_data:
             raise HTTPException(
@@ -233,22 +200,6 @@ async def get_prediction_details(
             detail=create_error_response(
                 error_code="RETRIEVAL_ERROR", error_message="Could not retrieve details"
             ).model_dump(),
-        )
-
-    accept = request.headers.get("Accept", "")
-    if ACCEPT_TYPE in accept:
-        return templates.TemplateResponse(
-            request,
-            "prediction_function_details.html",
-            {
-                "title": f"Glyph - Prediction: {function_name}",
-                "task_name": task_name,
-                "model_name": model_name,
-                "function_name": function_name,
-                "model_tokens": model_tokens,
-                "prediction_tokens": prediction_tokens,
-                "user": current_user,
-            },
         )
 
     return create_success_response(

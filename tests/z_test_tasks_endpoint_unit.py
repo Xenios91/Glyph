@@ -7,9 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 _MOCKED_MODULES = [
     "app.processing.task_management",
     "app.processing.pipeline",
+    "app.processing.pipeline_configs",
     "app.processing.steps",
     "app.services.request_handler",
-    "app.utils.persistence_util",
+    "app.database.function_repository",
+    "app.database.prediction_repository",
     "app.services.binary_similarity_service",
     "app.services.code_reuse_detector",
     "app.services.dangerous_function_scanner",
@@ -494,8 +496,7 @@ class TestRunMLTask:
         mock_result.get = MagicMock(return_value=None)
         mock_pipeline.execute = AsyncMock(return_value=mock_result)
 
-        mock_pipeline_cls = sys.modules["app.processing.pipeline"]
-        mock_pipeline_cls.ProcessingPipeline.return_value = mock_pipeline
+        sys.modules["app.processing.pipeline_configs"].TRAINING_FROM_DB_PIPELINE = mock_pipeline
 
         with patch("app.api.v1.endpoints.tasks.clear_request_context"):
             await _run_ml_task(
@@ -519,8 +520,7 @@ class TestRunMLTask:
         mock_result.get = MagicMock(return_value=None)
         mock_pipeline.execute = AsyncMock(return_value=mock_result)
 
-        mock_pipeline_cls = sys.modules["app.processing.pipeline"]
-        mock_pipeline_cls.ProcessingPipeline.return_value = mock_pipeline
+        sys.modules["app.processing.pipeline_configs"].PREDICTION_FROM_DB_PIPELINE = mock_pipeline
 
         with patch("app.api.v1.endpoints.tasks.clear_request_context"):
             await _run_ml_task(
@@ -544,8 +544,7 @@ class TestRunMLTask:
         mock_result.get = MagicMock(return_value=None)
         mock_pipeline.execute = AsyncMock(return_value=mock_result)
 
-        mock_pipeline_cls = sys.modules["app.processing.pipeline"]
-        mock_pipeline_cls.ProcessingPipeline.return_value = mock_pipeline
+        sys.modules["app.processing.pipeline_configs"].TRAINING_FROM_DB_PIPELINE = mock_pipeline
 
         with patch("app.api.v1.endpoints.tasks.clear_request_context"):
             await _run_ml_task(
@@ -566,8 +565,7 @@ class TestRunMLTask:
         mock_pipeline = MagicMock()
         mock_pipeline.execute = AsyncMock(side_effect=RuntimeError("Pipeline crash"))
 
-        mock_pipeline_cls = sys.modules["app.processing.pipeline"]
-        mock_pipeline_cls.ProcessingPipeline.return_value = mock_pipeline
+        sys.modules["app.processing.pipeline_configs"].TRAINING_FROM_DB_PIPELINE = mock_pipeline
 
         with patch("app.api.v1.endpoints.tasks.clear_request_context"):
             with pytest.raises(RuntimeError):
@@ -592,8 +590,7 @@ class TestRunMLTask:
         mock_result.get = MagicMock(return_value=None)
         mock_pipeline.execute = AsyncMock(return_value=mock_result)
 
-        mock_pipeline_cls = sys.modules["app.processing.pipeline"]
-        mock_pipeline_cls.ProcessingPipeline.return_value = mock_pipeline
+        sys.modules["app.processing.pipeline_configs"].TRAINING_FROM_DB_PIPELINE = mock_pipeline
 
         captured_ctx = MagicMock(spec=CapturedContext)
 
@@ -629,11 +626,10 @@ class TestRunMLTask:
         mock_result.get = MagicMock(side_effect=_get)
         mock_pipeline.execute = AsyncMock(return_value=mock_result)
 
-        mock_pipeline_cls = sys.modules["app.processing.pipeline"]
-        mock_pipeline_cls.ProcessingPipeline.return_value = mock_pipeline
+        sys.modules["app.processing.pipeline_configs"].TRAINING_FROM_DB_PIPELINE = mock_pipeline
 
-        mock_persist = sys.modules["app.utils.persistence_util"]
-        mock_persist.FunctionPersistanceUtil.add_model_functions = AsyncMock()
+        mock_repo = sys.modules["app.database.function_repository"]
+        mock_repo.save = AsyncMock()
 
         with patch("app.api.v1.endpoints.tasks.clear_request_context"):
             await _run_ml_task(
@@ -644,7 +640,7 @@ class TestRunMLTask:
                 model_name="test-model",
                 ml_class_type="malware",
             )
-            mock_persist.FunctionPersistanceUtil.add_model_functions.assert_called_once()
+            mock_repo.save.assert_called_once()
             mock_tm.set_status.assert_any_call("test-uuid", "completed")
 
     @patch("app.api.v1.endpoints.tasks.TaskManager")
@@ -668,11 +664,10 @@ class TestRunMLTask:
         mock_result.get = MagicMock(side_effect=_get)
         mock_pipeline.execute = AsyncMock(return_value=mock_result)
 
-        mock_pipeline_cls = sys.modules["app.processing.pipeline"]
-        mock_pipeline_cls.ProcessingPipeline.return_value = mock_pipeline
+        sys.modules["app.processing.pipeline_configs"].PREDICTION_FROM_DB_PIPELINE = mock_pipeline
 
-        mock_persist = sys.modules["app.utils.persistence_util"]
-        mock_persist.FunctionPersistanceUtil.add_prediction_functions = AsyncMock()
+        mock_pred_repo = sys.modules["app.database.prediction_repository"]
+        mock_pred_repo.save = AsyncMock()
 
         with patch("app.api.v1.endpoints.tasks.clear_request_context"):
             await _run_ml_task(
@@ -682,7 +677,7 @@ class TestRunMLTask:
                 task_name="test-prediction",
                 model_name="test-model",
             )
-            mock_persist.FunctionPersistanceUtil.add_prediction_functions.assert_called_once()
+            mock_pred_repo.save.assert_called_once()
             mock_tm.set_status.assert_any_call("test-uuid", "completed")
 
     @patch("app.api.v1.endpoints.tasks.TaskManager")
@@ -704,11 +699,10 @@ class TestRunMLTask:
         mock_result.get = MagicMock(side_effect=_get)
         mock_pipeline.execute = AsyncMock(return_value=mock_result)
 
-        mock_pipeline_cls = sys.modules["app.processing.pipeline"]
-        mock_pipeline_cls.ProcessingPipeline.return_value = mock_pipeline
+        sys.modules["app.processing.pipeline_configs"].TRAINING_FROM_DB_PIPELINE = mock_pipeline
 
-        mock_persist = sys.modules["app.utils.persistence_util"]
-        mock_persist.FunctionPersistanceUtil.add_model_functions = AsyncMock(side_effect=RuntimeError("Persist failed"))
+        mock_repo = sys.modules["app.database.function_repository"]
+        mock_repo.save = AsyncMock(side_effect=RuntimeError("Persist failed"))
 
         with patch("app.api.v1.endpoints.tasks.clear_request_context"):
             with pytest.raises(RuntimeError):
@@ -743,11 +737,10 @@ class TestRunMLTask:
         mock_result.get = MagicMock(side_effect=_get)
         mock_pipeline.execute = AsyncMock(return_value=mock_result)
 
-        mock_pipeline_cls = sys.modules["app.processing.pipeline"]
-        mock_pipeline_cls.ProcessingPipeline.return_value = mock_pipeline
+        sys.modules["app.processing.pipeline_configs"].PREDICTION_FROM_DB_PIPELINE = mock_pipeline
 
-        mock_persist = sys.modules["app.utils.persistence_util"]
-        mock_persist.FunctionPersistanceUtil.add_prediction_functions = AsyncMock(side_effect=RuntimeError("Persist failed"))
+        mock_pred_repo = sys.modules["app.database.prediction_repository"]
+        mock_pred_repo.save = AsyncMock(side_effect=RuntimeError("Persist failed"))
 
         with patch("app.api.v1.endpoints.tasks.clear_request_context"):
             with pytest.raises(RuntimeError):

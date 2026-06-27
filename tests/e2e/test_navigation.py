@@ -4,54 +4,23 @@
 Tests navigation elements, dropdown menus, and page transitions.
 """
 
-import time
 from typing import Any
 
 from playwright.sync_api import expect
 
-
-BASE_URL = "http://127.0.0.1:8000"
-
-
-def generate_unique_username() -> str:
-    """Generate a unique username for testing."""
-    timestamp = int(time.time() * 1000) % 100000
-    return f"testuser_{timestamp}"
-
-
-def wait_for_register_form(page: Any) -> None:
-    """Wait for the register form JavaScript to be initialized."""
-    page.wait_for_selector("#registerForm[data-initialized='true']", timeout=10000)
-
-
-def wait_for_login_form(page: Any) -> None:
-    """Wait for the login form JavaScript to be initialized."""
-    page.wait_for_selector("#loginForm[data-initialized='true']", timeout=10000)
-
-
-def register_and_login(page: Any) -> str:
-    """Helper to register a new user and login. Returns the username."""
-    username = generate_unique_username()
-    email = f"{username}@test.com"
-
-    # Register
-    page.goto(f"{BASE_URL}/register")
-    wait_for_register_form(page)
-    page.locator("#username").fill(username)
-    page.locator("#email").fill(email)
-    page.locator("#password").fill("SecurePass123!")
-    page.locator("#confirm_password").fill("SecurePass123!")
-    page.locator("#register-submit-btn").click()
-    page.wait_for_url(f"{BASE_URL}/login")
-
-    # Login
-    wait_for_login_form(page)
-    page.locator("#username").fill(username)
-    page.locator("#password").fill("SecurePass123!")
-    page.locator("#login-submit-btn").click()
-    page.wait_for_url(f"{BASE_URL}/")
-
-    return username
+from tests.e2e.utils import (
+    BASE_URL,
+    generate_unique_username,
+    login_user,
+    open_analysis_dropdown,
+    open_code_reuse_submenu,
+    open_system_dropdown,
+    open_user_dropdown,
+    register_and_login,
+    register_user,
+    wait_for_login_form,
+    wait_for_register_form,
+)
 
 
 class TestUnauthenticatedNavigation:
@@ -227,6 +196,60 @@ class TestAuthenticatedNavigation:
         page.wait_for_url(f"{BASE_URL}/profile")
 
         expect(page).to_have_title("Glyph - Profile")
+
+
+    def test_navigation_to_binary_library_via_dropdown(self, page: Any, server: Any) -> None:
+        """Test navigating to binary library via the ANALYSIS dropdown."""
+        register_and_login(page)
+
+        # Use JS to force open ANALYSIS dropdown
+        open_analysis_dropdown(page)
+        page.wait_for_selector("#analysis-menu.is-open", state="visible", timeout=5000)
+        library_link = page.locator('a[role="menuitem"][aria-label="Binary Library"]')
+        library_link.click()
+        page.wait_for_url(f"{BASE_URL}/binary-library")
+
+        expect(page).to_have_title("Glyph - Binary Library")
+
+    def test_navigation_to_create_model_via_dropdown(self, page: Any, server: Any) -> None:
+        """Test navigating to create model page via ANALYSIS > CODE REUSE submenu."""
+        register_and_login(page)
+
+        # Use JS to force open both ANALYSIS dropdown and CODE REUSE sub-menu
+        open_analysis_dropdown(page)
+        open_code_reuse_submenu(page)
+        page.wait_for_selector("#code-reuse-menu.is-open", state="visible", timeout=5000)
+        create_model_link = page.locator('a[role="menuitem"][aria-label="Create Model"]')
+        create_model_link.click()
+        page.wait_for_url(f"{BASE_URL}/create-model")
+
+        expect(page).to_have_title("Glyph - Create Model")
+
+    def test_navigation_to_dangerous_functions_via_dropdown(self, page: Any, server: Any) -> None:
+        """Test navigating to dangerous functions page via the ANALYSIS dropdown."""
+        register_and_login(page)
+
+        # Use JS to force open ANALYSIS dropdown
+        open_analysis_dropdown(page)
+        page.wait_for_selector("#analysis-menu.is-open", state="visible", timeout=5000)
+        dangerous_link = page.locator('a[role="menuitem"][aria-label="Scan for Dangerous Functions"]')
+        dangerous_link.click()
+        page.wait_for_url(f"{BASE_URL}/getDangerousFunctions")
+
+        expect(page).to_have_title("Glyph - Dangerous Function Scanner")
+
+    def test_navigation_to_similarity_dashboard_via_dropdown(self, page: Any, server: Any) -> None:
+        """Test navigating to similarity dashboard via the ANALYSIS dropdown."""
+        register_and_login(page)
+
+        # Use JS to force open ANALYSIS dropdown
+        open_analysis_dropdown(page)
+        page.wait_for_selector("#analysis-menu.is-open", state="visible", timeout=5000)
+        similarity_link = page.locator('a[role="menuitem"][aria-label="Binary Similarity Dashboard"]')
+        similarity_link.click()
+        page.wait_for_url(f"{BASE_URL}/similarity-dashboard")
+
+        expect(page).to_have_title("Glyph - Similarity Dashboard")
 
 
 class TestRedirectBehavior:

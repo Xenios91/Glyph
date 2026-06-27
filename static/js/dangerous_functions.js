@@ -324,6 +324,20 @@ function displayResults(data, targetName) {
             scanResultsBody.appendChild(row);
         });
     }
+
+    // Initialize pagination
+    const paginationEl = document.getElementById('scan-results-pagination');
+    if (paginationEl) {
+        paginationEl.style.display = '';
+        const pagination = new Pagination({
+            tableSelector: '.scan-results-table',
+            paginationSelector: '#scan-results-pagination',
+            defaultPageSize: 10,
+            pageSizes: [10, 25, 50, 100],
+            storageKey: 'glyph_scan_results_page_size'
+        });
+        pagination.init();
+    }
 }
 
 /**

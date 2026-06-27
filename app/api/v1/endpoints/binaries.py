@@ -1,30 +1,26 @@
 """Binary upload and analysis endpoints for Glyph API v1.
 
 Provides endpoints for uploading binary files, initiating Ghidra analysis,
-and managing the binary processing pipeline. Handles file validation,
-MIME type checking, and background task submission.
+and managing the binary processing pipeline. Delegates business logic to
+BinaryUploadService and BinaryAnalysisService.
 """
 
-import os
-import shutil
-import stat
+import asyncio
 import uuid
-from pathlib import Path
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
-import magic
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
-from starlette.responses import HTMLResponse
 
 from app.auth.dependencies import get_current_active_user
-from app.config.settings import get_settings
 from app.database.models import User
-from app.processing.task_management import Ghidra, TaskManager
+from app.exceptions import BinaryAccessError, BinaryNotFoundError, ValidationError
+from app.processing.task_management import TaskManager
+from app.services.binary_upload_service import BinaryUploadService
 from app.services.request_handler import GhidraRequest
-from app.templates import templates
-from app.utils.persistence_util import FunctionPersistanceUtil
+from app.database.function_repository import FunctionRepository
+from app.database.prediction_repository import PredictionRepository
 from app.utils.request_context import (
     CapturedContext,
     capture_request_context,
@@ -112,83 +108,60 @@ class BinaryDetailResponse(BaseModel):
 
 router = APIRouter()
 
-ALLOWED_MIME_TYPES: set[str] = {
-    "application/x-executable",
-    "application/x-object",
-    "application/octet-stream",
-    "application/x-elf",
-    "application/x-dosexec",
-    "application/x-sharedlib",
-}
+_upload_service = BinaryUploadService()
+
+# Background task tracker to prevent garbage collection of fire-and-forget tasks
+_BACKGROUND_TASKS: set[asyncio.Task[None]] = set()
 
 
-def validate_binary_mime_type(file_content: bytes) -> None:
-    """Validate that uploaded file content is a recognized binary format.
+async def _remove_task_delayed(task_uuid: str) -> None:
+    """Remove a task from TaskManager after a delay.
 
     Args:
-        file_content: Raw bytes from the uploaded file.
-
-    Raises:
-        HTTPException: If MIME type is not in the allowed set.
+        task_uuid: The task UUID to remove.
     """
-    try:
-        mime_type = magic.from_buffer(file_content[:1024], mime=True)
-    except Exception:
-        logger.exception("Failed to detect MIME type")
-        raise HTTPException(
-            status_code=400,
-            detail=create_error_response(
-                error_code="MIME_DETECTION_FAILED", error_message="Failed to analyze file type"
-            ).model_dump(),
-        )
-
-    if mime_type not in ALLOWED_MIME_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=create_error_response(
-                error_code="INVALID_FILE_TYPE",
-                error_message=f"File type '{mime_type}' not allowed. Expected binary/ELF format",
-            ).model_dump(),
-        )
+    await asyncio.sleep(10)
+    TaskManager.remove_task(task_uuid)
 
 
-def sanitize_filename(filename: str) -> str:
-    """Sanitize and validate the uploaded filename.
-
-    Prevents path traversal and null byte injection attacks.
+async def _save_prediction_functions(prediction_request: Any, predictions: list[str]) -> None:
+    """Merge predictions with functions and persist to database.
 
     Args:
-        filename: Raw filename from the upload.
+        prediction_request: The prediction request containing functions.
+        predictions: List of predicted labels.
+    """
+    functions: list[dict[str, Any]] = prediction_request.get_functions() or []
+    task_name = prediction_request.task_name
+
+    if functions and len(functions) == len(predictions):
+        for ctr, function in enumerate(functions):
+            updated_function = function.copy()
+            updated_function["prediction"] = predictions[ctr]
+            functions[ctr] = updated_function
+        await PredictionRepository.save(task_name, prediction_request.model_name, functions)
+    elif functions:
+        logger.warning(
+            "Mismatch between functions (%d) and predictions (%d) for task '%s'",
+            len(functions),
+            len(predictions),
+            task_name,
+        )
+
+
+def _create_background_task(coro) -> asyncio.Task[None]:
+    """Create a background task that won't be garbage-collected.
+
+    Args:
+        coro: The coroutine to run in the background.
 
     Returns:
-        Sanitized filename (basename only).
-
-    Raises:
-        HTTPException: If filename contains invalid characters.
+        The created asyncio.Task.
     """
-    if not filename:
-        raise HTTPException(
-            status_code=400,
-            detail=create_error_response(error_code="EMPTY_FILENAME", error_message="Empty filename").model_dump(),
-        )
-
-    if ".." in filename:
-        raise HTTPException(
-            status_code=400,
-            detail=create_error_response(
-                error_code="INVALID_FILENAME", error_message="Invalid filename characters"
-            ).model_dump(),
-        )
-
-    if "\x00" in filename:
-        raise HTTPException(
-            status_code=400,
-            detail=create_error_response(
-                error_code="INVALID_FILENAME", error_message="Invalid filename characters"
-            ).model_dump(),
-        )
-
-    return Path(filename).name
+    task: asyncio.Task[None] = asyncio.create_task(coro)
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
+    return task
 
 
 async def _run_upload_pipeline(
@@ -199,8 +172,9 @@ async def _run_upload_pipeline(
 ) -> None:
     """Execute the upload pipeline: decompile + save raw functions.
 
-    Runs Ghidra decompilation and saves raw function output to the
-    BinaryFunction table. No ML processing is performed.
+    Delegates to BinaryUploadService.run_upload_pipeline for the
+    actual pipeline execution, wrapping it with TaskManager status
+    updates and request context management.
 
     Args:
         binary_id: Database id of the uploaded binary.
@@ -208,32 +182,13 @@ async def _run_upload_pipeline(
         task_uuid: Task UUID for progress tracking.
         captured_ctx: Captured request context for logging propagation.
     """
-    from app.processing.pipeline import PipelineContext, ProcessingPipeline
-    from app.processing.steps import DecompileStep, SaveRawFunctionsStep, ValidationStep
-
     try:
         if captured_ctx is not None:
             restore_request_context(captured_ctx, override_task_id=task_uuid)
 
         TaskManager.set_status(task_uuid, "processing")
 
-        context = PipelineContext(
-            uuid=task_uuid,
-            binary_path=file_path,
-            pipeline_type="binary_upload",
-            metadata={"binary_id": binary_id},
-        )
-        context.set("binary_id", binary_id)
-
-        pipeline = ProcessingPipeline(
-            "Binary Upload Pipeline",
-            [
-                ValidationStep(),
-                DecompileStep(),
-                SaveRawFunctionsStep(),
-            ],
-        )
-        result = await pipeline.execute(context)
+        result = await _upload_service.run_upload_pipeline(binary_id, file_path, task_uuid)
 
         if result.error:
             TaskManager.set_status(task_uuid, "error")
@@ -252,9 +207,7 @@ async def _run_upload_pipeline(
         logger.exception("Upload pipeline task failed")
         raise
     finally:
-        import asyncio
-
-        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
+        _create_background_task(_remove_task_delayed(task_uuid))
         clear_request_context()
 
 
@@ -305,7 +258,9 @@ async def _run_pipeline_analysis(
                         model_name=ghidra_request.model_name,
                         data=training_data,
                     )
-                    await FunctionPersistanceUtil.add_model_functions(training_request)
+                    functions = training_request.get_functions() or []
+                    if functions:
+                        await FunctionRepository.save(ghidra_request.model_name, functions)
                     logger.debug("Functions saved for model {}", ghidra_request.model_name)
             else:
                 predictions = result.get("predictions")
@@ -333,7 +288,7 @@ async def _run_pipeline_analysis(
                             model_name=ghidra_request.model_name,
                             data=prediction_data,
                         )
-                        await FunctionPersistanceUtil.add_prediction_functions(prediction_request, predictions)
+                        await _save_prediction_functions(prediction_request, predictions)
                         logger.debug("Predictions saved for task {}", ghidra_request.name)
                     except Exception:
                         logger.exception("Failed to create PredictionRequest")
@@ -346,38 +301,22 @@ async def _run_pipeline_analysis(
         logger.exception("Pipeline task failed")
         raise
     finally:
-        import asyncio
-
-        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
+        _create_background_task(_remove_task_delayed(task_uuid))
         clear_request_context()
 
 
 @router.post("/uploadBinary", response_model=None)
 async def post_upload_binary(
     background_tasks: BackgroundTasks,
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     binary_file: UploadFile = File(...),
     name: str = Form(...),
-) -> SuccessResponse[BinaryUploadResponse] | HTMLResponse:
+) -> SuccessResponse[BinaryUploadResponse]:
     """Upload a binary and store raw decompiled functions.
 
-    The binary file is saved to disk, metadata is stored in the
-    binaries database, and a background task runs Ghidra decompilation
-    followed by saving raw functions. No ML processing occurs at upload
-    time.
-
-    Args:
-        binary_file: The binary file to upload.
-        name: Human-readable name for the binary.
-
-    Returns:
-        Binary id and task UUID for progress tracking.
+    Delegates file validation, storage, and metadata persistence to
+    BinaryUploadService, then queues a background decompilation task.
     """
-    form_data = BinaryUploadForm(name=name)
-
-    accept = request.headers.get("Accept", "")
-
     if not binary_file.filename:
         raise HTTPException(
             status_code=400,
@@ -387,69 +326,22 @@ async def post_upload_binary(
             ).model_dump(),
         )
 
-    settings = get_settings()
-    max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
-
-    file_content = await binary_file.read()
-    logger.info(
-        "Binary upload started: {} ({} bytes)",
-        binary_file.filename,
-        len(file_content),
-    )
-
-    if len(file_content) > max_file_size_bytes:
-        actual_size_mb = len(file_content) / (1024 * 1024)
+    try:
+        binary_id, file_path = await _upload_service.upload_binary(
+            file_stream=binary_file,
+            name=name,
+            user_id=current_user.id,
+            filename=binary_file.filename,
+        )
+    except ValidationError as e:
+        status_code = 413 if "exceeds" in e.message or "size" in e.message.lower() else 400
         raise HTTPException(
-            status_code=413,
+            status_code=status_code,
             detail=create_error_response(
-                error_code="FILE_TOO_LARGE",
-                error_message=f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)",
+                error_code="VALIDATION_ERROR",
+                error_message=e.message,
             ).model_dump(),
         )
-
-    mime_type = magic.from_buffer(file_content[:1024], mime=True)
-    # Override MIME type for .bin files
-    if binary_file.filename and binary_file.filename.lower().endswith(".bin"):
-        mime_type = "application/x-sharedlib"
-    if mime_type not in ALLOWED_MIME_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File type '{mime_type}' not allowed. Expected binary/ELF format",
-        )
-
-    sanitize_filename(binary_file.filename)
-    unique_filename = f"{uuid.uuid4()}"
-    upload_folder = settings.upload_folder
-
-    os.makedirs(upload_folder, exist_ok=True)
-    os.chmod(upload_folder, stat.S_IRWXU)
-
-    disk_usage = shutil.disk_usage(upload_folder)
-    if disk_usage.free < len(file_content) * 1.1:
-        raise HTTPException(
-            status_code=507,
-            detail=create_error_response(
-                error_code="INSUFFICIENT_STORAGE",
-                error_message="Insufficient disk space to complete upload",
-            ).model_dump(),
-        )
-
-    file_path = os.path.join(upload_folder, unique_filename)
-
-    with open(file_path, "wb") as f:
-        f.write(file_content)
-    os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
-
-    # Save binary metadata to database
-    from app.database.sql_service import SQLUtil
-
-    binary_id = await SQLUtil.save_binary(
-        name=form_data.name,
-        file_path=file_path,
-        file_size=len(file_content),
-        mime_type=mime_type,
-        uploaded_by=current_user.id,
-    )
 
     task_uuid = str(uuid.uuid4())
     TaskManager.register_task(task_uuid, "starting", owner_id=current_user.id)
@@ -457,28 +349,14 @@ async def post_upload_binary(
     captured_ctx = capture_request_context()
     background_tasks.add_task(_run_upload_pipeline, binary_id, file_path, task_uuid, captured_ctx)
     logger.info(
-        "Binary uploaded to: {}, background task queued (uuid={}), returning response now",
-        file_path,
+        "Binary uploaded, background task queued (uuid={})",
         task_uuid,
     )
 
-    if "text/html" in accept and "application/json" not in accept:
-        return templates.TemplateResponse(
-            request,
-            "upload.html",
-            {
-                "user": current_user,
-                "binary_id": binary_id,
-                "task_uuid": task_uuid,
-            },
-        )
-
-    result = create_success_response(
+    return create_success_response(
         data=BinaryUploadResponse(binary_id=binary_id, uuid=task_uuid),
         message="Binary uploaded successfully",
     )
-    logger.info("Returning success response for upload {}", task_uuid)
-    return result
 
 
 @router.get("/list", response_model=SuccessResponse[PaginatedResponse[BinaryListItem]])
@@ -488,16 +366,14 @@ async def list_binaries(
     page_size: Annotated[int, Query(ge=1, le=200, description="Items per page")] = 50,
 ) -> SuccessResponse[PaginatedResponse[BinaryListItem]]:
     """List binaries uploaded by the current user with pagination."""
-    from app.database.sql_service import SQLUtil
-
-    total = await SQLUtil.count_binaries_by_user(current_user.id)
     offset = (page - 1) * page_size
-    binaries = await SQLUtil.get_binaries_by_user(current_user.id, offset=offset, limit=page_size)
+    binaries, total = await _upload_service.list_binaries(
+        user_id=current_user.id, offset=offset, limit=page_size
+    )
 
     items: list[BinaryListItem] = []
     for b in binaries:
-        # Count functions
-        function_count = await SQLUtil.count_binary_functions(b.id)
+        function_count = await _upload_service.get_function_count(b.id)
         items.append(
             BinaryListItem(
                 id=b.id,
@@ -521,14 +397,15 @@ async def list_bins(
 ) -> SuccessResponse[dict[str, Any]]:
     """Legacy endpoint — lists uploaded binary files from disk.
 
+    Only returns binaries belonging to the current user.
     Deprecated: use GET /list for database-backed binary listing.
     """
-    files: list[str] = []
-    settings = get_settings()
-    directory_path = settings.upload_folder
-    for _, _, files_found in os.walk(directory_path):
-        if files_found:
-            files.extend(files_found)
+    import os
+
+    binaries, _ = await _upload_service.list_binaries(
+        user_id=current_user.id, offset=0, limit=1000
+    )
+    files = [os.path.basename(b.file_path) for b in binaries if os.path.exists(b.file_path)]
     return create_success_response(
         data={"files": files},
         message="Binaries retrieved successfully",
@@ -541,22 +418,20 @@ async def get_binary_detail(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[BinaryDetailResponse]:
     """Get detailed metadata for a specific binary."""
-    from app.database.sql_service import SQLUtil
-
-    binary = await SQLUtil.get_binary(binary_id)
-    if binary is None:
+    try:
+        binary = await _upload_service.get_binary(binary_id, current_user.id)
+    except BinaryNotFoundError:
         raise HTTPException(
             status_code=404,
             detail=create_error_response(error_code="BINARY_NOT_FOUND", error_message="Binary not found").model_dump(),
         )
-
-    if binary.uploaded_by != current_user.id:
+    except BinaryAccessError:
         raise HTTPException(
             status_code=403,
             detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
         )
 
-    functions = await SQLUtil.get_binary_functions(binary_id)
+    function_count = await _upload_service.get_function_count(binary_id)
 
     detail = BinaryDetailResponse(
         id=binary.id,
@@ -566,7 +441,7 @@ async def get_binary_detail(
         uploaded_by=binary.uploaded_by,
         created_at=binary.created_at.isoformat(),
         modified_at=binary.modified_at.isoformat(),
-        function_count=len(functions),
+        function_count=function_count,
     )
 
     return create_success_response(
@@ -616,24 +491,22 @@ async def list_binary_functions(
     page_size: Annotated[int, Query(ge=1, le=200, description="Items per page")] = 50,
 ) -> SuccessResponse[PaginatedResponse[BinaryFunctionItem]]:
     """List decompiled functions for a specific binary with pagination."""
-    from app.database.sql_service import SQLUtil
-
-    binary = await SQLUtil.get_binary(binary_id)
-    if binary is None:
+    try:
+        await _upload_service.get_binary(binary_id, current_user.id)
+    except BinaryNotFoundError:
         raise HTTPException(
             status_code=404,
             detail=create_error_response(error_code="BINARY_NOT_FOUND", error_message="Binary not found").model_dump(),
         )
-
-    if binary.uploaded_by != current_user.id:
+    except BinaryAccessError:
         raise HTTPException(
             status_code=403,
             detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
         )
 
-    total = await SQLUtil.count_binary_functions(binary_id)
+    total = await _upload_service.get_function_count(binary_id)
     offset = (page - 1) * page_size
-    functions = await SQLUtil.get_binary_functions(binary_id, offset=offset, limit=page_size)
+    functions = await _upload_service.get_functions(binary_id, offset=offset, limit=page_size)
 
     items: list[BinaryFunctionItem] = []
     for fn in functions:
@@ -658,36 +531,38 @@ async def delete_binary(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[dict[str, str]]:
     """Delete a binary and all its associated functions."""
-    from app.database.sql_service import SQLUtil
-
-    binary = await SQLUtil.get_binary(binary_id)
-    if binary is None:
+    try:
+        binary = await _upload_service.get_binary(binary_id, current_user.id)
+        binary_name = binary.name
+    except BinaryNotFoundError:
         raise HTTPException(
             status_code=404,
             detail=create_error_response(error_code="BINARY_NOT_FOUND", error_message="Binary not found").model_dump(),
         )
-
-    if binary.uploaded_by != current_user.id:
+    except BinaryAccessError:
         raise HTTPException(
             status_code=403,
             detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
         )
 
-    await SQLUtil.delete_binary(binary_id)
+    await _upload_service.delete_binary(binary_id, current_user.id)
 
     return create_success_response(
-        data={"message": f"Binary '{binary.name}' deleted successfully"},
+        data={"message": f"Binary '{binary_name}' deleted successfully"},
         message="Binary deleted successfully",
     )
 
 
-def _upload_single_binary(
+async def _upload_single_binary(
     binary_file: UploadFile,
     name: str,
     current_user: User,
     background_tasks: BackgroundTasks,
 ) -> BulkUploadItem:
     """Upload a single binary file and return the result.
+
+    Delegates to BinaryUploadService.upload_binary for the actual
+    file validation, storage, and metadata persistence.
 
     Args:
         binary_file: The binary file to upload.
@@ -698,71 +573,33 @@ def _upload_single_binary(
     Returns:
         BulkUploadItem with success or error status.
     """
-    settings = get_settings()
-    max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
+    if not binary_file.filename:
+        return BulkUploadItem(name=name, status="error", error="No filename provided")
 
     try:
-        form_data = BinaryUploadForm(name=name)
-
-        if not binary_file.filename:
-            return BulkUploadItem(name=name, status="error", error="No filename provided")
-
-        file_content = binary_file.file.read()
-        if len(file_content) > max_file_size_bytes:
-            actual_size_mb = len(file_content) / (1024 * 1024)
-            return BulkUploadItem(
-                name=name,
-                status="error",
-                error=f"File size ({actual_size_mb:.2f}MB) exceeds maximum ({settings.max_file_size_mb}MB)",
-            )
-
-        mime_type = magic.from_buffer(file_content[:1024], mime=True)
-        if mime_type not in ALLOWED_MIME_TYPES:
-            return BulkUploadItem(
-                name=name,
-                status="error",
-                error=f"File type '{mime_type}' not allowed",
-            )
-
-        unique_filename = f"{uuid.uuid4()}"
-        upload_folder = settings.upload_folder
-        os.makedirs(upload_folder, exist_ok=True)
-        os.chmod(upload_folder, stat.S_IRWXU)
-
-        file_path = os.path.join(upload_folder, unique_filename)
-
-        with open(file_path, "wb") as f:
-            f.write(file_content)
-        os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
-
-        from app.database.sql_service import SQLUtil
-
-        binary_id = SQLUtil.save_binary(
-            name=form_data.name,
-            file_path=file_path,
-            file_size=len(file_content),
-            mime_type=mime_type,
-            uploaded_by=current_user.id,
-        )
-
-        task_uuid = str(uuid.uuid4())
-        TaskManager.register_task(task_uuid, "starting", owner_id=current_user.id)
-
-        captured_ctx = capture_request_context()
-        background_tasks.add_task(_run_upload_pipeline, binary_id, file_path, task_uuid, captured_ctx)
-
-        logger.info("Bulk upload: binary {} saved (id={}, uuid={})", name, binary_id, task_uuid)
-
-        return BulkUploadItem(
-            binary_id=binary_id,
-            uuid=task_uuid,
+        binary_id, file_path = await _upload_service.upload_binary(
+            file_stream=binary_file,
             name=name,
-            status="success",
+            user_id=current_user.id,
+            filename=binary_file.filename,
         )
+    except ValidationError as e:
+        return BulkUploadItem(name=name, status="error", error=e.message)
 
-    except Exception as e:
-        logger.exception("Bulk upload failed for file: {}", name)
-        return BulkUploadItem(name=name, status="error", error=str(e))
+    task_uuid = str(uuid.uuid4())
+    TaskManager.register_task(task_uuid, "starting", owner_id=current_user.id)
+
+    captured_ctx = capture_request_context()
+    background_tasks.add_task(_run_upload_pipeline, binary_id, file_path, task_uuid, captured_ctx)
+
+    logger.info("Bulk upload: binary {} saved (id={}, uuid={})", name, binary_id, task_uuid)
+
+    return BulkUploadItem(
+        binary_id=binary_id,
+        uuid=task_uuid,
+        name=name,
+        status="success",
+    )
 
 
 @router.post(
@@ -809,7 +646,7 @@ async def post_upload_bulk(
 
     for idx, file in enumerate(files):
         name = name_list[idx] if idx < len(name_list) else (file.filename or f"binary_{idx}")
-        result = _upload_single_binary(file, name, current_user, background_tasks)
+        result = await _upload_single_binary(file, name, current_user, background_tasks)
         results.append(result)
 
     successful = sum(1 for r in results if r.status == "success")

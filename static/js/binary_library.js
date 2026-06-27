@@ -367,11 +367,30 @@
 
             if (tableWrapper) tableWrapper.style.display = 'block';
 
+            // Initialize pagination
+            var paginationEl = document.getElementById('binaries-pagination');
+            if (paginationEl && binaries.length > 0) {
+                paginationEl.style.display = 'block';
+                var pagination = new Pagination({
+                    tableSelector: '#binaries-table-wrapper .cyber-table',
+                    paginationSelector: '#binaries-pagination',
+                    defaultPageSize: 10,
+                    pageSizes: [10, 25, 50, 100],
+                    storageKey: 'glyph_binaries_page_size'
+                });
+                pagination.init();
+            } else if (paginationEl) {
+                paginationEl.style.display = 'none';
+            }
+
         } catch (error) {
             console.error('Load binaries error:', error);
             if (loadingEl) loadingEl.style.display = 'none';
             if (emptyEl) emptyEl.style.display = 'block';
-            emptyEl.innerHTML = '<p>Error loading binaries: ' + error.message + '</p>';
+            var para = document.createElement('p');
+            para.textContent = 'Error loading binaries: ' + error.message;
+            emptyEl.innerHTML = '';
+            emptyEl.appendChild(para);
         }
     }
 

@@ -180,6 +180,7 @@ class TaskManager:
 
     exec_pool: ProcessPoolExecutor | None = None
     _executor_shutdown: bool = False
+    _lock: threading.Lock = threading.Lock()
     __instance: "TaskManager | None" = None
     _active_tasks: dict[str, str] = {}
     _task_owners: dict[str, int] = {}
@@ -198,7 +199,9 @@ class TaskManager:
     def __new__(cls) -> "TaskManager":
         """Create or return the singleton instance of TaskManager."""
         if cls.__instance is None:
-            cls.__instance = super().__new__(cls)
+            with cls._lock:
+                if cls.__instance is None:
+                    cls.__instance = super().__new__(cls)
         return cls.__instance
 
     @classmethod
@@ -265,9 +268,10 @@ class TaskManager:
             initial_status: Initial status string (default "starting").
             owner_id: The user ID that owns this task (for access control).
         """
-        cls._active_tasks[job_uuid] = initial_status
-        if owner_id is not None:
-            cls._task_owners[job_uuid] = owner_id
+        with cls._lock:
+            cls._active_tasks[job_uuid] = initial_status
+            if owner_id is not None:
+                cls._task_owners[job_uuid] = owner_id
         logger.debug("Registered task {} with status '{}' owner={}", job_uuid, initial_status, owner_id)
 
     @classmethod
@@ -283,15 +287,17 @@ class TaskManager:
         Returns:
             The status of the job or "UUID Not Found".
         """
-        if job_uuid in cls._active_tasks:
-            return cls._active_tasks[job_uuid]
+        with cls._lock:
+            if job_uuid in cls._active_tasks:
+                return cls._active_tasks[job_uuid]
 
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
                 status: str = task[0].status
-                cls._active_tasks[job_uuid] = status
+                with cls._lock:
+                    cls._active_tasks[job_uuid] = status
                 return status
         return "UUID Not Found"
 
@@ -306,7 +312,8 @@ class TaskManager:
         Returns:
             A dictionary mapping model names / UUIDs to their statuses.
         """
-        status_list: dict[str, str] = dict(cls._active_tasks)
+        with cls._lock:
+            status_list: dict[str, str] = dict(cls._active_tasks)
 
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)
         for task in queue_list:
@@ -327,7 +334,8 @@ class TaskManager:
             True if the user owns the task or no owner is registered,
             False otherwise.
         """
-        owner = cls._task_owners.get(job_uuid)
+        with cls._lock:
+            owner = cls._task_owners.get(job_uuid)
         if owner is None:
             return True
         return owner == user_id
@@ -352,17 +360,19 @@ class TaskManager:
             logger.warning("Ownership check failed for task {} by user {}", job_uuid, owner_id)
             return False
 
-        if job_uuid in cls._active_tasks:
-            cls._active_tasks[job_uuid] = status
-            logger.debug("Updated task {} status to '{}'", job_uuid, status)
-            return True
+        with cls._lock:
+            if job_uuid in cls._active_tasks:
+                cls._active_tasks[job_uuid] = status
+                logger.debug("Updated task {} status to '{}'", job_uuid, status)
+                return True
 
         queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
                 task[0].status = status
-                cls._active_tasks[job_uuid] = status
+                with cls._lock:
+                    cls._active_tasks[job_uuid] = status
                 return True
         return False
 
@@ -374,7 +384,8 @@ class TaskManager:
             job_uuid: The UUID of the job.
             result: The result payload to associate with the task.
         """
-        cls._task_results[job_uuid] = result
+        with cls._lock:
+            cls._task_results[job_uuid] = result
         logger.debug("Stored result for task {}", job_uuid)
 
     @classmethod
@@ -387,7 +398,8 @@ class TaskManager:
         Returns:
             The stored result, or None if no result exists.
         """
-        return cls._task_results.get(job_uuid)
+        with cls._lock:
+            return cls._task_results.get(job_uuid)
 
     @classmethod
     def remove_task(cls, job_uuid: str) -> None:
@@ -396,10 +408,11 @@ class TaskManager:
         Args:
             job_uuid: The UUID of the job to remove.
         """
-        if job_uuid in cls._active_tasks:
-            del cls._active_tasks[job_uuid]
-        cls._task_owners.pop(job_uuid, None)
-        cls._task_results.pop(job_uuid, None)
+        with cls._lock:
+            if job_uuid in cls._active_tasks:
+                del cls._active_tasks[job_uuid]
+            cls._task_owners.pop(job_uuid, None)
+            cls._task_results.pop(job_uuid, None)
         logger.debug("Removed task {} from active registry", job_uuid)
 
     @classmethod
@@ -454,16 +467,7 @@ class Ghidra(TaskManager):
         Returns:
             The pipeline context with analysis results.
         """
-        from app.processing.pipeline import ProcessingPipeline
-        from app.processing.steps import (
-            DecompileStep,
-            FeatureExtractStep,
-            FilterStep,
-            PredictStep,
-            TokenizeStep,
-            TrainStep,
-            ValidationStep,
-        )
+        from app.processing.pipeline_configs import PREDICTION_PIPELINE, TRAINING_PIPELINE
 
         context = PipelineContext(
             uuid=ghidra_request.uuid,
@@ -476,28 +480,5 @@ class Ghidra(TaskManager):
             },
         )
 
-        if ghidra_request.is_training:
-            pipeline = ProcessingPipeline(
-                "ML Training Pipeline",
-                [
-                    ValidationStep(),
-                    DecompileStep(),
-                    TokenizeStep(),
-                    FilterStep(),
-                    FeatureExtractStep(),
-                    TrainStep(),
-                ],
-            )
-        else:
-            pipeline = ProcessingPipeline(
-                "ML Prediction Pipeline",
-                [
-                    ValidationStep(),
-                    DecompileStep(),
-                    TokenizeStep(),
-                    FilterStep(),
-                    FeatureExtractStep(),
-                    PredictStep(),
-                ],
-            )
+        pipeline = TRAINING_PIPELINE if ghidra_request.is_training else PREDICTION_PIPELINE
         return await pipeline.execute(context)

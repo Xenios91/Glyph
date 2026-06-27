@@ -53,6 +53,15 @@ class StatusUpdatePayload(BaseModel):
 async def get_status(
     current_user: Annotated[User, Depends(get_current_active_user)], uuid: UUIDType = Query(...)
 ) -> SuccessResponse[dict[str, Any]]:
+    if not TaskManager().verify_task_owner(uuid, current_user.id):
+        raise HTTPException(
+            status_code=403,
+            detail=create_error_response(
+                error_code="ACCESS_DENIED",
+                error_message="Access denied",
+            ).model_dump(),
+        )
+
     status = TaskManager().get_status(uuid)
 
     if status == "UUID Not Found":
@@ -76,10 +85,20 @@ async def get_status(
 async def update_status(
     payload: StatusUpdatePayload, current_user: Annotated[User, Depends(get_current_active_user)]
 ) -> SuccessResponse[dict[str, Any]]:
+    if not TaskManager().verify_task_owner(payload.uuid, current_user.id):
+        logger.warning("Access denied: user {} attempted to update UUID {}", current_user.id, payload.uuid)
+        raise HTTPException(
+            status_code=403,
+            detail=create_error_response(
+                error_code="ACCESS_DENIED",
+                error_message="Access denied",
+            ).model_dump(),
+        )
+
     updated: bool = TaskManager().set_status(payload.uuid, payload.status, owner_id=current_user.id)
 
     if not updated:
-        logger.warning("Status update failed: UUID {} not found or ownership denied", payload.uuid)
+        logger.warning("Status update failed: UUID {} not found", payload.uuid)
         raise HTTPException(
             status_code=404,
             detail=create_error_response(error_code="UUID_NOT_FOUND", error_message="UUID not found").model_dump(),
@@ -122,11 +141,12 @@ async def _stream_task_status(
 
         # Only send event if status changed or this is the first event
         if status != last_status:
-            event_type = "completed" if status in _TERMINAL_STATUSES and status != "UUID Not Found" else "progress"
-            if status == "UUID Not Found":
-                event_type = "error"
-            elif status in ("completed",):
+            if status == "completed":
                 event_type = "completed"
+            elif status in _TERMINAL_STATUSES:
+                event_type = status
+            else:
+                event_type = "progress"
 
             payload: dict[str, Any] = {
                 "type": event_type,
@@ -178,6 +198,16 @@ async def stream_task_status(
             detail=create_error_response(
                 error_code="UUID_NOT_FOUND",
                 error_message="Task not found",
+            ).model_dump(),
+        )
+
+    # Verify task ownership
+    if not TaskManager().verify_task_owner(uuid, current_user.id):
+        raise HTTPException(
+            status_code=403,
+            detail=create_error_response(
+                error_code="ACCESS_DENIED",
+                error_message="Access denied",
             ).model_dump(),
         )
 

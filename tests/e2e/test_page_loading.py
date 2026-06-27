@@ -8,8 +8,7 @@ from typing import Any
 
 from playwright.sync_api import expect
 
-
-BASE_URL = "http://127.0.0.1:8000"
+from tests.e2e.utils import BASE_URL
 
 
 class TestPublicPageLoading:

@@ -89,6 +89,25 @@ function initSymbolsPage() {
 
     // Use shared hover effects from common.js instead of duplicate inline-style version
     initTableHoverEffects();
+
+    // Initialize pagination
+    const paginationEl = document.getElementById('symbols-pagination');
+    const table = document.querySelector('.symbols-table');
+    if (paginationEl && table) {
+        const rows = table.querySelectorAll('tbody tr');
+        if (rows.length > 0) {
+            const pagination = new Pagination({
+                tableSelector: '.symbols-table',
+                paginationSelector: '#symbols-pagination',
+                defaultPageSize: 10,
+                pageSizes: [10, 25, 50, 100],
+                storageKey: 'glyph_symbols_page_size'
+            });
+            pagination.init();
+        } else {
+            paginationEl.style.display = 'none';
+        }
+    }
 }
 
 // Initialize when DOM is ready using shared utility

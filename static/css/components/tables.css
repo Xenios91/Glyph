@@ -165,6 +165,107 @@ td[id$="-status"] {
     text-align: center;
 }
 
+/* ── Pagination Controls ─────────────────────────────────────── */
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
+    padding: var(--space-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--card-bg);
+}
+
+.pagination-info {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-dim);
+    width: 100%;
+    margin-bottom: var(--space-sm);
+}
+
+.pagination-buttons {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.pagination-page-numbers {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.pagination-page-numbers .page-number {
+    min-width: 32px;
+    text-align: center;
+}
+
+.pagination-page-numbers .page-number.active {
+    background: var(--cyan);
+    color: var(--text-inverse);
+    border-color: var(--cyan);
+    font-weight: 600;
+}
+
+.pagination-page-numbers .page-number:hover:not(.active) {
+    background: var(--hover-bg);
+    border-color: var(--cyan);
+}
+
+.pagination-ellipsis {
+    padding: 0 var(--space-xs);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    user-select: none;
+}
+
+.pagination-size {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-dim);
+}
+
+.pagination-size .cyber-select {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--text-sm);
+}
+
+/* Pagination button states */
+.pagination-controls .cyber-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.pagination-controls .cyber-btn:not(:disabled):hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+}
+
+/* Responsive pagination */
+@media (max-width: 640px) {
+    .pagination-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .pagination-buttons {
+        justify-content: center;
+    }
+
+    .pagination-size {
+        justify-content: center;
+    }
+}
+
 .cyber-table .checkbox-cell input[type="checkbox"] {
     width: 16px;
     height: 16px;

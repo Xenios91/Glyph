@@ -68,14 +68,35 @@ class TestRateLimitKeyFunc:
             assert result == "192.168.1.1"
 
     def test_trusted_proxy_forwarded_for(self) -> None:
-        """Test extracting IP from X-Forwarded-For when behind trusted proxy."""
+        """Test extracting real client IP from X-Forwarded-For when behind trusted proxy.
+
+        The function walks the X-Forwarded-For chain right-to-left, returning the
+        first (rightmost) IP that is NOT a trusted proxy, preventing spoofing.
+        X-Forwarded-For format: client, proxy1, proxy2, ...
+        """
         request = MagicMock()
         request.client.host = "10.0.0.1"  # Trusted proxy
+        # X-Forwarded-For: client_ip, intermediate_proxy
         request.headers = {"X-Forwarded-For": "203.0.113.50, 70.41.3.18"}
 
         with patch("app.config.settings.get_settings") as mock_settings:
+            # Only 10.0.0.1 is trusted; 70.41.3.18 is the rightmost non-proxy IP
             mock_settings.return_value.trusted_proxies = ["10.0.0.1"]
             result = rate_limit_key_func(request)
+            assert result == "70.41.3.18"
+
+    def test_trusted_proxy_forwarded_for_with_multiple_proxies(self) -> None:
+        """Test that the function skips trusted proxies in X-Forwarded-For chain."""
+        request = MagicMock()
+        request.client.host = "10.0.0.1"  # Trusted proxy
+        # client(203.0.113.50) -> proxy1(70.41.3.18) -> proxy2(10.0.0.1)
+        request.headers = {"X-Forwarded-For": "203.0.113.50, 70.41.3.18"}
+
+        with patch("app.config.settings.get_settings") as mock_settings:
+            # Both 10.0.0.1 and 70.41.3.18 are trusted proxies
+            mock_settings.return_value.trusted_proxies = ["10.0.0.1", "70.41.3.18"]
+            result = rate_limit_key_func(request)
+            # Should skip 70.41.3.18 (trusted) and return 203.0.113.50 (real client)
             assert result == "203.0.113.50"
 
     def test_untrusted_proxy_ignores_forwarded_for(self) -> None:

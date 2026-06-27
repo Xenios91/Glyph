@@ -161,7 +161,6 @@ class CallGraphService:
 
         # Collect known function names for filtering
         known_functions = {f.function_name for f in functions}
-        {f.function_name: f for f in functions}
 
         graph = CallGraph(binary_id=binary_id, known_functions=known_functions)
 

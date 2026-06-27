@@ -20,7 +20,8 @@ from sklearn.pipeline import Pipeline as SklearnPipeline
 
 from app.config.settings import get_settings
 from app.processing.pipeline import PipelineContext, PipelineStep
-from app.utils.persistence_util import MLPersistanceUtil, MLTask
+from app.config.pipeline_configs import MLTask
+from app.database.model_repository import ModelRepository
 
 _VARIABLE_PATTERNS = [
     r"^var\d+$",
@@ -389,7 +390,7 @@ class TrainStep(PipelineStep):
 
             await asyncio.to_thread(ml_pipeline.fit, tokens, y)  # type: ignore[misc]
 
-            await MLPersistanceUtil.save_model(model_name, label_encoder, ml_pipeline)
+            await ModelRepository.save_model(model_name, label_encoder, ml_pipeline)
 
             context.set("label_encoder", label_encoder)
             context.set("model", ml_pipeline)
@@ -447,7 +448,7 @@ class PredictStep(PipelineStep):
             return context
 
         try:
-            model, label_encoder = await MLPersistanceUtil.load_model(model_name)
+            model, label_encoder = await ModelRepository.load_model(model_name)
 
             predictions = await asyncio.to_thread(model.predict, tokens)
             prediction_probability = await asyncio.to_thread(model.predict_proba, tokens)

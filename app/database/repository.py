@@ -28,16 +28,16 @@ class PasswordHasherService:
         """Initialize the password hasher with recommended settings.
 
         Args:
-            time_cost: Number of iterations. Defaults to 2.
-            memory_cost: Memory to use in KiB. Defaults to 32768.
-            parallelism: Degree of parallelism. Defaults to 2.
+            time_cost: Number of iterations. Defaults to 3 (OWASP recommended minimum).
+            memory_cost: Memory to use in KiB. Defaults to 65536 (64 MiB).
+            parallelism: Degree of parallelism. Defaults to 4.
             hash_len: Length of the hash. Defaults to 32.
             salt_len: Length of the salt. Defaults to 16.
         """
         self.ph = PasswordHasher(
-            time_cost=time_cost if time_cost is not None else 2,
-            memory_cost=memory_cost if memory_cost is not None else 32768,
-            parallelism=parallelism if parallelism is not None else 2,
+            time_cost=time_cost if time_cost is not None else 3,
+            memory_cost=memory_cost if memory_cost is not None else 65536,
+            parallelism=parallelism if parallelism is not None else 4,
             hash_len=hash_len if hash_len is not None else 32,
             salt_len=salt_len if salt_len is not None else 16,
         )
@@ -155,7 +155,7 @@ class UserRepository:
         result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
-    _DUMMY_HASH = "$argon2id$v=19$m=65536,t=2,p=4$IaW8lT+iFVnKaCPWA+ArYg$/rEI6zn8/LYoQNpbGs9wpH/qiB4ggeLb7B9UhCS/gDc"
+    _DUMMY_HASH = "$argon2id$v=19$m=32768,t=2,p=2$0/ozftprJUeARua45+SumQ$MnHFU4/Gpierd7U0Trn3JGlYYqbepxa8jibBk8ISAE8"
 
     async def verify_credentials(self, username: str, password: str) -> User | None:
         """Verify user credentials and rehash if needed."""

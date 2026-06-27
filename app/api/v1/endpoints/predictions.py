@@ -2,26 +2,28 @@
 
 Provides endpoints for submitting prediction requests, retrieving
 prediction results, and managing prediction tasks.
+
+Pure JSON API endpoints -- HTML responses are handled by web endpoints
+in app/web/endpoints/web.py.
 """
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from loguru import logger
 from markupsafe import escape
 from pydantic import BaseModel
-from starlette.responses import HTMLResponse
 
 from app.api.types import FunctionName, ModelName, TaskName
 from app.auth.dependencies import get_current_active_user
+from app.database.function_repository import FunctionRepository
 from app.database.models import User
+from app.database.prediction_repository import PredictionRepository
 from app.processing.task_management import TaskManager
+from app.services.prediction_service import PredictionService
 from app.services.request_handler import PredictionRequest
-from app.templates import templates
 from app.utils.common import format_code
-from app.utils.helpers import ACCEPT_TYPE
 from app.utils.logging_utils import catch_http_exception
-from app.utils.persistence_util import FunctionPersistanceUtil, PredictionPersistanceUtil
 from app.utils.request_context import (
     CapturedContext,
     capture_request_context,
@@ -72,8 +74,8 @@ async def _execute_prediction(
     if captured_ctx is not None:
         restore_request_context(captured_ctx, override_task_id=prediction_request.uuid)
 
-    from app.processing.pipeline import PipelineContext, ProcessingPipeline
-    from app.processing.steps import FeatureExtractStep, FilterStep, PredictStep, TokenizeStep
+    from app.processing.pipeline import PipelineContext
+    from app.processing.pipeline_configs import ML_PREDICTION_ONLY_PIPELINE
 
     functions = prediction_request.get_functions()
 
@@ -89,16 +91,7 @@ async def _execute_prediction(
 
     context.set("functions", functions)
 
-    pipeline = ProcessingPipeline(
-        "ML Prediction Pipeline",
-        [
-            TokenizeStep(),
-            FilterStep(),
-            FeatureExtractStep(),
-            PredictStep(),
-        ],
-    )
-    result = await pipeline.execute(context)
+    result = await ML_PREDICTION_ONLY_PIPELINE.execute(context)
 
     if result.error:
         raise RuntimeError(result.error)
@@ -106,7 +99,7 @@ async def _execute_prediction(
     # Persist prediction results to the database
     predictions = result.get("predictions")
     if predictions:
-        await FunctionPersistanceUtil.add_prediction_functions(prediction_request, predictions)
+        await _save_prediction_functions(prediction_request, predictions)
         logger.info(
             "Prediction task completed and saved: {} ({} predictions)",
             prediction_request.uuid,
@@ -116,6 +109,31 @@ async def _execute_prediction(
         logger.warning(
             "Prediction task completed but no predictions to save: {}",
             prediction_request.uuid,
+        )
+
+
+async def _save_prediction_functions(prediction_request: PredictionRequest, predictions: list[str]) -> None:
+    """Merge predictions with functions and persist to database.
+
+    Args:
+        prediction_request: The prediction request containing functions.
+        predictions: List of predicted labels.
+    """
+    functions: list[dict[str, Any]] = prediction_request.get_functions() or []
+    task_name = prediction_request.task_name
+
+    if functions and len(functions) == len(predictions):
+        for ctr, function in enumerate(functions):
+            updated_function = function.copy()
+            updated_function["prediction"] = predictions[ctr]
+            functions[ctr] = updated_function
+        await PredictionRepository.save(task_name, prediction_request.model_name, functions)
+    elif functions:
+        logger.warning(
+            "Mismatch between functions ({}) and predictions ({}) for task '{}'",
+            len(functions),
+            len(predictions),
+            task_name,
         )
 
 
@@ -170,7 +188,7 @@ async def predict_tokens(
         )
     task_name = task_name.strip()
 
-    if not await PredictionPersistanceUtil.is_task_name_unique(task_name):
+    if await PredictionService.check_task_name_unique(task_name):
         raise HTTPException(
             status_code=409,
             detail=create_error_response(
@@ -199,8 +217,7 @@ async def get_predictions_list(
     Returns:
         Success response with a paginated list of prediction tasks.
     """
-    all_predictions = await PredictionPersistanceUtil.get_predictions_list()
-    total = len(all_predictions)
+    all_predictions, total = await PredictionService.get_predictions_list(offset=0, limit=10000)
     offset = (page - 1) * page_size
     page_predictions = all_predictions[offset : offset + page_size]
 
@@ -224,13 +241,12 @@ async def get_predictions_list(
     description="Get the results of a specific prediction task for a model.",
 )
 async def get_prediction(
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     task_name: TaskName = Query(...),
-) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
+) -> SuccessResponse[dict[str, Any]]:
     """Get the results of a specific prediction task for a model."""
-    prediction = await PredictionPersistanceUtil.get_predictions(task_name, model_name)
+    prediction = await PredictionService.get_prediction(task_name, model_name)
 
     if not prediction:
         raise HTTPException(
@@ -238,20 +254,6 @@ async def get_prediction(
             detail=create_error_response(
                 error_code="PREDICTION_NOT_FOUND", error_message="Prediction not found"
             ).model_dump(),
-        )
-
-    accept = request.headers.get("Accept", "")
-    if ACCEPT_TYPE in accept:
-        return templates.TemplateResponse(
-            request,
-            "get_prediction.html",
-            {
-                "title": "Prediction",
-                "model_name": prediction.model_name,
-                "task_name": prediction.task_name,
-                "prediction": prediction,
-                "user": current_user,
-            },
         )
 
     return create_success_response(
@@ -276,7 +278,7 @@ async def delete_prediction(
     current_user: Annotated[User, Depends(get_current_active_user)], task_name: TaskName = Query(...)
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete a single prediction task by task name."""
-    await PredictionPersistanceUtil.delete_prediction(task_name)
+    await PredictionService.delete_prediction(task_name)
 
     return create_success_response(data={}, message="Prediction deleted successfully")
 
@@ -305,7 +307,7 @@ async def delete_predictions(
     failed: list[str] = []
     for name in names:
         try:
-            await PredictionPersistanceUtil.delete_prediction(name)
+            await PredictionService.delete_prediction(name)
             deleted.append(name)
         except Exception as exc:
             logger.warning("Failed to delete prediction '%s': %s", name, exc)
@@ -325,20 +327,19 @@ async def delete_predictions(
     summary="Get prediction details",
     description=(
         "Retrieve detailed prediction results for a specific function by comparing "
-        "model tokens against prediction tokens. Supports both JSON and HTML responses "
-        "based on the Accept header."
+        "model tokens against prediction tokens."
     ),
 )
 async def get_prediction_details(
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: ModelName = Query(...),
     function_name: FunctionName = Query(...),
     task_name: TaskName = Query(...),
-) -> SuccessResponse[dict[str, Any]] | HTMLResponse:
+) -> SuccessResponse[dict[str, Any]]:
+    """Get detailed prediction results for a specific function."""
     try:
-        model_info = await FunctionPersistanceUtil.get_function(model_name, function_name)
-        prediction_data = await FunctionPersistanceUtil.get_prediction_function(task_name, model_name, function_name)
+        model_info = await FunctionRepository.get(model_name, function_name)
+        prediction_data = await PredictionRepository.get_prediction_function(task_name, model_name, function_name)
 
         if model_info is None:
             raise HTTPException(
@@ -349,7 +350,7 @@ async def get_prediction_details(
             )
 
         model_tokens = format_code(model_info.tokens)
-        prediction_tokens = format_code(prediction_data.get("tokens", ""))
+        prediction_tokens = format_code(prediction_data.get("tokens", "") if prediction_data else "")
 
     except (TypeError, IndexError):
         logger.exception(
@@ -363,20 +364,6 @@ async def get_prediction_details(
             detail=create_error_response(
                 error_code="RETRIEVAL_ERROR", error_message="Could not retrieve details"
             ).model_dump(),
-        )
-
-    accept = request.headers.get("Accept", "")
-    if ACCEPT_TYPE in accept:
-        return templates.TemplateResponse(
-            request,
-            "prediction_function_details.html",
-            {
-                "task_name": task_name,
-                "model_name": model_name,
-                "function_name": function_name,
-                "model_tokens": model_tokens,
-                "prediction_tokens": prediction_tokens,
-            },
         )
 
     return create_success_response(
