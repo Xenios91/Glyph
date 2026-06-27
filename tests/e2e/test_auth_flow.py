@@ -4,29 +4,19 @@
 Tests the complete user authentication lifecycle: registration, login, and logout.
 """
 
-import time
 from typing import Any
 
 from playwright.sync_api import expect
 
-
-BASE_URL = "http://127.0.0.1:8000"
-
-
-def generate_unique_username() -> str:
-    """Generate a unique username for testing."""
-    timestamp = int(time.time() * 1000) % 100000
-    return f"testuser_{timestamp}"
-
-
-def wait_for_register_form(page: Any) -> None:
-    """Wait for the register form JavaScript to be initialized."""
-    page.wait_for_selector("#registerForm[data-initialized='true']", timeout=10000)
-
-
-def wait_for_login_form(page: Any) -> None:
-    """Wait for the login form JavaScript to be initialized."""
-    page.wait_for_selector("#loginForm[data-initialized='true']", timeout=10000)
+from tests.e2e.utils import (
+    BASE_URL,
+    generate_unique_username,
+    login_user,
+    logout_user,
+    register_user,
+    wait_for_login_form,
+    wait_for_register_form,
+)
 
 
 class TestRegistrationFlow:

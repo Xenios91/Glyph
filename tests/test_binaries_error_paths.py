@@ -31,7 +31,7 @@ _HEAVY_MODULES = [
     "app.processing.ghidra_processor",
     "app.processing.steps",
     "app.services.request_handler",
-    "app.utils.persistence_util",
+    "app.database.function_repository",
 ]
 
 
@@ -93,80 +93,80 @@ class TestBinaryUploadFormValidation:
 
 
 # ---------------------------------------------------------------------------
-# sanitize_filename
+# BinaryUploadService.sanitize_filename
 # ---------------------------------------------------------------------------
 
 
 class TestSanitizeFilename:
-    """Tests for sanitize_filename helper."""
+    """Tests for BinaryUploadService.sanitize_filename helper."""
 
     def test_path_traversal_rejected(self) -> None:
-        """Filenames with path traversal should raise HTTPException (400)."""
-        from app.api.v1.endpoints.binaries import sanitize_filename
+        """Filenames with path traversal should raise ValidationError."""
+        from app.exceptions import ValidationError
+        from app.services.binary_upload_service import BinaryUploadService
 
-        with pytest.raises(HTTPException) as exc_info:
-            sanitize_filename("../etc/passwd")
-        assert exc_info.value.status_code == 400
+        with pytest.raises(ValidationError):
+            BinaryUploadService.sanitize_filename("../etc/passwd")
 
     def test_null_byte_rejected(self) -> None:
-        """Filenames with null bytes should raise HTTPException (400)."""
-        from app.api.v1.endpoints.binaries import sanitize_filename
+        """Filenames with null bytes should raise ValidationError."""
+        from app.exceptions import ValidationError
+        from app.services.binary_upload_service import BinaryUploadService
 
-        with pytest.raises(HTTPException) as exc_info:
-            sanitize_filename("test\x00.elf")
-        assert exc_info.value.status_code == 400
+        with pytest.raises(ValidationError):
+            BinaryUploadService.sanitize_filename("test\x00.elf")
 
     def test_safe_filename_allowed(self) -> None:
         """Safe filenames should pass through."""
-        from app.api.v1.endpoints.binaries import sanitize_filename
+        from app.services.binary_upload_service import BinaryUploadService
 
-        result = sanitize_filename("my_binary.elf")
+        result = BinaryUploadService.sanitize_filename("my_binary.elf")
         assert result == "my_binary.elf"
 
     def test_empty_filename_rejected(self) -> None:
-        """Empty filename should raise HTTPException (400)."""
-        from app.api.v1.endpoints.binaries import sanitize_filename
+        """Empty filename should raise ValidationError."""
+        from app.exceptions import ValidationError
+        from app.services.binary_upload_service import BinaryUploadService
 
-        with pytest.raises(HTTPException) as exc_info:
-            sanitize_filename("")
-        assert exc_info.value.status_code == 400
+        with pytest.raises(ValidationError):
+            BinaryUploadService.sanitize_filename("")
 
 
 # ---------------------------------------------------------------------------
-# validate_binary_mime_type
+# BinaryUploadService.validate_mime_type
 # ---------------------------------------------------------------------------
 
 
 class TestValidateBinaryMimeType:
-    """Tests for validate_binary_mime_type helper."""
+    """Tests for BinaryUploadService.validate_mime_type helper."""
 
     def test_allowed_mime_type(self) -> None:
         """Allowed MIME types should not raise."""
-        from app.api.v1.endpoints.binaries import validate_binary_mime_type
+        from app.services.binary_upload_service import BinaryUploadService
 
-        with patch("app.api.v1.endpoints.binaries.magic") as mock_magic:
+        with patch("app.services.binary_upload_service.magic") as mock_magic:
             mock_magic.from_buffer.return_value = "application/x-executable"
-            validate_binary_mime_type(b"\x7fELF")
+            BinaryUploadService.validate_mime_type(b"\x7fELF")
 
     def test_disallowed_mime_type(self) -> None:
-        """Text files should raise HTTPException."""
-        from app.api.v1.endpoints.binaries import validate_binary_mime_type
+        """Text files should raise ValidationError."""
+        from app.exceptions import ValidationError
+        from app.services.binary_upload_service import BinaryUploadService
 
-        with patch("app.api.v1.endpoints.binaries.magic") as mock_magic:
+        with patch("app.services.binary_upload_service.magic") as mock_magic:
             mock_magic.from_buffer.return_value = "text/plain"
-            with pytest.raises(HTTPException) as exc_info:
-                validate_binary_mime_type(b"hello world")
-            assert exc_info.value.status_code == 400
+            with pytest.raises(ValidationError):
+                BinaryUploadService.validate_mime_type(b"hello world")
 
     def test_magic_detection_failure(self) -> None:
-        """Magic detection failure should raise HTTPException."""
-        from app.api.v1.endpoints.binaries import validate_binary_mime_type
+        """Magic detection failure should raise ValidationError."""
+        from app.exceptions import ValidationError
+        from app.services.binary_upload_service import BinaryUploadService
 
-        with patch("app.api.v1.endpoints.binaries.magic") as mock_magic:
+        with patch("app.services.binary_upload_service.magic") as mock_magic:
             mock_magic.from_buffer.side_effect = Exception("failed")
-            with pytest.raises(HTTPException) as exc_info:
-                validate_binary_mime_type(b"\x00")
-            assert exc_info.value.status_code == 400
+            with pytest.raises(ValidationError):
+                BinaryUploadService.validate_mime_type(b"\x00")
 
 
 # ---------------------------------------------------------------------------
@@ -189,35 +189,35 @@ class TestGetBinaryDetailErrorPaths:
         """Requesting non-existent binary should return 404."""
         from app.api.v1.endpoints import binaries
         from app.auth.dependencies import get_current_active_user
+        from app.exceptions import BinaryNotFoundError
 
-        mock_sql_util = MagicMock()
-        mock_sql_util.get_binary = AsyncMock(return_value=None)
+        binaries._upload_service.get_binary = AsyncMock(
+            side_effect=BinaryNotFoundError(binary_id=999)
+        )
+        binaries._upload_service.get_function_count = AsyncMock(return_value=0)
 
-        with patch("app.database.sql_service.SQLUtil", mock_sql_util):
-            client = create_app_client(
-                routers=[(binaries.router, "")],
-                dependency_overrides={get_current_active_user: lambda: mock_user},
-            )
-            response = client.get("/binaries/999")
-            assert response.status_code == 404
+        client = create_app_client(
+            routers=[(binaries.router, "")],
+            dependency_overrides={get_current_active_user: lambda: mock_user},
+        )
+        response = client.get("/binaries/999")
+        assert response.status_code == 404
 
     def test_access_denied_wrong_owner(self, mock_user: Any, mock_user_other: Any) -> None:
         """Requesting another user's binary should return 403."""
         from app.api.v1.endpoints import binaries
         from app.auth.dependencies import get_current_active_user
+        from app.exceptions import BinaryAccessError
 
-        other_binary = make_binary(binary_id=1, uploaded_by=mock_user_other.id)
+        binaries._upload_service.get_binary = AsyncMock(side_effect=BinaryAccessError(binary_id=1, user_id=mock_user.id))
+        binaries._upload_service.get_function_count = AsyncMock(return_value=0)
 
-        mock_sql_util = MagicMock()
-        mock_sql_util.get_binary = AsyncMock(return_value=other_binary)
-
-        with patch("app.database.sql_service.SQLUtil", mock_sql_util):
-            client = create_app_client(
-                routers=[(binaries.router, "")],
-                dependency_overrides={get_current_active_user: lambda: mock_user},
-            )
-            response = client.get("/binaries/1")
-            assert response.status_code == 403
+        client = create_app_client(
+            routers=[(binaries.router, "")],
+            dependency_overrides={get_current_active_user: lambda: mock_user},
+        )
+        response = client.get("/binaries/1")
+        assert response.status_code == 403
 
 
 # ---------------------------------------------------------------------------
@@ -236,17 +236,19 @@ class TestListBinaryFunctionsErrorPaths:
         """Listing functions for non-existent binary should return 404."""
         from app.api.v1.endpoints import binaries
         from app.auth.dependencies import get_current_active_user
+        from app.exceptions import BinaryNotFoundError
 
-        mock_sql_util = MagicMock()
-        mock_sql_util.get_binary = AsyncMock(return_value=None)
+        binaries._upload_service.get_binary = AsyncMock(
+            side_effect=BinaryNotFoundError(binary_id=999)
+        )
+        binaries._upload_service.get_function_count = AsyncMock(return_value=0)
 
-        with patch("app.database.sql_service.SQLUtil", mock_sql_util):
-            client = create_app_client(
-                routers=[(binaries.router, "")],
-                dependency_overrides={get_current_active_user: lambda: mock_user},
-            )
-            response = client.get("/functions/999")
-            assert response.status_code == 404
+        client = create_app_client(
+            routers=[(binaries.router, "")],
+            dependency_overrides={get_current_active_user: lambda: mock_user},
+        )
+        response = client.get("/functions/999")
+        assert response.status_code == 404
 
 
 # ---------------------------------------------------------------------------
@@ -269,35 +271,35 @@ class TestDeleteBinaryErrorPaths:
         """Deleting non-existent binary should return 404."""
         from app.api.v1.endpoints import binaries
         from app.auth.dependencies import get_current_active_user
+        from app.exceptions import BinaryNotFoundError
 
-        mock_sql_util = MagicMock()
-        mock_sql_util.get_binary = AsyncMock(return_value=None)
+        binaries._upload_service.get_binary = AsyncMock(
+            side_effect=BinaryNotFoundError(binary_id=999)
+        )
 
-        with patch("app.database.sql_service.SQLUtil", mock_sql_util):
-            client = create_app_client(
-                routers=[(binaries.router, "")],
-                dependency_overrides={get_current_active_user: lambda: mock_user},
-            )
-            response = client.delete("/binaries/999")
-            assert response.status_code == 404
+        client = create_app_client(
+            routers=[(binaries.router, "")],
+            dependency_overrides={get_current_active_user: lambda: mock_user},
+        )
+        response = client.delete("/binaries/999")
+        assert response.status_code == 404
 
     def test_delete_access_denied_wrong_owner(self, mock_user: Any, mock_user_other: Any) -> None:
         """Deleting another user's binary should return 403."""
         from app.api.v1.endpoints import binaries
         from app.auth.dependencies import get_current_active_user
+        from app.exceptions import BinaryAccessError
 
-        other_binary = make_binary(binary_id=1, uploaded_by=mock_user_other.id)
+        binaries._upload_service.get_binary = AsyncMock(
+            side_effect=BinaryAccessError(binary_id=1, user_id=mock_user.id)
+        )
 
-        mock_sql_util = MagicMock()
-        mock_sql_util.get_binary = AsyncMock(return_value=other_binary)
-
-        with patch("app.database.sql_service.SQLUtil", mock_sql_util):
-            client = create_app_client(
-                routers=[(binaries.router, "")],
-                dependency_overrides={get_current_active_user: lambda: mock_user},
-            )
-            response = client.delete("/binaries/1")
-            assert response.status_code == 403
+        client = create_app_client(
+            routers=[(binaries.router, "")],
+            dependency_overrides={get_current_active_user: lambda: mock_user},
+        )
+        response = client.delete("/binaries/1")
+        assert response.status_code == 403
 
 
 # ---------------------------------------------------------------------------
@@ -317,17 +319,14 @@ class TestListBinariesEmpty:
         from app.api.v1.endpoints import binaries
         from app.auth.dependencies import get_current_active_user
 
-        mock_sql_util = MagicMock()
-        mock_sql_util.count_binaries_by_user = AsyncMock(return_value=0)
-        mock_sql_util.get_binaries_by_user = AsyncMock(return_value=[])
+        binaries._upload_service.list_binaries = AsyncMock(return_value=([], 0))
 
-        with patch("app.database.sql_service.SQLUtil", mock_sql_util):
-            client = create_app_client(
-                routers=[(binaries.router, "")],
-                dependency_overrides={get_current_active_user: lambda: mock_user},
-            )
-            response = client.get("/list")
-            assert response.status_code == 200
-            data = response.json()
-            assert data["data"]["items"] == []
-            assert data["data"]["total"] == 0
+        client = create_app_client(
+            routers=[(binaries.router, "")],
+            dependency_overrides={get_current_active_user: lambda: mock_user},
+        )
+        response = client.get("/list")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["items"] == []
+        assert data["data"]["total"] == 0

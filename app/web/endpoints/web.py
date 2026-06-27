@@ -10,6 +10,7 @@ from typing import Annotated, Any, Union
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from loguru import logger
+from sqlalchemy import exc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app._version as _version
@@ -22,8 +23,10 @@ from app.database.repository import UserRepository
 from app.processing.task_management import TaskManager
 from app.templates import templates
 from app.utils.common import build_prediction_details_response, format_code
+from app.database.function_repository import FunctionRepository
+from app.database.model_repository import ModelRepository
+from app.database.prediction_repository import PredictionRepository
 from app.utils.helpers import ACCEPT_TYPE
-from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
 
 router = APIRouter()
 
@@ -50,8 +53,8 @@ async def home_stats(request: Request, current_user: Annotated[User, Depends(get
     from app.database.sql_service import SQLUtil
 
     binaries = await SQLUtil.get_binaries_by_user(current_user.id)
-    models = await MLPersistanceUtil.get_models_list()
-    predictions = await PredictionPersistanceUtil.get_predictions_list()
+    models = await ModelRepository.get_models_list()
+    predictions = await PredictionRepository.get_predictions_list()
 
     return JSONResponse(
         content={
@@ -104,7 +107,7 @@ async def get_list_models(
     """
     Handles a GET request to obtain all models available
     """
-    models: list[str] = await MLPersistanceUtil.get_models_list()
+    models: list[str] = list(await ModelRepository.get_models_list())
     accept = request.headers.get("Accept", "")
 
     if ACCEPT_TYPE not in accept:
@@ -124,7 +127,7 @@ async def get_list_predictions(
     request: Request, current_user: Annotated[User, Depends(get_current_active_user)]
 ) -> dict[str, list[dict[str, Any]]] | HTMLResponse:
     """Obtain all predictions available"""
-    predictions = await PredictionPersistanceUtil.get_predictions_list()
+    predictions = await PredictionRepository.get_predictions_list()
 
     accept = request.headers.get("Accept", "")
 
@@ -150,8 +153,8 @@ async def get_prediction_details(
     task_name = task_name.strip()
 
     try:
-        model_info = await FunctionPersistanceUtil.get_function(model_name, func_name)
-        prediction_data = await FunctionPersistanceUtil.get_prediction_function(task_name, model_name, func_name)
+        model_info = await FunctionRepository.get(model_name, func_name)
+        prediction_data = await PredictionRepository.get_prediction_function(task_name, model_name, func_name)
 
         if not model_info:
             raise HTTPException(status_code=404, detail="Function not found in model")
@@ -194,7 +197,7 @@ async def get_prediction(
     model_name: str = Query(...),
 ) -> dict[str, Any] | HTMLResponse:
     """Obtain predictions for a specific task and model"""
-    prediction = await PredictionPersistanceUtil.get_predictions(task_name, model_name)
+    prediction = await PredictionRepository.get(task_name, model_name)
 
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
@@ -341,25 +344,33 @@ async def register_submit(
 
     user_repo = UserRepository(db)
 
-    existing_user = await user_repo.get_by_username(username)
-    if existing_user:
+    try:
+        existing_user = await user_repo.get_by_username(username)
+        if existing_user:
+            return templates.TemplateResponse(
+                request,
+                "register.html",
+                {"title": "Glyph - Register", "user": None, "register_error": "Username already registered"},
+            )
+
+        existing_email = await user_repo.get_by_email(email)
+        if existing_email:
+            return templates.TemplateResponse(
+                request,
+                "register.html",
+                {"title": "Glyph - Register", "user": None, "register_error": "Email already registered"},
+            )
+
+        user = await user_repo.create_user(
+            username=username, email=email, password=password, full_name=full_name or None, permissions=["read"]
+        )
+    except exc.IntegrityError:
+        await db.rollback()
         return templates.TemplateResponse(
             request,
             "register.html",
-            {"title": "Glyph - Register", "user": None, "register_error": "Username already registered"},
+            {"title": "Glyph - Register", "user": None, "register_error": "Username or email already registered"},
         )
-
-    existing_email = await user_repo.get_by_email(email)
-    if existing_email:
-        return templates.TemplateResponse(
-            request,
-            "register.html",
-            {"title": "Glyph - Register", "user": None, "register_error": "Email already registered"},
-        )
-
-    user = await user_repo.create_user(
-        username=username, email=email, password=password, full_name=full_name or None, permissions=["read"]
-    )
 
     ip_address = request.client.host if request.client else None
     log_user_registration(user_id=user.id, username=username, ip_address=ip_address)
@@ -431,7 +442,7 @@ async def run_task_page(
     """
     Loads the task execution page for a given binary.
     """
-    models: list[str] = await MLPersistanceUtil.get_models_list()
+    models: list[str] = list(await ModelRepository.get_models_list())
     return templates.TemplateResponse(
         request,
         "run_task.html",

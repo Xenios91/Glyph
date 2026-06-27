@@ -10,6 +10,7 @@ Components:
     create_app: Factory function that builds the FastAPI application.
 """
 
+from urllib.parse import quote
 from typing import Any, Awaitable, Callable, cast
 
 from loguru import logger
@@ -414,7 +415,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
         )
         if not redirect_path.startswith("/"):
             redirect_path = "/"
-        redirect_url = f"/login?redirect={redirect_path}"
+        redirect_url = f"/login?redirect={quote(redirect_path, safe='/')}"
         return RedirectResponse(url=redirect_url, status_code=303)
 
     if "text/html" in accept:

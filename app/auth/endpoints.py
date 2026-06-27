@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import exc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_active_user, get_db, get_jwt_handler
@@ -66,21 +67,25 @@ async def register(
     """
     user_repo = UserRepository(db)
 
-    existing_user = await user_repo.get_by_username(user_data.username)
-    if existing_user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already registered")
+    try:
+        existing_user = await user_repo.get_by_username(user_data.username)
+        if existing_user:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already registered")
 
-    existing_email = await user_repo.get_by_email(user_data.email)
-    if existing_email:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+        existing_email = await user_repo.get_by_email(user_data.email)
+        if existing_email:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
 
-    user = await user_repo.create_user(
-        username=user_data.username,
-        email=user_data.email,
-        password=user_data.password,
-        full_name=user_data.full_name,
-        permissions=["read"],
-    )
+        user = await user_repo.create_user(
+            username=user_data.username,
+            email=user_data.email,
+            password=user_data.password,
+            full_name=user_data.full_name,
+            permissions=["read"],
+        )
+    except exc.IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email already registered")
 
     ip_address = request.client.host if request.client else None
     log_user_registration(user_id=user.id, username=user_data.username, ip_address=ip_address)
@@ -238,12 +243,34 @@ async def refresh_token(
 
     log_token_refresh(user_id=user.id, token_type="access_and_refresh", ip_address=ip_address)
 
-    return Response(
+    settings = get_settings()
+    response = Response(
         content=TokenResponse(
             access_token=new_access_token, refresh_token=new_refresh_token, token_type="bearer"
         ).model_dump_json(),
         media_type="application/json",
     )
+
+    response.set_cookie(
+        key="access_token_cookie",
+        value=new_access_token,
+        httponly=True,
+        secure=settings.use_https,
+        samesite="lax",
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/",
+    )
+    response.set_cookie(
+        key="refresh_token_cookie",
+        value=new_refresh_token,
+        httponly=True,
+        secure=settings.use_https,
+        samesite="strict",
+        max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
+        path="/auth/refresh",
+    )
+
+    return response
 
 
 @router.get("/logout")

@@ -66,7 +66,7 @@ class TestSQLUtilSaveModel:
     async def test_save_model_raises_on_session_error(self):
         """Test that save_model raises when session creation fails."""
         mock_error = AsyncMock(side_effect=Exception("DB Error"))
-        with patch("app.database.sql_service.get_async_session", mock_error):
+        with patch("app.database.model_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="DB Error"):
                 await SQLUtil.save_model("test_model", b"encoder", b"model")
 
@@ -140,15 +140,12 @@ class TestSQLUtilDeleteModel:
 
     async def test_delete_model_handles_exception(self):
         """Test that delete_model handles exceptions gracefully."""
-        import app.database.sql_service as sql_module
-        original = sql_module.get_async_session
         mock_error = AsyncMock(side_effect=Exception("Delete Error"))
-        sql_module.get_async_session = mock_error
-        try:
-            with pytest.raises(Exception, match="Delete Error"):
-                await SQLUtil.delete_model("test_model")
-        finally:
-            sql_module.get_async_session = original
+        with patch("app.database.model_repository.get_async_session", mock_error):
+            with patch.object(SQLUtil, "delete_model_predictions", new=AsyncMock()):
+                with patch.object(SQLUtil, "delete_functions", new=AsyncMock()):
+                    with pytest.raises(Exception, match="Delete Error"):
+                        await SQLUtil.delete_model("test_model")
 
 
 class TestSQLUtilGetPredictionsList:
@@ -233,15 +230,10 @@ class TestSQLUtilSavePredictions:
 
     async def test_save_predictions_handles_exception(self):
         """Test that save_predictions handles exceptions gracefully."""
-        import app.database.sql_service as sql_module
-        original = sql_module.get_async_session
         mock_error = AsyncMock(side_effect=Exception("Save Error"))
-        sql_module.get_async_session = mock_error
-        try:
+        with patch("app.database.prediction_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="Save Error"):
                 await SQLUtil.save_predictions("task1", "model1", [{"func": "f1"}])
-        finally:
-            sql_module.get_async_session = original
 
 
 class TestSQLUtilGetPredictionFunction:
@@ -279,15 +271,10 @@ class TestSQLUtilSaveFunctions:
 
     async def test_save_functions_handles_exception(self):
         """Test that save_functions handles exceptions gracefully."""
-        import app.database.sql_service as sql_module
-        original = sql_module.get_async_session
         mock_error = AsyncMock(side_effect=Exception("Save Error"))
-        sql_module.get_async_session = mock_error
-        try:
+        with patch("app.database.function_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="Save Error"):
                 await SQLUtil.save_functions("model1", [{"functionName": "f1", "lowAddress": "0x0", "tokenList": ["t"]}])
-        finally:
-            sql_module.get_async_session = original
 
 
 class TestSQLUtilGetFunctions:
@@ -340,15 +327,10 @@ class TestSQLUtilDeleteFunctions:
 
     async def test_delete_functions_handles_exception(self):
         """Test that delete_functions handles exceptions gracefully."""
-        import app.database.sql_service as sql_module
-        original = sql_module.get_async_session
         mock_error = AsyncMock(side_effect=Exception("Delete Error"))
-        sql_module.get_async_session = mock_error
-        try:
+        with patch("app.database.function_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="Delete Error"):
                 await SQLUtil.delete_functions("model1")
-        finally:
-            sql_module.get_async_session = original
 
 
 class TestSQLUtilDeletePrediction:
@@ -363,15 +345,10 @@ class TestSQLUtilDeletePrediction:
 
     async def test_delete_prediction_handles_exception(self):
         """Test that delete_prediction handles exceptions gracefully."""
-        import app.database.sql_service as sql_module
-        original = sql_module.get_async_session
         mock_error = AsyncMock(side_effect=Exception("Delete Error"))
-        sql_module.get_async_session = mock_error
-        try:
+        with patch("app.database.prediction_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="Delete Error"):
                 await SQLUtil.delete_prediction("task1")
-        finally:
-            sql_module.get_async_session = original
 
 
 class TestSQLUtilDeleteModelPredictions:
@@ -390,15 +367,10 @@ class TestSQLUtilDeleteModelPredictions:
 
     async def test_delete_model_predictions_handles_exception(self):
         """Test that delete_model_predictions handles exceptions gracefully."""
-        import app.database.sql_service as sql_module
-        original = sql_module.get_async_session
         mock_error = AsyncMock(side_effect=Exception("Delete Error"))
-        sql_module.get_async_session = mock_error
-        try:
+        with patch("app.database.prediction_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="Delete Error"):
                 await SQLUtil.delete_model_predictions("model1")
-        finally:
-            sql_module.get_async_session = original
 
 
 class TestSQLUtilModelNameExists:
@@ -438,10 +410,7 @@ class TestSQLUtilTaskNameExists:
     async def test_task_name_exists_returns_false_on_error(self):
         """Test that task_name_exists returns False on database errors."""
         mock_error = AsyncMock(side_effect=Exception("DB Error"))
-        with patch("app.database.sql_service.get_async_session", new=mock_error):
-            import importlib
-            import app.database.sql_service as sql_module
-            importlib.reload(sql_module)
-            result = await sql_module.SQLUtil.task_name_exists("task1")
+        with patch("app.database.prediction_repository.get_async_session", new=mock_error):
+            result = await SQLUtil.task_name_exists("task1")
             assert result is False
 

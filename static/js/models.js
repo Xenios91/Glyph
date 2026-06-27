@@ -112,4 +112,23 @@ onDomReady(function() {
     if (deleteBtn) {
         deleteBtn.addEventListener('click', deleteSelectedModels);
     }
+
+    // Initialize pagination
+    const paginationEl = document.getElementById('models-pagination');
+    const table = document.querySelector('.model-table');
+    if (paginationEl && table) {
+        const rows = table.querySelectorAll('tbody tr');
+        if (rows.length > 0) {
+            const pagination = new Pagination({
+                tableSelector: '.model-table',
+                paginationSelector: '#models-pagination',
+                defaultPageSize: 10,
+                pageSizes: [10, 25, 50, 100],
+                storageKey: 'glyph_models_page_size'
+            });
+            pagination.init();
+        } else {
+            paginationEl.style.display = 'none';
+        }
+    }
 });

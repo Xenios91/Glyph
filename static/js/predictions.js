@@ -235,4 +235,46 @@ onDomReady(function() {
     if (deleteSelectedBtn) {
         deleteSelectedBtn.addEventListener('click', deleteSelectedPredictions);
     }
+
+    // Initialize pagination for predictions list page
+    const predictionsPaginationEl = document.getElementById('predictions-pagination');
+    if (predictionsPaginationEl) {
+        const table = document.querySelector('.prediction-table');
+        if (table) {
+            const rows = table.querySelectorAll('tbody tr');
+            if (rows.length > 0) {
+                const pagination = new Pagination({
+                    tableSelector: '.prediction-table',
+                    paginationSelector: '#predictions-pagination',
+                    defaultPageSize: 10,
+                    pageSizes: [10, 25, 50, 100],
+                    storageKey: 'glyph_predictions_page_size'
+                });
+                pagination.init();
+            } else {
+                predictionsPaginationEl.style.display = 'none';
+            }
+        }
+    }
+
+    // Initialize pagination for prediction details page
+    const predictionDetailsPaginationEl = document.getElementById('prediction-details-pagination');
+    if (predictionDetailsPaginationEl) {
+        const table = document.querySelector('.prediction-table');
+        if (table) {
+            const rows = table.querySelectorAll('tbody tr');
+            if (rows.length > 0) {
+                const pagination = new Pagination({
+                    tableSelector: '.prediction-table',
+                    paginationSelector: '#prediction-details-pagination',
+                    defaultPageSize: 10,
+                    pageSizes: [10, 25, 50, 100],
+                    storageKey: 'glyph_prediction_details_page_size'
+                });
+                pagination.init();
+            } else {
+                predictionDetailsPaginationEl.style.display = 'none';
+            }
+        }
+    }
 });

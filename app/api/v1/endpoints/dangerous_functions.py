@@ -27,7 +27,10 @@ from app.services.dangerous_functions_catalog import (
     get_entries_by_category,
     get_entry,
 )
-from app.utils.persistence_util import FunctionPersistanceUtil, MLPersistanceUtil, PredictionPersistanceUtil
+from app.database.function_repository import FunctionRepository
+from app.database.model_repository import ModelRepository
+from app.database.prediction_repository import PredictionRepository
+from app.services.prediction_service import PredictionService
 from app.utils.responses import (
     ErrorResponse,
     SuccessResponse,
@@ -288,8 +291,8 @@ async def get_available_models(
     Returns:
         Success response with lists of model names and prediction task names.
     """
-    models = await MLPersistanceUtil.get_models_list()
-    predictions = await PredictionPersistanceUtil.get_predictions_list()
+    models = await ModelRepository.get_models_list()
+    predictions = await PredictionRepository.get_predictions_list()
 
     task_names: list[str] = [p.task_name for p in predictions] if predictions else []
 
@@ -332,7 +335,7 @@ async def scan_dangerous_functions(
     if body.modelName:
         target_name = body.modelName
         # Check model exists
-        exists = await MLPersistanceUtil.check_name(target_name)
+        exists = await ModelRepository.exists(target_name)
         if not exists:
             raise HTTPException(
                 status_code=404,
@@ -340,7 +343,7 @@ async def scan_dangerous_functions(
             )
 
         # Get functions for this model
-        functions = await FunctionPersistanceUtil.get_functions(target_name)
+        functions = await FunctionRepository.get_functions(target_name)
         functions_data = _functions_to_dicts(functions)
 
     elif body.binaryId is not None:
@@ -377,7 +380,7 @@ async def scan_dangerous_functions(
     elif body.taskName:
         target_name = body.taskName
         # Get prediction data
-        all_predictions = await PredictionPersistanceUtil.get_predictions_list()
+        all_predictions = await PredictionRepository.get_predictions_list()
         matching = [p for p in all_predictions if p.task_name == target_name]
         if not matching:
             raise HTTPException(

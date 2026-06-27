@@ -83,6 +83,15 @@ async def save_config(
     settings = get_settings()
 
     if payload.max_file_size_mb is not None:
+        if not (1 <= payload.max_file_size_mb <= 2048):
+            logger.warning("Configuration update rejected: invalid max_file_size_mb={}", payload.max_file_size_mb)
+            raise HTTPException(
+                status_code=400,
+                detail=create_error_response(
+                    error_code="INVALID_FILE_SIZE",
+                    error_message="max_file_size_mb must be between 1 and 2048",
+                ).model_dump(),
+            )
         logger.info("Configuration updated: max_file_size_mb={}", payload.max_file_size_mb)
         settings.max_file_size_mb = payload.max_file_size_mb
 

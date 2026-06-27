@@ -11,11 +11,11 @@ def format_code(code: str) -> str:
     when rendered in templates, and JSON responses remain clean for API consumers.
     """
 
-    # Non-backtracking pattern for C-style block comments.
-    # Matches /* ... */ without allowing catastrophic backtracking by
-    # explicitly excluding '*' from the body and handling '*' characters
-    # that are not followed by '/'.
-    code = re.sub(r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/", "", code)
+    # Non-greedy pattern for C-style block comment removal.
+    # Uses re.DOTALL so that '.' matches newlines, allowing multi-line comments
+    # to be removed in a single pass. The non-greedy '*?' prevents excessive
+    # backtracking on malformed input.
+    code = re.sub(r"/\*.*?\*/", "", code, flags=re.DOTALL)
     # Non-backtracking pattern for single-line comments.
     # Matches // ... up to end of line (excluding newline).
     code = re.sub(r"//[^\r\n]*", "", code)

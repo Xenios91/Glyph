@@ -755,6 +755,35 @@
 
             tbody.appendChild(row);
         });
+
+        // Initialize pagination after rendering table rows
+        initSimilarityPagination();
+    }
+
+    /**
+     * Initialize pagination for the similarity table
+     */
+    function initSimilarityPagination() {
+        var paginationEl = document.getElementById('similarity-pagination');
+        if (!paginationEl) return;
+
+        var table = document.querySelector('#table-container .cyber-table');
+        if (!table) return;
+
+        var rows = table.querySelectorAll('tbody tr');
+        if (rows.length > 0) {
+            paginationEl.style.display = '';
+            var pagination = new Pagination({
+                tableSelector: '#table-container .cyber-table',
+                paginationSelector: '#similarity-pagination',
+                defaultPageSize: 10,
+                pageSizes: [10, 25, 50, 100],
+                storageKey: 'glyph_similarity_page_size'
+            });
+            pagination.init();
+        } else {
+            paginationEl.style.display = 'none';
+        }
     }
 
     // ============================================================

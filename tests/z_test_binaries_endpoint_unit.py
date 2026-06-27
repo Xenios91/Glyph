@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch, mock_open
 _MOCKED_MODULES = [
     "app.processing.task_management",
     "app.processing.pipeline",
+    "app.processing.pipeline_configs",
     "app.processing.ghidra_processor",
 ]
 _original_modules: dict[str, Any] = {}
@@ -160,7 +161,7 @@ class TestUploadBinaryEndpoint:
         """Create a mock binary file."""
         mock_file = MagicMock()
         mock_file.filename = "test.elf"
-        mock_file.read = AsyncMock(return_value=b"\x7fELF" + b"\x00" * 100)
+        mock_file.read = AsyncMock(side_effect=[b"\x7fELF" + b"\x00" * 100, b""])
         return mock_file
 
     @pytest.mark.asyncio
@@ -201,23 +202,18 @@ class TestUploadBinaryEndpoint:
         mock_sql_util.save_binary = AsyncMock(return_value=1)
 
         mock_user = make_user()
-        mock_request = MagicMock()
-        mock_request.headers = {"accept": "application/json"}
         mock_bg = BackgroundTasks()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             with patch("app.api.v1.endpoints.binaries.open", mock_open()):
                 with patch("app.api.v1.endpoints.binaries.capture_request_context", return_value=None):
-                    with patch("app.api.v1.endpoints.binaries.templates") as mock_templates:
-                        mock_templates.TemplateResponse = MagicMock
-                        result = await post_upload_binary(
-                            background_tasks=mock_bg,
-                            request=mock_request,
-                            current_user=mock_user,
-                            binary_file=mock_binary_file,
-                            name="test_binary",
-                        )
-                        assert result is not None
+                    result = await post_upload_binary(
+                        background_tasks=mock_bg,
+                        current_user=mock_user,
+                        binary_file=mock_binary_file,
+                        name="test_binary",
+                    )
+                    assert result is not None
 
     @pytest.mark.asyncio
     @patch("app.api.v1.endpoints.binaries.get_settings")
@@ -254,16 +250,12 @@ class TestUploadBinaryEndpoint:
         mock_file.filename = "big.elf"
         mock_file.read = AsyncMock(return_value=file_content)
 
-        mock_request = MagicMock()
-        mock_request.headers = {"accept": "application/json"}
-
         mock_user = make_user()
         mock_bg = BackgroundTasks()
 
         with pytest.raises(HTTPException) as exc_info:
             await post_upload_binary(
                 background_tasks=mock_bg,
-                request=mock_request,
                 current_user=mock_user,
                 binary_file=mock_file,
                 name="big_binary",
@@ -303,16 +295,12 @@ class TestUploadBinaryEndpoint:
         mock_file.filename = "readme.txt"
         mock_file.read = AsyncMock(return_value=b"hello world")
 
-        mock_request = MagicMock()
-        mock_request.headers = {"accept": "application/json"}
-
         mock_user = make_user()
         mock_bg = BackgroundTasks()
 
         with pytest.raises(HTTPException) as exc_info:
             await post_upload_binary(
                 background_tasks=mock_bg,
-                request=mock_request,
                 current_user=mock_user,
                 binary_file=mock_file,
                 name="text_file",
@@ -352,16 +340,12 @@ class TestUploadBinaryEndpoint:
         mock_os.chmod = MagicMock()
         mock_shutil.disk_usage.return_value = MagicMock(free=0)
 
-        mock_request = MagicMock()
-        mock_request.headers = {"accept": "application/json"}
-
         mock_user = make_user()
         mock_bg = BackgroundTasks()
 
         with pytest.raises(HTTPException) as exc_info:
             await post_upload_binary(
                 background_tasks=mock_bg,
-                request=mock_request,
                 current_user=mock_user,
                 binary_file=mock_binary_file,
                 name="test",
@@ -398,16 +382,12 @@ class TestUploadBinaryEndpoint:
         mock_file.filename = None
         mock_file.read = AsyncMock(return_value=b"\x7fELF")
 
-        mock_request = MagicMock()
-        mock_request.headers = {"accept": "application/json"}
-
         mock_user = make_user()
         mock_bg = BackgroundTasks()
 
         with pytest.raises(HTTPException) as exc_info:
             await post_upload_binary(
                 background_tasks=mock_bg,
-                request=mock_request,
                 current_user=mock_user,
                 binary_file=mock_file,
                 name="test",
@@ -421,7 +401,7 @@ class TestUploadBinaryEndpoint:
     @patch("app.api.v1.endpoints.binaries.shutil")
     @patch("app.api.v1.endpoints.binaries.uuid")
     @patch("app.api.v1.endpoints.binaries.TaskManager")
-    async def test_upload_binary_html_response(
+    async def test_upload_binary_json_response(
         self,
         mock_task_manager: Any,
         mock_uuid: Any,
@@ -431,7 +411,7 @@ class TestUploadBinaryEndpoint:
         mock_get_settings: Any,
         mock_binary_file: Any,
     ) -> None:
-        """Test binary upload returns HTML TemplateResponse for browser requests."""
+        """Test binary upload returns JSON response (no HTML content negotiation)."""
         from fastapi import BackgroundTasks
 
         from app.api.v1.endpoints.binaries import post_upload_binary
@@ -452,23 +432,18 @@ class TestUploadBinaryEndpoint:
         mock_sql_util.save_binary = AsyncMock(return_value=1)
 
         mock_user = make_user()
-        mock_request = MagicMock()
-        mock_request.headers.get.return_value = "text/html"
         mock_bg = BackgroundTasks()
 
         with patch("app.database.sql_service.SQLUtil", mock_sql_util):
             with patch("app.api.v1.endpoints.binaries.open", mock_open()):
                 with patch("app.api.v1.endpoints.binaries.capture_request_context", return_value=None):
-                    with patch("app.api.v1.endpoints.binaries.templates") as mock_templates:
-                        mock_templates.TemplateResponse = Mock(return_value=Mock())
-                        result = await post_upload_binary(
-                            background_tasks=mock_bg,
-                            request=mock_request,
-                            current_user=mock_user,
-                            binary_file=mock_binary_file,
-                            name="test_binary",
-                        )
-                        mock_templates.TemplateResponse.assert_called_once()
+                    result = await post_upload_binary(
+                        background_tasks=mock_bg,
+                        current_user=mock_user,
+                        binary_file=mock_binary_file,
+                        name="test_binary",
+                    )
+                    assert result is not None
 
 
 # -----------------------------------------------------------------------
@@ -771,15 +746,10 @@ class TestUploadPipeline:
     Signature: _run_upload_pipeline(binary_id, file_path, task_uuid, captured_ctx=None)
     """
 
-    @patch("app.processing.steps.SaveRawFunctionsStep")
-    @patch("app.processing.steps.DecompileStep")
-    @patch("app.processing.steps.ValidationStep")
-    @patch("app.processing.pipeline.ProcessingPipeline")
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
     async def test_run_upload_pipeline_success(
-        self, mock_clear: Any, mock_tm: Any, mock_pipeline_cls: Any,
-        mock_validation: Any, mock_decompile: Any, mock_save: Any
+        self, mock_clear: Any, mock_tm: Any
     ) -> None:
         """Test upload pipeline completes successfully."""
         from app.api.v1.endpoints.binaries import _run_upload_pipeline
@@ -788,10 +758,9 @@ class TestUploadPipeline:
         mock_result.error = None
         mock_result.get = MagicMock(return_value=5)
 
-        mock_execute = AsyncMock(return_value=mock_result)
-        mock_instance = MagicMock()
-        mock_instance.execute = mock_execute
-        mock_pipeline_cls.return_value = mock_instance
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute = AsyncMock(return_value=mock_result)
+        sys.modules["app.processing.pipeline_configs"].UPLOAD_PIPELINE = mock_pipeline
 
         await _run_upload_pipeline(
             binary_id=1,
@@ -799,15 +768,10 @@ class TestUploadPipeline:
             task_uuid="abc-123",
         )
 
-    @patch("app.processing.steps.SaveRawFunctionsStep")
-    @patch("app.processing.steps.DecompileStep")
-    @patch("app.processing.steps.ValidationStep")
-    @patch("app.processing.pipeline.ProcessingPipeline")
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
     async def test_run_upload_pipeline_error_result(
-        self, mock_clear: Any, mock_tm: Any, mock_pipeline_cls: Any,
-        mock_validation: Any, mock_decompile: Any, mock_save: Any
+        self, mock_clear: Any, mock_tm: Any
     ) -> None:
         """Test upload pipeline handles pipeline error result."""
         from app.api.v1.endpoints.binaries import _run_upload_pipeline
@@ -816,10 +780,9 @@ class TestUploadPipeline:
         mock_result.error = "Something failed"
         mock_result.exc_info = (RuntimeError, RuntimeError("fail"), None)
 
-        mock_execute = AsyncMock(return_value=mock_result)
-        mock_instance = MagicMock()
-        mock_instance.execute = mock_execute
-        mock_pipeline_cls.return_value = mock_instance
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute = AsyncMock(return_value=mock_result)
+        sys.modules["app.processing.pipeline_configs"].UPLOAD_PIPELINE = mock_pipeline
 
         await _run_upload_pipeline(
             binary_id=1,
@@ -827,22 +790,17 @@ class TestUploadPipeline:
             task_uuid="abc-123",
         )
 
-    @patch("app.processing.steps.SaveRawFunctionsStep")
-    @patch("app.processing.steps.DecompileStep")
-    @patch("app.processing.steps.ValidationStep")
-    @patch("app.processing.pipeline.ProcessingPipeline")
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
     async def test_run_upload_pipeline_exception(
-        self, mock_clear: Any, mock_tm: Any, mock_pipeline_cls: Any,
-        mock_validation: Any, mock_decompile: Any, mock_save: Any
+        self, mock_clear: Any, mock_tm: Any
     ) -> None:
         """Test upload pipeline handles unexpected exceptions."""
         from app.api.v1.endpoints.binaries import _run_upload_pipeline
 
-        mock_instance = MagicMock()
-        mock_instance.execute = AsyncMock(side_effect=RuntimeError("Unexpected error"))
-        mock_pipeline_cls.return_value = mock_instance
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute = AsyncMock(side_effect=RuntimeError("Unexpected error"))
+        sys.modules["app.processing.pipeline_configs"].UPLOAD_PIPELINE = mock_pipeline
 
         with pytest.raises(RuntimeError):
             await _run_upload_pipeline(
@@ -851,15 +809,10 @@ class TestUploadPipeline:
                 task_uuid="abc-123",
             )
 
-    @patch("app.processing.steps.SaveRawFunctionsStep")
-    @patch("app.processing.steps.DecompileStep")
-    @patch("app.processing.steps.ValidationStep")
-    @patch("app.processing.pipeline.ProcessingPipeline")
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
     async def test_run_upload_pipeline_with_context(
-        self, mock_clear: Any, mock_tm: Any, mock_pipeline_cls: Any,
-        mock_validation: Any, mock_decompile: Any, mock_save: Any
+        self, mock_clear: Any, mock_tm: Any
     ) -> None:
         """Test upload pipeline with captured request context."""
         from app.api.v1.endpoints.binaries import _run_upload_pipeline
@@ -870,10 +823,9 @@ class TestUploadPipeline:
         mock_result.error = None
         mock_result.get = MagicMock(return_value=3)
 
-        mock_execute = AsyncMock(return_value=mock_result)
-        mock_instance = MagicMock()
-        mock_instance.execute = mock_execute
-        mock_pipeline_cls.return_value = mock_instance
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute = AsyncMock(return_value=mock_result)
+        sys.modules["app.processing.pipeline_configs"].UPLOAD_PIPELINE = mock_pipeline
 
         with patch("app.api.v1.endpoints.binaries.restore_request_context") as mock_restore:
             await _run_upload_pipeline(
@@ -898,7 +850,7 @@ class TestPipelineAnalysis:
 
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    @patch("app.api.v1.endpoints.binaries.FunctionPersistanceUtil.add_model_functions", new_callable=AsyncMock)
+    @patch("app.api.v1.endpoints.binaries.FunctionRepository.add_model_functions", new_callable=AsyncMock)
     @patch("app.services.request_handler.TrainingRequest")
     async def test_run_pipeline_analysis_training_success(
         self, mock_tr: Any, mock_add_model: Any, mock_clear: Any, mock_tm: Any
@@ -926,7 +878,7 @@ class TestPipelineAnalysis:
 
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    @patch("app.api.v1.endpoints.binaries.FunctionPersistanceUtil.add_prediction_functions", new_callable=AsyncMock)
+    @patch("app.api.v1.endpoints.binaries.FunctionRepository.add_prediction_functions", new_callable=AsyncMock)
     @patch("app.services.request_handler.PredictionRequest")
     async def test_run_pipeline_analysis_prediction_success(
         self, mock_pr: Any, mock_add_pred: Any, mock_clear: Any, mock_tm: Any
@@ -1080,7 +1032,7 @@ class TestPipelineAnalysis:
             mock_run = AsyncMock(return_value=mock_result)
             mock_ghidra.run_full_pipeline = mock_run
 
-            with patch("app.api.v1.endpoints.binaries.FunctionPersistanceUtil") as mock_fp:
+            with patch("app.api.v1.endpoints.binaries.FunctionRepository") as mock_fp:
                 mock_fp.get_predictions_list = AsyncMock(return_value=[MagicMock()])
                 # Make PredictionRequest import and initialization fail
                 with patch("app.services.request_handler.PredictionRequest", side_effect=RuntimeError("bad data")):

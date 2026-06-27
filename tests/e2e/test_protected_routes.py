@@ -8,18 +8,14 @@ from typing import Any
 
 from playwright.sync_api import expect
 
-
-BASE_URL = "http://127.0.0.1:8000"
-
-
-def wait_for_register_form(page: Any) -> None:
-    """Wait for the register form JavaScript to be initialized."""
-    page.wait_for_selector("#registerForm[data-initialized='true']", timeout=10000)
-
-
-def wait_for_login_form(page: Any) -> None:
-    """Wait for the login form JavaScript to be initialized."""
-    page.wait_for_selector("#loginForm[data-initialized='true']", timeout=10000)
+from tests.e2e.utils import (
+    BASE_URL,
+    login_user,
+    register_and_login,
+    register_user,
+    wait_for_login_form,
+    wait_for_register_form,
+)
 
 
 class TestProtectedRoutesRedirect:
@@ -70,6 +66,54 @@ class TestProtectedRoutesRedirect:
         current_url = page.url
         assert "/login" in current_url or "Not authenticated" in page.content()
 
+    def test_binary_library_redirects_to_login(self, page: Any, server: Any) -> None:
+        """Test that accessing binary library redirects to login."""
+        page.goto(f"{BASE_URL}/binary-library", wait_until="commit")
+        current_url = page.url
+        assert "/login" in current_url or page.title() != "Glyph - Binary Library"
+
+    def test_binary_detail_redirects_to_login(self, page: Any, server: Any) -> None:
+        """Test that accessing a binary detail page redirects to login."""
+        page.goto(f"{BASE_URL}/binary/1", wait_until="commit")
+        current_url = page.url
+        assert "/login" in current_url or page.title() != "Glyph - Binary Details"
+
+    def test_run_task_redirects_to_login(self, page: Any, server: Any) -> None:
+        """Test that accessing run task page redirects to login."""
+        page.goto(f"{BASE_URL}/run-task?binary_id=1&binary_name=test", wait_until="commit")
+        current_url = page.url
+        assert "/login" in current_url or page.title() != "Glyph - Run Task"
+
+    def test_create_model_redirects_to_login(self, page: Any, server: Any) -> None:
+        """Test that accessing create model page redirects to login."""
+        page.goto(f"{BASE_URL}/create-model", wait_until="commit")
+        current_url = page.url
+        assert "/login" in current_url or page.title() != "Glyph - Create Model"
+
+    def test_create_prediction_redirects_to_login(self, page: Any, server: Any) -> None:
+        """Test that accessing create prediction page redirects to login."""
+        page.goto(f"{BASE_URL}/create-prediction", wait_until="commit")
+        current_url = page.url
+        assert "/login" in current_url or page.title() != "Glyph - Create Prediction"
+
+    def test_task_results_redirects_to_login(self, page: Any, server: Any) -> None:
+        """Test that accessing task results page redirects to login."""
+        page.goto(f"{BASE_URL}/task-results?task_uuid=test", wait_until="commit")
+        current_url = page.url
+        assert "/login" in current_url or page.title() != "Glyph - Task Results"
+
+    def test_similarity_dashboard_redirects_to_login(self, page: Any, server: Any) -> None:
+        """Test that accessing similarity dashboard redirects to login."""
+        page.goto(f"{BASE_URL}/similarity-dashboard", wait_until="commit")
+        current_url = page.url
+        assert "/login" in current_url or page.title() != "Glyph - Similarity Dashboard"
+
+    def test_dangerous_functions_redirects_to_login(self, page: Any, server: Any) -> None:
+        """Test that accessing dangerous functions page redirects to login."""
+        page.goto(f"{BASE_URL}/getDangerousFunctions", wait_until="commit")
+        current_url = page.url
+        assert "/login" in current_url or page.title() != "Glyph - Dangerous Function Scanner"
+
 
 class TestPublicRoutesAccessible:
     """Tests that public routes are accessible without authentication."""
@@ -98,32 +142,15 @@ class TestPublicRoutesAccessible:
         expect(page).to_have_title("Glyph - Error")
 
 
+from tests.e2e.utils import register_and_login
+
+
 class TestSessionPersistence:
     """Tests for session persistence across page navigations."""
 
     def test_session_persists_after_page_reload(self, page: Any, server: Any) -> None:
         """Test that user session persists after reloading the page."""
-        import time
-        timestamp = int(time.time() * 1000) % 100000
-        username = f"testuser_{timestamp}"
-        email = f"{username}@test.com"
-
-        # Register
-        page.goto(f"{BASE_URL}/register")
-        wait_for_register_form(page)
-        page.locator("#username").fill(username)
-        page.locator("#email").fill(email)
-        page.locator("#password").fill("SecurePass123!")
-        page.locator("#confirm_password").fill("SecurePass123!")
-        page.locator("#register-submit-btn").click()
-        page.wait_for_url(f"{BASE_URL}/login")
-
-        # Login
-        wait_for_login_form(page)
-        page.locator("#username").fill(username)
-        page.locator("#password").fill("SecurePass123!")
-        page.locator("#login-submit-btn").click()
-        page.wait_for_url(f"{BASE_URL}/")
+        register_and_login(page)
 
         # Verify logged in
         expect(page).to_have_title("Glyph")
@@ -137,27 +164,7 @@ class TestSessionPersistence:
 
     def test_session_persists_across_page_navigations(self, page: Any, server: Any) -> None:
         """Test that user session persists when navigating between pages."""
-        import time
-        timestamp = int(time.time() * 1000) % 100000
-        username = f"testuser_{timestamp}"
-        email = f"{username}@test.com"
-
-        # Register
-        page.goto(f"{BASE_URL}/register")
-        wait_for_register_form(page)
-        page.locator("#username").fill(username)
-        page.locator("#email").fill(email)
-        page.locator("#password").fill("SecurePass123!")
-        page.locator("#confirm_password").fill("SecurePass123!")
-        page.locator("#register-submit-btn").click()
-        page.wait_for_url(f"{BASE_URL}/login")
-
-        # Login
-        wait_for_login_form(page)
-        page.locator("#username").fill(username)
-        page.locator("#password").fill("SecurePass123!")
-        page.locator("#login-submit-btn").click()
-        page.wait_for_url(f"{BASE_URL}/")
+        register_and_login(page)
 
         # Navigate to multiple pages
         page.goto(f"{BASE_URL}/getModels")

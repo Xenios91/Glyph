@@ -137,6 +137,57 @@ class SimilarityComputationListResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+# Background task tracker to prevent garbage collection of fire-and-forget tasks
+_BACKGROUND_TASKS: set[asyncio.Task[None]] = set()
+
+
+async def _remove_task_delayed(task_uuid: str) -> None:
+    """Remove a task from TaskManager after a delay.
+
+    Args:
+        task_uuid: The task UUID to remove.
+    """
+    await asyncio.sleep(10)
+    TaskManager.remove_task(task_uuid)
+
+
+async def _save_prediction_functions_tasks(prediction_request: Any, predictions: list[str]) -> None:
+    """Merge predictions with functions and persist to database."""
+    from app.database.prediction_repository import PredictionRepository
+
+    functions: list[dict[str, Any]] = prediction_request.get_functions() or []
+    task_name = prediction_request.task_name
+
+    if functions and len(functions) == len(predictions):
+        for ctr, function in enumerate(functions):
+            updated_function = function.copy()
+            updated_function["prediction"] = predictions[ctr]
+            functions[ctr] = updated_function
+        await PredictionRepository.save(task_name, prediction_request.model_name, functions)
+    elif functions:
+        logger.warning(
+            "Mismatch between functions (%d) and predictions (%d) for task '%s'",
+            len(functions),
+            len(predictions),
+            task_name,
+        )
+
+
+def _create_background_task(coro) -> asyncio.Task[None]:
+    """Create a background task that won't be garbage-collected.
+
+    Args:
+        coro: The coroutine to run in the background.
+
+    Returns:
+        The created asyncio.Task.
+    """
+    task: asyncio.Task[None] = asyncio.create_task(coro)
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
+    return task
+
+
 async def _run_code_reuse_task(
     binary_id: int,
     task_uuid: str,
@@ -257,7 +308,7 @@ async def _run_code_reuse_task(
         logger.exception("Code reuse task failed")
         raise
     finally:
-        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
+        _create_background_task(_remove_task_delayed(task_uuid))
         clear_request_context()
 
 
@@ -380,7 +431,7 @@ async def _run_dangerous_functions_task(
         logger.exception("Dangerous function scan task failed")
         raise
     finally:
-        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
+        _create_background_task(_remove_task_delayed(task_uuid))
         clear_request_context()
 
 
@@ -407,15 +458,7 @@ async def _run_ml_task(
         ml_class_type: Classification type (for training).
         captured_ctx: Captured request context.
     """
-    from app.processing.pipeline import PipelineContext, ProcessingPipeline
-    from app.processing.steps import (
-        FeatureExtractStep,
-        FilterStep,
-        LoadBinaryFunctionsStep,
-        PredictStep,
-        TokenizeStep,
-        TrainStep,
-    )
+    from app.processing.pipeline import PipelineContext
 
     try:
         if captured_ctx is not None:
@@ -439,27 +482,13 @@ async def _run_ml_task(
         context.set("binary_id", binary_id)
 
         if task_type == TaskType.ML_TRAINING:
-            pipeline = ProcessingPipeline(
-                "ML Training Pipeline",
-                [
-                    LoadBinaryFunctionsStep(),
-                    TokenizeStep(),
-                    FilterStep(),
-                    FeatureExtractStep(),
-                    TrainStep(),
-                ],
-            )
+            from app.processing.pipeline_configs import TRAINING_FROM_DB_PIPELINE
+
+            pipeline = TRAINING_FROM_DB_PIPELINE
         else:
-            pipeline = ProcessingPipeline(
-                "ML Prediction Pipeline",
-                [
-                    LoadBinaryFunctionsStep(),
-                    TokenizeStep(),
-                    FilterStep(),
-                    FeatureExtractStep(),
-                    PredictStep(),
-                ],
-            )
+            from app.processing.pipeline_configs import PREDICTION_FROM_DB_PIPELINE
+
+            pipeline = PREDICTION_FROM_DB_PIPELINE
 
         result = await pipeline.execute(context)
 
@@ -471,8 +500,8 @@ async def _run_ml_task(
             filtered_functions = result.get("filtered_functions")
             if task_type == TaskType.ML_TRAINING:
                 if filtered_functions:
+                    from app.database.function_repository import FunctionRepository
                     from app.services.request_handler import TrainingRequest
-                    from app.utils.persistence_util import FunctionPersistanceUtil
 
                     training_data = {
                         "binaryName": f"binary_{binary_id}",
@@ -487,7 +516,9 @@ async def _run_ml_task(
                             model_name=model_name,
                             data=training_data,
                         )
-                        await FunctionPersistanceUtil.add_model_functions(training_request)
+                        functions = training_request.get_functions() or []
+                        if functions:
+                            await FunctionRepository.save(model_name, functions)
                         logger.info(
                             "Functions saved for model '{}' ({} functions)",
                             model_name,
@@ -499,8 +530,8 @@ async def _run_ml_task(
             elif task_type == TaskType.ML_PREDICTION:
                 predictions = result.get("predictions")
                 if predictions and filtered_functions:
+                    from app.database.prediction_repository import PredictionRepository
                     from app.services.request_handler import PredictionRequest
-                    from app.utils.persistence_util import FunctionPersistanceUtil
 
                     prediction_data = {
                         "binaryName": f"binary_{binary_id}",
@@ -516,7 +547,7 @@ async def _run_ml_task(
                             model_name=model_name,
                             data=prediction_data,
                         )
-                        await FunctionPersistanceUtil.add_prediction_functions(prediction_request, predictions)
+                        await _save_prediction_functions_tasks(prediction_request, predictions)
                         logger.info(
                             "Predictions saved for task '{}' ({} predictions)",
                             task_name,
@@ -534,7 +565,7 @@ async def _run_ml_task(
         logger.exception("ML task failed")
         raise
     finally:
-        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
+        _create_background_task(_remove_task_delayed(task_uuid))
         clear_request_context()
 
 
@@ -563,6 +594,7 @@ async def _run_similarity_computation_task(
     from app.database.sql_service import SQLUtil
     from app.services.binary_similarity_service import BinarySimilarityService
 
+    computation: Any | None = None
     try:
         if captured_ctx is not None:
             restore_request_context(captured_ctx, override_task_id=task_uuid)
@@ -627,21 +659,17 @@ async def _run_similarity_computation_task(
         TaskManager.set_status(task_uuid, "error")
         logger.exception("Similarity computation task failed")
         # Mark computation as errored if it was created
-        try:
-            computation = await SQLUtil.create_similarity_computation(
-                task_name=task_name,
-                computed_by=user_id,
-                binary_count=len(binary_ids),
-            )
-            await SQLUtil.update_similarity_computation_status(
-                computation_id=computation.id,
-                status="error",
-            )
-        except Exception:
-            logger.exception("Failed to persist error state for similarity computation")
+        if computation is not None:
+            try:
+                await SQLUtil.update_similarity_computation_status(
+                    computation_id=computation.id,
+                    status="error",
+                )
+            except Exception:
+                logger.exception("Failed to persist error state for similarity computation")
         raise
     finally:
-        asyncio.get_event_loop().call_later(10, lambda: TaskManager.remove_task(task_uuid))
+        _create_background_task(_remove_task_delayed(task_uuid))
         clear_request_context()
 
 
@@ -781,6 +809,12 @@ async def get_task_results(
             detail=create_error_response(error_code="TASK_NOT_FOUND", error_message="Task not found").model_dump(),
         )
 
+    if not TaskManager.verify_task_owner(task_uuid, current_user.id):
+        raise HTTPException(
+            status_code=403,
+            detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
+        )
+
     result = TaskManager.get_task_result(task_uuid)
     if result is None and status == "completed":
         raise HTTPException(
@@ -814,6 +848,12 @@ async def get_task_status(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(error_code="TASK_NOT_FOUND", error_message="Task not found").model_dump(),
+        )
+
+    if not TaskManager.verify_task_owner(task_uuid, current_user.id):
+        raise HTTPException(
+            status_code=403,
+            detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
         )
 
     return create_success_response(

@@ -152,15 +152,36 @@ def _scan_function_names(functions: list[dict[str, Any]]) -> list[ScanResult]:
         if not func_name:
             continue
 
-        # Check if the function name matches a dangerous function
-        func_info.get("tokenList", [])
+        tokens = func_info.get("tokenList", [])
         for _, entry in FUNCTION_LOOKUP.items():
             if func_name.lower() == entry.name.lower():
-                # Skip when function name equals the dangerous function name —
-                # this is a thunk/import stub, not real code using it.
+                # Skip thunks/import stubs: when the function has no body, it's
+                # likely just an import stub rather than real code using the function.
+                if not tokens:
+                    logger.debug(
+                        "Name scan: skipping '%s' (thunk/import stub, no function body)",
+                        func_name,
+                    )
+                    break
+
+                usage_context = _extract_usage_context(tokens, entry.name)
+                result = ScanResult(
+                    function_name=entry.name,
+                    containing_function=func_name,
+                    entrypoint=func_info.get("lowAddress", "0x0"),
+                    category=entry.category,
+                    severity=entry.severity,
+                    cwe=entry.cwe,
+                    description=entry.description,
+                    safe_alternative=entry.safe_alternative,
+                    usage_context=usage_context,
+                    containing_function_code=_format_full_function_code(tokens),
+                )
+                results.append(result)
                 logger.debug(
-                    "Name scan: skipping '%s' (thunk, function_name == containing_function)",
-                    func_name,
+                    "Name scan: found '%s' as function name (entrypoint %s)",
+                    entry.name,
+                    func_info.get("lowAddress", "0x0"),
                 )
                 break  # Only match once per function
 

@@ -14,14 +14,49 @@
     /** @type {number} */
     var binaryId = parseInt(window.location.pathname.split('/').pop(), 10);
 
+    /** @type {number} */
+    var currentPage = 1;
+
+    /** @type {number} */
+    var currentPageSize = 10;
+
+    /** @type {number} */
+    var totalFunctions = 0;
+
+    /** @type {number} */
+    var totalPages = 0;
+
+    /** @type {Pagination|null} */
+    var pagination = null;
+
     // ============================================================
     // DOM Ready
     // ============================================================
 
     document.addEventListener('DOMContentLoaded', function () {
         initTabs();
+        initPagination();
         loadBinaryDetail();
     });
+
+    /**
+     * Initialize shared pagination instance (server-side mode)
+     */
+    function initPagination() {
+        pagination = new Pagination({
+            tableSelector: '#functions-table-wrapper .cyber-table',
+            paginationSelector: '#functions-pagination',
+            defaultPageSize: 10,
+            pageSizes: [10, 25, 50, 100],
+            storageKey: 'glyph_functions_page_size',
+            onPageChange: function(page, pageSize) {
+                currentPage = page;
+                currentPageSize = pageSize;
+                loadBinaryFunctions(binaryId);
+            }
+        });
+        pagination.init();
+    }
 
     // ============================================================
     // Tab Navigation
@@ -186,7 +221,7 @@
     }
 
     /**
-     * Load and display binary functions
+     * Load and display binary functions with pagination
      * @param {number} id
      */
     async function loadBinaryFunctions(id) {
@@ -195,7 +230,8 @@
         var tbody = document.getElementById('functions-tbody');
 
         try {
-            var response = await authenticatedFetch('/api/v1/binaries/functions/' + id, {
+            var url = '/api/v1/binaries/functions/' + id + '?page=' + currentPage + '&page_size=' + currentPageSize;
+            var response = await authenticatedFetch(url, {
                 headers: { 'Accept': 'application/json' }
             });
 
@@ -205,11 +241,15 @@
                 throw new Error(data.detail || 'Failed to load functions');
             }
 
-            var functions = data.data ? data.data.items : [];
+            var paginated = data.data ? data.data : {};
+            var functions = paginated.items || [];
+            totalFunctions = paginated.total || 0;
+            totalPages = paginated.total_pages || 0;
 
             if (!functions || functions.length === 0) {
                 if (functionsEmpty) functionsEmpty.style.display = 'block';
                 if (functionsTable) functionsTable.style.display = 'none';
+                if (pagination) pagination.setVisible(false);
                 return;
             }
 
@@ -231,13 +271,23 @@
             if (functionsEmpty) functionsEmpty.style.display = 'none';
             if (functionsTable) functionsTable.style.display = 'block';
 
+            // Update shared pagination controls
+            if (pagination) {
+                pagination.setTotals(totalFunctions, totalPages);
+                pagination.setVisible(true);
+            }
+
         } catch (error) {
             console.error('Load functions error:', error);
             if (functionsEmpty) {
                 functionsEmpty.style.display = 'block';
-                functionsEmpty.innerHTML = '<p>Error loading functions: ' + error.message + '</p>';
+                var para = document.createElement('p');
+                para.textContent = 'Error loading functions: ' + error.message;
+                functionsEmpty.innerHTML = '';
+                functionsEmpty.appendChild(para);
             }
             if (functionsTable) functionsTable.style.display = 'none';
+            if (pagination) pagination.setVisible(false);
         }
     }
 

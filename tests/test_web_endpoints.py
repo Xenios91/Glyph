@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 class TestWebEndpoints:
     """Tests for web endpoint routes."""
 
-    @patch("app.web.endpoints.web.MLPersistanceUtil")
-    def test_home_json_response(self, mock_ml_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.ModelRepository")
+    def test_home_json_response(self, mock_ml_repo: Any, web_client: TestClient) -> None:
         """Test home endpoint returns JSON for API clients."""
-        mock_ml_persistance.get_models_list = AsyncMock(return_value=set())
+        mock_ml_repo.get_models_list = AsyncMock(return_value=set())
 
         response = web_client.get("/", headers={"Accept": "application/json"})
 
@@ -24,10 +24,10 @@ class TestWebEndpoints:
         data = response.json()
         assert "version" in data
 
-    @patch("app.web.endpoints.web.MLPersistanceUtil")
-    def test_home_html_response(self, mock_ml_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.ModelRepository")
+    def test_home_html_response(self, mock_ml_repo: Any, web_client: TestClient) -> None:
         """Test home endpoint returns HTML for browsers."""
-        mock_ml_persistance.get_models_list = AsyncMock(return_value=set())
+        mock_ml_repo.get_models_list = AsyncMock(return_value=set())
 
         response = web_client.get(
             "/",
@@ -72,11 +72,11 @@ class TestWebEndpoints:
         assert response.status_code == 200
         assert "ELF" in response.text
 
-    @patch("app.web.endpoints.web.MLPersistanceUtil")
+    @patch("app.web.endpoints.web.ModelRepository")
     @patch("app.web.endpoints.web.TaskManager")
-    def test_get_models_json_response(self, mock_task_manager: Any, mock_ml_persistance: Any, web_client: TestClient) -> None:
+    def test_get_models_json_response(self, mock_task_manager: Any, mock_ml_repo: Any, web_client: TestClient) -> None:
         """Test get models endpoint returns JSON for API clients."""
-        mock_ml_persistance.get_models_list = AsyncMock(return_value={"model1", "model2"})
+        mock_ml_repo.get_models_list = AsyncMock(return_value={"model1", "model2"})
         mock_task_manager.get_all_status.return_value = {}
 
         response = web_client.get(
@@ -89,11 +89,11 @@ class TestWebEndpoints:
         assert "models" in data
         assert set(data["models"]) == {"model1", "model2"}
 
-    @patch("app.web.endpoints.web.MLPersistanceUtil")
+    @patch("app.web.endpoints.web.ModelRepository")
     @patch("app.web.endpoints.web.TaskManager")
-    def test_get_models_html_response(self, mock_task_manager: Any, mock_ml_persistance: Any, web_client: TestClient) -> None:
+    def test_get_models_html_response(self, mock_task_manager: Any, mock_ml_repo: Any, web_client: TestClient) -> None:
         """Test get models endpoint returns HTML for browsers."""
-        mock_ml_persistance.get_models_list = AsyncMock(return_value={"model1", "model2"})
+        mock_ml_repo.get_models_list = AsyncMock(return_value={"model1", "model2"})
         mock_task_manager.get_all_status.return_value = {}
 
         response = web_client.get(
@@ -103,10 +103,10 @@ class TestWebEndpoints:
 
         assert response.status_code == 200
 
-    @patch("app.web.endpoints.web.PredictionPersistanceUtil")
-    def test_get_predictions_json_response(self, mock_pred_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.PredictionRepository")
+    def test_get_predictions_json_response(self, mock_pred_repo: Any, web_client: TestClient) -> None:
         """Test get predictions endpoint returns JSON for API clients."""
-        mock_pred_persistance.get_predictions_list = AsyncMock(return_value=[])
+        mock_pred_repo.get_predictions_list = AsyncMock(return_value=[])
 
         response = web_client.get(
             "/getPredictions",
@@ -117,10 +117,10 @@ class TestWebEndpoints:
         data = response.json()
         assert "predictions" in data
 
-    @patch("app.web.endpoints.web.PredictionPersistanceUtil")
-    def test_get_predictions_html_response(self, mock_pred_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.PredictionRepository")
+    def test_get_predictions_html_response(self, mock_pred_repo: Any, web_client: TestClient) -> None:
         """Test get predictions endpoint returns HTML for browsers."""
-        mock_pred_persistance.get_predictions_list = AsyncMock(return_value=[])
+        mock_pred_repo.get_predictions_list = AsyncMock(return_value=[])
 
         response = web_client.get(
             "/getPredictions",
@@ -129,16 +129,17 @@ class TestWebEndpoints:
 
         assert response.status_code == 200
 
-    @patch("app.web.endpoints.web.FunctionPersistanceUtil")
-    def test_get_prediction_details_json_success(self, mock_func_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.PredictionRepository")
+    @patch("app.web.endpoints.web.FunctionRepository")
+    def test_get_prediction_details_json_success(self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient) -> None:
         """Test get prediction details returns JSON on success."""
-        mock_func_persistance.get_function = AsyncMock(return_value={
+        mock_func_repo.get = AsyncMock(return_value={
             "model_name": "test_model",
             "function_name": "test_func",
             "entrypoint": "0x1000",
             "tokens": "test tokens",
         })
-        mock_func_persistance.get_prediction_function = AsyncMock(return_value={
+        mock_pred_repo.get_prediction_function = AsyncMock(return_value={
             "tokens": "prediction tokens",
         })
 
@@ -157,11 +158,12 @@ class TestWebEndpoints:
         assert "task_name" in data
         assert "model_name" in data
 
-    @patch("app.web.endpoints.web.FunctionPersistanceUtil")
-    def test_get_prediction_details_function_not_found(self, mock_func_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.PredictionRepository")
+    @patch("app.web.endpoints.web.FunctionRepository")
+    def test_get_prediction_details_function_not_found(self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient) -> None:
         """Test get prediction details returns 404 when function not found."""
-        mock_func_persistance.get_function = AsyncMock(return_value=None)
-        mock_func_persistance.get_prediction_function = AsyncMock(return_value={
+        mock_func_repo.get = AsyncMock(return_value=None)
+        mock_pred_repo.get_prediction_function = AsyncMock(return_value={
             "tokens": "prediction tokens",
         })
 
@@ -177,13 +179,14 @@ class TestWebEndpoints:
 
         assert response.status_code == 404
 
-    @patch("app.web.endpoints.web.FunctionPersistanceUtil")
-    def test_get_prediction_details_prediction_not_found(self, mock_func_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.PredictionRepository")
+    @patch("app.web.endpoints.web.FunctionRepository")
+    def test_get_prediction_details_prediction_not_found(self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient) -> None:
         """Test get prediction details returns 404 when prediction not found."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
-        mock_func_persistance.get_function = AsyncMock(return_value=mock_model_info)
-        mock_func_persistance.get_prediction_function = AsyncMock(return_value=None)
+        mock_func_repo.get = AsyncMock(return_value=mock_model_info)
+        mock_pred_repo.get_prediction_function = AsyncMock(return_value=None)
 
         response = web_client.get(
             "/getPredictionDetails",
@@ -197,14 +200,14 @@ class TestWebEndpoints:
 
         assert response.status_code == 404
 
-    @patch("app.web.endpoints.web.PredictionPersistanceUtil")
-    def test_get_prediction_json_response(self, mock_pred_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.PredictionRepository")
+    def test_get_prediction_json_response(self, mock_pred_repo: Any, web_client: TestClient) -> None:
         """Test get prediction returns JSON for API clients."""
         mock_prediction = Mock()
         mock_prediction.task_name = "test_task"
         mock_prediction.model_name = "test_model"
         mock_prediction.predictions = []
-        mock_pred_persistance.get_predictions = AsyncMock(return_value=mock_prediction)
+        mock_pred_repo.get = AsyncMock(return_value=mock_prediction)
 
         response = web_client.get(
             "/getPrediction",
@@ -217,14 +220,14 @@ class TestWebEndpoints:
         assert "task_name" in data
         assert "model_name" in data
 
-    @patch("app.web.endpoints.web.PredictionPersistanceUtil")
-    def test_get_prediction_html_response(self, mock_pred_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.PredictionRepository")
+    def test_get_prediction_html_response(self, mock_pred_repo: Any, web_client: TestClient) -> None:
         """Test get prediction returns HTML for browsers."""
         mock_prediction = Mock()
         mock_prediction.task_name = "test_task"
         mock_prediction.model_name = "test_model"
         mock_prediction.predictions = []
-        mock_pred_persistance.get_predictions = AsyncMock(return_value=mock_prediction)
+        mock_pred_repo.get = AsyncMock(return_value=mock_prediction)
 
         response = web_client.get(
             "/getPrediction",
@@ -234,10 +237,10 @@ class TestWebEndpoints:
 
         assert response.status_code == 200
 
-    @patch("app.web.endpoints.web.PredictionPersistanceUtil")
-    def test_get_prediction_not_found(self, mock_pred_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.PredictionRepository")
+    def test_get_prediction_not_found(self, mock_pred_repo: Any, web_client: TestClient) -> None:
         """Test get prediction returns 404 when not found."""
-        mock_pred_persistance.get_predictions = AsyncMock(return_value=None)
+        mock_pred_repo.get = AsyncMock(return_value=None)
 
         response = web_client.get(
             "/getPrediction",
@@ -247,13 +250,14 @@ class TestWebEndpoints:
 
         assert response.status_code == 404
 
-    @patch("app.web.endpoints.web.FunctionPersistanceUtil")
-    def test_get_prediction_details_html_response(self, mock_func_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.PredictionRepository")
+    @patch("app.web.endpoints.web.FunctionRepository")
+    def test_get_prediction_details_html_response(self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient) -> None:
         """Test get prediction details returns HTML for browsers."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
-        mock_func_persistance.get_function = AsyncMock(return_value=mock_model_info)
-        mock_func_persistance.get_prediction_function = AsyncMock(return_value={
+        mock_func_repo.get = AsyncMock(return_value=mock_model_info)
+        mock_pred_repo.get_prediction_function = AsyncMock(return_value={
             "tokens": "prediction tokens",
         })
 
@@ -270,10 +274,10 @@ class TestWebEndpoints:
         assert response.status_code == 200
         assert "text/html" in response.headers.get("content-type", "")
 
-    @patch("app.web.endpoints.web.FunctionPersistanceUtil")
-    def test_get_prediction_details_type_error(self, mock_func_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.FunctionRepository")
+    def test_get_prediction_details_type_error(self, mock_func_repo: Any, web_client: TestClient) -> None:
         """Test get prediction details returns 400 on TypeError."""
-        mock_func_persistance.get_function = AsyncMock(side_effect=TypeError("bad data"))
+        mock_func_repo.get = AsyncMock(side_effect=TypeError("bad data"))
 
         response = web_client.get(
             "/getPredictionDetails",
@@ -319,10 +323,10 @@ class TestWebEndpoints:
         )
         assert response.status_code == 200
 
-    @patch("app.web.endpoints.web.MLPersistanceUtil")
-    def test_run_task_page(self, mock_ml_persistance: Any, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.ModelRepository")
+    def test_run_task_page(self, mock_ml_repo: Any, web_client: TestClient) -> None:
         """Test run task page loads."""
-        mock_ml_persistance.get_models_list = AsyncMock(return_value=["model1"])
+        mock_ml_repo.get_models_list = AsyncMock(return_value=["model1"])
         response = web_client.get(
             "/run-task",
             params={"binary_id": 1, "binary_name": "test.bin"},
@@ -366,19 +370,19 @@ class TestWebEndpoints:
         assert response.status_code == 200
 
     @patch("app.database.sql_service.SQLUtil")
-    @patch("app.web.endpoints.web.MLPersistanceUtil")
-    @patch("app.web.endpoints.web.PredictionPersistanceUtil")
+    @patch("app.web.endpoints.web.ModelRepository")
+    @patch("app.web.endpoints.web.PredictionRepository")
     def test_home_stats(
         self,
-        mock_pred_persistance: Any,
-        mock_ml_persistance: Any,
+        mock_pred_repo: Any,
+        mock_ml_repo: Any,
         mock_sql: Any,
         web_client: TestClient,
     ) -> None:
         """Test home stats endpoint."""
         mock_sql.get_binaries_by_user = AsyncMock(return_value=[1, 2, 3])
-        mock_ml_persistance.get_models_list = AsyncMock(return_value={"model1", "model2"})
-        mock_pred_persistance.get_predictions_list = AsyncMock(return_value=[Mock(), Mock()])
+        mock_ml_repo.get_models_list = AsyncMock(return_value={"model1", "model2"})
+        mock_pred_repo.get_predictions_list = AsyncMock(return_value=[Mock(), Mock()])
 
         response = web_client.get("/stats")
         assert response.status_code == 200

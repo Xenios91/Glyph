@@ -343,7 +343,7 @@ class TestTrainStep:
 
         assert result.error is not None
 
-    @patch("app.processing.steps.MLPersistanceUtil")
+    @patch("app.processing.steps.ModelRepository")
     @patch("app.processing.steps.MLTask")
     async def test_execute_success(self, mock_ml_task: Any, mock_persistence: Any) -> None:
         """Test successful training."""
@@ -360,10 +360,10 @@ class TestTrainStep:
             metadata={"model_name": "test_model"},
             data={
                 "filtered_functions": [
-                    {"name": "func1", "functionName": "category1", "tokens": "int x"},
-                    {"name": "func2", "functionName": "category2", "tokens": "void y"},
+                    {"name": "func1", "functionName": "category1", "tokens": "int main function"},
+                    {"name": "func2", "functionName": "category2", "tokens": "void helper function"},
                 ],
-                "tokens": ["int x", "void y"],
+                "tokens": ["int main function", "void helper function"],
             },
         )
         result = await step.execute(context)
@@ -391,7 +391,7 @@ class TestPredictStep:
 
         assert result.error is not None
 
-    @patch("app.processing.steps.MLPersistanceUtil")
+    @patch("app.processing.steps.ModelRepository")
     async def test_execute_success(self, mock_persistence: Any) -> None:
         """Test successful prediction."""
         import numpy as np
@@ -503,8 +503,8 @@ class TestTrainStep_Errors:
         assert result.error is not None
         assert "model_name" in result.error
 
-    @patch("app.processing.steps.MLPersistanceUtil")
-    @patch("app.processing.steps.MLTask")
+    @patch("app.processing.steps.ModelRepository")
+    @patch("app.config.pipeline_configs.MLTask")
     async def test_execute_training_fails(self, mock_ml_task: Any, mock_persistence: Any) -> None:
         """Test training when model.fit raises an exception."""
         from unittest.mock import AsyncMock
@@ -568,7 +568,7 @@ class TestPredictStep_Errors:
         assert result.error is not None
         assert "model_name" in result.error
 
-    @patch("app.processing.steps.MLPersistanceUtil")
+    @patch("app.processing.steps.ModelRepository")
     async def test_execute_prediction_fails(self, mock_persistence: Any) -> None:
         """Test prediction when model loading fails."""
         from unittest.mock import AsyncMock
@@ -591,7 +591,7 @@ class TestPredictStep_Errors:
         assert result.error is not None
         assert "Prediction failed" in result.error
 
-    @patch("app.processing.steps.MLPersistanceUtil")
+    @patch("app.processing.steps.ModelRepository")
     @patch("app.processing.steps.get_settings")
     async def test_execute_low_probability_becomes_unknown(
         self, mock_get_settings: Any, mock_persistence: Any

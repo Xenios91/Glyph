@@ -182,6 +182,11 @@ async def get_optional_user(
     Returns:
         The User object if authenticated, None otherwise.
     """
+    settings = get_settings()
+    if not settings.auth_enabled:
+        logger.debug("Auth disabled, returning None for optional user")
+        return None
+
     auth_header = request.headers.get("Authorization")
     token = None
 

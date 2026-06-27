@@ -126,8 +126,8 @@ class TestGetAvailableModels:
         """Test retrieving available models and prediction tasks."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
-        with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.PredictionPersistanceUtil") as mock_pred:
+        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
+             patch("app.api.v1.endpoints.dangerous_functions.PredictionRepository") as mock_pred:
             mock_ml.get_models_list = AsyncMock(return_value=["model_a", "model_b"])
             mock_prediction = Mock()
             mock_prediction.task_name = "task_1"
@@ -145,8 +145,8 @@ class TestGetAvailableModels:
         """Test empty models and predictions list."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
-        with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.PredictionPersistanceUtil") as mock_pred:
+        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
+             patch("app.api.v1.endpoints.dangerous_functions.PredictionRepository") as mock_pred:
             mock_ml.get_models_list = AsyncMock(return_value=[])
             mock_pred.get_predictions_list = AsyncMock(return_value=[])
 
@@ -197,8 +197,8 @@ class TestScanEndpoint:
         """Test scan with nonexistent model returns 404."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
-        with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml:
-            mock_ml.check_name = AsyncMock(return_value=False)
+        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml:
+            mock_ml.exists = AsyncMock(return_value=False)
 
             response = dangerous_functions_client.post(
                 "/dangerous-functions/scan",
@@ -211,7 +211,7 @@ class TestScanEndpoint:
         """Test scan with nonexistent task returns 404."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
-        with patch("app.api.v1.endpoints.dangerous_functions.PredictionPersistanceUtil") as mock_pred:
+        with patch("app.api.v1.endpoints.dangerous_functions.PredictionRepository") as mock_pred:
             mock_pred.get_predictions_list = AsyncMock(return_value=[])
 
             response = dangerous_functions_client.post(
@@ -225,9 +225,9 @@ class TestScanEndpoint:
         """Test scan of model with no functions returns empty report."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
-        with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionPersistanceUtil") as mock_func:
-            mock_ml.check_name = AsyncMock(return_value=True)
+        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
+             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+            mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=[])
 
             response = dangerous_functions_client.post(
@@ -250,9 +250,9 @@ class TestScanEndpoint:
             self._make_mock_function("safe_func", "0x403000", "int x = 5; return x;"),
         ]
 
-        with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionPersistanceUtil") as mock_func:
-            mock_ml.check_name = AsyncMock(return_value=True)
+        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
+             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+            mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=mock_funcs)
 
             response = dangerous_functions_client.post(
@@ -277,9 +277,9 @@ class TestScanEndpoint:
             self._make_mock_function("sprintf", "0x401000", "sprintf(buf, fmt, arg);"),
         ]
 
-        with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionPersistanceUtil") as mock_func:
-            mock_ml.check_name = AsyncMock(return_value=True)
+        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
+             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+            mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=mock_funcs)
 
             response = dangerous_functions_client.post(
@@ -306,9 +306,9 @@ class TestScanEndpoint:
             self._make_mock_function("my_func", "0xDEADBEEF", "strcpy(dst, src); return 0;"),
         ]
 
-        with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionPersistanceUtil") as mock_func:
-            mock_ml.check_name = AsyncMock(return_value=True)
+        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
+             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+            mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=mock_funcs)
 
             response = dangerous_functions_client.post(
@@ -337,9 +337,9 @@ class TestScanEndpoint:
             self._make_mock_function("my_wrapper", "0xCAFE0000", "gets(buf);"),
         ]
 
-        with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionPersistanceUtil") as mock_func:
-            mock_ml.check_name = AsyncMock(return_value=True)
+        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
+             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+            mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=mock_funcs)
 
             response = dangerous_functions_client.post(
@@ -360,9 +360,9 @@ class TestScanEndpoint:
             self._make_mock_function("f2", "0x402000", "gets(buf);"),  # Critical
         ]
 
-        with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionPersistanceUtil") as mock_func:
-            mock_ml.check_name = AsyncMock(return_value=True)
+        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
+             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+            mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=mock_funcs)
 
             response = dangerous_functions_client.post(
@@ -403,7 +403,7 @@ class TestScanEndpoint:
         ]
         mock_prediction.functions_data = pickle.dumps(func_data)
 
-        with patch("app.api.v1.endpoints.dangerous_functions.PredictionPersistanceUtil") as mock_pred:
+        with patch("app.api.v1.endpoints.dangerous_functions.PredictionRepository") as mock_pred:
             mock_pred.get_predictions_list = AsyncMock(return_value=[mock_prediction])
 
             response = dangerous_functions_client.post(
@@ -423,9 +423,9 @@ class TestScanEndpoint:
             self._make_mock_function("strcpy", "0x401000", "strcpy(buf, src);"),
         ]
 
-        with patch("app.api.v1.endpoints.dangerous_functions.MLPersistanceUtil") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionPersistanceUtil") as mock_func:
-            mock_ml.check_name = AsyncMock(return_value=True)
+        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
+             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+            mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=mock_funcs)
 
             response = dangerous_functions_client.post(

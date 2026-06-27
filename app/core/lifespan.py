@@ -17,6 +17,16 @@ from app.processing.task_management import EventWatcher
 from app.services.task_service import TaskService
 
 
+def _task_done_callback(task: asyncio.Task[None]) -> None:
+    """Handle task completion, properly checking cancelled state before calling exception()."""
+    if task.cancelled():
+        logger.warning("Task service background task was cancelled")
+    elif task.exception() is not None:
+        logger.error("Task service background task failed: %s", task.exception())
+    else:
+        logger.warning("Task service background task completed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan context manager.
@@ -59,13 +69,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     try:
         task = asyncio.create_task(TaskService.start_service())
-        task.add_done_callback(
-            lambda t: (
-                logger.warning("Task service background task completed")
-                if t.exception() is None
-                else logger.error("Task service background task failed: %s", t.exception())
-            )
-        )
+        task.add_done_callback(_task_done_callback)
         logger.info("Task service started as async background task")
     except Exception as e:
         logger.exception("Failed to start TaskService")

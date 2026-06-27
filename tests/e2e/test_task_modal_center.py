@@ -1,67 +1,42 @@
-"""Test that the task modal is centered on the page."""
-import time
-import asyncio
-from playwright.async_api import async_playwright, Page
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+"""Playwright tests for task modal centering.
 
-BASE_URL = "http://127.0.0.1:8000"
+Tests that the task selection modal is properly centered on the viewport
+when displayed on the binary library page.
+"""
 
+from typing import Any
 
-def generate_unique_username():
-    timestamp = int(time.time() * 1000) % 100000
-    return f"testuser_{timestamp}"
+from playwright.sync_api import expect
 
-
-async def register_and_login(page: Page) -> None:
-    username = generate_unique_username()
-    email = f"{username}@test.com"
-    password = "SecurePass123!"
-
-    await page.goto(f"{BASE_URL}/register", wait_until="load")
-    await page.wait_for_selector("#registerForm[data-initialized='true']", timeout=10000)
-    await page.locator("#username").fill(username)
-    await page.locator("#email").fill(email)
-    await page.locator("#full_name").fill("Test User")
-    await page.locator("#password").fill(password)
-    await page.locator("#confirm_password").fill(password)
-    await page.locator("#register-submit-btn").click()
-    await page.wait_for_url(f"{BASE_URL}/login")
-
-    await page.locator("#username").fill(username)
-    await page.locator("#password").fill(password)
-    await page.locator("#login-submit-btn").click()
-    await page.wait_for_url(f"{BASE_URL}/")
-    print(f"Logged in as {username}")
+from tests.e2e.utils import BASE_URL, register_and_login
 
 
-async def main() -> None:
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
+class TestTaskModalCentering:
+    """Tests for task modal positioning."""
 
-        await register_and_login(page)
+    def test_task_modal_is_centered_on_viewport(self, page: Any, server: Any) -> None:
+        """Test that the task modal overlay is centered in the viewport."""
+        register_and_login(page)
 
-        response = await page.goto(f"{BASE_URL}/binary-library", wait_until="load")
-        await page.wait_for_timeout(3000)
-
-        print(f"Status: {response.status if response else 'no response'}")
-        print(f"Final URL: {page.url}")
-
-        viewport = page.viewport_size
-        print(f"Viewport: {viewport}")
+        # Navigate to binary library
+        page.goto(f"{BASE_URL}/binary-library")
+        page.wait_for_load_state("networkidle")
 
         # Wait for binary_library.js to load and expose functions
-        await page.wait_for_function("() => typeof window.hideTaskSelectionModal === 'function'", timeout=5000)
+        page.wait_for_function("() => typeof window.hideTaskSelectionModal === 'function'", timeout=10000)
 
         # Directly manipulate DOM to show modal (mimicking what showTaskSelectionModal does)
-        await page.evaluate("""() => {
+        page.evaluate("""() => {
             const overlay = document.getElementById('task-modal-overlay');
             if (overlay) {
                 overlay.classList.add('is-visible');
             }
         }""")
-        await page.wait_for_timeout(1000)
+        page.wait_for_timeout(500)
 
-        overlay_info = await page.evaluate("""() => {
+        # Get overlay styles
+        overlay_info = page.evaluate("""() => {
             const overlay = document.getElementById('task-modal-overlay');
             const s = window.getComputedStyle(overlay);
             return {
@@ -70,38 +45,56 @@ async def main() -> None:
                 justifyContent: s.justifyContent,
                 alignItems: s.alignItems,
                 position: s.position,
-                width: s.width,
-                height: s.height,
-                top: s.top,
-                left: s.left
             };
         }""")
-        print(f"Overlay info: {overlay_info}")
 
-        modal_bbox = await page.locator(".task-modal").first.bounding_box()
-        print(f"Modal bounding box: {modal_bbox}")
+        # Verify overlay uses flexbox centering
+        assert overlay_info["display"] == "flex", f"Expected display:flex, got {overlay_info['display']}"
+        assert overlay_info["justifyContent"] == "center", f"Expected justifyContent:center, got {overlay_info['justifyContent']}"
+        assert overlay_info["alignItems"] == "center", f"Expected alignItems:center, got {overlay_info['alignItems']}"
 
-        if modal_bbox and viewport:
-            modal_center_x = modal_bbox["x"] + modal_bbox["width"] / 2
-            modal_center_y = modal_bbox["y"] + modal_bbox["height"] / 2
-            viewport_center_x = viewport["width"] / 2
-            viewport_center_y = viewport["height"] / 2
-            offset_x = abs(modal_center_x - viewport_center_x)
-            offset_y = abs(modal_center_y - viewport_center_y)
-            print(f"Modal center: ({modal_center_x}, {modal_center_y})")
-            print(f"Viewport center: ({viewport_center_x}, {viewport_center_y})")
-            print(f"Offset X: {offset_x}px, Offset Y: {offset_y}px")
+    def test_task_modal_position_is_centered(self, page: Any, server: Any) -> None:
+        """Test that the task modal element is visually centered on screen."""
+        register_and_login(page)
 
-            if offset_x < 10 and offset_y < 10:
-                print("SUCCESS: Modal is centered on the page!")
-            else:
-                print(f"FAILURE: Modal is NOT centered (offset X: {offset_x}px, Y: {offset_y}px)")
+        # Navigate to binary library
+        page.goto(f"{BASE_URL}/binary-library")
+        page.wait_for_load_state("networkidle")
 
-        await page.screenshot(path="/workspaces/Glyph/tests/e2e/screenshots/task_modal_center.png", full_page=True)
-        print("Screenshot saved")
+        # Wait for binary_library.js to load
+        page.wait_for_function("() => typeof window.hideTaskSelectionModal === 'function'", timeout=10000)
 
-        await browser.close()
+        # Show modal
+        page.evaluate("""() => {
+            const overlay = document.getElementById('task-modal-overlay');
+            if (overlay) {
+                overlay.classList.add('is-visible');
+            }
+        }""")
+        page.wait_for_timeout(500)
 
+        # Get modal bounding box and viewport size
+        result = page.evaluate("""() => {
+            const modal = document.querySelector('.task-modal');
+            const rect = modal.getBoundingClientRect();
+            return {
+                x: rect.x,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height,
+                viewportWidth: window.innerWidth,
+                viewportHeight: window.innerHeight,
+            };
+        }""")
 
-if __name__ == "__main__":
-    asyncio.run(main())
+        # Calculate centers
+        modal_center_x = result["x"] + result["width"] / 2
+        modal_center_y = result["y"] + result["height"] / 2
+        viewport_center_x = result["viewportWidth"] / 2
+        viewport_center_y = result["viewportHeight"] / 2
+
+        # Allow 20px tolerance for rounding differences
+        offset_x = abs(modal_center_x - viewport_center_x)
+        offset_y = abs(modal_center_y - viewport_center_y)
+        assert offset_x < 20, f"Modal is not horizontally centered (offset: {offset_x}px)"
+        assert offset_y < 20, f"Modal is not vertically centered (offset: {offset_y}px)"
