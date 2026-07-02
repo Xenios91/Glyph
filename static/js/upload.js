@@ -12,7 +12,7 @@ function changeMlType() {
     const generateModelBox = document.getElementById('generate-model-checkbox');
     const predictionDiv = document.getElementById('prediction-config');
     const trainingDiv = document.getElementById('training-config');
-    
+
     if (!predictionDiv) {
         if (generateModelBox) generateModelBox.checked = true;
         if (trainingDiv) {
@@ -21,7 +21,7 @@ function changeMlType() {
         }
         return;
     }
-    
+
     if (generateModelBox.checked) {
         // Fade out prediction, fade in training
         predictionDiv.classList.add('hidden');
@@ -54,7 +54,7 @@ function changeMlType() {
 function setUploadLoading(isLoading) {
     const uploadBox = document.getElementById('upload-box');
     const dropZone = document.getElementById('drop-zone');
-    
+
     if (isLoading) {
         if (uploadBox) {
             uploadBox.classList.add('is-disabled');
@@ -113,20 +113,20 @@ function handleBeforeUnload(e) {
 function showUploadProcessing() {
     const uploadMessage = document.getElementById('upload-message');
     const uploadBox = document.getElementById('upload-box');
-    
+
     if (!uploadMessage) return;
-    
+
     const statusText = uploadMessage.querySelector('p:last-child');
     if (statusText) {
         statusText.textContent = '[ PROCESSING... YOUR BINARY IS BEING ANALYZED ]';
         statusText.style.color = 'var(--cyan)';
     }
-    
+
     uploadMessage.style.display = 'block';
     if (uploadBox) {
         uploadBox.style.display = 'none';
     }
-    
+
     // Set a fallback timer so the message auto-hides even if showUploadStatus is never called
     // (e.g., network hang, server never responds)
     if (uploadMessageTimer !== undefined) {
@@ -159,20 +159,20 @@ function showUploadStatus(message, isSuccess = true) {
         resetUploadForm();
         return;
     }
-    
+
     const uploadMessage = document.getElementById('upload-message');
     const uploadBox = document.getElementById('upload-box');
-    
+
     if (!uploadMessage) {
         return;
     }
-    
+
     // Clear any existing auto-hide timer (e.g., from processing state)
     if (uploadMessageTimer !== undefined) {
         clearTimeout(uploadMessageTimer);
         uploadMessageTimer = undefined;
     }
-    
+
     const statusText = uploadMessage.querySelector('p:last-child');
     if (statusText) {
         statusText.textContent = isSuccess
@@ -180,12 +180,12 @@ function showUploadStatus(message, isSuccess = true) {
             : `[ ERROR: ${message} ]`;
         statusText.style.color = isSuccess ? 'var(--green)' : 'var(--red)';
     }
-    
+
     uploadMessage.style.display = 'block';
     if (uploadBox) {
         uploadBox.style.display = 'none';
     }
-    
+
     // Auto-hide after 5 seconds
     uploadMessageTimer = setTimeout(() => {
         uploadMessage.style.display = 'none';
@@ -205,13 +205,13 @@ function resetUploadForm() {
     const predictionNameInput = document.getElementById('prediction-name');
     const mlClassTypeSelect = document.getElementById('ml_class_type');
     const fileInput = document.getElementById('upload-binary');
-    
+
     if (generateModelCheckbox) generateModelCheckbox.checked = false;
     if (trainingNameInput) trainingNameInput.value = '';
     if (predictionNameInput) predictionNameInput.value = '';
     if (mlClassTypeSelect) mlClassTypeSelect.selectedIndex = 0;
     if (fileInput) fileInput.value = '';
-    
+
     changeMlType();
 }
 
@@ -224,20 +224,20 @@ function validateUploadForm() {
     const generateModelCheckbox = document.getElementById('generate-model-checkbox');
     const predictionModelSelect = document.getElementById('prediction_model_selection');
     const mlClassTypeSelect = document.getElementById('ml_class_type');
-    
+
     // Check if file is selected
     if (!selectedFile) {
         Toast.error('Please select a binary file to upload');
         return false;
     }
-    
+
     // Validate file size (max 100MB)
     const maxSize = 100 * 1024 * 1024;
     if (selectedFile.size > maxSize) {
         Toast.error('File size exceeds 100MB limit');
         return false;
     }
-    
+
     // Validate name field based on mode (training or prediction)
     const isTraining = generateModelCheckbox.checked;
     const nameInput = isTraining
@@ -248,7 +248,7 @@ function validateUploadForm() {
         nameInput?.focus();
         return false;
     }
-    
+
     // Validate model selection for prediction
     if (!isTraining) {
         if (!predictionModelSelect || !predictionModelSelect.value) {
@@ -257,13 +257,13 @@ function validateUploadForm() {
             return false;
         }
     }
-    
+
     // Validate ML class type
     if (!mlClassTypeSelect || !mlClassTypeSelect.value) {
         Toast.error('Please select an ML class type');
         return false;
     }
-    
+
     return true;
 }
 
@@ -415,11 +415,11 @@ function initUploadPage() {
     if (generateModelBox) {
         generateModelBox.checked = true;
         changeMlType();
-        
+
         // Add event listener for checkbox change (replaces inline onclick)
         generateModelBox.addEventListener('change', changeMlType);
     }
-    
+
     // Add event listener for file input change (replaces inline onchange)
     const fileInput = document.getElementById('upload-binary');
     if (fileInput) {
@@ -434,7 +434,7 @@ function initUploadPage() {
                 if (file.name.toLowerCase().endsWith('.bin')) {
                     fileType = 'application/x-sharedlib';
                 }
-                
+
                 if (!validTypes.includes(fileType) && !file.name.match(/\.(exe|dll|so|bin|elf)$/i)) {
                     Toast.warning('File may not be a valid binary. Upload will continue but analysis may fail.');
                 }
@@ -443,21 +443,21 @@ function initUploadPage() {
             }
         });
     }
-    
+
     // Drag and drop functionality
     const dropZone = document.getElementById('drop-zone');
     if (!dropZone || !fileInput) return;
-    
+
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropZone.classList.add('drag-over');
     });
-    
+
     dropZone.addEventListener('dragleave', (e) => {
         e.preventDefault();
         dropZone.classList.remove('drag-over');
     });
-    
+
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropZone.classList.remove('drag-over');

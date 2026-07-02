@@ -198,9 +198,7 @@ class PredictionService:
                 updated_function = function.copy()
                 updated_function["prediction"] = predictions[ctr]
                 functions[ctr] = updated_function
-            await PredictionRepository.save(
-                task_name, prediction_request.model_name, functions
-            )
+            await PredictionRepository.save(task_name, prediction_request.model_name, functions)
         elif functions:
             logger.warning(
                 "Mismatch between functions ({}) and predictions ({}) for task '{}'",
@@ -282,9 +280,7 @@ class PredictionService:
             raise ValidationError(f"Function '{function_name}' not found in model '{model_name}'")
 
         try:
-            prediction_data = await PredictionRepository.get_prediction_function(
-                task_name, model_name, function_name
-            )
+            prediction_data = await PredictionRepository.get_prediction_function(task_name, model_name, function_name)
         except Exception:
             prediction_data = None
 

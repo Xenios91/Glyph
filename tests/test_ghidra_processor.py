@@ -1,10 +1,10 @@
 """Comprehensive tests for Ghidra processor module."""
+
 import types
-from typing import Iterator
+from collections.abc import Iterator
 from unittest import mock
 
 import pytest
-
 from app.processing.ghidra_processor import (
     analyze_binary_and_decompile,
     decompile_all_functions,
@@ -33,7 +33,7 @@ class TestSetupDecompiler:
 
     def test_setup_decompiler_creates_fallback_when_none_and_import_fails(self) -> None:
         """Test setup creates fallback DecompInterface when none provided and import fails.
-        
+
         conftest.py mocks Ghidra imports so the code hits the ImportError fallback,
         creating mock types. We test that it still works.
         """
@@ -119,6 +119,7 @@ def _setup_java_util() -> None:
     have our _MockArrayList set up.
     """
     import sys
+
     java_module = types.ModuleType("java")
     java_util_module = types.ModuleType("java.util")
     java_util_module.ArrayList = _MockArrayList  # type: ignore[attr-defined]
@@ -130,7 +131,9 @@ def _setup_java_util() -> None:
 class TestGetFunctionTokens:
     """Tests for get_function_tokens function."""
 
-    def _create_mock_decompiled(self, tokens: list[str], plain_c: str | None, raise_plain_c: bool = False) -> mock.MagicMock:
+    def _create_mock_decompiled(
+        self, tokens: list[str], plain_c: str | None, raise_plain_c: bool = False
+    ) -> mock.MagicMock:
         """Create mock decompiled result with tokens and plain C code."""
         mock_decompiled = mock.MagicMock()
         mock_decompiled.decompileCompleted.return_value = True
@@ -142,9 +145,11 @@ class TestGetFunctionTokens:
 
         # Create mock ccode_markup whose flatten() populates the passed ArrayList
         mock_ccode_markup = mock.MagicMock()
+
         def _populate_list(token_list: _MockArrayList) -> None:
             for token in tokens:
                 token_list.add(token)
+
         mock_ccode_markup.flatten.side_effect = _populate_list
         mock_decompiled.getCCodeMarkup.return_value = mock_ccode_markup
 
@@ -607,16 +612,21 @@ class TestAnalyzeBinaryAndDecompile:
         mock_utils.shouldAskToAnalyze.return_value = True
         mock_ghidra_program_util.GhidraProgramUtilities = mock_utils  # type: ignore[attr-defined]
 
-        with mock.patch.dict("sys.modules", {
-            "pyghidra": mock_pyghidra,
-            "ghidra.program.util": mock_ghidra_program_util,
-        }):
-            with mock.patch("app.processing.ghidra_processor.decompile_all_functions") as mock_decompile:
-                mock_decompile.return_value = {"functions": []}
+        with (
+            mock.patch.dict(
+                "sys.modules",
+                {
+                    "pyghidra": mock_pyghidra,
+                    "ghidra.program.util": mock_ghidra_program_util,
+                },
+            ),
+            mock.patch("app.processing.ghidra_processor.decompile_all_functions") as mock_decompile,
+        ):
+            mock_decompile.return_value = {"functions": []}
 
-                analyze_binary_and_decompile("/path/to/binary")
+            analyze_binary_and_decompile("/path/to/binary")
 
-                mock_flat_api.analyzeAll.assert_called_once_with(mock_program)
+            mock_flat_api.analyzeAll.assert_called_once_with(mock_program)
 
     def test_analyze_binary_skips_analysis_if_not_needed(self) -> None:
         """Test that analyzeAll is skipped when shouldAskToAnalyze is False."""
@@ -639,16 +649,21 @@ class TestAnalyzeBinaryAndDecompile:
         mock_utils.shouldAskToAnalyze.return_value = False
         mock_ghidra_program_util.GhidraProgramUtilities = mock_utils
 
-        with mock.patch.dict("sys.modules", {
-            "pyghidra": mock_pyghidra,
-            "ghidra.program.util": mock_ghidra_program_util,
-        }):
-            with mock.patch("app.processing.ghidra_processor.decompile_all_functions") as mock_decompile:
-                mock_decompile.return_value = {"functions": []}
+        with (
+            mock.patch.dict(
+                "sys.modules",
+                {
+                    "pyghidra": mock_pyghidra,
+                    "ghidra.program.util": mock_ghidra_program_util,
+                },
+            ),
+            mock.patch("app.processing.ghidra_processor.decompile_all_functions") as mock_decompile,
+        ):
+            mock_decompile.return_value = {"functions": []}
 
-                analyze_binary_and_decompile("/path/to/binary")
+            analyze_binary_and_decompile("/path/to/binary")
 
-                mock_flat_api.analyzeAll.assert_not_called()
+            mock_flat_api.analyzeAll.assert_not_called()
 
     def test_analyze_binary_import_error_gpidra_program_utilities(self) -> None:
         """Test fallback when GhidraProgramUtilities import fails."""

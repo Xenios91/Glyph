@@ -7,7 +7,6 @@ Tests the complete user authentication lifecycle: registration, login, and logou
 from typing import Any
 
 from playwright.sync_api import expect
-
 from tests.e2e.utils import (
     BASE_URL,
     generate_unique_username,
@@ -200,6 +199,7 @@ class TestLogoutFlow:
         # After logout: redirect to / → 401 → redirect to /login?redirect=/
         # Wait for login page to load (use regex for URL matching with query params)
         import re
+
         page.wait_for_url(re.compile(r"/login"), timeout=10000)
 
         # Should show login/register links instead of user menu

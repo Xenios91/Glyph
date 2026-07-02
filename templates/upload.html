@@ -6,7 +6,7 @@
 <div class="content blue-bg">
     <div id="upload-box" class="cyber-container with-title is-centered" role="region" aria-labelledby="upload-title">
         <p class="title" id="upload-title">// UPLOAD</p>
-        
+
         <div>
             <label class="mt-2">
                 <input id="generate-model-checkbox" type="checkbox" class="cyber-checkbox" aria-describedby="generate-model-desc" />
@@ -15,7 +15,7 @@
                 <span class="info-icon" title="This will train a new ML model from your binary. Models must be generated before predictions can be made.">i</span>
                 {% endif %}
             </label>
-            
+
             <div id="training-config" class="cyber-container with-title is-centered" role="group" aria-labelledby="training-config-title">
                 <p class="title" id="training-config-title">MODEL CONFIGURATION</p>
                 <div style="margin: 7%">
@@ -32,7 +32,7 @@
                     </div>
                 </div>
             </div>
-            
+
             {% if allow_prediction %}
             <div id="prediction-config" class="cyber-container with-title is-centered" role="group" aria-labelledby="prediction-config-title" style="display: none;">
                 <p class="title" id="prediction-config-title">PREDICTION CONFIGURATION</p>
@@ -60,7 +60,7 @@
                 </div>
             </div>
             {% endif %}
-            
+
             <div id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-label="File upload area. Drag and drop a binary file here or click to select.">
                 <span class="drop-zone-text">DRAG & DROP BINARY HERE</span>
                 <span class="drop-zone-subtext">OR</span>
@@ -69,12 +69,12 @@
                     <input id="upload-binary" type="file" aria-label="Select binary file to upload">
                 </label>
             </div>
-            
+
             <!-- Error message container for inline errors -->
             <div id="upload-error" class="field-error-message" role="alert" aria-live="assertive" style="display: none;"></div>
         </div>
     </div>
-    
+
     <div id="upload-message" class="cyber-container with-title is-centered" style="display: none;" role="status" aria-live="polite">
         <p class="title">// BINARY STATUS</p>
         <p id="upload-status-text">[ PROCESSING... YOUR BINARY IS BEING ANALYZED ]</p>

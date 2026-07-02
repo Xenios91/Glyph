@@ -26,13 +26,10 @@ def setup_decompiler(
     DecompInterface: type[Any]
     DecompileOptions: type[Any]
     try:
-        from ghidra.app.decompiler import (  # type: ignore[import-not-found, reportMissingTypeStubs]
-            DecompileOptions,
-            DecompInterface,
-        )
+        from ghidra.app.decompiler import DecompileOptions, DecompInterface
     except ImportError:
-        DecompInterface = type("DecompInterface", (), {})  # type: ignore[misc]
-        DecompileOptions = type("DecompileOptions", (), {})  # type: ignore[misc]
+        DecompInterface = type("DecompInterface", (), {})
+        DecompileOptions = type("DecompileOptions", (), {})
 
     if decomp_interface is None:
         decomp_interface = cast(Any, DecompInterface())
@@ -59,19 +56,19 @@ def get_function_tokens(function: Any, decomp_interface: Any) -> tuple[list[str]
     """
     _TaskMonitor: Any
     try:
-        import ghidra.util.task as _task_module  # type: ignore[import-not-found]
+        import ghidra.util.task as _task_module
 
-        _TaskMonitor = cast(Any, _task_module.TaskMonitor)  # type: ignore[union-attr]
+        _TaskMonitor = cast(Any, _task_module.TaskMonitor)
     except ImportError:
-        _TaskMonitor = type("TaskMonitor", (), {"DUMMY": None})  # type: ignore[misc]
+        _TaskMonitor = type("TaskMonitor", (), {"DUMMY": None})
 
     _ArrayList: type[Any]
     try:
-        import java.util as _java_util  # type: ignore[import-not-found]
+        import java.util as _java_util
 
-        _ArrayList = cast(Any, _java_util.ArrayList)  # type: ignore[union-attr]
+        _ArrayList = cast(Any, _java_util.ArrayList)
     except ImportError:
-        _ArrayList = type("ArrayList", (), {})  # type: ignore[misc]
+        _ArrayList = type("ArrayList", (), {})
 
     monitor: Any = _TaskMonitor.DUMMY
     try:
@@ -163,11 +160,11 @@ def analyze_binary_and_decompile(binary_path: str) -> dict[str, list[Any]]:
     """
     pyghidra: Any
     try:
-        import pyghidra  # type: ignore[import-not-found, reportMissingTypeStubs]
+        import pyghidra
     except ImportError:
         pyghidra = type(
             "pyghidra", (), {"started": lambda: False, "start": lambda: None, "open_program": lambda *a, **k: None}
-        )  # type: ignore[misc]
+        )
 
     if not pyghidra.started():
         pyghidra.start()
@@ -176,9 +173,9 @@ def analyze_binary_and_decompile(binary_path: str) -> dict[str, list[Any]]:
         program = flat_api.getCurrentProgram()
 
         try:
-            from ghidra.program.util import GhidraProgramUtilities  # type: ignore[import-not-found]
+            from ghidra.program.util import GhidraProgramUtilities
 
-            if GhidraProgramUtilities.shouldAskToAnalyze(program):  # type: ignore[reportUnknownMemberType]
+            if GhidraProgramUtilities.shouldAskToAnalyze(program):
                 flat_api.analyzeAll(program)
         except ImportError:
             flat_api.analyzeAll(program)

@@ -1,7 +1,7 @@
 """Repository for Model entity database operations."""
 
 from loguru import logger
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, exc as sa_exc, exists, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,7 +48,7 @@ class ModelRepository:
             await session.execute(stmt)
             await session.commit()
             logger.info("Model '{}' saved", model_name)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to save model '{}'", model_name)
             raise
@@ -70,7 +70,7 @@ class ModelRepository:
         try:
             result = await session.execute(select(Model.model_name))
             models_set = set(result.scalars().all())
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to retrieve models list")
         finally:
             await close_async_session(session)
@@ -99,7 +99,7 @@ class ModelRepository:
             else:
                 session.expunge(model)
             return model
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to retrieve model '{}'", model_name)
             raise
         finally:
@@ -122,7 +122,7 @@ class ModelRepository:
             session = await get_async_session("models")
             result = await session.execute(select(exists().where(Model.model_name == model_name)))
             return result.scalar_one() is True
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to check if model '{}' exists", model_name)
             return False
         finally:
@@ -141,7 +141,7 @@ class ModelRepository:
             await session.execute(delete(Model).where(Model.model_name == model_name))
             await session.commit()
             logger.info("Model '{}' deleted", model_name)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to delete model '{}'", model_name)
             raise

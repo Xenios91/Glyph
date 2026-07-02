@@ -5,9 +5,8 @@ and sub-router inclusion for the main api_router and api_v1_router.
 """
 
 import pytest
-from fastapi import APIRouter
-
 from app.api.router import api_router, api_v1_router
+from fastapi import APIRouter
 
 
 class TestAPIRouter:
@@ -75,11 +74,7 @@ class TestExpectedRoutes:
     @pytest.fixture
     def route_paths(self) -> set[str]:
         """Collect all registered route paths from api_v1_router."""
-        return {
-            route.path
-            for route in api_v1_router.routes
-            if hasattr(route, "path")
-        }
+        return {route.path for route in api_v1_router.routes if hasattr(route, "path")}
 
     def test_binaries_routes_registered(self, route_paths: set[str]) -> None:
         """At least one /binaries route should be present."""

@@ -1,18 +1,16 @@
 """Tests for security fixes applied to Glyph."""
 
-from typing import Any
-
 import os
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-
+from app.auth.schemas import ChangePassword, UserRegister
+from app.auth.security_logger import _login_failure_tracker, is_blocked  # pyright: ignore[reportPrivateUsage]
 from app.config.settings import GlyphSettings
 from app.core.rate_limiter import rate_limit_key_func as get_client_ip
 from app.utils.secure_deserializer import BLOCKED_BUILTINS
-from app.auth.schemas import UserRegister, ChangePassword
-from app.auth.security_logger import _login_failure_tracker, is_blocked  # pyright: ignore[reportPrivateUsage]
+from fastapi.testclient import TestClient
 
 
 class TestXSSPrevention:
@@ -26,6 +24,7 @@ class TestXSSPrevention:
     def test_jinja2_autoescape_enabled(self) -> None:
         """Jinja2 auto-escaping must be enabled in the templates environment."""
         from app.templates import templates
+
         assert templates.env.autoescape is True  # type: ignore[union-attr]
 
     def test_jinja2_escapes_script_tags(self) -> None:
@@ -33,7 +32,7 @@ class TestXSSPrevention:
         from app.templates import templates
 
         template = templates.env.from_string("{{ code }}")  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
-        result = template.render(code='<script>alert(1)</script>')  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+        result = template.render(code="<script>alert(1)</script>")  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
         # After escaping, literal <script> should not appear
         assert "<script>" not in result
         # The escaped form should appear instead (&lt; replaces <)
@@ -106,6 +105,7 @@ class TestCORSWildcard:
     def test_cors_default_no_origins(self) -> None:
         """CORS middleware should default to empty allowed origins."""
         from main import app
+
         client = TestClient(app)
         # Make a request with an Origin header
         response = client.get(
@@ -119,6 +119,7 @@ class TestCORSWildcard:
     def test_cors_rejects_unlisted_origin(self) -> None:
         """Requests from unlisted origins should not get CORS headers."""
         from main import app
+
         client = TestClient(app)
         # Make a request with an Origin header for an unlisted origin
         response = client.get(
@@ -132,6 +133,7 @@ class TestCORSWildcard:
     def test_cors_preflight_rejected_for_unlisted_origin(self) -> None:
         """OPTIONS preflight requests from unlisted origins should not get CORS headers."""
         from main import app
+
         client = TestClient(app)
         # Make an OPTIONS preflight request
         response = client.options(
@@ -220,78 +222,42 @@ class TestPasswordComplexity:
 
     def test_password_meets_min_length(self) -> None:
         """Password with 8+ characters should be accepted regardless of complexity."""
-        user = UserRegister(
-            username="testuser",
-            email="test@example.com",
-            password="abcdefgh",
-            full_name="Test"
-        )
+        user = UserRegister(username="testuser", email="test@example.com", password="abcdefgh", full_name="Test")
         assert user.password == "abcdefgh"
 
     def test_password_all_uppercase_accepted(self) -> None:
         """Password with only uppercase is accepted (no complexity check)."""
-        user = UserRegister(
-            username="testuser",
-            email="test@example.com",
-            password="ABCDEFGH",
-            full_name="Test"
-        )
+        user = UserRegister(username="testuser", email="test@example.com", password="ABCDEFGH", full_name="Test")
         assert user.password == "ABCDEFGH"
 
     def test_password_letters_only_accepted(self) -> None:
         """Password with only letters is accepted (no complexity check)."""
-        user = UserRegister(
-            username="testuser",
-            email="test@example.com",
-            password="abcDEFgh",
-            full_name="Test"
-        )
+        user = UserRegister(username="testuser", email="test@example.com", password="abcDEFgh", full_name="Test")
         assert user.password == "abcDEFgh"
 
     def test_password_complex_accepted(self) -> None:
         """Password with mixed character classes should be accepted."""
-        user = UserRegister(
-            username="testuser",
-            email="test@example.com",
-            password="Abc123!@#",
-            full_name="Test"
-        )
+        user = UserRegister(username="testuser", email="test@example.com", password="Abc123!@#", full_name="Test")
         assert user.password == "Abc123!@#"
 
     def test_password_upper_lower_digit_accepted(self) -> None:
         """Password with uppercase, lowercase, and digits should be accepted."""
-        user = UserRegister(
-            username="testuser",
-            email="test@example.com",
-            password="Abcdef123",
-            full_name="Test"
-        )
+        user = UserRegister(username="testuser", email="test@example.com", password="Abcdef123", full_name="Test")
         assert user.password == "Abcdef123"
 
     def test_password_too_short_rejected(self) -> None:
         """Password shorter than 8 characters should be rejected."""
         with pytest.raises(Exception):
-            UserRegister(
-                username="testuser",
-                email="test@example.com",
-                password="short",
-                full_name="Test"
-            )
+            UserRegister(username="testuser", email="test@example.com", password="short", full_name="Test")
 
     def test_change_password_min_length_enforced(self) -> None:
         """Change password enforces minimum length of 8."""
         with pytest.raises(Exception):
-            ChangePassword(
-                current_password="OldPass1!",
-                new_password="simple"
-            )
+            ChangePassword(current_password="OldPass1!", new_password="simple")
 
     def test_change_password_complex_accepted(self) -> None:
         """Change password with valid new password should be accepted."""
-        cp = ChangePassword(
-            current_password="OldPass1!",
-            new_password="NewPass1!"
-        )
+        cp = ChangePassword(current_password="OldPass1!", new_password="NewPass1!")
         assert cp.new_password == "NewPass1!"
 
 
@@ -313,11 +279,14 @@ class TestSecurityHeaders:
             await send({"type": "http.response.body", "body": b"ok"})
 
         from main import CSPMiddleware
+
         mw = CSPMiddleware(dummy_app)
 
         scope: dict[str, Any] = {"type": "http", "method": "GET", "path": "/"}
+
         async def receive() -> dict[str, str]:
             return {"type": "http.request"}
+
         await mw(scope, receive, capture_send)
 
         assert captured_headers.get("referrer-policy") == "strict-origin-when-cross-origin"
@@ -337,11 +306,14 @@ class TestSecurityHeaders:
             await send({"type": "http.response.body", "body": b"ok"})
 
         from main import CSPMiddleware
+
         mw = CSPMiddleware(dummy_app)
 
         scope: dict[str, Any] = {"type": "http", "method": "GET", "path": "/"}
+
         async def receive() -> dict[str, str]:
             return {"type": "http.request"}
+
         await mw(scope, receive, capture_send)
 
         policy = captured_headers.get("permissions-policy", "")
@@ -364,11 +336,14 @@ class TestSecurityHeaders:
             await send({"type": "http.response.body", "body": b"ok"})
 
         from main import CSPMiddleware
+
         mw = CSPMiddleware(dummy_app)
 
         scope: dict[str, Any] = {"type": "http", "method": "GET", "path": "/"}
+
         async def receive() -> dict[str, str]:
             return {"type": "http.request"}
+
         await mw(scope, receive, capture_send)
 
         assert captured_headers.get("x-content-type-options") == "nosniff"
@@ -422,9 +397,9 @@ class TestDirectoryPermissions:
 
     def test_upload_directory_restricted_permissions(self) -> None:
         """Upload directory should have restricted permissions (0o700)."""
+        import shutil
         import stat
         import tempfile
-        import shutil
 
         test_dir = tempfile.mkdtemp()
         try:
@@ -442,6 +417,7 @@ class TestDiskSpaceCheck:
     def test_insufficient_disk_space_detected(self) -> None:
         """Should detect insufficient disk space."""
         import shutil
+
         usage = shutil.disk_usage("/")
         # A file larger than available space should be detected
         huge_file_size = usage.free * 2
@@ -450,6 +426,7 @@ class TestDiskSpaceCheck:
     def test_disk_usage_returns_valid_values(self) -> None:
         """disk_usage should return valid values."""
         import shutil
+
         usage = shutil.disk_usage("/")
         assert usage.total > 0
         assert usage.used >= 0

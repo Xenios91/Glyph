@@ -9,10 +9,8 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
-
 from app.api.types import TaskType
-
+from pydantic import ValidationError
 
 # ---------------------------------------------------------------------------
 # TaskExecutionRequest validation
@@ -339,7 +337,7 @@ class TestCodeReuseResultsValidation:
 
     def test_code_reuse_results_fields(self) -> None:
         """CodeReuseResults should have expected fields."""
-        from app.api.v1.endpoints.tasks import CodeReuseResults, CodeReuseComparison, CodeReuseMatch
+        from app.api.v1.endpoints.tasks import CodeReuseComparison, CodeReuseMatch, CodeReuseResults
 
         match = CodeReuseMatch(
             source_function_name="main",

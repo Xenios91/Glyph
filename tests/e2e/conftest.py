@@ -6,14 +6,14 @@ See: https://github.com/microsoft/pyright/discussions/6243
 """
 
 import os
-import sys
 import subprocess
+import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 import requests
-from typing import Any
 
 # Project root is two levels up from tests/e2e/
 PROJECT_ROOT = Path(__file__).parent.parent.parent

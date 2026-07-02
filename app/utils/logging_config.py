@@ -167,7 +167,7 @@ def setup_logging(
             }
         )
 
-    logger.configure(handlers=handlers, patcher=patcher)  # type: ignore[arg-type]
+    logger.configure(handlers=handlers, patcher=patcher)
 
 
 def setup_logging_from_config() -> None:

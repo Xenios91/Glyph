@@ -219,7 +219,7 @@ async def compare_binaries(
 
     return {
         "target_binary_id": target_binary_id,
-        "target_binary_name": target_name,
+        "target_binary_name": target_name or "",
         "matched_functions": matched_functions,
         "overall_similarity": overall_similarity,
     }

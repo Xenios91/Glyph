@@ -2,9 +2,9 @@
 
 import logging
 from typing import Any
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
 from fastapi.testclient import TestClient
 
 logger = logging.getLogger(__name__)
@@ -131,17 +131,23 @@ class TestWebEndpoints:
 
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
-    def test_get_prediction_details_json_success(self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient) -> None:
+    def test_get_prediction_details_json_success(
+        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient
+    ) -> None:
         """Test get prediction details returns JSON on success."""
-        mock_func_repo.get = AsyncMock(return_value={
-            "model_name": "test_model",
-            "function_name": "test_func",
-            "entrypoint": "0x1000",
-            "tokens": "test tokens",
-        })
-        mock_pred_repo.get_prediction_function = AsyncMock(return_value={
-            "tokens": "prediction tokens",
-        })
+        mock_func_repo.get = AsyncMock(
+            return_value={
+                "model_name": "test_model",
+                "function_name": "test_func",
+                "entrypoint": "0x1000",
+                "tokens": "test tokens",
+            }
+        )
+        mock_pred_repo.get_prediction_function = AsyncMock(
+            return_value={
+                "tokens": "prediction tokens",
+            }
+        )
 
         response = web_client.get(
             "/getPredictionDetails",
@@ -160,12 +166,16 @@ class TestWebEndpoints:
 
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
-    def test_get_prediction_details_function_not_found(self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient) -> None:
+    def test_get_prediction_details_function_not_found(
+        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient
+    ) -> None:
         """Test get prediction details returns 404 when function not found."""
         mock_func_repo.get = AsyncMock(return_value=None)
-        mock_pred_repo.get_prediction_function = AsyncMock(return_value={
-            "tokens": "prediction tokens",
-        })
+        mock_pred_repo.get_prediction_function = AsyncMock(
+            return_value={
+                "tokens": "prediction tokens",
+            }
+        )
 
         response = web_client.get(
             "/getPredictionDetails",
@@ -181,7 +191,9 @@ class TestWebEndpoints:
 
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
-    def test_get_prediction_details_prediction_not_found(self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient) -> None:
+    def test_get_prediction_details_prediction_not_found(
+        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient
+    ) -> None:
         """Test get prediction details returns 404 when prediction not found."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
@@ -252,14 +264,18 @@ class TestWebEndpoints:
 
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
-    def test_get_prediction_details_html_response(self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient) -> None:
+    def test_get_prediction_details_html_response(
+        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient
+    ) -> None:
         """Test get prediction details returns HTML for browsers."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
-        mock_pred_repo.get_prediction_function = AsyncMock(return_value={
-            "tokens": "prediction tokens",
-        })
+        mock_pred_repo.get_prediction_function = AsyncMock(
+            return_value={
+                "tokens": "prediction tokens",
+            }
+        )
 
         response = web_client.get(
             "/getPredictionDetails",
@@ -394,10 +410,10 @@ class TestWebEndpoints:
     # Tests for login/register pages (need separate client without auth override)
     def test_login_page_shows_login_form(self) -> None:
         """Test login page shows form when not authenticated."""
+        from app.auth.dependencies import get_optional_user
+        from app.web.endpoints.web import router as web_router
         from fastapi import FastAPI
         from fastapi.staticfiles import StaticFiles
-        from app.web.endpoints.web import router as web_router
-        from app.auth.dependencies import get_optional_user
 
         app = FastAPI()
         app.include_router(web_router)
@@ -417,9 +433,9 @@ class TestWebEndpoints:
 
     def test_login_page_redirects_when_authenticated(self) -> None:
         """Test login page redirects to home when already authenticated."""
-        from fastapi import FastAPI
-        from app.web.endpoints.web import router as web_router
         from app.auth.dependencies import get_optional_user
+        from app.web.endpoints.web import router as web_router
+        from fastapi import FastAPI
 
         app = FastAPI()
         app.include_router(web_router)
@@ -439,10 +455,10 @@ class TestWebEndpoints:
 
     def test_register_page_shows_form(self) -> None:
         """Test register page shows form when not authenticated."""
+        from app.auth.dependencies import get_optional_user
+        from app.web.endpoints.web import router as web_router
         from fastapi import FastAPI
         from fastapi.staticfiles import StaticFiles
-        from app.web.endpoints.web import router as web_router
-        from app.auth.dependencies import get_optional_user
 
         app = FastAPI()
         app.include_router(web_router)
@@ -462,9 +478,9 @@ class TestWebEndpoints:
 
     def test_register_page_redirects_when_authenticated(self) -> None:
         """Test register page redirects when already authenticated."""
-        from fastapi import FastAPI
-        from app.web.endpoints.web import router as web_router
         from app.auth.dependencies import get_optional_user
+        from app.web.endpoints.web import router as web_router
+        from fastapi import FastAPI
 
         app = FastAPI()
         app.include_router(web_router)
@@ -489,10 +505,10 @@ class TestWebEndpoints:
         mock_get_settings: Any,
     ) -> None:
         """Test successful login with form data."""
+        from app.auth.dependencies import get_db, get_jwt_handler, get_optional_user
+        from app.web.endpoints.web import router as web_router
         from fastapi import FastAPI
         from fastapi.staticfiles import StaticFiles
-        from app.web.endpoints.web import router as web_router
-        from app.auth.dependencies import get_optional_user, get_db, get_jwt_handler
 
         mock_settings = Mock()
         mock_settings.use_https = False
@@ -541,10 +557,10 @@ class TestWebEndpoints:
         mock_get_settings: Any,
     ) -> None:
         """Test successful login with JSON body."""
+        from app.auth.dependencies import get_db, get_jwt_handler, get_optional_user
+        from app.web.endpoints.web import router as web_router
         from fastapi import FastAPI
         from fastapi.staticfiles import StaticFiles
-        from app.web.endpoints.web import router as web_router
-        from app.auth.dependencies import get_optional_user, get_db, get_jwt_handler
 
         mock_settings = Mock()
         mock_settings.use_https = False
@@ -589,10 +605,10 @@ class TestWebEndpoints:
 
     def test_login_submit_invalid_credentials(self) -> None:
         """Test login with invalid credentials returns error page."""
+        from app.auth.dependencies import get_db, get_jwt_handler, get_optional_user
+        from app.web.endpoints.web import router as web_router
         from fastapi import FastAPI
         from fastapi.staticfiles import StaticFiles
-        from app.web.endpoints.web import router as web_router
-        from app.auth.dependencies import get_optional_user, get_db, get_jwt_handler
 
         mock_jwt = Mock()
         mock_db = AsyncMock()
@@ -625,10 +641,10 @@ class TestWebEndpoints:
 
     def test_login_submit_inactive_user(self) -> None:
         """Test login with inactive user returns error page."""
+        from app.auth.dependencies import get_db, get_jwt_handler, get_optional_user
+        from app.web.endpoints.web import router as web_router
         from fastapi import FastAPI
         from fastapi.staticfiles import StaticFiles
-        from app.web.endpoints.web import router as web_router
-        from app.auth.dependencies import get_optional_user, get_db, get_jwt_handler
 
         mock_jwt = Mock()
         mock_db = AsyncMock()
@@ -665,10 +681,10 @@ class TestWebEndpoints:
     # Tests for register POST handler (lines 360-406)
     def test_register_submit_success(self) -> None:
         """Test successful registration redirects to login."""
+        from app.auth.dependencies import get_db, get_optional_user
+        from app.web.endpoints.web import router as web_router
         from fastapi import FastAPI
         from fastapi.staticfiles import StaticFiles
-        from app.web.endpoints.web import router as web_router
-        from app.auth.dependencies import get_optional_user, get_db
 
         mock_db = AsyncMock()
 
@@ -708,10 +724,10 @@ class TestWebEndpoints:
 
     def test_register_submit_json_body(self) -> None:
         """Test successful registration with JSON body."""
+        from app.auth.dependencies import get_db, get_optional_user
+        from app.web.endpoints.web import router as web_router
         from fastapi import FastAPI
         from fastapi.staticfiles import StaticFiles
-        from app.web.endpoints.web import router as web_router
-        from app.auth.dependencies import get_optional_user, get_db
 
         mock_db = AsyncMock()
 
@@ -751,10 +767,10 @@ class TestWebEndpoints:
 
     def test_register_submit_username_exists(self) -> None:
         """Test registration with existing username returns error."""
+        from app.auth.dependencies import get_db, get_optional_user
+        from app.web.endpoints.web import router as web_router
         from fastapi import FastAPI
         from fastapi.staticfiles import StaticFiles
-        from app.web.endpoints.web import router as web_router
-        from app.auth.dependencies import get_optional_user, get_db
 
         mock_db = AsyncMock()
 
@@ -790,10 +806,10 @@ class TestWebEndpoints:
 
     def test_register_submit_email_exists(self) -> None:
         """Test registration with existing email returns error."""
+        from app.auth.dependencies import get_db, get_optional_user
+        from app.web.endpoints.web import router as web_router
         from fastapi import FastAPI
         from fastapi.staticfiles import StaticFiles
-        from app.web.endpoints.web import router as web_router
-        from app.auth.dependencies import get_optional_user, get_db
 
         mock_db = AsyncMock()
 

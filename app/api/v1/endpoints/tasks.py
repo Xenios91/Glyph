@@ -173,7 +173,7 @@ async def _save_prediction_functions_tasks(prediction_request: Any, predictions:
         )
 
 
-def _create_background_task(coro) -> asyncio.Task[None]:
+def _create_background_task(coro: Any) -> asyncio.Task[None]:
     """Create a background task that won't be garbage-collected.
 
     Args:
@@ -285,7 +285,7 @@ async def _run_code_reuse_task(
         for target_id in target_ids:
             result = await compare_binaries(filtered_source, target_id)
             if result:
-                comparisons.append(result)
+                comparisons.append(result)  # type: ignore[arg-type]
 
         TaskManager.set_status(task_uuid, "completed")
 

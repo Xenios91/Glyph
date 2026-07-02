@@ -352,7 +352,7 @@ async def get_prediction_details(
         model_tokens = format_code(model_info.tokens)
         prediction_tokens = format_code(prediction_data.get("tokens", "") if prediction_data else "")
 
-    except (TypeError, IndexError):
+    except (TypeError, IndexError, KeyError, AttributeError):
         logger.exception(
             "Failed to retrieve prediction details for task={}, model={}, function={}",
             task_name,

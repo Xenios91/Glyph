@@ -2,7 +2,7 @@
 
 import base64
 from datetime import UTC, datetime, timedelta, timezone
-from typing import Any
+from typing import Any, NoReturn
 
 from joserfc import jwt
 from joserfc.errors import BadSignatureError as JoserfcBadSignatureError
@@ -13,6 +13,8 @@ from joserfc.errors import JoseError
 from joserfc.jwk import OctKey
 from joserfc.jwt import JWTClaimsRegistry
 from loguru import logger
+
+_PROTECTED_CLAIMS: set[str] = {"sub", "iat", "exp", "type"}
 
 
 class InvalidTokenError(Exception):
@@ -72,8 +74,7 @@ class JWTHandler:
         }
 
         if extra_claims:
-            _protected_claims = {"sub", "iat", "exp", "type"}
-            overlap = set(extra_claims.keys()) & _protected_claims
+            overlap = set(extra_claims.keys()) & _PROTECTED_CLAIMS
             if overlap:
                 raise ValueError(f"Cannot override protected claims: {overlap}")
             payload.update(extra_claims)
@@ -93,8 +94,7 @@ class JWTHandler:
         }
 
         if extra_claims:
-            _protected_claims = {"sub", "iat", "exp", "type"}
-            overlap = set(extra_claims.keys()) & _protected_claims
+            overlap = set(extra_claims.keys()) & _PROTECTED_CLAIMS
             if overlap:
                 raise ValueError(f"Cannot override protected claims: {overlap}")
             payload.update(extra_claims)
@@ -115,7 +115,7 @@ class JWTHandler:
         self,
         e: Exception,
         context: str,
-    ) -> None:
+    ) -> NoReturn:
         """Handle JWT verification errors with consistent logging and re-raising.
 
         Args:
@@ -126,7 +126,7 @@ class JWTHandler:
             BadSignatureError: If the error is a bad signature.
             InvalidTokenError: For all other JWT-related errors.
         """
-        if isinstance(e, (JoserfcBadSignatureError, JoserfcInvalidTokenError, JoserfcDecodeError, JoseError)):
+        if isinstance(e, JoserfcBadSignatureError | JoserfcInvalidTokenError | JoserfcDecodeError | JoseError):
             logger.warning("{} failed: {}", context, type(e).__name__)
             if isinstance(e, JoserfcBadSignatureError):
                 raise BadSignatureError(f"Invalid signature: {e}") from e
@@ -152,6 +152,7 @@ class JWTHandler:
             raise
         except Exception as e:
             self._handle_verification_error(e, "Access token verification")
+            return {}  # unreachable
 
     def verify_refresh_token(self, token: str) -> dict[str, Any]:
         """Verify and decode a refresh token."""
@@ -171,6 +172,7 @@ class JWTHandler:
             raise
         except Exception as e:
             self._handle_verification_error(e, "Refresh token verification")
+            return {}  # unreachable
 
     def verify_token(self, token: str) -> dict[str, Any]:
         """Verify and decode any token (access or refresh).

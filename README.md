@@ -23,7 +23,7 @@
 ### Black Hat Arsenal 2023 & Defcon Demo Labs
 
 [![CodeQL](https://github.com/Xenios91/Glyph/actions/workflows/codeql.yml/badge.svg)](https://github.com/Xenios91/Glyph/actions/workflows/codeql.yml)
-[![Pylint](https://github.com/Xenios91/Glyph/actions/workflows/pylint.yml/badge.svg)](https://github.com/Xenios91/Glyph/actions/workflows/pylint.yml)
+[![Ruff](https://github.com/Xenios91/Glyph/actions/workflows/ruff.yml/badge.svg)](https://github.com/Xenios91/Glyph/actions/workflows/ruff.yml)
 
 Glyph Wiki: https://github.com/Xenios91/Glyph/wiki
 

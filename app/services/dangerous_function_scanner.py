@@ -102,9 +102,7 @@ def _extract_usage_context(tokens: list[str], dangerous_function_name: str) -> l
     # Match actual function calls: function name followed by '(' with optional whitespace
     # Uses word boundary before the name to avoid matching partial identifiers
     # and requires '(' after to ensure it's a call, not just a mention in a string
-    pattern = re.compile(
-        r"\b" + re.escape(dangerous_function_name) + r"\s*\(", re.IGNORECASE
-    )
+    pattern = re.compile(r"\b" + re.escape(dangerous_function_name) + r"\s*\(", re.IGNORECASE)
     matching_lines: list[str] = []
 
     for stmt in statements:
@@ -291,18 +289,14 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
             # Primary: Match actual function calls - name followed by '(' with optional whitespace
             # This avoids false positives from string literals containing the function name
             # e.g., "The system is down" won't match system()
-            call_pattern = re.compile(
-                r"\b" + re.escape(entry.name) + r"\s*\(", re.IGNORECASE
-            )
+            call_pattern = re.compile(r"\b" + re.escape(entry.name) + r"\s*\(", re.IGNORECASE)
             if call_pattern.search(code_text):
                 found = True
 
             # Fallback: Check for function pointer assignments that might reference
             # the dangerous function, e.g., "func_ptr = system" or "&system"
             if not found:
-                ptr_pattern = re.compile(
-                    r"(?:=\s*|&\s*)" + re.escape(entry.name) + r"(?![a-zA-Z0-9_])", re.IGNORECASE
-                )
+                ptr_pattern = re.compile(r"(?:=\s*|&\s*)" + re.escape(entry.name) + r"(?![a-zA-Z0-9_])", re.IGNORECASE)
                 if ptr_pattern.search(code_text):
                     # Only consider this a match if it looks like an assignment or address-of
                     # and NOT inside a quoted string (basic heuristic: check for nearby quotes)

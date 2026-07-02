@@ -7,7 +7,6 @@ Tests navigation elements, dropdown menus, and page transitions.
 from typing import Any
 
 from playwright.sync_api import expect
-
 from tests.e2e.utils import (
     BASE_URL,
     generate_unique_username,
@@ -196,7 +195,6 @@ class TestAuthenticatedNavigation:
         page.wait_for_url(f"{BASE_URL}/profile")
 
         expect(page).to_have_title("Glyph - Profile")
-
 
     def test_navigation_to_binary_library_via_dropdown(self, page: Any, server: Any) -> None:
         """Test navigating to binary library via the ANALYSIS dropdown."""

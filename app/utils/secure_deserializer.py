@@ -11,17 +11,13 @@ Security measures:
 """
 
 import io
-from typing import Any
+from typing import Any, cast
 
 from joblib.numpy_pickle import NumpyUnpickler
 from loguru import logger
 
-ALLOWED_CLASSES: set[str] = {
-    "sklearn.pipeline.Pipeline",
-    "sklearn.feature_extraction.text.TfidfVectorizer",
-    "sklearn.feature_extraction.text.TfidfTransformer",
-    "sklearn.naive_bayes.MultinomialNB",
-    "sklearn.preprocessing._label.LabelEncoder",
+# Base allowed classes that don't depend on sklearn internals.
+_ALLOWED_CLASSES_BASE: set[str] = {
     "numpy.ndarray",
     "numpy.dtype",
     "numpy.float64",
@@ -41,6 +37,34 @@ ALLOWED_CLASSES: set[str] = {
     "joblib.numpy_pickle.NumpyPickler",
     "joblib.numpy_pickle.NumpyArrayWrapper",
 }
+
+# Resolve sklearn class paths dynamically so that internal module changes
+# (e.g. sklearn.preprocessing._label → another path) don't break the whitelist.
+_SKLEARN_CLASSES: set[str] = set()
+try:
+    from sklearn.feature_extraction.text import TfidfTransformer, TfidfVectorizer
+    from sklearn.naive_bayes import MultinomialNB
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import LabelEncoder
+
+    _SKLEARN_CLASSES = {
+        f"{Pipeline.__module__}.{Pipeline.__name__}",
+        f"{TfidfVectorizer.__module__}.{TfidfVectorizer.__name__}",
+        f"{TfidfTransformer.__module__}.{TfidfTransformer.__name__}",
+        f"{MultinomialNB.__module__}.{MultinomialNB.__name__}",
+        f"{LabelEncoder.__module__}.{LabelEncoder.__name__}",
+    }
+except ImportError:
+    # Fallback to hard-coded paths when sklearn is not installed.
+    _SKLEARN_CLASSES = {
+        "sklearn.pipeline.Pipeline",
+        "sklearn.feature_extraction.text.TfidfVectorizer",
+        "sklearn.feature_extraction.text.TfidfTransformer",
+        "sklearn.naive_bayes.MultinomialNB",
+        "sklearn.preprocessing._label.LabelEncoder",
+    }
+
+ALLOWED_CLASSES: set[str] = _ALLOWED_CLASSES_BASE | _SKLEARN_CLASSES
 
 BLOCKED_BUILTINS: set[str] = {
     "builtins.eval",
@@ -121,9 +145,7 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
     """
 
     def __init__(self, file: Any, allowed_classes: set[str] | None = None):
-        super().__init__(  # type: ignore[call-arg]
-            filename="", file_handle=file, ensure_native_byte_order=False
-        )
+        super().__init__(filename="", file_handle=file, ensure_native_byte_order=False)
         self.allowed_classes = allowed_classes or ALLOWED_CLASSES
 
     def find_class(self, module: str, name: str) -> type[Any]:
@@ -153,7 +175,7 @@ class RestrictedNumpyUnpickler(NumpyUnpickler):
                 f"Deserialization of '{class_name}' is not allowed. Only whitelisted classes can be deserialized."
             )
 
-        return super().find_class(module, name)
+        return cast(type[Any], super().find_class(module, name))
 
 
 def secure_load(file_like: io.BytesIO, allowed_classes: set[str] | None = None) -> Any:

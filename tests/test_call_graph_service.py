@@ -6,7 +6,6 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from app.services.call_graph_service import (
     _CALL_PATTERN,
     _NON_CALL_KEYWORDS,
@@ -15,7 +14,6 @@ from app.services.call_graph_service import (
     CallGraphNode,
     CallGraphService,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper factories
@@ -123,12 +121,8 @@ class TestCallGraph:
     def test_call_graph_to_dict_with_data(self) -> None:
         """Test to_dict with nodes and edges."""
         graph = CallGraph(binary_id=1)
-        graph.nodes["main"] = CallGraphNode(
-            name="main", entrypoint="0x401000", callers=[], callees=["helper"]
-        )
-        graph.nodes["helper"] = CallGraphNode(
-            name="helper", entrypoint="0x401100", callers=["main"], callees=[]
-        )
+        graph.nodes["main"] = CallGraphNode(name="main", entrypoint="0x401000", callers=[], callees=["helper"])
+        graph.nodes["helper"] = CallGraphNode(name="helper", entrypoint="0x401100", callers=["main"], callees=[])
         graph.edges.append(CallEdge(caller="main", callee="helper", call_count=2))
 
         result = graph.to_dict()
@@ -295,9 +289,7 @@ class TestGenerateCallGraph:
     @pytest.mark.asyncio
     async def test_generate_multiple_calls_same_function(self) -> None:
         """Test counts multiple calls to the same function."""
-        main_func = _make_mock_function(
-            "main", raw_code="{ helper(); helper(); helper(); }"
-        )
+        main_func = _make_mock_function("main", raw_code="{ helper(); helper(); helper(); }")
         helper_func = _make_mock_function("helper", raw_code="{ }")
         with patch(
             "app.database.sql_service.SQLUtil.get_binary_functions",
@@ -311,9 +303,7 @@ class TestGenerateCallGraph:
     @pytest.mark.asyncio
     async def test_generate_ignores_unknown_callees(self) -> None:
         """Test ignores calls to functions not in known_functions."""
-        main_func = _make_mock_function(
-            "main", raw_code="{ printf(); helper(); }"
-        )
+        main_func = _make_mock_function("main", raw_code="{ printf(); helper(); }")
         helper_func = _make_mock_function("helper", raw_code="{ }")
         with patch(
             "app.database.sql_service.SQLUtil.get_binary_functions",
@@ -330,14 +320,7 @@ class TestGenerateCallGraph:
         """Test that C keywords are filtered from call patterns."""
         main_func = _make_mock_function(
             "main",
-            raw_code=(
-                "{\n"
-                "  if (x) { helper(); }\n"
-                "  for (int i=0; i<10; i++) { }\n"
-                "  while (y) { }\n"
-                "  sizeof(int);\n"
-                "}"
-            ),
+            raw_code=("{\n  if (x) { helper(); }\n  for (int i=0; i<10; i++) { }\n  while (y) { }\n  sizeof(int);\n}"),
         )
         helper_func = _make_mock_function("helper", raw_code="{ }")
         with patch(
@@ -353,18 +336,10 @@ class TestGenerateCallGraph:
     async def test_generate_complex_graph(self) -> None:
         """Test generates complex graph with multiple relationships."""
         funcs = [
-            _make_mock_function(
-                "main", raw_code="{ init(); process(); cleanup(); }"
-            ),
-            _make_mock_function(
-                "init", raw_code="{ log(); }"
-            ),
-            _make_mock_function(
-                "process", raw_code="{ helper(); helper(); }"
-            ),
-            _make_mock_function(
-                "cleanup", raw_code="{ log(); }"
-            ),
+            _make_mock_function("main", raw_code="{ init(); process(); cleanup(); }"),
+            _make_mock_function("init", raw_code="{ log(); }"),
+            _make_mock_function("process", raw_code="{ helper(); helper(); }"),
+            _make_mock_function("cleanup", raw_code="{ log(); }"),
             _make_mock_function("helper", raw_code="{ }"),
             _make_mock_function("log", raw_code="{ }"),
         ]
@@ -461,9 +436,7 @@ class TestGetFunctionCallers:
     def test_get_callers_returns_sorted_list(self) -> None:
         """Test returns sorted list of callers."""
         graph = CallGraph(binary_id=1)
-        graph.nodes["helper"] = CallGraphNode(
-            name="helper", callers=["z_func", "a_func", "m_func"]
-        )
+        graph.nodes["helper"] = CallGraphNode(name="helper", callers=["z_func", "a_func", "m_func"])
         result = CallGraphService.get_function_callers(graph, "helper")
         assert result == ["a_func", "m_func", "z_func"]
 
@@ -483,9 +456,7 @@ class TestGetFunctionCallers:
     def test_get_callers_deduplicates(self) -> None:
         """Test deduplicates callers."""
         graph = CallGraph(binary_id=1)
-        graph.nodes["helper"] = CallGraphNode(
-            name="helper", callers=["main", "main", "init"]
-        )
+        graph.nodes["helper"] = CallGraphNode(name="helper", callers=["main", "main", "init"])
         result = CallGraphService.get_function_callers(graph, "helper")
         assert result == ["init", "main"]
 
@@ -501,9 +472,7 @@ class TestGetFunctionCallees:
     def test_get_callees_returns_sorted_list(self) -> None:
         """Test returns sorted list of callees."""
         graph = CallGraph(binary_id=1)
-        graph.nodes["main"] = CallGraphNode(
-            name="main", callees=["z_func", "a_func", "m_func"]
-        )
+        graph.nodes["main"] = CallGraphNode(name="main", callees=["z_func", "a_func", "m_func"])
         result = CallGraphService.get_function_callees(graph, "main")
         assert result == ["a_func", "m_func", "z_func"]
 
@@ -523,9 +492,7 @@ class TestGetFunctionCallees:
     def test_get_callees_deduplicates(self) -> None:
         """Test deduplicates callees."""
         graph = CallGraph(binary_id=1)
-        graph.nodes["main"] = CallGraphNode(
-            name="main", callees=["helper", "helper", "init"]
-        )
+        graph.nodes["main"] = CallGraphNode(name="main", callees=["helper", "helper", "init"])
         result = CallGraphService.get_function_callees(graph, "main")
         assert result == ["helper", "init"]
 

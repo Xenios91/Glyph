@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import pytest
-
-from starlette.types import Receive, Scope, Send
-
 from app.core.correlation_bridge import CorrelationIdBridgeMiddleware
 from app.utils.request_context import (
-    get_request_context,
     clear_request_context,
+    get_request_context,
 )
+from starlette.types import Receive, Scope, Send
 
 
 async def _noop_send(_: dict[str, Any]) -> None:

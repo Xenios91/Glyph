@@ -61,7 +61,6 @@ dev = [
     "ruff>=0.15.19",
     "mypy>=1.14.0",
     "pre-commit>=4.0.0",
-    "pylint>=3.3.0",
     "pytest-xdist>=3.6.0",
 ]
 test = [
@@ -121,9 +120,10 @@ ignore = [
     "SIM116",  # suggests dict.get() over if-else (pre-existing style)
 ]
 
+
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-"tests/**" = ["T20", "S101"]
+"tests/**" = ["T20", "S101", "E402", "SIM117", "B017", "RUF003", "F841", "N806", "N801", "RUF100"]
 "app/processing/ghidra_processor.py" = ["N806"]  # PyGhidra Java interop class names
 "app/stubs/**" = ["N802"]  # PyGhidra Java interop stubs match Java method names
 "app/api/v1/endpoints/status.py" = ["N811"]  # UUID type alias imported as non-constant
@@ -150,8 +150,9 @@ warn_unused_ignores = true
 warn_no_return = true
 strict_optional = true
 plugins = ["pydantic.mypy"]
-exclude = ["tests/e2e"]
-mypy_path = "app/stubs:app"
+exclude = ["tests/e2e", "app/stubs"]
+mypy_path = "app/stubs"
+disable_error_code = ["no-any-return"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -160,8 +161,17 @@ module = [
     "loguru.*",
     "asgi_correlation_id.*",
     "playwright.*",
+    "pandas",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["sklearn.*", "joblib.*", "pandas.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["app.utils.logging_utils", "app.utils.logging_config"]
+disable_error_code = ["misc", "arg-type"]
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

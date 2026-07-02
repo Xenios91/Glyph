@@ -16,4 +16,4 @@ def configure_jinja2_templates(templates: Jinja2Templates) -> None:
     Args:
         templates: The Jinja2Templates instance to configure.
     """
-    templates.env.autoescape = True  # type: ignore[union-attr]
+    templates.env.autoescape = True

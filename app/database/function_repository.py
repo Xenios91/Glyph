@@ -3,7 +3,7 @@
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import delete, select
+from sqlalchemy import delete, exc as sa_exc, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,7 +55,7 @@ class FunctionRepository:
             await session.execute(stmt)
             await session.commit()
             logger.info("Saved {} functions to model '{}'", len(functions), model_name)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to save functions for model '{}'", model_name)
             raise
@@ -82,7 +82,7 @@ class FunctionRepository:
             functions = list(result.scalars().all())
             session.expunge_all()
             return functions
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to retrieve functions for model '{}'", model_name)
             return []
         finally:
@@ -114,7 +114,7 @@ class FunctionRepository:
             if function is not None:
                 session.expunge(function)
             return function
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception(
                 "Failed to retrieve function '{}' from model '{}'",
                 function_name,
@@ -139,7 +139,7 @@ class FunctionRepository:
             await session.execute(delete(Function).where(Function.model_name == model_name))
             await session.commit()
             logger.info("Functions for model '{}' deleted", model_name)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to delete functions for model '{}'", model_name)
             raise

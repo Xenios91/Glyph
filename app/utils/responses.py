@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timezone
 from math import ceil
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_serializer, field_validator
 
@@ -79,7 +79,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
             return v
         total = info.data.get("total", 0)
         page_size = info.data.get("page_size", 1)
-        return ceil(total / page_size) if page_size > 0 else 0
+        return cast(int, ceil(total / page_size) if page_size > 0 else 0)
 
 
 def create_paginated_response(

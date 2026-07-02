@@ -10,8 +10,8 @@ from typing import Any
 from loguru import logger
 
 from app.database.binary_repository import BinaryRepository
-from app.database.similarity_repository import SimilarityRepository
 from app.database.models import SimilarityPair
+from app.database.similarity_repository import SimilarityRepository
 from app.processing.pipeline import PipelineContext
 from app.processing.pipeline_configs import (
     PREDICTION_FROM_DB_PIPELINE,
@@ -131,7 +131,7 @@ class AnalysisService:
         for target_id in target_ids:
             result = await compare_binaries(filtered_source, target_id)
             if result:
-                comparisons.append(result)
+                comparisons.append(result)  # type: ignore[arg-type]
 
         logger.info(
             "Code reuse detection completed: {} comparisons for binary {}",

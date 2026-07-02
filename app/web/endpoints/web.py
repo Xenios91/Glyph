@@ -17,15 +17,15 @@ import app._version as _version
 from app.auth.dependencies import get_current_active_user, get_db, get_jwt_handler, get_optional_user
 from app.auth.jwt_handler import JWTHandler
 from app.config.settings import MAX_CPU_CORES, get_settings
-from app.core.rate_limiter import REGISTER_LIMIT, limiter
+from app.core.rate_limiter import LOGIN_LIMIT, REGISTER_LIMIT, limiter
+from app.database.function_repository import FunctionRepository
+from app.database.model_repository import ModelRepository
 from app.database.models import User
+from app.database.prediction_repository import PredictionRepository
 from app.database.repository import UserRepository
 from app.processing.task_management import TaskManager
 from app.templates import templates
 from app.utils.common import build_prediction_details_response, format_code
-from app.database.function_repository import FunctionRepository
-from app.database.model_repository import ModelRepository
-from app.database.prediction_repository import PredictionRepository
 from app.utils.helpers import ACCEPT_TYPE
 
 router = APIRouter()
@@ -251,6 +251,7 @@ async def login_page(
 
 
 @router.post("/login", response_model=None)
+@limiter.limit(LOGIN_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def login_submit(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -330,6 +331,7 @@ async def register_submit(
     Handles registration form submission (POST).
     """
     from app.auth.security_logger import log_user_registration
+    from app.auth.schemas import UserRegister
 
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
@@ -337,10 +339,26 @@ async def register_submit(
     else:
         form = await request.form()
         body = dict(form)
-    username = str(body.get("username", ""))
-    email = str(body.get("email", ""))
-    password = str(body.get("password", ""))
-    full_name = str(body.get("full_name", ""))
+
+    # Validate form data using UserRegister schema for consistent validation.
+    try:
+        user_data = UserRegister(
+            username=body.get("username", ""),
+            email=body.get("email", ""),
+            password=body.get("password", ""),
+            full_name=body.get("full_name") or None,
+        )
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            request,
+            "register.html",
+            {"title": "Glyph - Register", "user": None, "register_error": str(exc)},
+        )
+
+    username = user_data.username
+    email = user_data.email
+    password = user_data.password
+    full_name = user_data.full_name
 
     user_repo = UserRepository(db)
 

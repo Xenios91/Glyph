@@ -137,6 +137,20 @@ def get_settings() -> GlyphSettings:
                         "jwt_secret_key in config.yml for production use. "
                         "Tokens will be invalidated on application restart."
                     )
+
+            if not _settings.use_https:
+                env = os.environ.get("GLYPH_ENV", os.environ.get("ENV", "development"))
+                if env == "production":
+                    logger.critical(
+                        "use_https is False in production! "
+                        "Cookies will be sent over unencrypted HTTP. "
+                        "Set GLYPH_USE_HTTPS=true or use_https in config.yml."
+                    )
+                else:
+                    logger.warning(
+                        "use_https is False — cookies will be sent over unencrypted HTTP. "
+                        "Enable use_https in production."
+                    )
         except RuntimeError:
             raise
         except Exception as e:

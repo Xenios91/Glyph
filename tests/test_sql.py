@@ -1,19 +1,19 @@
 """Unit tests for SQL database operations using SQLAlchemy ORM."""
-from typing import Any
 
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
-
+from sqlalchemy import exc as sa_exc
 from app.database.models import Base
 from app.database.session_handler import (
-    get_async_session,
-    close_async_session,
-    init_async_databases,
-    dispose_async_engines,
-    async_engines,
     DB_TABLE_MAP,
+    async_engines,
+    close_async_session,
+    dispose_async_engines,
+    get_async_session,
+    init_async_databases,
 )
 from app.database.sql_service import SQLUtil
 
@@ -65,7 +65,7 @@ class TestSQLUtilSaveModel:
 
     async def test_save_model_raises_on_session_error(self):
         """Test that save_model raises when session creation fails."""
-        mock_error = AsyncMock(side_effect=Exception("DB Error"))
+        mock_error = AsyncMock(side_effect=sa_exc.SQLAlchemyError("DB Error"))
         with patch("app.database.model_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="DB Error"):
                 await SQLUtil.save_model("test_model", b"encoder", b"model")
@@ -133,14 +133,16 @@ class TestSQLUtilDeleteModel:
     async def test_delete_model_removes_functions(self):
         """Test that deleting a model also removes associated functions."""
         await SQLUtil.save_model("delete_func_model", b"encoder", b"model")
-        await SQLUtil.save_functions("delete_func_model", [{"functionName": "func1", "lowAddress": "0x1000", "tokenList": ["t1"]}])
+        await SQLUtil.save_functions(
+            "delete_func_model", [{"functionName": "func1", "lowAddress": "0x1000", "tokenList": ["t1"]}]
+        )
         await SQLUtil.delete_model("delete_func_model")
         functions = await SQLUtil.get_functions("delete_func_model")
         assert functions == []
 
     async def test_delete_model_handles_exception(self):
         """Test that delete_model handles exceptions gracefully."""
-        mock_error = AsyncMock(side_effect=Exception("Delete Error"))
+        mock_error = AsyncMock(side_effect=sa_exc.SQLAlchemyError("Delete Error"))
         with patch("app.database.model_repository.get_async_session", mock_error):
             with patch.object(SQLUtil, "delete_model_predictions", new=AsyncMock()):
                 with patch.object(SQLUtil, "delete_functions", new=AsyncMock()):
@@ -189,6 +191,7 @@ class TestSQLUtilGetPredictions:
     async def test_get_predictions_corrupted_data(self, caplog: Any) -> None:
         """Test handling corrupted prediction data."""
         from app.database.models import Prediction as PredModel
+
         session = await get_async_session("predictions")
         try:
             pred = PredModel(
@@ -230,7 +233,7 @@ class TestSQLUtilSavePredictions:
 
     async def test_save_predictions_handles_exception(self):
         """Test that save_predictions handles exceptions gracefully."""
-        mock_error = AsyncMock(side_effect=Exception("Save Error"))
+        mock_error = AsyncMock(side_effect=sa_exc.SQLAlchemyError("Save Error"))
         with patch("app.database.prediction_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="Save Error"):
                 await SQLUtil.save_predictions("task1", "model1", [{"func": "f1"}])
@@ -271,10 +274,12 @@ class TestSQLUtilSaveFunctions:
 
     async def test_save_functions_handles_exception(self):
         """Test that save_functions handles exceptions gracefully."""
-        mock_error = AsyncMock(side_effect=Exception("Save Error"))
+        mock_error = AsyncMock(side_effect=sa_exc.SQLAlchemyError("Save Error"))
         with patch("app.database.function_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="Save Error"):
-                await SQLUtil.save_functions("model1", [{"functionName": "f1", "lowAddress": "0x0", "tokenList": ["t"]}])
+                await SQLUtil.save_functions(
+                    "model1", [{"functionName": "f1", "lowAddress": "0x0", "tokenList": ["t"]}]
+                )
 
 
 class TestSQLUtilGetFunctions:
@@ -327,7 +332,7 @@ class TestSQLUtilDeleteFunctions:
 
     async def test_delete_functions_handles_exception(self):
         """Test that delete_functions handles exceptions gracefully."""
-        mock_error = AsyncMock(side_effect=Exception("Delete Error"))
+        mock_error = AsyncMock(side_effect=sa_exc.SQLAlchemyError("Delete Error"))
         with patch("app.database.function_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="Delete Error"):
                 await SQLUtil.delete_functions("model1")
@@ -345,7 +350,7 @@ class TestSQLUtilDeletePrediction:
 
     async def test_delete_prediction_handles_exception(self):
         """Test that delete_prediction handles exceptions gracefully."""
-        mock_error = AsyncMock(side_effect=Exception("Delete Error"))
+        mock_error = AsyncMock(side_effect=sa_exc.SQLAlchemyError("Delete Error"))
         with patch("app.database.prediction_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="Delete Error"):
                 await SQLUtil.delete_prediction("task1")
@@ -367,7 +372,7 @@ class TestSQLUtilDeleteModelPredictions:
 
     async def test_delete_model_predictions_handles_exception(self):
         """Test that delete_model_predictions handles exceptions gracefully."""
-        mock_error = AsyncMock(side_effect=Exception("Delete Error"))
+        mock_error = AsyncMock(side_effect=sa_exc.SQLAlchemyError("Delete Error"))
         with patch("app.database.prediction_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="Delete Error"):
                 await SQLUtil.delete_model_predictions("model1")
@@ -409,8 +414,7 @@ class TestSQLUtilTaskNameExists:
 
     async def test_task_name_exists_returns_false_on_error(self):
         """Test that task_name_exists returns False on database errors."""
-        mock_error = AsyncMock(side_effect=Exception("DB Error"))
+        mock_error = AsyncMock(side_effect=sa_exc.SQLAlchemyError("DB Error"))
         with patch("app.database.prediction_repository.get_async_session", new=mock_error):
             result = await SQLUtil.task_name_exists("task1")
             assert result is False
-

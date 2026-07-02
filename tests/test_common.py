@@ -2,6 +2,7 @@
 
 from app.utils.common import format_code
 
+
 class TestFormatCode:
     """Tests for format_code function."""
 

@@ -1,8 +1,8 @@
 """Tests for code reuse detection service."""
+
 from unittest import mock
 
 import pytest
-
 from app.services.code_reuse_detector import (
     _longest_common_subsequence,
     compare_binaries,
@@ -157,9 +157,7 @@ class TestCompareBinaries:
             },
         ]
 
-    def _create_mock_binary_function(
-        self, function_name: str, entrypoint: int, raw_code: str
-    ) -> mock.MagicMock:
+    def _create_mock_binary_function(self, function_name: str, entrypoint: int, raw_code: str) -> mock.MagicMock:
         """Create a mock BinaryFunction object."""
         bf = mock.MagicMock()
         bf.function_name = function_name

@@ -33,6 +33,7 @@ class EventWatcher:
 
     _instance: "EventWatcher | None" = None
     _lock: threading.Lock = threading.Lock()
+    _initialized: bool = False
 
     def __new__(cls) -> "EventWatcher":
         """Create or return the singleton instance of EventWatcher."""
@@ -135,40 +136,45 @@ class EventWatcher:
             done, _ = wait(futures_only, timeout=2.5, return_when=FIRST_COMPLETED)
 
             for future in done:
-                with self._data_lock:
-                    target_uuid: str | None = None
-                    target_task: tuple[Any, Future[None], CapturedContext | None] | None = None
-                    target_callback: Callable[[Any, Any], None] | None = None
+                target_uuid: str | None = None
+                target_request: Any = None
+                target_captured_ctx: CapturedContext | None = None
+                target_callback: Callable[[Any, Any], None] | None = None
 
+                with self._data_lock:
                     for job_uuid, task in self._watched_futures.items():
                         if task[1] is future:
                             target_uuid = job_uuid
-                            target_task = task
+                            target_request = task[0]
+                            target_captured_ctx = task[2]
                             target_callback = self._callbacks.get(job_uuid)
                             break
 
-                    if target_uuid is None or target_task is None:
+                    if target_uuid is None:
                         continue
 
                 if target_callback is not None:
-                    request = target_task[0]
-                    captured_ctx = target_task[2]
                     try:
-                        if captured_ctx is not None:
-                            restore_request_context(captured_ctx, override_task_id=target_uuid)
-                        target_callback(request, future)
+                        if target_captured_ctx is not None:
+                            restore_request_context(target_captured_ctx, override_task_id=target_uuid)
+                        target_callback(target_request, future)
                         logger.debug("Callback invoked for job {}", target_uuid)
                     except Exception:
                         logger.exception("Callback failed for job {}", target_uuid)
                     finally:
                         clear_request_context()
 
+                # Cleanup: remove the entry only if it still references the same future.
+                # If the callback re-registered the job with a new future, the identity
+                # check below will fail and we correctly keep the new entry alive.
+                completed_uuid: str | None = target_uuid
                 with self._data_lock:
-                    if self._watched_futures.get(target_uuid) and self._watched_futures[target_uuid][1] is future:
-                        del self._watched_futures[target_uuid]
-                        logger.debug("Cleaned up job {}", target_uuid)
-                    else:
-                        logger.debug("Job {} re-registered by callback, keeping alive", target_uuid)
+                    entry = self._watched_futures.get(completed_uuid)
+                    if entry is not None and entry[1] is future:
+                        del self._watched_futures[completed_uuid]
+                        logger.debug("Cleaned up job {}", completed_uuid)
+                    elif entry is not None:
+                        logger.debug("Job {} re-registered by callback, keeping alive", completed_uuid)
 
             time.sleep(0.5)
 
@@ -291,7 +297,7 @@ class TaskManager:
             if job_uuid in cls._active_tasks:
                 return cls._active_tasks[job_uuid]
 
-        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)
+        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)  # type: ignore[attr-defined]
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:
@@ -315,7 +321,7 @@ class TaskManager:
         with cls._lock:
             status_list: dict[str, str] = dict(cls._active_tasks)
 
-        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)
+        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)  # type: ignore[attr-defined]
         for task in queue_list:
             status: str = task[0].status
             model_name: str = task[0].model_name
@@ -366,7 +372,7 @@ class TaskManager:
                 logger.debug("Updated task {} status to '{}'", job_uuid, status)
                 return True
 
-        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)
+        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)  # type: ignore[attr-defined]
         for task in queue_list:
             queued_uuid: str = task[0].uuid
             if job_uuid == queued_uuid:

@@ -15,7 +15,10 @@ from loguru import logger
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_active_user
+from app.database.function_repository import FunctionRepository
+from app.database.model_repository import ModelRepository
 from app.database.models import User
+from app.database.prediction_repository import PredictionRepository
 from app.services.dangerous_function_scanner import (
     ScanReport,
     ScanResult,
@@ -27,9 +30,6 @@ from app.services.dangerous_functions_catalog import (
     get_entries_by_category,
     get_entry,
 )
-from app.database.function_repository import FunctionRepository
-from app.database.model_repository import ModelRepository
-from app.database.prediction_repository import PredictionRepository
 from app.services.prediction_service import PredictionService
 from app.utils.responses import (
     ErrorResponse,
@@ -391,9 +391,9 @@ async def scan_dangerous_functions(
 
         # Deserialize prediction functions
         try:
-            raw_data = secure_load(BytesIO(prediction.functions_data))  # type: ignore[arg-type]
+            raw_data = secure_load(BytesIO(prediction.functions_data))  # type: ignore[attr-defined]
             if isinstance(raw_data, list):
-                functions_data = raw_data  # type: ignore[assignment]
+                functions_data = raw_data
             else:
                 raise HTTPException(
                     status_code=500,

@@ -3,30 +3,29 @@
 from typing import Any
 
 import pytest
-
-from app.services.dangerous_functions_catalog import (
-    DangerousFunctionEntry,
-    get_entry,
-    get_all_entries,
-    get_categories,
-    get_entries_by_category,
-    get_severity_order,
-    FUNCTION_LOOKUP,
-    CATEGORY_INDEX,
-)
 from app.services.dangerous_function_scanner import (
     ScanResult,
-    scan_functions,
-    generate_report,
     _extract_usage_context,  # pyright: ignore[reportPrivateUsage]
     _get_function_body_context,  # pyright: ignore[reportPrivateUsage]
     _scan_function_bodies,  # pyright: ignore[reportPrivateUsage]
+    generate_report,
+    scan_functions,
 )
-
+from app.services.dangerous_functions_catalog import (
+    CATEGORY_INDEX,
+    FUNCTION_LOOKUP,
+    DangerousFunctionEntry,
+    get_all_entries,
+    get_categories,
+    get_entries_by_category,
+    get_entry,
+    get_severity_order,
+)
 
 # ---------------------------------------------------------------------------
 # Catalog tests
 # ---------------------------------------------------------------------------
+
 
 class TestCatalog:
     """Tests for the dangerous function catalog."""
@@ -163,6 +162,7 @@ class TestSeverityOrder:
 # Scanner tests
 # ---------------------------------------------------------------------------
 
+
 class TestExtractUsageContext:
     """Tests for _extract_usage_context helper."""
 
@@ -179,9 +179,13 @@ class TestExtractUsageContext:
     def test_basic_match(self) -> None:
         """Tokens containing dangerous function are returned."""
         tokens = [
-            "void", "process()", "{",
-            "char", "buf[100];",
-            "strcpy(buf,", "user_input);",
+            "void",
+            "process()",
+            "{",
+            "char",
+            "buf[100];",
+            "strcpy(buf,",
+            "user_input);",
             "}",
         ]
         result = _extract_usage_context(tokens, "strcpy")
@@ -197,9 +201,12 @@ class TestExtractUsageContext:
     def test_multiple_matches(self) -> None:
         """Multiple statements with dangerous function are all captured."""
         tokens = [
-            "strcpy(buf1,", "src1);",
-            "strcpy(buf2,", "src2);",
-            "strcpy(buf3,", "src3);",
+            "strcpy(buf1,",
+            "src1);",
+            "strcpy(buf2,",
+            "src2);",
+            "strcpy(buf3,",
+            "src3);",
         ]
         result = _extract_usage_context(tokens, "strcpy")
         assert len(result) >= 2
@@ -207,9 +214,12 @@ class TestExtractUsageContext:
     def test_deduplication(self) -> None:
         """Duplicate lines are removed."""
         tokens = [
-            "strcpy(buf,", "src);",
-            "strcpy(buf,", "src);",
-            "strcpy(buf,", "src);",
+            "strcpy(buf,",
+            "src);",
+            "strcpy(buf,",
+            "src);",
+            "strcpy(buf,",
+            "src);",
         ]
         result = _extract_usage_context(tokens, "strcpy")
         assert len(result) == 1
@@ -234,9 +244,12 @@ class TestExtractUsageContext:
     def test_statement_level_granularity(self) -> None:
         """Results are split by semicolons for statement granularity."""
         tokens = [
-            "char", "a;",
-            "strcpy(a,", "b);",
-            "char", "c;",
+            "char",
+            "a;",
+            "strcpy(a,",
+            "b);",
+            "char",
+            "c;",
         ]
         result = _extract_usage_context(tokens, "strcpy")
         assert len(result) > 0
@@ -255,10 +268,20 @@ class TestGetFunctionBodyContext:
     def test_basic_context(self) -> None:
         """First few statements are returned as context."""
         tokens = [
-            "void", "func()", "{",
-            "int", "x", "=", "0;",
-            "x", "=", "x", "+", "1;",
-            "return", "x;",
+            "void",
+            "func()",
+            "{",
+            "int",
+            "x",
+            "=",
+            "0;",
+            "x",
+            "=",
+            "x",
+            "+",
+            "1;",
+            "return",
+            "x;",
             "}",
         ]
         result = _get_function_body_context(tokens, max_lines=3)
@@ -282,6 +305,7 @@ class TestGetFunctionBodyContext:
 # ---------------------------------------------------------------------------
 # scan_functions tests
 # ---------------------------------------------------------------------------
+
 
 class TestScanFunctions:
     """Tests for the main scan_functions entry point."""
@@ -336,7 +360,7 @@ class TestScanFunctions:
         """Results are sorted by severity (Critical first)."""
         functions = [
             self._make_function("f1", tokens=["void", "f1()", "{", "sprintf(s,", "fmt);", "}"]),  # High
-            self._make_function("f2", tokens=["void", "f2()", "{", "gets(buf);", "}"]),           # Critical
+            self._make_function("f2", tokens=["void", "f2()", "{", "gets(buf);", "}"]),  # Critical
         ]
         results = scan_functions(functions)
         assert len(results) >= 2
@@ -347,7 +371,8 @@ class TestScanFunctions:
     def test_entrypoint_preserved(self) -> None:
         """Memory address is preserved in result."""
         func = self._make_function(
-            "wrapper", address="0xDEADBEEF",
+            "wrapper",
+            address="0xDEADBEEF",
             tokens=["void", "wrapper()", "{", "strcpy(buf,", "src);", "}"],
         )
         results = scan_functions([func])
@@ -369,9 +394,16 @@ class TestScanFunctions:
     def test_usage_context_included(self) -> None:
         """Usage context is extracted for dangerous functions."""
         tokens = [
-            "void", "my_func()", "{",
-            "char", "*", "dst", "=", "dest;",
-            "strcpy(dst,", "src);",
+            "void",
+            "my_func()",
+            "{",
+            "char",
+            "*",
+            "dst",
+            "=",
+            "dest;",
+            "strcpy(dst,",
+            "src);",
             "}",
         ]
         functions = [self._make_function("my_func", tokens=tokens)]
@@ -402,6 +434,7 @@ class TestScanFunctions:
 # ---------------------------------------------------------------------------
 # _scan_function_bodies tests
 # ---------------------------------------------------------------------------
+
 
 class TestScanFunctionBodies:
     """Tests for scanning function bodies for dangerous function calls."""
@@ -448,9 +481,13 @@ class TestScanFunctionBodies:
         func = self._make_function(
             "vulnerable_func",
             [
-                "void", "vulnerable_func()", "{",
-                "strcpy(a,", "b);",
-                "sprintf(c,", "fmt);",
+                "void",
+                "vulnerable_func()",
+                "{",
+                "strcpy(a,",
+                "b);",
+                "sprintf(c,",
+                "fmt);",
                 "}",
             ],
         )
@@ -508,6 +545,7 @@ class TestScanFunctionBodies:
 # generate_report tests
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateReport:
     """Tests for report generation."""
 
@@ -533,9 +571,9 @@ class TestGenerateReport:
     def test_counts_correct(self) -> None:
         """Severity counts are correct."""
         functions = [
-            self._make_function("f1", tokens=["void", "f1()", "{", "gets(buf);", "}"]),       # Critical
-            self._make_function("f2", tokens=["void", "f2()", "{", "strcpy(a,", "b);", "}"]), # High
-            self._make_function("f3", tokens=["void", "f3()", "{", "sprintf(s,", "f);", "}"]),# High
+            self._make_function("f1", tokens=["void", "f1()", "{", "gets(buf);", "}"]),  # Critical
+            self._make_function("f2", tokens=["void", "f2()", "{", "strcpy(a,", "b);", "}"]),  # High
+            self._make_function("f3", tokens=["void", "f3()", "{", "sprintf(s,", "f);", "}"]),  # High
         ]
         report = generate_report("test_model", functions)
         assert report.total_functions_scanned == 3
@@ -552,7 +590,7 @@ class TestGenerateReport:
         """Report results are sorted by severity."""
         functions = [
             self._make_function("f1", tokens=["void", "f1()", "{", "sprintf(s,", "f);", "}"]),  # High
-            self._make_function("f2", tokens=["void", "f2()", "{", "gets(buf);", "}"]),         # Critical
+            self._make_function("f2", tokens=["void", "f2()", "{", "gets(buf);", "}"]),  # Critical
         ]
         report = generate_report("test_model", functions)
         if len(report.results) >= 2:
@@ -597,3 +635,191 @@ class TestGenerateReport:
         report = generate_report("test_model", functions)
         severity_sum = report.critical_count + report.high_count + report.medium_count + report.low_count
         assert severity_sum == report.total_found
+
+
+# ---------------------------------------------------------------------------
+# String literal false positive tests
+# ---------------------------------------------------------------------------
+
+
+class TestStringLiteralFalsePositives:
+    """Tests that function names in string literals do NOT trigger matches."""
+
+    def _make_function(self, name: str, tokens: list[str]) -> dict[str, Any]:
+        return {
+            "functionName": name,
+            "lowAddress": "0x401000",
+            "tokenList": tokens,
+        }
+
+    def test_system_in_string_literal_not_matched(self) -> None:
+        """'system' appearing in a string literal should not trigger a match."""
+        func = self._make_function(
+            "print_message",
+            [
+                "void",
+                "print_message()",
+                "{",
+                'printf("The system is ready");',
+                "}",
+            ],
+        )
+        results = _scan_function_bodies([func])
+        assert not any(r.function_name == "system" for r in results)
+
+    def test_strcpy_in_string_literal_not_matched(self) -> None:
+        """'strcpy' appearing in a string literal should not trigger a match."""
+        func = self._make_function(
+            "log_warning",
+            [
+                "void",
+                "log_warning()",
+                "{",
+                'printf("Avoid using strcpy in new code");',
+                "}",
+            ],
+        )
+        results = _scan_function_bodies([func])
+        assert not any(r.function_name == "strcpy" for r in results)
+
+    def test_gets_in_string_literal_not_matched(self) -> None:
+        """'gets' appearing in a string literal should not trigger a match."""
+        func = self._make_function(
+            "show_help",
+            [
+                "void",
+                "show_help()",
+                "{",
+                'printf("The gets function is deprecated");',
+                "}",
+            ],
+        )
+        results = _scan_function_bodies([func])
+        assert not any(r.function_name == "gets" for r in results)
+
+    def test_sprintf_in_string_literal_not_matched(self) -> None:
+        """'sprintf' appearing in a string literal should not trigger a match."""
+        func = self._make_function(
+            "warn",
+            [
+                "void",
+                "warn()",
+                "{",
+                'puts("sprintf can overflow buffers");',
+                "}",
+            ],
+        )
+        results = _scan_function_bodies([func])
+        assert not any(r.function_name == "sprintf" for r in results)
+
+    def test_real_call_in_code_is_still_detected(self) -> None:
+        """Actual function calls should still be detected correctly."""
+        func = self._make_function(
+            "vuln_func",
+            [
+                "void",
+                "vuln_func()",
+                "{",
+                "char",
+                "buf[100];",
+                "strcpy(buf,",
+                "input);",
+                "}",
+            ],
+        )
+        results = _scan_function_bodies([func])
+        assert any(r.function_name == "strcpy" for r in results)
+
+    def test_real_system_call_is_detected(self) -> None:
+        """Actual system() calls should still be detected."""
+        func = self._make_function(
+            "run_cmd",
+            [
+                "void",
+                "run_cmd()",
+                "{",
+                'system("ls -la");',
+                "}",
+            ],
+        )
+        results = _scan_function_bodies([func])
+        assert any(r.function_name == "system" for r in results)
+
+    def test_mixed_string_and_call_only_matches_call(self) -> None:
+        """When code has both a string mention and a real call, only the call should match."""
+        func = self._make_function(
+            "mixed_func",
+            [
+                "void",
+                "mixed_func()",
+                "{",
+                'printf("strcpy is dangerous");',
+                "char",
+                "buf[100];",
+                "strcpy(buf,",
+                "src);",
+                "}",
+            ],
+        )
+        results = _scan_function_bodies([func])
+        # Should match because there's a real call
+        assert any(r.function_name == "strcpy" for r in results)
+
+    def test_function_name_in_comment_like_string_not_matched(self) -> None:
+        """Function name in a comment-like string should not trigger."""
+        func = self._make_function(
+            "safe_func",
+            [
+                "void",
+                "safe_func()",
+                "{",
+                "// TODO: replace sprintf with snprintf",
+                'puts("done");',
+                "}",
+            ],
+        )
+        results = _scan_function_bodies([func])
+        assert not any(r.function_name == "sprintf" for r in results)
+
+    def test_multiple_dangerous_names_in_string_not_matched(self) -> None:
+        """Multiple dangerous function names in a string should not trigger."""
+        func = self._make_function(
+            "educate",
+            [
+                "void",
+                "educate()",
+                "{",
+                'printf("strcpy sprintf gets are unsafe");',
+                "}",
+            ],
+        )
+        results = _scan_function_bodies([func])
+        assert not any(r.function_name in ("strcpy", "sprintf", "gets") for r in results)
+
+
+class TestExtractUsageContextStringLiterals:
+    """Tests that _extract_usage_context only matches function calls, not string mentions."""
+
+    def test_string_literal_not_matched(self) -> None:
+        """Function name in a string literal should not be extracted as context."""
+        tokens = ['printf("The system is ready");']
+        result = _extract_usage_context(tokens, "system")
+        assert result == []
+
+    def test_real_call_is_extracted(self) -> None:
+        """Real function calls should be extracted as context."""
+        tokens = ["system(", "cmd", ");"]
+        result = _extract_usage_context(tokens, "system")
+        assert len(result) > 0
+
+    def test_strcpy_in_string_not_extracted(self) -> None:
+        """strcpy mentioned in a string should not be extracted."""
+        tokens = ['printf("Do not use strcpy");']
+        result = _extract_usage_context(tokens, "strcpy")
+        assert result == []
+
+    def test_real_strcpy_call_is_extracted(self) -> None:
+        """Real strcpy call should be extracted."""
+        tokens = ["strcpy(dest,", "src", ");"]
+        result = _extract_usage_context(tokens, "strcpy")
+        assert len(result) > 0

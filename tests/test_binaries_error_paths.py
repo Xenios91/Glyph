@@ -12,14 +12,12 @@ from __future__ import annotations
 
 import sys
 from typing import Any
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
-
 from tests.conftest import create_app_client
-from tests.factories import make_user, make_binary, make_binary_function
-
+from tests.factories import make_binary, make_binary_function, make_user
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -191,9 +189,7 @@ class TestGetBinaryDetailErrorPaths:
         from app.auth.dependencies import get_current_active_user
         from app.exceptions import BinaryNotFoundError
 
-        binaries._upload_service.get_binary = AsyncMock(
-            side_effect=BinaryNotFoundError(binary_id=999)
-        )
+        binaries._upload_service.get_binary = AsyncMock(side_effect=BinaryNotFoundError(binary_id=999))
         binaries._upload_service.get_function_count = AsyncMock(return_value=0)
 
         client = create_app_client(
@@ -209,7 +205,9 @@ class TestGetBinaryDetailErrorPaths:
         from app.auth.dependencies import get_current_active_user
         from app.exceptions import BinaryAccessError
 
-        binaries._upload_service.get_binary = AsyncMock(side_effect=BinaryAccessError(binary_id=1, user_id=mock_user.id))
+        binaries._upload_service.get_binary = AsyncMock(
+            side_effect=BinaryAccessError(binary_id=1, user_id=mock_user.id)
+        )
         binaries._upload_service.get_function_count = AsyncMock(return_value=0)
 
         client = create_app_client(
@@ -238,9 +236,7 @@ class TestListBinaryFunctionsErrorPaths:
         from app.auth.dependencies import get_current_active_user
         from app.exceptions import BinaryNotFoundError
 
-        binaries._upload_service.get_binary = AsyncMock(
-            side_effect=BinaryNotFoundError(binary_id=999)
-        )
+        binaries._upload_service.get_binary = AsyncMock(side_effect=BinaryNotFoundError(binary_id=999))
         binaries._upload_service.get_function_count = AsyncMock(return_value=0)
 
         client = create_app_client(
@@ -273,9 +269,7 @@ class TestDeleteBinaryErrorPaths:
         from app.auth.dependencies import get_current_active_user
         from app.exceptions import BinaryNotFoundError
 
-        binaries._upload_service.get_binary = AsyncMock(
-            side_effect=BinaryNotFoundError(binary_id=999)
-        )
+        binaries._upload_service.get_binary = AsyncMock(side_effect=BinaryNotFoundError(binary_id=999))
 
         client = create_app_client(
             routers=[(binaries.router, "")],

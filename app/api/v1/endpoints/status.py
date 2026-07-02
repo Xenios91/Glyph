@@ -179,7 +179,7 @@ async def stream_task_status(
     uuid: Annotated[
         UUIDType,
         Query(..., description="Unique identifier of the task to monitor"),
-    ] = ...,
+    ],
     interval: Annotated[
         float,
         Query(ge=0.5, le=30, description="Polling interval in seconds"),

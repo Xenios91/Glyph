@@ -3,9 +3,9 @@
 from io import BytesIO
 from typing import Any
 
-import joblib  # type: ignore[import-no-untyped]
+import joblib
 from loguru import logger
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, exc as sa_exc, exists, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,7 +54,7 @@ class PredictionRepository:
                     logger.exception("Secure deserialization blocked prediction '{}'", pred.task_name)
                 except Exception:
                     logger.exception("Failed to deserialize prediction '{}'", pred.task_name)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to retrieve predictions list")
         finally:
             await close_async_session(session)
@@ -101,7 +101,7 @@ class PredictionRepository:
                 return None
 
             return PredictionResult(task_name=task_name, model_name=model_name, pred=prediction_data)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to retrieve predictions for task '{}'", task_name)
             return None
         finally:
@@ -122,7 +122,7 @@ class PredictionRepository:
         session: AsyncSession = await get_async_session("predictions")
         try:
             functions_buffer = BytesIO()
-            joblib.dump(functions, functions_buffer)  # type: ignore[call-overload]
+            joblib.dump(functions, functions_buffer)
             functions_serialized = functions_buffer.getvalue()
 
             now = get_utc_now()
@@ -143,7 +143,7 @@ class PredictionRepository:
             await session.execute(stmt)
             await session.commit()
             logger.info("Prediction for task '{}' with model '{}' saved", name, model_name)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to save predictions for task '{}'", name)
             raise
@@ -192,7 +192,7 @@ class PredictionRepository:
             except Exception:
                 logger.exception("Failed to deserialize predictions")
                 return {}
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception(
                 "Failed to retrieve prediction function '{}' from task '{}'",
                 function_name,
@@ -229,7 +229,7 @@ class PredictionRepository:
                 await session.execute(delete(Prediction).where(Prediction.task_name == task_name))
                 logger.info("Prediction for task '{}' deleted", task_name)
             await session.commit()
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to delete prediction for task '{}'", task_name)
             raise
@@ -250,7 +250,7 @@ class PredictionRepository:
             await session.execute(delete(Prediction).where(Prediction.model_name == model_name))
             await session.commit()
             logger.info("Predictions for model '{}' deleted", model_name)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to delete predictions for model '{}'", model_name)
             raise
@@ -274,7 +274,7 @@ class PredictionRepository:
             session = await get_async_session("predictions")
             result = await session.execute(select(exists().where(Prediction.task_name == task_name)))
             return result.scalar_one() is True
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to check if task '{}' exists", task_name)
             return False
         finally:
@@ -292,4 +292,5 @@ def _cast_list(data: Any) -> list[dict[str, Any]]:
         Casted data.
     """
     from typing import cast
+
     return cast(list[dict[str, Any]], data)

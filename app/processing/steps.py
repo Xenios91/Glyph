@@ -18,10 +18,10 @@ from numpy import int64
 from numpy.typing import NDArray
 from sklearn.pipeline import Pipeline as SklearnPipeline
 
-from app.config.settings import get_settings
-from app.processing.pipeline import PipelineContext, PipelineStep
 from app.config.pipeline_configs import MLTask
+from app.config.settings import get_settings
 from app.database.model_repository import ModelRepository
+from app.processing.pipeline import PipelineContext, PipelineStep
 
 _VARIABLE_PATTERNS = [
     r"^var\d+$",
@@ -378,7 +378,7 @@ class TrainStep(PipelineStep):
         label_encoder = preprocessing.LabelEncoder()
         y: NDArray[int64] = cast(
             NDArray[int64],
-            label_encoder.fit_transform(labels),  # type: ignore[call-arg]
+            label_encoder.fit_transform(labels),
         )
 
         ml_pipeline: SklearnPipeline = MLTask.get_multi_class_pipeline()
@@ -388,9 +388,9 @@ class TrainStep(PipelineStep):
             logger.opt(lazy=True).debug("Token sample: {}", lambda: tokens[0][:100] if tokens else "empty")
             logger.opt(lazy=True).debug("Label distribution: {}", lambda: np.bincount(y).tolist())
 
-            await asyncio.to_thread(ml_pipeline.fit, tokens, y)  # type: ignore[misc]
+            await asyncio.to_thread(ml_pipeline.fit, tokens, y)
 
-            await ModelRepository.save_model(model_name, label_encoder, ml_pipeline)
+            await ModelRepository.save_model(model_name, label_encoder, ml_pipeline)  # type: ignore[attr-defined]
 
             context.set("label_encoder", label_encoder)
             context.set("model", ml_pipeline)
@@ -398,7 +398,7 @@ class TrainStep(PipelineStep):
             logger.info(
                 "Training completed for model '{}': {} classes",
                 model_name,
-                len(label_encoder.classes_),  # type: ignore[arg-type]
+                len(label_encoder.classes_),
             )
 
         except Exception as train_error:
@@ -448,7 +448,7 @@ class PredictStep(PipelineStep):
             return context
 
         try:
-            model, label_encoder = await ModelRepository.load_model(model_name)
+            model, label_encoder = await ModelRepository.load_model(model_name)  # type: ignore[attr-defined]
 
             predictions = await asyncio.to_thread(model.predict, tokens)
             prediction_probability = await asyncio.to_thread(model.predict_proba, tokens)
@@ -457,6 +457,20 @@ class PredictStep(PipelineStep):
 
             settings = get_settings()
             threshold = settings.prediction_probability_threshold
+
+            # Validate that prediction_probability shape matches tokens.
+            if len(prediction_probability) != len(tokens):
+                context.error = (
+                    f"Prediction probability array shape mismatch: "
+                    f"got {len(prediction_probability)} rows, expected {len(tokens)}"
+                )
+                logger.warning(
+                    "Prediction probability shape mismatch: %d rows vs %d tokens",
+                    len(prediction_probability),
+                    len(tokens),
+                )
+                return context
+
             for ctr, probability in enumerate(prediction_probability):
                 if probability.max() < threshold:
                     predicted_labels[ctr] = "Unknown"

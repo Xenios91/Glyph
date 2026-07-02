@@ -12,7 +12,6 @@ import time
 import uuid
 from typing import Any
 
-
 BASE_URL = "http://127.0.0.1:8000"
 
 
@@ -34,6 +33,7 @@ def generate_unique_username() -> str:
 # ---------------------------------------------------------------------------
 # Form waiters
 # ---------------------------------------------------------------------------
+
 
 def wait_for_register_form(page: Any, timeout: int = 10000) -> None:
     """Wait for the registration form JavaScript to be initialized.
@@ -64,6 +64,7 @@ def wait_for_login_form(page: Any, timeout: int = 10000) -> None:
 # ---------------------------------------------------------------------------
 # Authentication helpers
 # ---------------------------------------------------------------------------
+
 
 def register_user(page: Any, username: str | None = None) -> tuple[str, str]:
     """Register a new user on the application.
@@ -146,24 +147,26 @@ def logout_user(page: Any, username: str) -> None:
         page: Playwright page object.
         username: The username of the logged-in user (used to locate the dropdown).
     """
-    page.evaluate(f"""
+    page.evaluate("""
       const menu = document.getElementById('user-menu');
       const toggle = menu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
-      if (menu && toggle) {{
+      if (menu && toggle) {
         menu.classList.add('is-open');
         toggle.setAttribute('aria-expanded', 'true');
-      }}
+      }
     """)
     page.wait_for_selector("#user-menu.is-open", state="visible", timeout=5000)
     page.locator('a[role="menuitem"][aria-label="Logout"]').click()
     # After logout, the app redirects: / → 401 → /login?redirect=/
     import re
+
     page.wait_for_url(re.compile(r"/login"), timeout=10000)
 
 
 # ---------------------------------------------------------------------------
 # Navigation helpers
 # ---------------------------------------------------------------------------
+
 
 def open_analysis_dropdown(page: Any) -> None:
     """Force-open the ANALYSIS navigation dropdown via JavaScript.

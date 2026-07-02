@@ -16,21 +16,21 @@ function switchTab(tabId, panelId) {
         tab.setAttribute('aria-selected', 'false');
         tab.setAttribute('tabindex', '-1');
     });
-    
+
     // Hide all panels
     document.querySelectorAll('.tab-content').forEach(panel => {
         panel.setAttribute('aria-hidden', 'true');
     });
-    
+
     // Activate selected tab
     const selectedTab = document.getElementById(tabId);
     const selectedPanel = document.getElementById(panelId);
-    
+
     if (selectedTab && selectedPanel) {
         selectedTab.setAttribute('aria-selected', 'true');
         selectedTab.setAttribute('tabindex', '0');
         selectedPanel.setAttribute('aria-hidden', 'false');
-        
+
         // Load API keys if switching to API keys tab
         if (panelId === 'panel-apikeys') {
             loadApiKeys();
@@ -43,7 +43,7 @@ function switchTab(tabId, panelId) {
  */
 function initTabNavigation() {
     const tabs = document.querySelectorAll('.profile-tab');
-    
+
     tabs.forEach(tab => {
         // Click handler
         tab.addEventListener('click', () => {
@@ -51,13 +51,13 @@ function initTabNavigation() {
             const tabId = tab.id;
             switchTab(tabId, panelId);
         });
-        
+
         // Keyboard handler
         tab.addEventListener('keydown', (e) => {
             const tabList = Array.from(document.querySelectorAll('.profile-tab'));
             const currentIndex = tabList.indexOf(tab);
             let newIndex;
-            
+
             switch (e.key) {
                 case 'ArrowDown':
                 case 'ArrowRight':
@@ -65,24 +65,24 @@ function initTabNavigation() {
                     newIndex = (currentIndex + 1) % tabList.length;
                     tabList[newIndex].focus();
                     break;
-                    
+
                 case 'ArrowUp':
                 case 'ArrowLeft':
                     e.preventDefault();
                     newIndex = (currentIndex - 1 + tabList.length) % tabList.length;
                     tabList[newIndex].focus();
                     break;
-                    
+
                 case 'Home':
                     e.preventDefault();
                     tabList[0].focus();
                     break;
-                    
+
                 case 'End':
                     e.preventDefault();
                     tabList[tabList.length - 1].focus();
                     break;
-                    
+
                 case 'Enter':
                 case ' ':
                     e.preventDefault();
@@ -103,9 +103,9 @@ function initTabNavigation() {
 async function loadApiKeys() {
     const container = document.getElementById('apiKeysList');
     if (!container) return;
-    
+
     container.setAttribute('aria-busy', 'true');
-    
+
     try {
         const response = await fetch('/auth/api-keys', {});
 
@@ -182,7 +182,7 @@ function showCreateApiKeyModal() {
     const modal = document.getElementById('createApiKeyModal');
     const secretDiv = document.getElementById('apiKeySecret');
     const form = document.getElementById('createApiKeyForm');
-    
+
     if (modal) {
         modal.style.display = 'flex';
     }
@@ -391,12 +391,12 @@ function initProfilePage() {
             e.preventDefault();
             const formData = new FormData(e.target);
             const submitBtn = document.getElementById('profile-submit-btn');
-            
+
             if (submitBtn) {
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Updating...';
             }
-            
+
             try {
                 await updateProfile(formData);
             } finally {
@@ -415,12 +415,12 @@ function initProfilePage() {
             e.preventDefault();
             const formData = new FormData(e.target);
             const submitBtn = document.getElementById('password-submit-btn');
-            
+
             if (submitBtn) {
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Changing...';
             }
-            
+
             try {
                 await changePassword(formData);
             } finally {
@@ -451,12 +451,12 @@ function initProfilePage() {
             e.preventDefault();
             const formData = new FormData(e.target);
             const submitBtn = document.getElementById('create-key-submit-btn');
-            
+
             if (submitBtn) {
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Creating...';
             }
-            
+
             try {
                 await createApiKey(formData);
             } finally {
@@ -509,17 +509,17 @@ function initProfilePage() {
         // Handle toggle change
         dyslexiaToggle.addEventListener('change', function() {
             const enabled = this.checked;
-            
+
             // Apply font class to body
             if (enabled) {
                 document.body.classList.add('font-dyslexia');
             } else {
                 document.body.classList.remove('font-dyslexia');
             }
-            
+
             // Save preference to localStorage
             localStorage.setItem('dyslexia_font', enabled);
-            
+
             // Show toast notification
             Toast.info(enabled ? 'Dyslexia-friendly font enabled' : 'Dyslexia-friendly font disabled');
         });

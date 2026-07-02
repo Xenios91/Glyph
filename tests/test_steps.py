@@ -4,23 +4,22 @@ This module contains tests for the individual pipeline steps.
 """
 
 from typing import Any
-
 from unittest.mock import MagicMock, patch
 
 from app.processing.pipeline import PipelineContext
 from app.processing.steps import (
-    ValidationStep,
     DecompileStep,
-    TokenizeStep,
-    FilterStep,
     FeatureExtractStep,
-    TrainStep,
+    FilterStep,
+    LoadBinaryFunctionsStep,
     PredictStep,
     SaveRawFunctionsStep,
-    LoadBinaryFunctionsStep,
+    TokenizeStep,
+    TrainStep,
+    ValidationStep,
+    _check_if_variable,  # pyright: ignore[reportPrivateUsage]
     _filter_tokens,  # pyright: ignore[reportPrivateUsage]
     _remove_comments,  # pyright: ignore[reportPrivateUsage]
-    _check_if_variable,  # pyright: ignore[reportPrivateUsage]
 )
 
 
@@ -50,7 +49,7 @@ class TestTokenFilteringUtilities:
 
     def test_single_line_comments_not_removed(self):
         """Test that single-line // comments are preserved (not removed).
-        
+
         _remove_comments only handles multi-line /* */ comments, not // comments.
         """
         tokens = ["int", "x", "//", "this", "is", "a", "comment"]
@@ -394,8 +393,9 @@ class TestPredictStep:
     @patch("app.processing.steps.ModelRepository")
     async def test_execute_success(self, mock_persistence: Any) -> None:
         """Test successful prediction."""
-        import numpy as np
         from unittest.mock import AsyncMock
+
+        import numpy as np
 
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0, 1])
@@ -593,12 +593,11 @@ class TestPredictStep_Errors:
 
     @patch("app.processing.steps.ModelRepository")
     @patch("app.processing.steps.get_settings")
-    async def test_execute_low_probability_becomes_unknown(
-        self, mock_get_settings: Any, mock_persistence: Any
-    ) -> None:
+    async def test_execute_low_probability_becomes_unknown(self, mock_get_settings: Any, mock_persistence: Any) -> None:
         """Test that predictions below threshold become Unknown."""
-        import numpy as np
         from unittest.mock import AsyncMock
+
+        import numpy as np
 
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0])

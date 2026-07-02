@@ -14,13 +14,13 @@ from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
 from app.auth.dependencies import get_current_active_user
+from app.database.function_repository import FunctionRepository
 from app.database.models import User
+from app.database.prediction_repository import PredictionRepository
 from app.exceptions import BinaryAccessError, BinaryNotFoundError, ValidationError
-from app.processing.task_management import TaskManager
+from app.processing.task_management import Ghidra, TaskManager
 from app.services.binary_upload_service import BinaryUploadService
 from app.services.request_handler import GhidraRequest
-from app.database.function_repository import FunctionRepository
-from app.database.prediction_repository import PredictionRepository
 from app.utils.request_context import (
     CapturedContext,
     capture_request_context,
@@ -149,7 +149,7 @@ async def _save_prediction_functions(prediction_request: Any, predictions: list[
         )
 
 
-def _create_background_task(coro) -> asyncio.Task[None]:
+def _create_background_task(coro: Any) -> asyncio.Task[None]:
     """Create a background task that won't be garbage-collected.
 
     Args:
@@ -367,9 +367,7 @@ async def list_binaries(
 ) -> SuccessResponse[PaginatedResponse[BinaryListItem]]:
     """List binaries uploaded by the current user with pagination."""
     offset = (page - 1) * page_size
-    binaries, total = await _upload_service.list_binaries(
-        user_id=current_user.id, offset=offset, limit=page_size
-    )
+    binaries, total = await _upload_service.list_binaries(user_id=current_user.id, offset=offset, limit=page_size)
 
     items: list[BinaryListItem] = []
     for b in binaries:
@@ -402,9 +400,7 @@ async def list_bins(
     """
     import os
 
-    binaries, _ = await _upload_service.list_binaries(
-        user_id=current_user.id, offset=0, limit=1000
-    )
+    binaries, _ = await _upload_service.list_binaries(user_id=current_user.id, offset=0, limit=1000)
     files = [os.path.basename(b.file_path) for b in binaries if os.path.exists(b.file_path)]
     return create_success_response(
         data={"files": files},

@@ -2,7 +2,7 @@
 
 import json
 import secrets
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 from argon2 import PasswordHasher

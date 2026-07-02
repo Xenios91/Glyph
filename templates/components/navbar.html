@@ -3,21 +3,21 @@
     <a href="/" class="nav-logo" aria-label="Glyph home">
         <h1>GLYPH</h1>
     </a>
-    
+
     <!-- Mobile hamburger menu toggle -->
     <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links">
         <span></span>
         <span></span>
         <span></span>
     </button>
-    
+
     <div class="nav-links" id="nav-links">
         {% if user and user.username %}
         <!-- Authenticated user menu with dropdowns -->
-        
+
         <!-- HOME link -->
         <a href="/" aria-label="Home">HOME</a>
-        
+
         <!-- ANALYSIS Dropdown -->
         <div class="nav-dropdown">
             <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="analysis-menu">
@@ -45,7 +45,7 @@
                 <li role="none"><a href="/similarity-dashboard" role="menuitem" aria-label="Binary Similarity Dashboard">SIMILARITY</a></li>
             </ul>
         </div>
-        
+
         <!-- SYSTEM Dropdown -->
         <div class="nav-dropdown">
             <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="system-menu">
@@ -58,7 +58,7 @@
                 <li role="none"><a href="/config" role="menuitem" aria-label="Configuration">CONFIG</a></li>
             </ul>
         </div>
-        
+
         <!-- USER Dropdown -->
         <div class="nav-dropdown">
             <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="user-menu">
@@ -72,7 +72,7 @@
                 <li role="none"><a href="/auth/logout" role="menuitem" aria-label="Logout">LOGOUT</a></li>
             </ul>
         </div>
-        
+
         {% else %}
         <!-- Unauthenticated user menu -->
         <a href="/login" aria-label="Login">LOGIN</a>

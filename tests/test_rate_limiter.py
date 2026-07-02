@@ -7,18 +7,17 @@ and respects trusted proxy configuration.
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import FastAPI, Request
-from fastapi.testclient import TestClient
-
 from app.core.rate_limiter import (
-    limiter,
     LOGIN_LIMIT,
-    REGISTER_LIMIT,
     PASSWORD_CHANGE_LIMIT,
     REFRESH_LIMIT,
-    rate_limit_key_func,
+    REGISTER_LIMIT,
     _build_rate_limit,  # pyright: ignore[reportPrivateUsage]
+    limiter,
+    rate_limit_key_func,
 )
+from fastapi import FastAPI, Request
+from fastapi.testclient import TestClient
 
 
 class TestBuildRateLimit:

@@ -1,6 +1,6 @@
 """SQLAlchemy ORM models for Glyph database abstraction layer."""
 
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -15,9 +15,13 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.ext.asyncio import AsyncAttrs
-from sqlalchemy.orm import Mapped, declarative_base, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-Base = declarative_base(cls=AsyncAttrs)
+
+class Base(DeclarativeBase):
+    """SQLAlchemy declarative base."""
+
+    pass
 
 
 def get_utc_now() -> datetime:

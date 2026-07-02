@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sys
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, Mock, patch, mock_open
+from unittest.mock import AsyncMock, MagicMock, Mock, mock_open, patch
 
 # -----------------------------------------------------------------------
 # Mock heavy modules BEFORE importing from binaries.py
@@ -59,13 +59,13 @@ def _restore_sys_modules() -> Any:
     for _mod in _MOCKED_MODULES:
         sys.modules[_mod] = MagicMock()
 
+
 from app.api.v1.endpoints.binaries import (  # noqa: E402
     sanitize_filename,
     validate_binary_mime_type,
 )
 from app.database import sql_service  # noqa: E402  # Ensure loaded for patching
 from tests.factories import make_user  # noqa: E402
-
 
 # -----------------------------------------------------------------------
 # Helper function tests
@@ -113,6 +113,7 @@ class TestBinaryUploadForm:
     def test_strip_name_none_raises_value_error(self) -> None:
         """Test that name=None raises ValueError (line 73)."""
         from app.api.v1.endpoints.binaries import BinaryUploadForm
+
         with pytest.raises(ValueError) as exc_info:
             BinaryUploadForm(name=None, file=None)  # type: ignore[arg-type]
         assert "name is required" in str(exc_info.value)
@@ -182,9 +183,8 @@ class TestUploadBinaryEndpoint:
         mock_binary_file: Any,
     ) -> None:
         """Test successful binary upload returning JSON."""
-        from fastapi import BackgroundTasks
-
         from app.api.v1.endpoints.binaries import post_upload_binary
+        from fastapi import BackgroundTasks
 
         mock_settings = Mock()
         mock_settings.max_file_size_mb = 100
@@ -232,9 +232,8 @@ class TestUploadBinaryEndpoint:
         mock_get_settings: Any,
     ) -> None:
         """Test upload rejected for file exceeding max size."""
-        from fastapi import BackgroundTasks
-
         from app.api.v1.endpoints.binaries import post_upload_binary
+        from fastapi import BackgroundTasks
 
         mock_settings = Mock()
         mock_settings.max_file_size_mb = 10
@@ -279,9 +278,8 @@ class TestUploadBinaryEndpoint:
         mock_get_settings: Any,
     ) -> None:
         """Test upload rejected for disallowed MIME type."""
-        from fastapi import BackgroundTasks
-
         from app.api.v1.endpoints.binaries import post_upload_binary
+        from fastapi import BackgroundTasks
 
         mock_settings = Mock()
         mock_settings.max_file_size_mb = 100
@@ -325,9 +323,8 @@ class TestUploadBinaryEndpoint:
         mock_binary_file: Any,
     ) -> None:
         """Test upload rejected when disk space is insufficient."""
-        from fastapi import BackgroundTasks
-
         from app.api.v1.endpoints.binaries import post_upload_binary
+        from fastapi import BackgroundTasks
 
         mock_settings = Mock()
         mock_settings.max_file_size_mb = 100
@@ -369,9 +366,8 @@ class TestUploadBinaryEndpoint:
         mock_get_settings: Any,
     ) -> None:
         """Test upload rejected when file has no filename."""
-        from fastapi import BackgroundTasks
-
         from app.api.v1.endpoints.binaries import post_upload_binary
+        from fastapi import BackgroundTasks
 
         mock_settings = Mock()
         mock_settings.max_file_size_mb = 100
@@ -412,9 +408,8 @@ class TestUploadBinaryEndpoint:
         mock_binary_file: Any,
     ) -> None:
         """Test binary upload returns JSON response (no HTML content negotiation)."""
-        from fastapi import BackgroundTasks
-
         from app.api.v1.endpoints.binaries import post_upload_binary
+        from fastapi import BackgroundTasks
 
         mock_settings = Mock()
         mock_settings.max_file_size_mb = 100
@@ -748,9 +743,7 @@ class TestUploadPipeline:
 
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    async def test_run_upload_pipeline_success(
-        self, mock_clear: Any, mock_tm: Any
-    ) -> None:
+    async def test_run_upload_pipeline_success(self, mock_clear: Any, mock_tm: Any) -> None:
         """Test upload pipeline completes successfully."""
         from app.api.v1.endpoints.binaries import _run_upload_pipeline
 
@@ -770,9 +763,7 @@ class TestUploadPipeline:
 
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    async def test_run_upload_pipeline_error_result(
-        self, mock_clear: Any, mock_tm: Any
-    ) -> None:
+    async def test_run_upload_pipeline_error_result(self, mock_clear: Any, mock_tm: Any) -> None:
         """Test upload pipeline handles pipeline error result."""
         from app.api.v1.endpoints.binaries import _run_upload_pipeline
 
@@ -792,9 +783,7 @@ class TestUploadPipeline:
 
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    async def test_run_upload_pipeline_exception(
-        self, mock_clear: Any, mock_tm: Any
-    ) -> None:
+    async def test_run_upload_pipeline_exception(self, mock_clear: Any, mock_tm: Any) -> None:
         """Test upload pipeline handles unexpected exceptions."""
         from app.api.v1.endpoints.binaries import _run_upload_pipeline
 
@@ -811,9 +800,7 @@ class TestUploadPipeline:
 
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    async def test_run_upload_pipeline_with_context(
-        self, mock_clear: Any, mock_tm: Any
-    ) -> None:
+    async def test_run_upload_pipeline_with_context(self, mock_clear: Any, mock_tm: Any) -> None:
         """Test upload pipeline with captured request context."""
         from app.api.v1.endpoints.binaries import _run_upload_pipeline
 
@@ -867,10 +854,19 @@ class TestPipelineAnalysis:
         with patch("app.api.v1.endpoints.binaries.Ghidra") as mock_ghidra:
             mock_result = MagicMock()
             mock_result.error = None
-            mock_result.get = MagicMock(side_effect=lambda k, d=None: {
-                "filtered_functions": [{"name": "main", "tokens": ["int", "main"], "filtered_tokens": ["int", "main"], "returnType": "int"}],
-                "errored_functions": [],
-            }.get(k, d))
+            mock_result.get = MagicMock(
+                side_effect=lambda k, d=None: {
+                    "filtered_functions": [
+                        {
+                            "name": "main",
+                            "tokens": ["int", "main"],
+                            "filtered_tokens": ["int", "main"],
+                            "returnType": "int",
+                        }
+                    ],
+                    "errored_functions": [],
+                }.get(k, d)
+            )
 
             mock_run = AsyncMock(return_value=mock_result)
             mock_ghidra.run_full_pipeline = mock_run
@@ -896,11 +892,20 @@ class TestPipelineAnalysis:
         with patch("app.api.v1.endpoints.binaries.Ghidra") as mock_ghidra:
             mock_result = MagicMock()
             mock_result.error = None
-            mock_result.get = MagicMock(side_effect=lambda k, d=None: {
-                "predictions": [{"name": "main", "prediction": "safe"}],
-                "filtered_functions": [{"name": "main", "tokens": ["int", "main"], "filtered_tokens": ["int", "main"], "returnType": "int"}],
-                "errored_functions": [],
-            }.get(k, d))
+            mock_result.get = MagicMock(
+                side_effect=lambda k, d=None: {
+                    "predictions": [{"name": "main", "prediction": "safe"}],
+                    "filtered_functions": [
+                        {
+                            "name": "main",
+                            "tokens": ["int", "main"],
+                            "filtered_tokens": ["int", "main"],
+                            "returnType": "int",
+                        }
+                    ],
+                    "errored_functions": [],
+                }.get(k, d)
+            )
 
             mock_run = AsyncMock(return_value=mock_result)
             mock_ghidra.run_full_pipeline = mock_run
@@ -944,9 +949,7 @@ class TestPipelineAnalysis:
 
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    async def test_run_pipeline_analysis_training_no_functions(
-        self, mock_clear: Any, mock_tm: Any
-    ) -> None:
+    async def test_run_pipeline_analysis_training_no_functions(self, mock_clear: Any, mock_tm: Any) -> None:
         """Test training pipeline when no functions extracted."""
         from app.api.v1.endpoints.binaries import _run_pipeline_analysis
 
@@ -966,9 +969,7 @@ class TestPipelineAnalysis:
 
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    async def test_run_pipeline_analysis_prediction_empty(
-        self, mock_clear: Any, mock_tm: Any
-    ) -> None:
+    async def test_run_pipeline_analysis_prediction_empty(self, mock_clear: Any, mock_tm: Any) -> None:
         """Test prediction pipeline when no predictions."""
         from app.api.v1.endpoints.binaries import _run_pipeline_analysis
 
@@ -1012,9 +1013,7 @@ class TestPipelineAnalysis:
 
     @patch("app.api.v1.endpoints.binaries.TaskManager")
     @patch("app.api.v1.endpoints.binaries.clear_request_context")
-    async def test_run_pipeline_analysis_prediction_request_fails(
-        self, mock_clear: Any, mock_tm: Any
-    ) -> None:
+    async def test_run_pipeline_analysis_prediction_request_fails(self, mock_clear: Any, mock_tm: Any) -> None:
         """Test prediction pipeline when PredictionRequest creation raises (lines 334-336)."""
         from app.api.v1.endpoints.binaries import _run_pipeline_analysis
 

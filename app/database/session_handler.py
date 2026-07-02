@@ -1,5 +1,6 @@
 """Database session management for Glyph application."""
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -109,7 +110,7 @@ async def get_async_session(database: str = "auth") -> AsyncSession:
 
 
 @asynccontextmanager
-async def async_session(database: str = "auth"):
+async def async_session(database: str = "auth") -> AsyncIterator[AsyncSession]:
     """Async context manager for database sessions.
 
     Ensures the session is properly closed after use.

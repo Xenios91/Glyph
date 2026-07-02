@@ -6,19 +6,19 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from fastapi import HTTPException, Request, status
-from fastapi.exceptions import RequestValidationError
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.auth.dependencies import (
-    get_current_user,
     get_current_active_user,
+    get_current_user,
     get_db,
     get_jwt_handler,
     get_optional_user,
 )
 from app.auth.jwt_handler import JWTHandler
 from app.database.models import User
+from fastapi import HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
+from sqlalchemy import exc as sa_exc
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.fixture
@@ -222,8 +222,8 @@ class TestGetDb:
             await gen.asend(None)
 
             try:
-                await gen.athrow(RuntimeError("db error"))
-            except RuntimeError:
+                await gen.athrow(sa_exc.SQLAlchemyError("db error"))
+            except sa_exc.SQLAlchemyError:
                 pass
 
             mock_session.rollback.assert_awaited_once()
@@ -262,9 +262,7 @@ class TestGetCurrentUser:
     """Tests for get_current_user dependency."""
 
     @pytest.mark.asyncio
-    async def test_get_current_user_auth_disabled_returns_anonymous(
-        self, mock_request: mock.MagicMock
-    ) -> None:
+    async def test_get_current_user_auth_disabled_returns_anonymous(self, mock_request: mock.MagicMock) -> None:
         """Test that auth disabled returns anonymous user."""
         with mock.patch("app.auth.dependencies.get_settings") as mock_settings:
             mock_settings.return_value.auth_enabled = False
@@ -371,16 +369,12 @@ class TestGetCurrentUser:
 
         with mock.patch("app.auth.dependencies.get_settings") as mock_settings:
             mock_settings.return_value.auth_enabled = True
-            with mock.patch(
-                "app.auth.dependencies.APIKeyRepository"
-            ) as mock_repo_cls:
+            with mock.patch("app.auth.dependencies.APIKeyRepository") as mock_repo_cls:
                 mock_repo = mock.MagicMock()
                 mock_repo.verify_and_get = mock.AsyncMock(return_value=mock_api_key_record)
                 mock_repo_cls.return_value = mock_repo
 
-                with mock.patch(
-                    "app.auth.dependencies.log_api_key_usage"
-                ) as mock_log_usage:
+                with mock.patch("app.auth.dependencies.log_api_key_usage") as mock_log_usage:
                     user = await get_current_user(
                         request=mock_request,
                         db=mock_async_session,
@@ -409,9 +403,7 @@ class TestGetCurrentUser:
 
         with mock.patch("app.auth.dependencies.get_settings") as mock_settings:
             mock_settings.return_value.auth_enabled = True
-            with mock.patch(
-                "app.auth.dependencies.APIKeyRepository"
-            ) as mock_repo_cls:
+            with mock.patch("app.auth.dependencies.APIKeyRepository") as mock_repo_cls:
                 mock_repo = mock.MagicMock()
                 mock_repo.verify_and_get = mock.AsyncMock(return_value=mock_api_key_record)
                 mock_repo_cls.return_value = mock_repo
@@ -437,9 +429,7 @@ class TestGetCurrentUser:
 
         with mock.patch("app.auth.dependencies.get_settings") as mock_settings:
             mock_settings.return_value.auth_enabled = True
-            with mock.patch(
-                "app.auth.dependencies.APIKeyRepository"
-            ) as mock_repo_cls:
+            with mock.patch("app.auth.dependencies.APIKeyRepository") as mock_repo_cls:
                 mock_repo = mock.MagicMock()
                 mock_repo.verify_and_get = mock.AsyncMock(return_value=None)
                 mock_repo_cls.return_value = mock_repo
@@ -545,18 +535,14 @@ class TestGetCurrentUser:
 
         with mock.patch("app.auth.dependencies.get_settings") as mock_settings:
             mock_settings.return_value.auth_enabled = True
-            with mock.patch(
-                "app.auth.dependencies.set_request_context"
-            ) as mock_set_context:
+            with mock.patch("app.auth.dependencies.set_request_context") as mock_set_context:
                 user = await get_current_user(
                     request=mock_request,
                     db=mock_async_session,
                     jwt_handler=jwt_handler,
                 )
 
-                mock_set_context.assert_called_once_with(
-                    user_id=1, username="testuser", clear_unset=False
-                )
+                mock_set_context.assert_called_once_with(user_id=1, username="testuser", clear_unset=False)
                 assert user.id == 1
 
     @pytest.mark.asyncio
@@ -742,9 +728,7 @@ class TestGetOptionalUser:
         mock_api_key_record = mock.MagicMock()
         mock_api_key_record.user_id = 5
 
-        with mock.patch(
-            "app.auth.dependencies.APIKeyRepository"
-        ) as mock_repo_cls:
+        with mock.patch("app.auth.dependencies.APIKeyRepository") as mock_repo_cls:
             mock_repo = mock.MagicMock()
             mock_repo.verify_and_get = mock.AsyncMock(return_value=mock_api_key_record)
             mock_repo_cls.return_value = mock_repo
@@ -774,9 +758,7 @@ class TestGetOptionalUser:
         mock_api_key_record = mock.MagicMock()
         mock_api_key_record.user_id = 6
 
-        with mock.patch(
-            "app.auth.dependencies.APIKeyRepository"
-        ) as mock_repo_cls:
+        with mock.patch("app.auth.dependencies.APIKeyRepository") as mock_repo_cls:
             mock_repo = mock.MagicMock()
             mock_repo.verify_and_get = mock.AsyncMock(return_value=mock_api_key_record)
             mock_repo_cls.return_value = mock_repo
@@ -842,18 +824,14 @@ class TestGetOptionalUser:
         mock_async_session.get = mock.AsyncMock(return_value=mock_user)
         mock_request.headers = {"Authorization": "Bearer " + valid_access_token}
 
-        with mock.patch(
-            "app.auth.dependencies.set_request_context"
-        ) as mock_set_context:
+        with mock.patch("app.auth.dependencies.set_request_context") as mock_set_context:
             user = await get_optional_user(
                 request=mock_request,
                 db=mock_async_session,
                 jwt_handler=jwt_handler,
             )
 
-            mock_set_context.assert_called_once_with(
-                user_id=1, username="optional_user", clear_unset=False
-            )
+            mock_set_context.assert_called_once_with(user_id=1, username="optional_user", clear_unset=False)
             assert user is not None
 
     @pytest.mark.asyncio

@@ -20,13 +20,45 @@ def format_code(code: str) -> str:
     # Matches // ... up to end of line (excluding newline).
     code = re.sub(r"//[^\r\n]*", "", code)
 
-    parts = code.split("{", 1)
-    if len(parts) != 2:
+    # Find the first '{' that is outside of string literals.
+    # Comments were already removed above, so only strings need handling.
+    opening_brace_pos = -1
+    in_string = False
+    for idx, ch in enumerate(code):
+        if ch == '"':
+            in_string = not in_string
+        elif ch == "{" and not in_string:
+            opening_brace_pos = idx
+            break
+
+    if opening_brace_pos == -1:
         return code.strip()
 
-    function_signature = " ".join(parts[0].strip().split())
+    function_signature = " ".join(code[:opening_brace_pos].strip().split())
 
-    function_body = parts[1].rsplit("}", 1)[0]
+    # Find the matching closing brace by tracking brace depth from the body.
+    body_start = opening_brace_pos + 1
+    depth = 1
+    in_string = False
+    end_pos = -1
+    for idx in range(body_start, len(code)):
+        ch = code[idx]
+        if ch == '"':
+            in_string = not in_string
+        elif not in_string:
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end_pos = idx
+                    break
+
+    if end_pos == -1:
+        # No matching closing brace — fall back to original behavior.
+        function_body = code[body_start:]
+    else:
+        function_body = code[body_start:end_pos]
 
     function_body = function_body.replace(" ( ", "(").replace(" ) ", ")")
     function_body = function_body.replace(" ;", ";")
@@ -50,6 +82,8 @@ def format_code(code: str) -> str:
                 i += 1
             tokens.append(function_body[start : i + 1])
             current_token = ""
+            i += 1
+            continue
         else:
             current_token += char
         i += 1

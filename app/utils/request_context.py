@@ -6,6 +6,7 @@ and restore_request_context() to explicitly pass context snapshots.
 
 from contextvars import ContextVar
 from dataclasses import dataclass
+from typing import cast
 
 _request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 _user_id_var: ContextVar[int | None] = ContextVar("user_id", default=None)
@@ -125,13 +126,13 @@ def set_request_context(
         _task_id_var.set(None)
 
     if request_id is not _UNSET:
-        _request_id_var.set(request_id)  # pyright: ignore[reportArgumentType]
+        _request_id_var.set(cast(str | None, request_id))
     if user_id is not _UNSET:
-        _user_id_var.set(user_id)  # pyright: ignore[reportArgumentType]
+        _user_id_var.set(cast(int | None, user_id))
     if username is not _UNSET:
-        _username_var.set(username)  # pyright: ignore[reportArgumentType]
+        _username_var.set(cast(str | None, username))
     if task_id is not _UNSET:
-        _task_id_var.set(task_id)  # pyright: ignore[reportArgumentType]
+        _task_id_var.set(cast(str | None, task_id))
 
 
 def clear_request_context() -> None:

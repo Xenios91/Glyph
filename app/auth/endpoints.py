@@ -182,7 +182,7 @@ async def login(
         secure=settings.use_https,
         samesite="strict",
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
-        path="/auth/refresh",
+        path="/",
     )
 
     return response

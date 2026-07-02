@@ -1,12 +1,13 @@
 """Unit tests for request handler classes and data processing."""
+
 from typing import Any
 
 from app.services.request_handler import (
     DataHandler,
-    TrainingRequest,
-    PredictionRequest,
     GhidraRequest,
     Prediction,
+    PredictionRequest,
+    TrainingRequest,
 )
 
 
@@ -134,7 +135,6 @@ class TestPredictionRequest:
         request = PredictionRequest("test-uuid", "test-model", duplicate_data)
         assert len(request.data) == 2  # pyright: ignore[reportArgumentType]
         assert "tokens" in request.data.columns  # pyright: ignore[reportOptionalMemberAccess]
-
 
 
 class TestGhidraRequest:

@@ -1,11 +1,10 @@
 """Tests for JWT handler."""
 
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import pytest
-from datetime import datetime, timezone, timedelta
-
-from app.auth.jwt_handler import JWTHandler, InvalidTokenError, DecodeError
+from app.auth.jwt_handler import DecodeError, InvalidTokenError, JWTHandler
 
 
 @pytest.fixture
@@ -38,7 +37,7 @@ class TestJWTHandler:
         """Test verifying an access token."""
         token = jwt_handler.create_access_token("123")
         payload = jwt_handler.verify_access_token(token)
-        
+
         assert payload["sub"] == "123"
         assert payload["type"] == "access"
         assert "exp" in payload
@@ -48,7 +47,7 @@ class TestJWTHandler:
         """Test verifying a refresh token."""
         token = jwt_handler.create_refresh_token("123")
         payload = jwt_handler.verify_refresh_token(token)
-        
+
         assert payload["sub"] == "123"
         assert payload["type"] == "refresh"
         assert "exp" in payload
@@ -59,7 +58,7 @@ class TestJWTHandler:
         extra_claims: dict[str, Any] = {"permissions": ["read", "write"], "role": "admin"}
         token = jwt_handler.create_access_token("123", extra_claims=extra_claims)
         payload = jwt_handler.verify_access_token(token)
-        
+
         assert payload["sub"] == "123"
         assert payload["permissions"] == ["read", "write"]
         assert payload["role"] == "admin"
@@ -70,7 +69,7 @@ class TestJWTHandler:
         token = jwt_handler.create_refresh_token("123")
         with pytest.raises(InvalidTokenError):
             jwt_handler.verify_access_token(token)
-        
+
         # Try to verify access token as refresh token
         token = jwt_handler.create_access_token("123")
         with pytest.raises(InvalidTokenError):
@@ -84,22 +83,23 @@ class TestJWTHandler:
     def test_verify_expired_token(self, jwt_handler: JWTHandler) -> None:
         """Test that expired tokens are rejected."""
         # Create a token with immediate expiration using joserfc
+        import base64
+
         from joserfc import jwt as joserfc_jwt
         from joserfc.jwk import OctKey
-        import base64
-        
-        now = datetime.now(timezone.utc)
+
+        now = datetime.now(UTC)
         payload: dict[str, Any] = {
             "sub": "123",
             "iat": now - timedelta(minutes=30),
             "exp": now - timedelta(minutes=15),
-            "type": "access"
+            "type": "access",
         }
         # Create key from secret
         secret_b64 = base64.urlsafe_b64encode(b"test_secret_key").decode("utf-8")
         key = OctKey.import_key({"k": secret_b64, "kty": "oct"})
         token = joserfc_jwt.encode({"alg": "HS256"}, payload, key)
-        
+
         # joserfc automatically validates expiration, so this should raise InvalidTokenError
         with pytest.raises(InvalidTokenError):
             jwt_handler.verify_access_token(token)
@@ -111,7 +111,7 @@ class TestJWTHandler:
         payload = jwt_handler.verify_token(access_token)
         assert payload["sub"] == "123"
         assert payload["type"] == "access"
-        
+
         refresh_token = jwt_handler.create_refresh_token("456")
         payload = jwt_handler.verify_token(refresh_token)
         assert payload["sub"] == "456"
@@ -130,6 +130,7 @@ class TestJWTHandler:
     def test_verify_access_token_bad_signature(self) -> None:
         """Test that a token with wrong signature raises BadSignatureError."""
         from app.auth.jwt_handler import BadSignatureError
+
         handler1 = JWTHandler(secret_key="secret_a", algorithm="HS256")
         handler2 = JWTHandler(secret_key="secret_b", algorithm="HS256")
         token = handler1.create_access_token("123")
@@ -139,6 +140,7 @@ class TestJWTHandler:
     def test_verify_refresh_token_bad_signature(self) -> None:
         """Test that a refresh token with wrong signature raises BadSignatureError."""
         from app.auth.jwt_handler import BadSignatureError
+
         handler1 = JWTHandler(secret_key="secret_a", algorithm="HS256")
         handler2 = JWTHandler(secret_key="secret_b", algorithm="HS256")
         token = handler1.create_refresh_token("123")
@@ -148,6 +150,7 @@ class TestJWTHandler:
     def test_verify_token_bad_signature(self) -> None:
         """Test that verify_token raises BadSignatureError on wrong signature."""
         from app.auth.jwt_handler import BadSignatureError
+
         handler1 = JWTHandler(secret_key="secret_a", algorithm="HS256")
         handler2 = JWTHandler(secret_key="secret_b", algorithm="HS256")
         token = handler1.create_access_token("123")

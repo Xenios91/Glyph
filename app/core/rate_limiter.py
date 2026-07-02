@@ -1,6 +1,7 @@
 """Rate limiting configuration using slowapi."""
 
 import os
+from typing import cast
 
 from fastapi import Request
 from slowapi import Limiter
@@ -37,7 +38,7 @@ def rate_limit_key_func(request: Request) -> str:
 
     settings = get_settings()
     client = getattr(request, "client", None)
-    direct_ip = client.host if client and hasattr(client, "host") else "unknown"
+    direct_ip: str = client.host if client and hasattr(client, "host") else "unknown"
 
     trusted_proxies = set(settings.trusted_proxies) if settings.trusted_proxies else set()
 

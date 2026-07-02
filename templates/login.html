@@ -13,19 +13,19 @@
 <div class="auth-content">
     <div class="auth-card cyber-container with-title" role="region" aria-labelledby="login-title">
         <h2 class="auth-title" id="login-title">LOGIN</h2>
-        
+
         {% if login_error %}
         <div id="login-error" class="auth-error" role="alert" aria-live="assertive">{{ login_error }}</div>
         {% else %}
         <div id="login-error" class="auth-error" role="alert" aria-live="assertive" style="display: none;"></div>
         {% endif %}
-        
+
         <form id="loginForm" method="POST" novalidate>
             <div class="auth-form-group">
                 <label for="username" class="auth-form-label">USERNAME</label>
                 <input type="text" id="username" name="username" class="auth-form-input" required minlength="3" maxlength="64" placeholder="Enter username" aria-required="true">
             </div>
-            
+
             <div class="auth-form-group">
                 <label for="password" class="auth-form-label">PASSWORD</label>
                 <div class="password-input-wrapper">
@@ -44,12 +44,12 @@
                     </button>
                 </div>
             </div>
-            
+
             <button type="submit" class="auth-btn" id="login-submit-btn">
                 [ LOGIN ]
             </button>
         </form>
-        
+
         <div class="auth-links">
             <p>Don't have an account? <a href="/register">REGISTER HERE</a></p>
         </div>

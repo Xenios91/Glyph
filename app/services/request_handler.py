@@ -125,7 +125,7 @@ class DataHandler:
         Returns:
             List of function dictionaries from the functionsMap.
         """
-        return self.json_dict["functionsMap"]["functions"]
+        return cast(list[dict[str, Any]], self.json_dict["functionsMap"]["functions"])
 
 
 class TrainingRequest(DataHandler):
@@ -152,7 +152,7 @@ class TrainingRequest(DataHandler):
         super().__init__(req_uuid, data, model_name)
         self._load_data()
 
-    def _load_data(self) -> None:
+    def _load_data(self, error_label: str = "training") -> None:
         """Load and process training data.
 
         Extracts the binary name and delegates to the shared base
@@ -190,12 +190,12 @@ class PredictionRequest(DataHandler):
             ValueError: If taskName is missing or prediction data is invalid.
         """
         super().__init__(req_uuid, data, model_name)
-        self.task_name = data.get("taskName") or data.get("task_name", "")
+        self.task_name = cast(str, data.get("taskName") or data.get("task_name", ""))
         if not self.task_name:
             raise ValueError("Data must contain 'taskName' or 'task_name' key")
         self._load_data()
 
-    def _load_data(self) -> None:
+    def _load_data(self, error_label: str = "prediction") -> None:
         """Load and process prediction data.
 
         Delegates to base class shared implementation.

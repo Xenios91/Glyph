@@ -15,9 +15,9 @@ async function deleteFunction() {
         Toast.error('Function name not found');
         return;
     }
-    
+
     const functionToDelete = extractLabelValue(functionNameElement);
-    
+
     try {
         await deleteResource('/model/deleteFunction', { function_name: functionToDelete }, '/');
     } catch (error) {
