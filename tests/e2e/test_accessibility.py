@@ -7,14 +7,10 @@ Tests cover:
 - Screen reader compatibility (lang attribute, form labels, aria-hidden)
 """
 
-from playwright.sync_api import Page, expect
 from typing import Any
 
+from playwright.sync_api import expect
 from tests.e2e.utils import register_and_login
-
-
-# Type alias for Playwright Page
-Page = Any
 
 
 class TestKeyboardNavigation:

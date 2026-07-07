@@ -508,7 +508,7 @@ class TestPredictionsRouter:
         assert "RETRIEVAL_ERROR" in detail.get("error", {}).get("code", "")
 
     # Tests for _execute_prediction and _run_prediction_task
-    @patch("app.api.v1.endpoints.predictions.PredictionRepository")
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.processing.pipeline_configs.ML_PREDICTION_ONLY_PIPELINE")
     def test_execute_prediction_success(
         self,
@@ -599,7 +599,7 @@ class TestPredictionsRouter:
         with pytest.raises(RuntimeError, match="Pipeline failed"):
             asyncio.run(_execute_prediction(pred_request))
 
-    @patch("app.api.v1.endpoints.predictions.PredictionRepository")
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.processing.pipeline_configs.ML_PREDICTION_ONLY_PIPELINE")
     def test_execute_prediction_with_captured_context(
         self,

@@ -1,7 +1,7 @@
 """Repository for Model entity database operations."""
 
 import io
-from typing import Any, Tuple
+from typing import Any
 
 from loguru import logger
 from sqlalchemy import delete, exists, select
@@ -159,7 +159,7 @@ class ModelRepository:
             await close_async_session(session)
 
     @staticmethod
-    async def load_model(model_name: str) -> Tuple[Any, Any]:
+    async def load_model(model_name: str) -> tuple[Any, Any]:
         """Load and deserialize a model and its label encoder from the database.
 
         Args:

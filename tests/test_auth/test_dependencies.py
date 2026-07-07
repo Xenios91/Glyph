@@ -68,7 +68,7 @@ class TestGetJWTHandler:
         """Test that get_jwt_handler returns a JWTHandler instance."""
         with mock.patch("app.auth.dependencies.get_settings") as mock_get_settings:
             mock_settings = mock.MagicMock()
-            mock_settings.jwt_secret_key = "test_secret"
+            mock_settings.jwt_secret_key = "test_secret_key_14bytes"  # >= 112 bits to avoid joserfc SecurityWarning
             mock_settings.jwt_algorithm = "HS256"
             mock_settings.access_token_expire_minutes = 30
             mock_settings.refresh_token_expire_days = 14
@@ -85,7 +85,7 @@ class TestGetJWTHandler:
         """Test that get_jwt_handler uses settings values correctly."""
         with mock.patch("app.auth.dependencies.get_settings") as mock_get_settings:
             mock_settings = mock.MagicMock()
-            mock_settings.jwt_secret_key = "my_secret_key"
+            mock_settings.jwt_secret_key = "my_secret_key_14bytes"  # >= 112 bits to avoid joserfc SecurityWarning
             mock_settings.jwt_algorithm = "HS384"
             mock_settings.access_token_expire_minutes = 60
             mock_settings.refresh_token_expire_days = 30

@@ -79,7 +79,12 @@ class TestModelsRouter:
             clear_dependency_overrides(models_client)
 
     def test_get_function_empty_function_name(self, models_client: Any) -> None:
-        """Test getting a function with empty function_name returns 400."""
+        """Test getting a function with empty function_name returns 422 (validation error).
+
+        FastAPI's pydantic validation rejects empty strings for FunctionName
+        (which has min_length=1 via StringConstraints), returning 422 before
+        the endpoint handler runs its own validation logic.
+        """
         from app.auth.dependencies import get_current_active_user
 
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
@@ -91,16 +96,18 @@ class TestModelsRouter:
                 headers={"Accept": "application/json"},
             )
 
-            assert response.status_code == 400
-            data = response.json()
-            detail = data.get("detail", data)
-            assert detail["success"] is False
-            assert "INVALID_FUNCTION_NAME" in detail.get("error", {}).get("code", "")
+            # FastAPI returns 422 for pydantic validation failures on query parameters
+            assert response.status_code == 422
         finally:
             clear_dependency_overrides(models_client)
 
     def test_get_function_empty_model_name(self, models_client: Any) -> None:
-        """Test getting a function with empty model_name returns 400."""
+        """Test getting a function with empty model_name returns 422 (validation error).
+
+        FastAPI's pydantic validation rejects empty strings for ModelName
+        (which has min_length=1 via StringConstraints), returning 422 before
+        the endpoint handler runs its own validation logic.
+        """
         from app.auth.dependencies import get_current_active_user
 
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
@@ -112,11 +119,8 @@ class TestModelsRouter:
                 headers={"Accept": "application/json"},
             )
 
-            assert response.status_code == 400
-            data = response.json()
-            detail = data.get("detail", data)
-            assert detail["success"] is False
-            assert "INVALID_MODEL_NAME" in detail.get("error", {}).get("code", "")
+            # FastAPI returns 422 for pydantic validation failures on query parameters
+            assert response.status_code == 422
         finally:
             clear_dependency_overrides(models_client)
 
