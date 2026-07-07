@@ -7,8 +7,6 @@ when displayed on the binary library page.
 
 from typing import Any
 
-from playwright.sync_api import expect
-
 from tests.e2e.utils import BASE_URL, register_and_login
 
 
@@ -50,7 +48,9 @@ class TestTaskModalCentering:
 
         # Verify overlay uses flexbox centering
         assert overlay_info["display"] == "flex", f"Expected display:flex, got {overlay_info['display']}"
-        assert overlay_info["justifyContent"] == "center", f"Expected justifyContent:center, got {overlay_info['justifyContent']}"
+        assert overlay_info["justifyContent"] == "center", (
+            f"Expected justifyContent:center, got {overlay_info['justifyContent']}"
+        )
         assert overlay_info["alignItems"] == "center", f"Expected alignItems:center, got {overlay_info['alignItems']}"
 
     def test_task_modal_position_is_centered(self, page: Any, server: Any) -> None:

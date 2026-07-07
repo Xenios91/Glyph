@@ -4,8 +4,11 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from pydantic import ValidationError
-
+from app.api.v1.endpoints.tasks import (
+    SimilarityComputationRequest,
+    SimilarityMatrixResponse,
+    SimilarityPairResponse,
+)
 from app.database.models import (
     Base,
     Binary,
@@ -14,8 +17,8 @@ from app.database.models import (
     User,
 )
 from app.database.session_handler import (
-    async_engines,
     DB_TABLE_MAP,
+    async_engines,
     dispose_async_engines,
     get_async_session,
     init_async_databases,
@@ -25,16 +28,12 @@ from app.services.binary_similarity_service import (
     BinarySimilarityService,
     SimilarityMatrixEntry,
 )
-from app.api.v1.endpoints.tasks import (
-    SimilarityComputationRequest,
-    SimilarityPairResponse,
-    SimilarityMatrixResponse,
-)
-
+from pydantic import ValidationError
 
 # ---------------------------------------------------------------------------
 # Database lifecycle fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
 async def similarity_db_lifecycle():
@@ -56,6 +55,7 @@ async def similarity_db_lifecycle():
 # ---------------------------------------------------------------------------
 # Fixtures – database sessions with seed data
 # ---------------------------------------------------------------------------
+
 
 @pytest_asyncio.fixture
 async def binaries_session() -> Any:
@@ -149,7 +149,7 @@ async def seeded_binaries(binaries_session: Any) -> list[int]:
     func_a2 = BinaryFunction(
         binary_id=bin_a.id,
         function_name="func_a2",
-        raw_code="void helper() { printf(\"hello\"); }",
+        raw_code='void helper() { printf("hello"); }',
         entrypoint="0x401100",
     )
     binaries_session.add(func_a1)
@@ -178,6 +178,7 @@ async def seeded_binaries(binaries_session: Any) -> list[int]:
 # ---------------------------------------------------------------------------
 # Tests – BinarySimilarityService.get_similarity_color()
 # ---------------------------------------------------------------------------
+
 
 class TestGetSimilarityColor:
     """Tests for the similarity color gradient helper."""
@@ -228,6 +229,7 @@ class TestGetSimilarityColor:
 # Tests – BinarySimilarityService._prepare_binary_functions()
 # ---------------------------------------------------------------------------
 
+
 class TestPrepareBinaryFunctions:
     """Tests for loading, tokenizing, and filtering binary functions."""
 
@@ -264,6 +266,7 @@ class TestPrepareBinaryFunctions:
 # ---------------------------------------------------------------------------
 # Tests – BinarySimilarityService.compute_similarity_matrix()
 # ---------------------------------------------------------------------------
+
 
 class TestComputeSimilarityMatrix:
     """Tests for pairwise similarity computation."""
@@ -304,13 +307,9 @@ class TestComputeSimilarityMatrix:
     async def test_match_threshold_filters_matches(self, seeded_binaries: list[int]) -> None:
         """Higher threshold should reduce matched_function_count."""
         # With threshold 0.0, all functions match.
-        result_low = await BinarySimilarityService.compute_similarity_matrix(
-            seeded_binaries, match_threshold=0.0
-        )
+        result_low = await BinarySimilarityService.compute_similarity_matrix(seeded_binaries, match_threshold=0.0)
         # With threshold 1.0, only perfect matches count.
-        result_high = await BinarySimilarityService.compute_similarity_matrix(
-            seeded_binaries, match_threshold=1.0
-        )
+        result_high = await BinarySimilarityService.compute_similarity_matrix(seeded_binaries, match_threshold=1.0)
         assert len(result_low) == 1
         assert len(result_high) == 1
         # matched count at low threshold >= matched count at high threshold
@@ -320,6 +319,7 @@ class TestComputeSimilarityMatrix:
 # ---------------------------------------------------------------------------
 # Tests – Similarity API Request/Response Schemas
 # ---------------------------------------------------------------------------
+
 
 class TestSimilarityAPISchemas:
     """Tests for similarity computation request/response Pydantic schemas."""
@@ -400,7 +400,7 @@ class TestSimilarityAPISchemas:
                     overall_similarity=0.5,
                     matched_function_count=1,
                     total_function_comparisons=4,
-                )
+                ),
             ],
         )
         assert resp.computation_id == 1
@@ -412,6 +412,7 @@ class TestSimilarityAPISchemas:
 # ---------------------------------------------------------------------------
 # Tests – SQL CRUD for similarity models
 # ---------------------------------------------------------------------------
+
 
 class TestSQLSimilarityCRUD:
     """Tests for SQLUtil similarity model CRUD methods."""
@@ -606,9 +607,7 @@ class TestSQLSimilarityCRUD:
         assert fetched is not None
         assert len(fetched.pairs) == 3
 
-    async def test_list_computations_ordered_by_created_at_desc(
-        self, intelligence_session: Any
-    ) -> None:
+    async def test_list_computations_ordered_by_created_at_desc(self, intelligence_session: Any) -> None:
         """Computations should be ordered newest first."""
         await SQLUtil.create_similarity_computation(
             task_name="first",

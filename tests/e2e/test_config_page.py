@@ -8,7 +8,6 @@ settings controls for upload and CPU configuration.
 from typing import Any
 
 from playwright.sync_api import expect
-
 from tests.e2e.utils import BASE_URL, register_and_login
 
 
@@ -100,9 +99,7 @@ class TestConfigPage:
         slider_value = page.locator("#max-file-size").get_attribute("value")
         input_value = page.locator("#max-file-size-input").input_value()
 
-        assert slider_value == input_value, (
-            f"Slider value ({slider_value}) doesn't match input value ({input_value})"
-        )
+        assert slider_value == input_value, f"Slider value ({slider_value}) doesn't match input value ({input_value})"
 
     def test_config_has_save_button(self, page: Any, server: Any) -> None:
         """Test that the config page has a save button."""

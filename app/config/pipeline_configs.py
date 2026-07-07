@@ -14,10 +14,11 @@ class MLTask:
 
         Returns:
             A configured sklearn Pipeline with TF-IDF and Naive Bayes.
+
         """
         return Pipeline(
             [
                 ("preprocessor", TfidfVectorizer(ngram_range=(2, 4), norm="l2", sublinear_tf=True)),
                 ("clf", MultinomialNB(alpha=1e-8)),
-            ]
+            ],
         )

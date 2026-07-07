@@ -12,16 +12,15 @@ from io import BytesIO
 import joblib
 import numpy as np
 import pytest
+from app.utils.secure_deserializer import (
+    BLOCKED_BUILTINS,
+    RestrictedNumpyUnpickler,
+    SecureDeserializationError,
+    secure_load,
+)
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
-from sklearn.feature_extraction.text import TfidfVectorizer
-
-from app.utils.secure_deserializer import (
-    secure_load,
-    SecureDeserializationError,
-    RestrictedNumpyUnpickler,
-    BLOCKED_BUILTINS,
-)
 
 
 class TestSecureLoad:
@@ -30,10 +29,7 @@ class TestSecureLoad:
     def test_load_valid_sklearn_pipeline(self) -> None:
         """Test that valid sklearn pipelines can be loaded."""
         # Create a valid pipeline
-        pipeline = Pipeline([
-            ('tfidf', TfidfVectorizer(ngram_range=(2, 4))),
-            ('clf', MultinomialNB())
-        ])
+        pipeline = Pipeline([("tfidf", TfidfVectorizer(ngram_range=(2, 4))), ("clf", MultinomialNB())])
 
         # Serialize it
         buffer = BytesIO()
@@ -65,7 +61,7 @@ class TestSecureLoad:
     def test_load_valid_list(self) -> None:
         """Test that valid Python lists can be loaded."""
         # Create a valid list
-        data = [{'functionName': 'test', 'tokens': 'abc'}]
+        data = [{"functionName": "test", "tokens": "abc"}]
 
         # Serialize it
         buffer = BytesIO()
@@ -77,12 +73,12 @@ class TestSecureLoad:
 
         assert isinstance(loaded, list)
         assert len(loaded) == 1  # pyright: ignore[reportUnknownArgumentType]
-        assert loaded[0]['functionName'] == 'test'
+        assert loaded[0]["functionName"] == "test"
 
     def test_load_valid_dict(self) -> None:
         """Test that valid Python dicts can be loaded."""
         # Create a valid dict
-        data = {'key': 'value', 'number': 42}
+        data = {"key": "value", "number": 42}
 
         # Serialize it
         buffer = BytesIO()
@@ -93,8 +89,8 @@ class TestSecureLoad:
         loaded = secure_load(buffer)
 
         assert isinstance(loaded, dict)
-        assert loaded['key'] == 'value'
-        assert loaded['number'] == 42
+        assert loaded["key"] == "value"
+        assert loaded["number"] == 42
 
     def test_load_valid_label_encoder(self) -> None:
         """Test that valid sklearn LabelEncoder can be loaded."""
@@ -102,7 +98,7 @@ class TestSecureLoad:
 
         # Create and fit a label encoder
         le = LabelEncoder()
-        le.fit(['cat', 'dog', 'bird'])  # pyright: ignore[reportUnknownMemberType]
+        le.fit(["cat", "dog", "bird"])  # pyright: ignore[reportUnknownMemberType]
 
         # Serialize it
         buffer = BytesIO()
@@ -121,11 +117,13 @@ class TestMaliciousPayloadBlocking:
 
     def test_block_subprocess_import(self):
         """Test that pickle payloads with subprocess are blocked."""
+
         # Create a malicious pickle that tries to import subprocess
         class MaliciousSubprocess:
             def __reduce__(self):
                 import subprocess
-                return (subprocess.call, (['echo', 'pwned'],))
+
+                return (subprocess.call, (["echo", "pwned"],))
 
         buffer = BytesIO()
         pickle.dump(MaliciousSubprocess(), buffer)
@@ -139,10 +137,12 @@ class TestMaliciousPayloadBlocking:
 
     def test_block_os_system(self):
         """Test that pickle payloads with os.system are blocked."""
+
         class MaliciousOS:
             def __reduce__(self):
                 import os
-                return (os.system, ('echo pwned',))
+
+                return (os.system, ("echo pwned",))
 
         buffer = BytesIO()
         pickle.dump(MaliciousOS(), buffer)
@@ -165,7 +165,7 @@ class TestMaliciousPayloadBlocking:
 
         # This should raise SecureDeserializationError
         with pytest.raises(SecureDeserializationError) as exc_info:
-            unpickler.find_class('builtins', 'eval')
+            unpickler.find_class("builtins", "eval")
 
         assert "blocked" in str(exc_info.value).lower()
 
@@ -180,7 +180,7 @@ class TestMaliciousPayloadBlocking:
 
         # This should raise SecureDeserializationError
         with pytest.raises(SecureDeserializationError) as exc_info:
-            unpickler.find_class('builtins', 'exec')
+            unpickler.find_class("builtins", "exec")
 
         assert "blocked" in str(exc_info.value).lower()
 
@@ -193,7 +193,7 @@ class TestMaliciousPayloadBlocking:
         # This should raise SecureDeserializationError because malicious_module
         # is not in the whitelist
         with pytest.raises(SecureDeserializationError) as exc_info:
-            unpickler.find_class('malicious_module', 'EvilClass')
+            unpickler.find_class("malicious_module", "EvilClass")
 
         assert "not allowed" in str(exc_info.value).lower()
 
@@ -207,22 +207,22 @@ class TestRestrictedNumpyUnpickler:
         unpickler = RestrictedNumpyUnpickler(buffer)
 
         # Test builtins specifically
-        cls = unpickler.find_class('builtins', 'list')
+        cls = unpickler.find_class("builtins", "list")
         assert cls is list
 
     def test_find_class_custom_whitelist(self):
         """Test that custom whitelist is respected."""
         buffer = BytesIO()
-        custom_whitelist = {'builtins.list'}
+        custom_whitelist = {"builtins.list"}
         unpickler = RestrictedNumpyUnpickler(buffer, custom_whitelist)
 
         # This should work
-        cls = unpickler.find_class('builtins', 'list')
+        cls = unpickler.find_class("builtins", "list")
         assert cls is list
 
         # This should fail
         with pytest.raises(SecureDeserializationError):
-            unpickler.find_class('builtins', 'dict')
+            unpickler.find_class("builtins", "dict")
 
 
 class TestEdgeCases:
@@ -237,17 +237,14 @@ class TestEdgeCases:
 
     def test_corrupted_data(self):
         """Test handling of corrupted data."""
-        buffer = BytesIO(b'not valid pickle data')
+        buffer = BytesIO(b"not valid pickle data")
 
         with pytest.raises(SecureDeserializationError):
             secure_load(buffer)
 
     def test_none_allowed_classes(self) -> None:
         """Test that None allowed_classes uses default whitelist."""
-        pipeline = Pipeline([
-            ('tfidf', TfidfVectorizer()),
-            ('clf', MultinomialNB())
-        ])
+        pipeline = Pipeline([("tfidf", TfidfVectorizer()), ("clf", MultinomialNB())])
 
         buffer = BytesIO()
         joblib.dump(pipeline, buffer)  # pyright: ignore[reportUnknownMemberType]
@@ -266,6 +263,6 @@ class TestEdgeCases:
         buffer.seek(0)
 
         # Should work with custom whitelist
-        custom_whitelist = {'builtins.list', 'builtins.int'}
+        custom_whitelist = {"builtins.list", "builtins.int"}
         loaded = secure_load(buffer, allowed_classes=custom_whitelist)
         assert loaded == [1, 2, 3]

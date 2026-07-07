@@ -17,12 +17,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Copy dependency files
-COPY requirements.txt .
+COPY pyproject.toml .
+COPY license.md .
+COPY README.md .
 
 # Create virtual environment and install dependencies
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN uv pip install --no-cache-dir -r requirements.txt
+RUN uv pip install --no-cache-dir .
 
 # Production stage
 FROM python:3.12-slim AS production

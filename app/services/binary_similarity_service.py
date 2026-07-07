@@ -23,6 +23,7 @@ class SimilarityMatrixEntry:
         overall_similarity: Average similarity score across matched functions.
         matched_function_count: Number of function pairs above threshold.
         total_function_comparisons: Total function pairs compared.
+
     """
 
     binary_a_id: int
@@ -40,6 +41,7 @@ class BinaryFunctionEmbeddings:
         binary_id: Database id of the binary.
         binary_name: Human-readable name of the binary.
         filtered_functions: List of filtered function dicts with token lists.
+
     """
 
     binary_id: int
@@ -65,6 +67,7 @@ class BinarySimilarityService:
 
         Returns:
             BinaryFunctionEmbeddings with filtered functions, or None on error.
+
         """
         from app.database.sql_service import SQLUtil
         from app.processing.pipeline import PipelineContext
@@ -133,6 +136,7 @@ class BinarySimilarityService:
 
         Returns:
             List of SimilarityMatrixEntry for all unique pairs.
+
         """
         from app.services.code_reuse_detector import compute_similarity
 
@@ -192,7 +196,7 @@ class BinarySimilarityService:
                     overall_similarity=overall,
                     matched_function_count=matched_count,
                     total_function_comparisons=total_comparisons,
-                )
+                ),
             )
 
         logger.info(
@@ -213,6 +217,7 @@ class BinarySimilarityService:
 
         Returns:
             Hex color string.
+
         """
         clamped = max(0.0, min(1.0, score))
 

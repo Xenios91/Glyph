@@ -1,10 +1,10 @@
 """Unit tests for task service."""
+
 import asyncio
 from typing import Any
-
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from app.services.task_service import TaskService
 
 

@@ -25,21 +25,21 @@ function initRegisterForm() {
     const confirmPasswordInput = document.getElementById('confirm_password');
     const submitBtn = document.getElementById('register-submit-btn');
     const errorDiv = document.getElementById('register-error');
-    
+
     if (!form) return;
-    
+
     // Mark form as initialized for testing
     form.setAttribute('data-initialized', 'true');
-    
+
     // Real-time validation for username (min 3 characters)
     setupFieldValidation(usernameInput, value => value.length >= 3);
-    
+
     // Real-time validation for email
     setupFieldValidation(emailInput, value => !value || isValidEmail(value));
-    
+
     // Real-time validation for password (min 8 characters)
     setupFieldValidation(passwordInput, value => value.length >= 8);
-    
+
     // Real-time validation for confirm password
     confirmPasswordInput.addEventListener('input', function() {
         if (this.value && passwordInput.value !== this.value) {
@@ -50,7 +50,7 @@ function initRegisterForm() {
             this.setAttribute('aria-invalid', 'false');
         }
     });
-    
+
     // Also clear confirm password error when password changes
     passwordInput.addEventListener('input', function() {
         if (confirmPasswordInput.classList.contains('is-error')) {
@@ -58,11 +58,11 @@ function initRegisterForm() {
             confirmPasswordInput.setAttribute('aria-invalid', 'false');
         }
     });
-    
+
     // Form submission
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         // Validate before submission
         if (usernameInput.value.length < 3) {
             usernameInput.classList.add('is-error');
@@ -70,32 +70,32 @@ function initRegisterForm() {
             usernameInput.focus();
             return;
         }
-        
+
         if (!isValidEmail(emailInput.value)) {
             emailInput.classList.add('is-error');
             Toast.error('Please enter a valid email address');
             emailInput.focus();
             return;
         }
-        
+
         if (passwordInput.value.length < 8) {
             passwordInput.classList.add('is-error');
             Toast.error('Password must be at least 8 characters');
             passwordInput.focus();
             return;
         }
-        
+
         if (passwordInput.value !== confirmPasswordInput.value) {
             confirmPasswordInput.classList.add('is-error');
             Toast.error('Passwords do not match');
             confirmPasswordInput.focus();
             return;
         }
-        
+
         // Set loading state
         submitBtn.disabled = true;
         submitBtn.textContent = 'REGISTER...';
-        
+
         const formData = new FormData(form);
         const data = {
             username: formData.get('username'),
@@ -103,7 +103,7 @@ function initRegisterForm() {
             full_name: formData.get('full_name') || null,
             password: passwordInput.value
         };
-        
+
         try {
             const response = await fetch('/auth/register', {
                 method: 'POST',
@@ -112,7 +112,7 @@ function initRegisterForm() {
                 },
                 body: JSON.stringify(data)
             });
-            
+
             if (response.ok) {
                 Toast.success('Registration successful! Redirecting to login...');
                 // Redirect to login page

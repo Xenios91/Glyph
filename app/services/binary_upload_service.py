@@ -19,7 +19,6 @@ from app.exceptions import BinaryAccessError, BinaryNotFoundError, ValidationErr
 from app.processing.pipeline import PipelineContext
 from app.processing.pipeline_configs import UPLOAD_PIPELINE
 
-
 ALLOWED_MIME_TYPES: set[str] = {
     "application/x-executable",
     "application/x-object",
@@ -49,6 +48,7 @@ class BinaryUploadService:
 
         Raises:
             ValidationError: If MIME type cannot be detected or is not allowed.
+
         """
         try:
             mime_type = magic.from_buffer(file_content[:1024], mime=True)
@@ -57,9 +57,7 @@ class BinaryUploadService:
             raise ValidationError("Failed to analyze file type")
 
         if mime_type not in ALLOWED_MIME_TYPES:
-            raise ValidationError(
-                f"File type '{mime_type}' not allowed. Expected binary/ELF format"
-            )
+            raise ValidationError(f"File type '{mime_type}' not allowed. Expected binary/ELF format")
         return mime_type
 
     @staticmethod
@@ -76,6 +74,7 @@ class BinaryUploadService:
 
         Raises:
             ValidationError: If filename is empty or contains invalid characters.
+
         """
         if not filename:
             raise ValidationError("Empty filename")
@@ -94,14 +93,14 @@ class BinaryUploadService:
 
         Raises:
             ValidationError: If file exceeds maximum allowed size.
+
         """
         settings = get_settings()
         max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
         if file_size > max_file_size_bytes:
             actual_size_mb = file_size / (1024 * 1024)
             raise ValidationError(
-                f"File size ({actual_size_mb:.2f}MB) exceeds maximum "
-                f"allowed ({settings.max_file_size_mb}MB)"
+                f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)",
             )
 
     @staticmethod
@@ -114,6 +113,7 @@ class BinaryUploadService:
 
         Raises:
             ValidationError: If insufficient disk space.
+
         """
         disk_usage = shutil.disk_usage(upload_folder)
         if disk_usage.free < file_size * 1.1:
@@ -125,11 +125,12 @@ class BinaryUploadService:
 
         Returns:
             A UUID-based filename string.
+
         """
         return str(uuid.uuid4())
 
     @staticmethod
-    async def store_file(file_path: str, file_stream, max_size: int) -> int:
+    async def store_file(file_path: str, file_stream: Any, max_size: int) -> int:
         """Write file to disk with progressive size checking.
 
         Args:
@@ -143,6 +144,7 @@ class BinaryUploadService:
         Raises:
             ValidationError: If file exceeds maximum size.
             OSError: If write fails.
+
         """
         chunk_size = 1024 * 1024  # 1MB chunks
         file_size = 0
@@ -155,9 +157,7 @@ class BinaryUploadService:
                 f.write(chunk)
                 file_size += len(chunk)
                 if file_size > max_size:
-                    raise ValidationError(
-                        f"File size ({file_size / (1024 * 1024):.2f}MB) exceeds maximum allowed"
-                    )
+                    raise ValidationError(f"File size ({file_size / (1024 * 1024):.2f}MB) exceeds maximum allowed")
         return file_size
 
     @staticmethod
@@ -166,13 +166,14 @@ class BinaryUploadService:
 
         Args:
             file_path: Path to the file to remove.
+
         """
         if os.path.exists(file_path):
             os.remove(file_path)
 
     async def upload_binary(
         self,
-        file_stream,
+        file_stream: Any,
         name: str,
         user_id: int,
         filename: str,
@@ -196,6 +197,7 @@ class BinaryUploadService:
 
         Raises:
             ValidationError: If validation fails.
+
         """
         settings = get_settings()
         max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
@@ -225,15 +227,13 @@ class BinaryUploadService:
 
         if mime_type not in ALLOWED_MIME_TYPES:
             await self.cleanup_file(file_path)
-            raise ValidationError(
-                f"File type '{mime_type}' not allowed. Expected binary/ELF format"
-            )
+            raise ValidationError(f"File type '{mime_type}' not allowed. Expected binary/ELF format")
 
         # Set file permissions
         os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
 
         # Check disk space (after file is written)
-        self.check_disk_space(file_size, upload_folder)
+        self.check_disk_space(file_size, str(upload_folder))
 
         # Save metadata
         binary_id = await BinaryRepository.save_binary(
@@ -263,6 +263,7 @@ class BinaryUploadService:
         Raises:
             BinaryNotFoundError: If binary doesn't exist.
             BinaryAccessError: If user doesn't own the binary.
+
         """
         binary = await BinaryRepository.get(binary_id)
         if binary is None:
@@ -290,6 +291,7 @@ class BinaryUploadService:
         Raises:
             BinaryNotFoundError: If binary doesn't exist.
             BinaryAccessError: If user doesn't own the binary.
+
         """
         binary = await BinaryRepository.get(binary_id)
         if binary is None:
@@ -313,16 +315,13 @@ class BinaryUploadService:
 
         Returns:
             Tuple of (binaries list, total count).
+
         """
         total = await BinaryRepository.count_by_user(user_id)
-        binaries = await BinaryRepository.get_by_user(
-            user_id, offset=offset, limit=limit
-        )
+        binaries = await BinaryRepository.get_by_user(user_id, offset=offset, limit=limit)
         return binaries, total
 
-    async def get_functions(
-        self, binary_id: int, offset: int = 0, limit: int | None = None
-    ) -> list[Any]:
+    async def get_functions(self, binary_id: int, offset: int = 0, limit: int | None = None) -> list[Any]:
         """Get decompiled functions for a binary.
 
         Args:
@@ -332,6 +331,7 @@ class BinaryUploadService:
 
         Returns:
             List of BinaryFunction objects.
+
         """
         return await BinaryRepository.get_functions(binary_id, offset=offset, limit=limit)
 
@@ -343,6 +343,7 @@ class BinaryUploadService:
 
         Returns:
             Total count of functions.
+
         """
         return await BinaryRepository.count_functions(binary_id)
 
@@ -361,6 +362,7 @@ class BinaryUploadService:
 
         Returns:
             The pipeline result context.
+
         """
         context = PipelineContext(
             uuid=task_uuid,

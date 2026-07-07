@@ -1,10 +1,9 @@
 """Tests for predictions API v1 endpoints."""
 
 from typing import Any
+from unittest.mock import AsyncMock, Mock, patch
 
-from unittest.mock import Mock, patch, AsyncMock
 import pytest
-
 from app.auth.dependencies import get_current_active_user
 from tests.conftest import set_dependency_override
 from tests.factories import make_mock_user
@@ -144,6 +143,7 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionService")
     def test_get_prediction_success_json(self, mock_pred_repo: Any, predictions_client: Any) -> None:
         """Test getting a prediction successfully with JSON response."""
+
         class SimplePrediction:
             def __init__(self) -> None:
                 self.task_name = "test_task"
@@ -202,15 +202,19 @@ class TestPredictionsRouter:
 
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
-    def test_get_prediction_details_success_json(self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any) -> None:
+    def test_get_prediction_details_success_json(
+        self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any,
+    ) -> None:
         """Test getting prediction details successfully with JSON response."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
-        mock_pred_repo.get_prediction_function = AsyncMock(return_value={
-            "tokens": "test tokens",
-            "prediction": "test_prediction",
-        })
+        mock_pred_repo.get_prediction_function = AsyncMock(
+            return_value={
+                "tokens": "test tokens",
+                "prediction": "test_prediction",
+            },
+        )
         set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.get(
@@ -253,15 +257,19 @@ class TestPredictionsRouter:
 
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
-    def test_get_prediction_details_json_response(self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any) -> None:
+    def test_get_prediction_details_json_response(
+        self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any,
+    ) -> None:
         """Test getting prediction details returns JSON (no HTML content negotiation)."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
-        mock_pred_repo.get_prediction_function = AsyncMock(return_value={
-            "tokens": "test tokens",
-            "prediction": "test_prediction",
-        })
+        mock_pred_repo.get_prediction_function = AsyncMock(
+            return_value={
+                "tokens": "test tokens",
+                "prediction": "test_prediction",
+            },
+        )
         set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.get(
@@ -280,15 +288,19 @@ class TestPredictionsRouter:
 
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
-    def test_get_prediction_details_json_data(self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any) -> None:
+    def test_get_prediction_details_json_data(
+        self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any,
+    ) -> None:
         """Test getting prediction details returns correct JSON data."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
-        mock_pred_repo.get_prediction_function = AsyncMock(return_value={
-            "tokens": "test tokens",
-            "prediction": "test_prediction",
-        })
+        mock_pred_repo.get_prediction_function = AsyncMock(
+            return_value={
+                "tokens": "test tokens",
+                "prediction": "test_prediction",
+            },
+        )
         set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.get(
@@ -362,6 +374,7 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionService")
     def test_get_prediction_json_response(self, mock_pred_repo: Any, predictions_client: Any) -> None:
         """Test getting a prediction returns JSON (no HTML content negotiation)."""
+
         class SimplePrediction:
             def __init__(self) -> None:
                 self.task_name = "test_task"
@@ -419,9 +432,11 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionService")
     def test_delete_predictions_partial_failure(self, mock_pred_repo: Any, predictions_client: Any) -> None:
         """Test batch delete with some failures."""
+
         def side_effect(name: str) -> None:
             if name == "bad_task":
                 raise RuntimeError("DB error")
+
         mock_pred_repo.delete_prediction = AsyncMock(side_effect=side_effect)
         set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
@@ -440,7 +455,9 @@ class TestPredictionsRouter:
 
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
-    def test_get_prediction_details_function_not_found(self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any) -> None:
+    def test_get_prediction_details_function_not_found(
+        self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any,
+    ) -> None:
         """Test getting prediction details when function doesn't exist."""
         mock_func_repo.get = AsyncMock(return_value=None)
         mock_pred_repo.get_prediction_function = AsyncMock(return_value=None)
@@ -466,7 +483,9 @@ class TestPredictionsRouter:
 
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
-    def test_get_prediction_details_type_error(self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any) -> None:
+    def test_get_prediction_details_type_error(
+        self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any,
+    ) -> None:
         """Test getting prediction details with TypeError."""
         mock_func_repo.get = AsyncMock(return_value=Mock(tokens="tokens"))
         mock_pred_repo.get_prediction_function = AsyncMock(side_effect=TypeError("bad data"))
@@ -518,6 +537,7 @@ class TestPredictionsRouter:
         pred_request.get_functions.return_value = [{"functionName": "f1", "tokens": ["int", "main"]}]
 
         import asyncio
+
         asyncio.run(_execute_prediction(pred_request))
 
         mock_pred_repo.save.assert_called_once()
@@ -547,6 +567,7 @@ class TestPredictionsRouter:
         pred_request.get_functions.return_value = [{"functionName": "f1", "tokens": ["int"]}]
 
         import asyncio
+
         asyncio.run(_execute_prediction(pred_request))
 
     @patch("app.processing.pipeline_configs.ML_PREDICTION_ONLY_PIPELINE")
@@ -574,6 +595,7 @@ class TestPredictionsRouter:
         pred_request.get_functions.return_value = [{"functionName": "f1", "tokens": ["int"]}]
 
         import asyncio
+
         with pytest.raises(RuntimeError, match="Pipeline failed"):
             asyncio.run(_execute_prediction(pred_request))
 
@@ -614,4 +636,5 @@ class TestPredictionsRouter:
         )
 
         import asyncio
+
         asyncio.run(_execute_prediction(pred_request, captured_ctx))

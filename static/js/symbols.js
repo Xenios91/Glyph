@@ -11,9 +11,9 @@
  */
 function goToFunctionURL(id) {
     const functionName = id.slice(0, -3);
-    const url = '/api/v1/models/getFunction?function_name=' + 
+    const url = '/getFunction?function_name=' +
         encodeURIComponent(functionName) + '&model_name=' + getModelName();
-    
+
     if (url) {
         window.location = url;
     }
@@ -38,9 +38,9 @@ async function deleteModel() {
         Toast.error('Model name not found');
         return;
     }
-    
+
     const modelToDelete = extractLabelValue(modelNameElement);
-    
+
     try {
         const response = await authenticatedFetch(`/api/v1/models/deleteModel?model_name=${encodeURIComponent(modelToDelete)}`, {
             method: 'DELETE',
@@ -48,7 +48,7 @@ async function deleteModel() {
                 'Accept': 'application/json'
             }
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             Toast.success(data.message || 'Model deleted successfully');

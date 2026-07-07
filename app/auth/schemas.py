@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime
-from typing import Any, cast
+from typing import Any
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
@@ -80,12 +80,12 @@ class APIKeyResponse(BaseModel):
             try:
                 parsed = json.loads(v)
                 if isinstance(parsed, list):
-                    return [str(item) for item in cast(list[Any], parsed)]
+                    return [str(item) for item in parsed]
                 return []
             except (json.JSONDecodeError, TypeError):
                 return []
         if isinstance(v, list):
-            return [str(item) for item in cast(list[Any], v)]
+            return [str(item) for item in v]
         return []
 
     model_config = {"from_attributes": True}

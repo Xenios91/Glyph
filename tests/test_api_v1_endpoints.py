@@ -1,15 +1,14 @@
 """Tests for API v1 endpoints."""
 
 from typing import Any
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import patch
+from app.api.v1.endpoints.config import ConfigPayload
+from app.api.v1.endpoints.predictions import PredictTokensRequest
+from app.api.v1.endpoints.status import StatusUpdatePayload
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-
-from app.api.v1.endpoints.config import ConfigPayload
-from app.api.v1.endpoints.status import StatusUpdatePayload
-from app.api.v1.endpoints.predictions import PredictTokensRequest
 
 
 class TestConfigPayload:
@@ -70,10 +69,7 @@ class TestPredictTokensRequest:
     def test_predict_tokens_request_extra_fields(self) -> None:
         """Test PredictTokensRequest rejects extra fields."""
         with pytest.raises(ValidationError) as exc_info:
-            PredictTokensRequest(
-                modelName="test_model",
-                **{"taskName": "test_task", "extra_field": "extra_value"}
-            )
+            PredictTokensRequest(modelName="test_model", **{"taskName": "test_task", "extra_field": "extra_value"})
         assert "Extra" in str(exc_info.value)
 
 
@@ -120,7 +116,9 @@ class TestConfigRouter:
 
     @patch("app.api.v1.endpoints.config.get_settings")
     @patch("app.api.v1.endpoints.config._persist_config_changes")
-    def test_save_config_partial_update(self, mock_persist: Any, mock_get_settings: Any, config_client: TestClient) -> None:
+    def test_save_config_partial_update(
+        self, mock_persist: Any, mock_get_settings: Any, config_client: TestClient,
+    ) -> None:
         """Test saving config with partial update."""
         from unittest.mock import Mock
 

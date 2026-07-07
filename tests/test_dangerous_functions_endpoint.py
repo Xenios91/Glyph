@@ -1,19 +1,16 @@
 """Tests for dangerous functions API v1 endpoints."""
 
 from typing import Any
-
-from unittest.mock import Mock, patch, AsyncMock
-
-import pytest
+from unittest.mock import AsyncMock, Mock, patch
 
 from app.auth.dependencies import get_current_active_user
 from tests.conftest import set_dependency_override
 from tests.factories import make_mock_user
 
-
 # ---------------------------------------------------------------------------
 # GET /catalog tests
 # ---------------------------------------------------------------------------
+
 
 class TestGetCatalog:
     """Tests for GET /catalog endpoint."""
@@ -75,6 +72,7 @@ class TestGetCatalog:
 # GET /catalog/{function_name} tests
 # ---------------------------------------------------------------------------
 
+
 class TestGetCatalogEntry:
     """Tests for GET /catalog/{function_name} endpoint."""
 
@@ -119,6 +117,7 @@ class TestGetCatalogEntry:
 # GET /available-models tests
 # ---------------------------------------------------------------------------
 
+
 class TestGetAvailableModels:
     """Tests for GET /available-models endpoint."""
 
@@ -126,8 +125,10 @@ class TestGetAvailableModels:
         """Test retrieving available models and prediction tasks."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
-        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.PredictionRepository") as mock_pred:
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml,
+            patch("app.api.v1.endpoints.dangerous_functions.PredictionRepository") as mock_pred,
+        ):
             mock_ml.get_models_list = AsyncMock(return_value=["model_a", "model_b"])
             mock_prediction = Mock()
             mock_prediction.task_name = "task_1"
@@ -145,8 +146,10 @@ class TestGetAvailableModels:
         """Test empty models and predictions list."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
-        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.PredictionRepository") as mock_pred:
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml,
+            patch("app.api.v1.endpoints.dangerous_functions.PredictionRepository") as mock_pred,
+        ):
             mock_ml.get_models_list = AsyncMock(return_value=[])
             mock_pred.get_predictions_list = AsyncMock(return_value=[])
 
@@ -159,6 +162,7 @@ class TestGetAvailableModels:
     def test_get_available_models_no_auth(self, dangerous_functions_client: Any) -> None:
         """Test that endpoint requires authentication (mocked dependency raises)."""
         from fastapi import HTTPException
+
         def raise_unauthenticated() -> None:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -170,6 +174,7 @@ class TestGetAvailableModels:
 # ---------------------------------------------------------------------------
 # POST /scan tests
 # ---------------------------------------------------------------------------
+
 
 class TestScanEndpoint:
     """Tests for POST /scan endpoint."""
@@ -225,8 +230,10 @@ class TestScanEndpoint:
         """Test scan of model with no functions returns empty report."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
-        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml,
+            patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func,
+        ):
             mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=[])
 
@@ -250,8 +257,10 @@ class TestScanEndpoint:
             self._make_mock_function("safe_func", "0x403000", "int x = 5; return x;"),
         ]
 
-        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml,
+            patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func,
+        ):
             mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=mock_funcs)
 
@@ -277,8 +286,10 @@ class TestScanEndpoint:
             self._make_mock_function("sprintf", "0x401000", "sprintf(buf, fmt, arg);"),
         ]
 
-        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml,
+            patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func,
+        ):
             mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=mock_funcs)
 
@@ -306,8 +317,10 @@ class TestScanEndpoint:
             self._make_mock_function("my_func", "0xDEADBEEF", "strcpy(dst, src); return 0;"),
         ]
 
-        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml,
+            patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func,
+        ):
             mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=mock_funcs)
 
@@ -337,8 +350,10 @@ class TestScanEndpoint:
             self._make_mock_function("my_wrapper", "0xCAFE0000", "gets(buf);"),
         ]
 
-        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml,
+            patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func,
+        ):
             mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=mock_funcs)
 
@@ -360,8 +375,10 @@ class TestScanEndpoint:
             self._make_mock_function("f2", "0x402000", "gets(buf);"),  # Critical
         ]
 
-        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml,
+            patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func,
+        ):
             mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=mock_funcs)
 
@@ -378,6 +395,7 @@ class TestScanEndpoint:
     def test_scan_requires_auth(self, dangerous_functions_client: Any) -> None:
         """Test that scan endpoint requires authentication (mocked dependency raises)."""
         from fastapi import HTTPException
+
         def raise_unauthenticated() -> None:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -398,6 +416,7 @@ class TestScanEndpoint:
 
         # Create pickled function data
         import pickle
+
         func_data: list[dict[str, str | list[str]]] = [
             {"functionName": "my_func", "lowAddress": "0x401000", "tokenList": ["strcpy(buf, src);"]},
         ]
@@ -423,8 +442,10 @@ class TestScanEndpoint:
             self._make_mock_function("strcpy", "0x401000", "strcpy(buf, src);"),
         ]
 
-        with patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml, \
-             patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func:
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml,
+            patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func,
+        ):
             mock_ml.exists = AsyncMock(return_value=True)
             mock_func.get_functions = AsyncMock(return_value=mock_funcs)
 

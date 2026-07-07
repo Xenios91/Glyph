@@ -48,6 +48,7 @@ class PredictTokensRequest(BaseModel):
         modelName: Name of the trained model to use for prediction.
         taskName: Name of the task (binary) to predict on.
         uuid: Optional custom UUID for the prediction task.
+
     """
 
     modelName: str
@@ -70,6 +71,7 @@ async def _execute_prediction(
     Args:
         prediction_request: The prediction request containing functions to analyze.
         captured_ctx: Captured request context for logging propagation.
+
     """
     if captured_ctx is not None:
         restore_request_context(captured_ctx, override_task_id=prediction_request.uuid)
@@ -99,7 +101,7 @@ async def _execute_prediction(
     # Persist prediction results to the database
     predictions = result.get("predictions")
     if predictions:
-        await _save_prediction_functions(prediction_request, predictions)
+        await PredictionService.save_prediction_functions(prediction_request, predictions)
         logger.info(
             "Prediction task completed and saved: {} ({} predictions)",
             prediction_request.uuid,
@@ -109,31 +111,6 @@ async def _execute_prediction(
         logger.warning(
             "Prediction task completed but no predictions to save: {}",
             prediction_request.uuid,
-        )
-
-
-async def _save_prediction_functions(prediction_request: PredictionRequest, predictions: list[str]) -> None:
-    """Merge predictions with functions and persist to database.
-
-    Args:
-        prediction_request: The prediction request containing functions.
-        predictions: List of predicted labels.
-    """
-    functions: list[dict[str, Any]] = prediction_request.get_functions() or []
-    task_name = prediction_request.task_name
-
-    if functions and len(functions) == len(predictions):
-        for ctr, function in enumerate(functions):
-            updated_function = function.copy()
-            updated_function["prediction"] = predictions[ctr]
-            functions[ctr] = updated_function
-        await PredictionRepository.save(task_name, prediction_request.model_name, functions)
-    elif functions:
-        logger.warning(
-            "Mismatch between functions ({}) and predictions ({}) for task '{}'",
-            len(functions),
-            len(predictions),
-            task_name,
         )
 
 
@@ -150,6 +127,7 @@ async def _run_prediction_task(
     Args:
         prediction_request: The prediction request containing functions to analyze.
         captured_ctx: Captured request context for logging propagation.
+
     """
     try:
         await _execute_prediction(prediction_request, captured_ctx)
@@ -163,7 +141,6 @@ async def _run_prediction_task(
 @router.post(
     "/predict",
     status_code=201,
-    response_model=SuccessResponse[dict[str, Any]],
     summary="Create a prediction task",
     description="Run a prediction on a binary using a trained ML model. Queues the prediction as a background task.",
 )
@@ -183,7 +160,7 @@ async def predict_tokens(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="TASK_NAME_REQUIRED", error_message="taskName is required for predictions"
+                error_code="TASK_NAME_REQUIRED", error_message="taskName is required for predictions",
             ).model_dump(),
         )
     task_name = task_name.strip()
@@ -202,11 +179,11 @@ async def predict_tokens(
     background_tasks.add_task(_run_prediction_task, prediction_request, captured_ctx)
 
     return create_success_response(
-        data={"uuid": prediction_request.uuid}, message="Prediction task created successfully"
+        data={"uuid": prediction_request.uuid}, message="Prediction task created successfully",
     )
 
 
-@router.get("/getPredictionsList", response_model=SuccessResponse[PaginatedResponse[dict[str, Any]]])
+@router.get("/getPredictionsList")
 async def get_predictions_list(
     current_user: Annotated[User, Depends(get_current_active_user)],
     page: Annotated[int, Query(ge=1, description="Page number (1-based)")] = 1,
@@ -216,6 +193,7 @@ async def get_predictions_list(
 
     Returns:
         Success response with a paginated list of prediction tasks.
+
     """
     all_predictions, total = await PredictionService.get_predictions_list(offset=0, limit=10000)
     offset = (page - 1) * page_size
@@ -230,7 +208,7 @@ async def get_predictions_list(
     ]
 
     return create_success_response(
-        data=create_paginated_response(items, total, page, page_size), message="Predictions list retrieved successfully"
+        data=create_paginated_response(items, total, page, page_size), message="Predictions list retrieved successfully",
     )
 
 
@@ -242,8 +220,8 @@ async def get_predictions_list(
 )
 async def get_prediction(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    model_name: ModelName = Query(...),
-    task_name: TaskName = Query(...),
+    model_name: Annotated[ModelName, Query()],
+    task_name: Annotated[TaskName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Get the results of a specific prediction task for a model."""
     prediction = await PredictionService.get_prediction(task_name, model_name)
@@ -252,7 +230,7 @@ async def get_prediction(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="PREDICTION_NOT_FOUND", error_message="Prediction not found"
+                error_code="PREDICTION_NOT_FOUND", error_message="Prediction not found",
             ).model_dump(),
         )
 
@@ -262,7 +240,7 @@ async def get_prediction(
                 "task_name": prediction.task_name,
                 "model_name": prediction.model_name,
                 "predictions": prediction.predictions,
-            }
+            },
         },
         message="Prediction retrieved successfully",
     )
@@ -275,7 +253,7 @@ async def get_prediction(
 )
 @catch_http_exception(status_code=500, error_code="DELETE_ERROR", message="Failed to delete prediction")
 async def delete_prediction(
-    current_user: Annotated[User, Depends(get_current_active_user)], task_name: TaskName = Query(...)
+    current_user: Annotated[User, Depends(get_current_active_user)], task_name: Annotated[TaskName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete a single prediction task by task name."""
     await PredictionService.delete_prediction(task_name)
@@ -285,13 +263,12 @@ async def delete_prediction(
 
 @router.delete(
     "/deletePredictions",
-    response_model=SuccessResponse[dict[str, Any]],
     summary="Delete multiple predictions",
     description="Delete multiple prediction tasks by comma-separated task names.",
 )
 @catch_http_exception(status_code=500, error_code="DELETE_PREDICTIONS_ERROR", message="Failed to delete predictions")
 async def delete_predictions(
-    current_user: Annotated[User, Depends(get_current_active_user)], task_names: str = Query(...)
+    current_user: Annotated[User, Depends(get_current_active_user)], task_names: Annotated[str, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete multiple prediction tasks by comma-separated task names."""
     names = [name.strip() for name in task_names.split(",") if name.strip()]
@@ -299,7 +276,7 @@ async def delete_predictions(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_TASK_NAMES", error_message="At least one task name must be provided"
+                error_code="INVALID_TASK_NAMES", error_message="At least one task name must be provided",
             ).model_dump(),
         )
 
@@ -332,9 +309,9 @@ async def delete_predictions(
 )
 async def get_prediction_details(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    model_name: ModelName = Query(...),
-    function_name: FunctionName = Query(...),
-    task_name: TaskName = Query(...),
+    model_name: Annotated[ModelName, Query()],
+    function_name: Annotated[FunctionName, Query()],
+    task_name: Annotated[TaskName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Get detailed prediction results for a specific function."""
     try:
@@ -345,14 +322,14 @@ async def get_prediction_details(
             raise HTTPException(
                 status_code=404,
                 detail=create_error_response(
-                    error_code="FUNCTION_NOT_FOUND", error_message="Function not found"
+                    error_code="FUNCTION_NOT_FOUND", error_message="Function not found",
                 ).model_dump(),
             )
 
         model_tokens = format_code(model_info.tokens)
         prediction_tokens = format_code(prediction_data.get("tokens", "") if prediction_data else "")
 
-    except (TypeError, IndexError):
+    except (TypeError, IndexError, KeyError, AttributeError):
         logger.exception(
             "Failed to retrieve prediction details for task={}, model={}, function={}",
             task_name,
@@ -362,7 +339,7 @@ async def get_prediction_details(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="RETRIEVAL_ERROR", error_message="Could not retrieve details"
+                error_code="RETRIEVAL_ERROR", error_message="Could not retrieve details",
             ).model_dump(),
         )
 

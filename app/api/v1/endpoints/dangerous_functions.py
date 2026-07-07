@@ -5,17 +5,18 @@ functions and retrieving scan results with severity, CWE references,
 and usage context.
 """
 
-from __future__ import annotations
-
 from io import BytesIO
-from typing import Any, Union
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from loguru import logger
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_active_user
+from app.database.function_repository import FunctionRepository
+from app.database.model_repository import ModelRepository
 from app.database.models import User
+from app.database.prediction_repository import PredictionRepository
 from app.services.dangerous_function_scanner import (
     ScanReport,
     ScanResult,
@@ -27,10 +28,6 @@ from app.services.dangerous_functions_catalog import (
     get_entries_by_category,
     get_entry,
 )
-from app.database.function_repository import FunctionRepository
-from app.database.model_repository import ModelRepository
-from app.database.prediction_repository import PredictionRepository
-from app.services.prediction_service import PredictionService
 from app.utils.responses import (
     ErrorResponse,
     SuccessResponse,
@@ -54,6 +51,7 @@ class ScanRequest(BaseModel):
         modelName: Name of the model to scan (functions stored for this model).
         taskName: Optional name of a prediction task to scan instead.
         binaryId: Optional binary id to scan directly from the library.
+
     """
 
     modelName: str | None = None
@@ -77,6 +75,7 @@ class ScanResultDict(BaseModel):
         safe_alternative: Recommended replacement.
         usage_context: Decompiled code lines showing usage.
         containing_function_code: Full decompiled code of the containing function.
+
     """
 
     function_name: str
@@ -103,6 +102,7 @@ class ScanReportResponse(BaseModel):
         medium_count: Medium severity count.
         low_count: Low severity count.
         results: Individual scan results.
+
     """
 
     model_name: str
@@ -125,6 +125,7 @@ class CatalogEntryDict(BaseModel):
         cwe: CWE identifier.
         description: Why this function is dangerous.
         safe_alternative: Recommended replacement.
+
     """
 
     name: str
@@ -148,6 +149,7 @@ def _scan_result_to_dict(result: ScanResult) -> ScanResultDict:
 
     Returns:
         ScanResultDict suitable for JSON serialization.
+
     """
     return ScanResultDict(
         function_name=result.function_name,
@@ -171,6 +173,7 @@ def _scan_report_to_dict(report: ScanReport) -> ScanReportResponse:
 
     Returns:
         ScanReportResponse suitable for JSON serialization.
+
     """
     results = [_scan_result_to_dict(r) for r in report.results]
     return ScanReportResponse(
@@ -193,6 +196,7 @@ def _functions_to_dicts(functions: list[Any]) -> list[dict[str, Any]]:
 
     Returns:
         List of function dictionaries compatible with scan_functions().
+
     """
     result: list[dict[str, Any]] = []
     for func in functions:
@@ -214,7 +218,7 @@ def _functions_to_dicts(functions: list[Any]) -> list[dict[str, Any]]:
 @router.get("/catalog")
 async def get_catalog(
     request: Request,
-    category: str | None = Query(None, description="Filter by category"),
+    category: Annotated[str | None, Query(description="Filter by category")] = None,
 ) -> SuccessResponse[Any]:
     """Get the dangerous function catalog.
 
@@ -226,6 +230,7 @@ async def get_catalog(
 
     Returns:
         Success response with catalog entries.
+
     """
     entries = get_entries_by_category(category) if category else get_all_entries()
 
@@ -260,6 +265,7 @@ async def get_catalog_entry(
 
     Returns:
         Success response with the catalog entry or error response if not found.
+
     """
     entry = get_entry(function_name)
     if entry is None:
@@ -284,12 +290,13 @@ async def get_catalog_entry(
 @router.get("/available-models")
 async def get_available_models(
     request: Request,
-    current_user: User = Depends(get_current_active_user),
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[Any]:
     """Get list of models and prediction tasks available for scanning.
 
     Returns:
         Success response with lists of model names and prediction task names.
+
     """
     models = await ModelRepository.get_models_list()
     predictions = await PredictionRepository.get_predictions_list()
@@ -309,7 +316,7 @@ async def get_available_models(
 async def scan_dangerous_functions(
     request: Request,
     body: ScanRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[Any]:
     """Scan a model, prediction task, or binary for dangerous functions.
 
@@ -328,6 +335,7 @@ async def scan_dangerous_functions(
     Raises:
         HTTPException: If none of modelName, taskName, or binaryId is provided,
             or if the specified target does not exist.
+
     """
     target_name: str | None = None
     functions_data: list[dict[str, Any]] = []
@@ -391,9 +399,9 @@ async def scan_dangerous_functions(
 
         # Deserialize prediction functions
         try:
-            raw_data = secure_load(BytesIO(prediction.functions_data))  # type: ignore[arg-type]
+            raw_data = secure_load(BytesIO(prediction.functions_data))  # type: ignore[attr-defined]
             if isinstance(raw_data, list):
-                functions_data = raw_data  # type: ignore[assignment]
+                functions_data = raw_data
             else:
                 raise HTTPException(
                     status_code=500,

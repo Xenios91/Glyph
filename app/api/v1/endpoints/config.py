@@ -27,6 +27,7 @@ class ConfigPayload(BaseModel):
     Attributes:
         max_file_size_mb: Maximum file size in megabytes.
         cpu_cores: Number of CPU cores to use.
+
     """
 
     max_file_size_mb: int | None = None
@@ -61,15 +62,13 @@ def _persist_config_changes(settings: Any) -> None:
 
 @router.post(
     "/save",
-    response_model=SuccessResponse[dict[str, Any]],
     summary="Save configuration",
     description="Update and persist application configuration settings to config.yml.",
 )
 async def save_config(
-    payload: ConfigPayload, current_user: Annotated[User, Depends(get_current_active_user)]
+    payload: ConfigPayload, current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[dict[str, Any]]:
-    """
-    Saves the configuration settings
+    """Saves the configuration settings
 
     Args:
         payload: The configuration payload containing settings to update.
@@ -79,6 +78,7 @@ async def save_config(
 
     Raises:
         HTTPException: If CPU cores value is invalid.
+
     """
     settings = get_settings()
 
@@ -104,7 +104,7 @@ async def save_config(
             raise HTTPException(
                 status_code=400,
                 detail=create_error_response(
-                    error_code="INVALID_CPU_CORES", error_message=f"CPU cores must be between 1 and {MAX_CPU_CORES}"
+                    error_code="INVALID_CPU_CORES", error_message=f"CPU cores must be between 1 and {MAX_CPU_CORES}",
                 ).model_dump(),
             )
 

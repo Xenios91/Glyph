@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated GitHub Actions to latest versions (checkout@v5, setup-python@v5)
 - Improved cookie security with path scoping and strict SameSite for refresh tokens
 - Enhanced JWT secret validation with production enforcement
-- Pylint workflow now actually executes pylint checks
+- Ruff workflow for linting checks
 
 ### Security
 - Added HSTS header with `max-age=31536000; includeSubDomains; preload`

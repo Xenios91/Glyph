@@ -47,13 +47,13 @@
      */
     function setActiveNav() {
         const path = window.location.pathname;
-        
+
         // Handle dropdown menu items (including sub-menus)
         document.querySelectorAll('.nav-dropdown-menu a, .nav-dropdown-sub-menu a').forEach(function (link) {
             const href = link.getAttribute('href');
             if (href && path.startsWith(href) && href !== '/') {
                 link.classList.add('nav-active');
-                
+
                 // Highlight parent dropdown toggle
                 const dropdown = link.closest('.nav-dropdown');
                 if (dropdown) {
@@ -62,7 +62,7 @@
                         toggle.classList.add('active');
                     }
                 }
-                
+
                 // Highlight parent sub-dropdown toggle
                 const subDropdown = link.closest('.nav-dropdown-sub');
                 if (subDropdown) {
@@ -73,7 +73,7 @@
                 }
             }
         });
-        
+
         // Handle top-level links (for unauthenticated users)
         document.querySelectorAll('.nav-links > a').forEach(function (link) {
             const href = link.getAttribute('href');
@@ -81,7 +81,7 @@
                 link.classList.add('nav-active');
             }
         });
-        
+
         // Handle home page active state
         if (path === '/') {
             const homeLink = document.querySelector('.nav-dropdown-menu a[href="/"]');
@@ -103,11 +103,11 @@
      */
     function initDropdowns() {
         const dropdowns = document.querySelectorAll('.nav-dropdown');
-        
+
         dropdowns.forEach(dropdown => {
             const toggle = dropdown.querySelector('.nav-dropdown-toggle');
             const menu = dropdown.querySelector('.nav-dropdown-menu');
-            
+
             if (toggle && menu) {
                 // Hover functionality for desktop
                 if (window.innerWidth > 768) {
@@ -116,19 +116,19 @@
                         menu.classList.add('is-open');
                         toggle.classList.add('active');
                     });
-                    
+
                     dropdown.addEventListener('mouseleave', function() {
                         toggle.setAttribute('aria-expanded', 'false');
                         menu.classList.remove('is-open');
                         toggle.classList.remove('active');
                     });
                 }
-                
+
                 // Click functionality for all devices
                 toggle.addEventListener('click', function(e) {
                     e.stopPropagation();
                     const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
-                    
+
                     // On mobile, allow multiple dropdowns to be open
                     // On desktop, close other dropdowns
                     if (window.innerWidth > 768) {
@@ -143,7 +143,7 @@
                             }
                         });
                     }
-                    
+
                     // Toggle current dropdown
                     toggle.setAttribute('aria-expanded', !isExpanded);
                     menu.classList.toggle('is-open');
@@ -158,17 +158,17 @@
      */
     function initSubDropdowns() {
         const subDropdowns = document.querySelectorAll('.nav-dropdown-sub');
-        
+
         subDropdowns.forEach(subDropdown => {
             const toggle = subDropdown.querySelector('.nav-dropdown-sub-toggle');
             const menu = subDropdown.querySelector('.nav-dropdown-sub-menu');
-            
+
             if (toggle && menu) {
                 // Click functionality for all devices
                 toggle.addEventListener('click', function(e) {
                     e.stopPropagation();
                     const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
-                    
+
                     // Close other sub-menus on desktop
                     if (window.innerWidth > 768) {
                         document.querySelectorAll('.nav-dropdown-sub-menu').forEach(otherMenu => {
@@ -182,7 +182,7 @@
                             }
                         });
                     }
-                    
+
                     // Toggle current sub-dropdown
                     toggle.setAttribute('aria-expanded', !isExpanded);
                     menu.classList.toggle('is-open');
@@ -205,17 +205,17 @@
                     const links = activeDropdown.querySelectorAll('a');
                     const currentIndex = Array.from(links).indexOf(document.activeElement);
                     let newIndex;
-                    
+
                     if (e.key === 'ArrowDown') {
                         newIndex = (currentIndex + 1) % links.length;
                     } else {
                         newIndex = (currentIndex - 1 + links.length) % links.length;
                     }
-                    
+
                     links[newIndex].focus();
                 }
             }
-            
+
             // Close dropdowns and sub-dropdowns on Escape
             if (e.key === 'Escape') {
                 document.querySelectorAll('.nav-dropdown-menu').forEach(menu => {

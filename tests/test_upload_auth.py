@@ -3,6 +3,7 @@
 Uses a minimal FastAPI app with only the v1 router to avoid loading
 the full application (reduces test startup time and dependencies).
 """
+
 import io
 
 import pytest
@@ -17,8 +18,8 @@ def auth_client() -> TestClient:
     Avoids importing the full app from main.py, which is slow and pulls
     in heavy dependencies (Ghidra, ML models, etc.).
     """
-    from app.api.router import api_v1_router  # noqa: F401
-    from app.auth.dependencies import get_db  # noqa: F402
+    from app.api.router import api_v1_router
+    from app.auth.dependencies import get_db
 
     app = FastAPI()
     app.include_router(api_v1_router, prefix="/api")
@@ -43,7 +44,7 @@ def test_upload_without_auth_rejected(auth_client: TestClient) -> None:
             "test.bin",
             io.BytesIO(elf_content),
             "application/octet-stream",
-        )
+        ),
     }
     data = {"name": "test_binary"}
     response = auth_client.post(
@@ -53,6 +54,5 @@ def test_upload_without_auth_rejected(auth_client: TestClient) -> None:
         headers={"Accept": "application/json"},
     )
     assert response.status_code == 401, (
-        f"Expected 401 (unauthorized), got {response.status_code} "
-        "- auth is NOT enforced!"
+        f"Expected 401 (unauthorized), got {response.status_code} - auth is NOT enforced!"
     )

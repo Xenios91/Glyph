@@ -10,8 +10,8 @@ from typing import Any
 from loguru import logger
 
 from app.database.binary_repository import BinaryRepository
-from app.database.similarity_repository import SimilarityRepository
 from app.database.models import SimilarityPair
+from app.database.similarity_repository import SimilarityRepository
 from app.processing.pipeline import PipelineContext
 from app.processing.pipeline_configs import (
     PREDICTION_FROM_DB_PIPELINE,
@@ -19,11 +19,9 @@ from app.processing.pipeline_configs import (
 )
 from app.services.binary_similarity_service import (
     BinarySimilarityService,
-    SimilarityMatrixEntry,
 )
 from app.services.code_reuse_detector import compare_binaries
 from app.services.dangerous_function_scanner import (
-    ScanResult,
     generate_report,
 )
 from app.services.request_handler import PredictionRequest, TrainingRequest
@@ -58,6 +56,7 @@ class AnalysisService:
             - source_binary_id
             - source_binary_name
             - comparisons (list of match dicts)
+
         """
         source_functions = await BinaryRepository.get_functions(binary_id)
         if not source_functions:
@@ -131,7 +130,7 @@ class AnalysisService:
         for target_id in target_ids:
             result = await compare_binaries(filtered_source, target_id)
             if result:
-                comparisons.append(result)
+                comparisons.append(result)  # type: ignore[arg-type]
 
         logger.info(
             "Code reuse detection completed: {} comparisons for binary {}",
@@ -161,6 +160,7 @@ class AnalysisService:
 
         Returns:
             Dictionary containing scan results.
+
         """
         binary_functions = await BinaryRepository.get_functions(binary_id)
         if not binary_functions:
@@ -277,6 +277,7 @@ class AnalysisService:
 
         Returns:
             Dictionary with training results including filtered_functions count.
+
         """
         context = PipelineContext(
             uuid="",
@@ -343,6 +344,7 @@ class AnalysisService:
 
         Returns:
             Dictionary with prediction results.
+
         """
         context = PipelineContext(
             uuid="",
@@ -431,6 +433,7 @@ class AnalysisService:
 
         Returns:
             Dictionary with computation_id and pairs_computed count.
+
         """
         # Create the computation record
         computation = await SimilarityRepository.create(
@@ -501,6 +504,7 @@ class AnalysisService:
 
         Returns:
             Dictionary with computation_id and result status.
+
         """
         computation_id: int | None = None
         try:
@@ -538,6 +542,7 @@ class AnalysisService:
 
         Returns:
             List of SimilarityComputation instances.
+
         """
         return await SimilarityRepository.list_all(computed_by=user_id)
 
@@ -552,6 +557,7 @@ class AnalysisService:
 
         Returns:
             SimilarityComputation instance with loaded pairs, or None.
+
         """
         return await SimilarityRepository.get(computation_id)
 
@@ -571,6 +577,7 @@ class AnalysisService:
 
         Raises:
             Exception: If computation not found or user doesn't own it.
+
         """
         from app.exceptions import (
             SimilarityComputationAccessError,
@@ -597,6 +604,7 @@ class AnalysisService:
 
         Raises:
             Exception: If computation not found or user doesn't own it.
+
         """
         from app.exceptions import (
             SimilarityComputationAccessError,

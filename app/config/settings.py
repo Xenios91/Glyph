@@ -53,7 +53,7 @@ class GlyphSettings(BaseSettings):
     """Pydantic-based configuration for Glyph application."""
 
     prediction_probability_threshold: float = Field(
-        default=50.0, ge=0, le=100, description="Minimum probability threshold for predictions (0-100)"
+        default=50.0, ge=0, le=100, description="Minimum probability threshold for predictions (0-100)",
     )
 
     max_file_size_mb: int = Field(default=512, ge=1, le=2048, description="Maximum file size for uploads in MB")
@@ -63,7 +63,7 @@ class GlyphSettings(BaseSettings):
     upload_folder: Path = Field(default=Path("./binaries"), description="Upload directory")
 
     jwt_secret_key: str = Field(
-        default="change-me-in-production", description="Secret key for JWT signing (must be changed in production)"
+        default="change-me-in-production", description="Secret key for JWT signing (must be changed in production)",
     )
     jwt_algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=15)
@@ -74,7 +74,7 @@ class GlyphSettings(BaseSettings):
 
     use_https: bool = Field(default=False, description="Whether the application is deployed behind HTTPS/TLS")
     trusted_proxies: list[str] = Field(
-        default_factory=list, description="List of trusted proxy IPs/CIDRs for X-Forwarded-For"
+        default_factory=list, description="List of trusted proxy IPs/CIDRs for X-Forwarded-For",
     )
 
     auth_enabled: bool = Field(default=True, description="Whether authentication is enabled")
@@ -113,6 +113,7 @@ def get_settings() -> GlyphSettings:
 
     Raises:
         RuntimeError: If settings fail to load.
+
     """
     global _settings
     if _settings is None:
@@ -124,18 +125,32 @@ def get_settings() -> GlyphSettings:
                 if env == "production":
                     logger.critical(
                         "JWT secret key is using default value in production! "
-                        "This is a critical security risk. Refusing to start."
+                        "This is a critical security risk. Refusing to start.",
                     )
                     raise RuntimeError(
                         "JWT secret key must be changed from default value in production. "
-                        "Set GLYPH_JWT_SECRET_KEY environment variable or update config.yml."
+                        "Set GLYPH_JWT_SECRET_KEY environment variable or update config.yml.",
                     )
                 else:
                     logger.warning(
                         "Using default JWT secret key. "
                         "Set GLYPH_JWT_SECRET_KEY environment variable or "
                         "jwt_secret_key in config.yml for production use. "
-                        "Tokens will be invalidated on application restart."
+                        "Tokens will be invalidated on application restart.",
+                    )
+
+            if not _settings.use_https:
+                env = os.environ.get("GLYPH_ENV", os.environ.get("ENV", "development"))
+                if env == "production":
+                    logger.critical(
+                        "use_https is False in production! "
+                        "Cookies will be sent over unencrypted HTTP. "
+                        "Set GLYPH_USE_HTTPS=true or use_https in config.yml.",
+                    )
+                else:
+                    logger.warning(
+                        "use_https is False — cookies will be sent over unencrypted HTTP. "
+                        "Enable use_https in production.",
                     )
         except RuntimeError:
             raise
@@ -149,6 +164,7 @@ def reload_settings() -> GlyphSettings:
 
     Returns:
         GlyphSettings: Fresh settings instance.
+
     """
     global _settings
     _settings = GlyphSettings()

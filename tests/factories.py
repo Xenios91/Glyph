@@ -4,7 +4,7 @@ Centralizes mock object and model instance creation to eliminate
 duplicated inline test data across test files.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from app.database.models import (
@@ -43,8 +43,9 @@ def make_user(
 
     Returns:
         A User instance ready for test assertions or DB inserts.
+
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return User(
         id=user_id,
         username=username,
@@ -78,8 +79,9 @@ def make_model(
 
     Returns:
         A Model instance.
+
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return Model(
         id=model_id,
         model_name=model_name,
@@ -110,8 +112,9 @@ def make_prediction(
 
     Returns:
         A Prediction instance.
+
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return Prediction(
         id=prediction_id,
         task_name=task_name,
@@ -144,8 +147,9 @@ def make_function(
 
     Returns:
         A Function instance.
+
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return Function(
         id=func_id,
         model_name=model_name,
@@ -181,8 +185,9 @@ def make_binary(
 
     Returns:
         A Binary instance.
+
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return Binary(
         id=binary_id,
         name=name,
@@ -217,8 +222,9 @@ def make_binary_function(
 
     Returns:
         A BinaryFunction instance.
+
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return BinaryFunction(
         id=func_id,
         binary_id=binary_id,
@@ -254,6 +260,7 @@ def make_mock_user(
 
     Returns:
         A Mock with user attributes pre-configured.
+
     """
     mock = Mock()
     mock.id = user_id
@@ -283,6 +290,7 @@ def make_mock_binary(
 
     Returns:
         A Mock with binary attributes pre-configured.
+
     """
     mock = Mock()
     mock.id = binary_id
@@ -308,6 +316,7 @@ def make_mock_task_result(
 
     Returns:
         A Mock with task result attributes.
+
     """
     mock = Mock()
     mock.task_uuid = task_uuid

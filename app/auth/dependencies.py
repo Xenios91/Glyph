@@ -7,9 +7,15 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import OAuth2PasswordBearer
 from loguru import logger
+from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.jwt_handler import JWTHandler
+from app.auth.jwt_handler import (
+    BadSignatureError,
+    DecodeError,
+    InvalidTokenError,
+    JWTHandler,
+)
 from app.auth.security_logger import log_api_key_usage
 from app.config.settings import get_settings
 from app.database.models import User
@@ -28,6 +34,7 @@ def get_jwt_handler() -> JWTHandler:
 
     Returns:
         Configured JWTHandler instance.
+
     """
     settings = get_settings()
     return JWTHandler(
@@ -50,7 +57,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         except RequestValidationError:
             await session.rollback()
             raise
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Database session error, rolling back")
             raise
@@ -81,7 +88,7 @@ async def get_current_user(
     if not token:
         logger.warning("Authentication failed: missing token")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"}
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"},
         )
 
     user_id = None
@@ -91,7 +98,7 @@ async def get_current_user(
         if user_id:
             user_id = int(user_id)
             logger.bind(user_id=user_id).debug("JWT token verified")
-    except Exception:
+    except (ValueError, TypeError, DecodeError, BadSignatureError, InvalidTokenError):
         logger.debug("JWT verification failed, trying API key lookup")
         api_key_repo = APIKeyRepository(db)
         api_key_record = await api_key_repo.verify_and_get(token)
@@ -156,6 +163,7 @@ async def get_current_active_user(current_user: Annotated[User, Depends(get_curr
 
     Raises:
         HTTPException: 403 if the user account is disabled.
+
     """
     if not current_user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is disabled")
@@ -181,6 +189,7 @@ async def get_optional_user(
 
     Returns:
         The User object if authenticated, None otherwise.
+
     """
     settings = get_settings()
     if not settings.auth_enabled:
@@ -207,7 +216,7 @@ async def get_optional_user(
         user_id = payload.get("sub")
         if user_id:
             user_id = int(user_id)
-    except Exception:
+    except (ValueError, TypeError, DecodeError, BadSignatureError, InvalidTokenError):
         logger.debug("JWT verification failed, trying API key lookup")
         api_key_repo = APIKeyRepository(db)
         api_key_record = await api_key_repo.verify_and_get(token)

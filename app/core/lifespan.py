@@ -50,6 +50,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     Raises:
         RuntimeError: If any startup step fails.
+
     """
     logger.info("Starting up Glyph service")
 

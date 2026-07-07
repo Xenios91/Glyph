@@ -1,18 +1,14 @@
 """Tests for the CorrelationIdBridgeMiddleware."""
 
-from __future__ import annotations
-
-from typing import Any, Callable
+from typing import Any
 
 import pytest
-
-from starlette.types import Receive, Scope, Send
-
 from app.core.correlation_bridge import CorrelationIdBridgeMiddleware
 from app.utils.request_context import (
-    get_request_context,
     clear_request_context,
+    get_request_context,
 )
+from starlette.types import Receive, Scope, Send
 
 
 async def _noop_send(_: dict[str, Any]) -> None:
@@ -35,7 +31,7 @@ class _MockResponse:
                     "type": "http.response.start",
                     "status": self.status_code,
                     "headers": [[b"content-type", b"text/plain"]],
-                }
+                },
             )
             self.started = True
         await send({"type": "http.response.body", "body": self.body})
@@ -140,7 +136,7 @@ class TestMiddlewareLifecycle:
                     "type": "http.response.start",
                     "status": 200,
                     "headers": [],
-                }
+                },
             )
             await send({"type": "http.response.body", "body": b"ok"})
 
@@ -197,7 +193,7 @@ class TestMiddlewareLifecycle:
                     "type": "http.response.start",
                     "status": 200,
                     "headers": [],
-                }
+                },
             )
             await send({"type": "http.response.body", "body": b"ok"})
 

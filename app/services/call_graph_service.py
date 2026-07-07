@@ -5,8 +5,6 @@ function calls in the raw decompiled output. Builds a directed graph
 representing which functions call which other functions within a binary.
 """
 
-from __future__ import annotations
-
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -22,6 +20,7 @@ class CallEdge:
         caller: Name of the calling function.
         callee: Name of the called function.
         call_count: Number of times caller invokes callee.
+
     """
 
     caller: str
@@ -38,6 +37,7 @@ class CallGraphNode:
         entrypoint: Memory address of the function.
         callers: Functions that call this function.
         callees: Functions called by this function.
+
     """
 
     name: str
@@ -55,6 +55,7 @@ class CallGraph:
         nodes: All functions in the graph.
         edges: All call relationships between functions.
         known_functions: Set of known function names (for filtering).
+
     """
 
     binary_id: int
@@ -67,6 +68,7 @@ class CallGraph:
 
         Returns:
             Dictionary with nodes and edges suitable for JSON serialization.
+
         """
         return {
             "binary_id": self.binary_id,
@@ -150,6 +152,7 @@ class CallGraphService:
 
         Returns:
             CallGraph containing all nodes and edges.
+
         """
         from app.database.sql_service import SQLUtil
 
@@ -221,6 +224,7 @@ class CallGraphService:
 
         Returns:
             List of caller function names.
+
         """
         node = graph.nodes.get(function_name)
         if node is None:
@@ -237,6 +241,7 @@ class CallGraphService:
 
         Returns:
             List of callee function names.
+
         """
         node = graph.nodes.get(function_name)
         if node is None:
@@ -255,6 +260,7 @@ class CallGraphService:
 
         Returns:
             List of entry point function names.
+
         """
         entry_points = []
         for name, node in graph.nodes.items():

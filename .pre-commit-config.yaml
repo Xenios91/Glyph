@@ -25,7 +25,8 @@ repos:
         additional_dependencies:
           - pydantic>=2.0
           - pydantic-settings
-        exclude: ^tests/e2e/
+          - types-PyYAML
+        exclude: ^(tests|app/stubs)/
 
   - repo: local
     hooks:

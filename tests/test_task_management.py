@@ -1,21 +1,21 @@
 """Unit tests for task management and queue operations."""
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
 
 import pytest
-from loguru import logger
-
 from app.processing.task_management import EventWatcher, TaskManager
 from app.services.request_handler import TrainingRequest
 from app.services.task_service import TaskService
 from app.utils.request_context import CapturedContext
+from loguru import logger
 
 
 @contextmanager
 def capture_logs(level: str = "INFO", format: str = "{level}:{name}:{message}") -> Generator[list[str], Any, None]:
     """Capture loguru-based logs for testing.
-    
+
     Based on the loguru migration guide pattern for replacing unittest.assertLogs().
     """
     output: list[str] = []
@@ -193,9 +193,7 @@ def test_stop_watching_not_running(event_watcher: EventWatcher) -> None:
     event_watcher.stop_watching()
 
 
-def test_callback_invoked_on_completion(
-    event_watcher: EventWatcher, sample_training_request: TrainingRequest
-) -> None:
+def test_callback_invoked_on_completion(event_watcher: EventWatcher, sample_training_request: TrainingRequest) -> None:
     """Test that callback is invoked when a future completes."""
     from concurrent.futures import Future
 

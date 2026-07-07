@@ -49,6 +49,9 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# Ruff cache
+.ruff_cache/
+
 # Translations
 *.mo
 *.pot
@@ -146,7 +149,7 @@ data/
 logs/
 binaries/
 .docs/
-glyph_venv/*
+glyph_venv/
 
 # Virtual environments (additional patterns)
 *.egg-info/

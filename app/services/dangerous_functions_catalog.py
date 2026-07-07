@@ -26,6 +26,7 @@ class DangerousFunctionEntry:
         cwe: CWE identifier (e.g., "CWE-120").
         description: Why this function is dangerous.
         safe_alternative: Recommended replacement function(s).
+
     """
 
     name: str
@@ -694,6 +695,7 @@ def get_entry(function_name: str) -> DangerousFunctionEntry | None:
 
     Returns:
         The catalog entry if found, otherwise None.
+
     """
     return FUNCTION_LOOKUP.get(function_name.lower())
 
@@ -703,6 +705,7 @@ def get_all_entries() -> list[DangerousFunctionEntry]:
 
     Returns:
         List of all DangerousFunctionEntry instances.
+
     """
     return list(_ALL_ENTRIES)
 
@@ -712,6 +715,7 @@ def get_categories() -> list[str]:
 
     Returns:
         Sorted list of category names.
+
     """
     return sorted(CATEGORY_INDEX.keys())
 
@@ -724,6 +728,7 @@ def get_entries_by_category(category: str) -> list[DangerousFunctionEntry]:
 
     Returns:
         List of entries in that category, or empty list if category not found.
+
     """
     return CATEGORY_INDEX.get(category, [])
 
@@ -738,6 +743,7 @@ def get_severity_order(severity: Severity) -> int:
 
     Returns:
         Integer sort order (Critical=0, High=1, Medium=2, Low=3).
+
     """
     order_map: dict[str, int] = {
         "Critical": 0,

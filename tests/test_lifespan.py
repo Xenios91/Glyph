@@ -1,10 +1,9 @@
 """Tests for the lifespan module."""
 
 from typing import Any
-
-import pytest
 from unittest.mock import Mock, patch
 
+import pytest
 from app.core.lifespan import lifespan
 
 
@@ -44,9 +43,7 @@ class TestLifespan:
             mock_create_task.assert_called_once()
 
     @patch("app.core.lifespan.get_settings")
-    async def test_lifespan_startup_config_failure(
-        self, mock_get_settings: Any, mock_app: Mock
-    ) -> None:
+    async def test_lifespan_startup_config_failure(self, mock_get_settings: Any, mock_app: Mock) -> None:
         """Test lifespan startup fails on config error."""
         mock_get_settings.side_effect = RuntimeError("Config error")
 

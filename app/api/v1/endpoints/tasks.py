@@ -4,7 +4,6 @@ Provides endpoints for executing analysis tasks (code reuse detection,
 ML training, ML prediction) on previously uploaded binaries.
 """
 
-import asyncio
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -15,6 +14,8 @@ from app.api.types import TaskType
 from app.auth.dependencies import get_current_active_user
 from app.database.models import SimilarityPair, User
 from app.processing.task_management import TaskManager
+from app.services.prediction_service import PredictionService
+from app.utils.background_tasks import create_background_task, remove_task_delayed
 from app.utils.request_context import (
     CapturedContext,
     capture_request_context,
@@ -44,6 +45,7 @@ class TaskExecutionRequest(BaseModel):
         task_name: Human-readable name for this task execution.
         model_name: Required for ml_training and ml_prediction tasks.
         ml_class_type: Required for ml_training tasks.
+
     """
 
     binary_id: int = Field(..., gt=0)
@@ -133,59 +135,8 @@ class SimilarityComputationListResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Background task handlers
+# Task runner functions
 # ---------------------------------------------------------------------------
-
-
-# Background task tracker to prevent garbage collection of fire-and-forget tasks
-_BACKGROUND_TASKS: set[asyncio.Task[None]] = set()
-
-
-async def _remove_task_delayed(task_uuid: str) -> None:
-    """Remove a task from TaskManager after a delay.
-
-    Args:
-        task_uuid: The task UUID to remove.
-    """
-    await asyncio.sleep(10)
-    TaskManager.remove_task(task_uuid)
-
-
-async def _save_prediction_functions_tasks(prediction_request: Any, predictions: list[str]) -> None:
-    """Merge predictions with functions and persist to database."""
-    from app.database.prediction_repository import PredictionRepository
-
-    functions: list[dict[str, Any]] = prediction_request.get_functions() or []
-    task_name = prediction_request.task_name
-
-    if functions and len(functions) == len(predictions):
-        for ctr, function in enumerate(functions):
-            updated_function = function.copy()
-            updated_function["prediction"] = predictions[ctr]
-            functions[ctr] = updated_function
-        await PredictionRepository.save(task_name, prediction_request.model_name, functions)
-    elif functions:
-        logger.warning(
-            "Mismatch between functions (%d) and predictions (%d) for task '%s'",
-            len(functions),
-            len(predictions),
-            task_name,
-        )
-
-
-def _create_background_task(coro) -> asyncio.Task[None]:
-    """Create a background task that won't be garbage-collected.
-
-    Args:
-        coro: The coroutine to run in the background.
-
-    Returns:
-        The created asyncio.Task.
-    """
-    task: asyncio.Task[None] = asyncio.create_task(coro)
-    _BACKGROUND_TASKS.add(task)
-    task.add_done_callback(_BACKGROUND_TASKS.discard)
-    return task
 
 
 async def _run_code_reuse_task(
@@ -205,6 +156,7 @@ async def _run_code_reuse_task(
         task_uuid: Task UUID for progress tracking.
         task_name: Human-readable task name.
         captured_ctx: Captured request context.
+
     """
     from app.database.sql_service import SQLUtil
     from app.processing.pipeline import PipelineContext
@@ -285,7 +237,7 @@ async def _run_code_reuse_task(
         for target_id in target_ids:
             result = await compare_binaries(filtered_source, target_id)
             if result:
-                comparisons.append(result)
+                comparisons.append(result)  # type: ignore[arg-type]
 
         TaskManager.set_status(task_uuid, "completed")
 
@@ -308,7 +260,7 @@ async def _run_code_reuse_task(
         logger.exception("Code reuse task failed")
         raise
     finally:
-        _create_background_task(_remove_task_delayed(task_uuid))
+        create_background_task(remove_task_delayed(task_uuid))
         clear_request_context()
 
 
@@ -328,6 +280,7 @@ async def _run_dangerous_functions_task(
         task_uuid: Task UUID for progress tracking.
         task_name: Human-readable task name.
         captured_ctx: Captured request context.
+
     """
     from app.database.sql_service import SQLUtil
     from app.processing.pipeline import PipelineContext
@@ -431,7 +384,7 @@ async def _run_dangerous_functions_task(
         logger.exception("Dangerous function scan task failed")
         raise
     finally:
-        _create_background_task(_remove_task_delayed(task_uuid))
+        create_background_task(remove_task_delayed(task_uuid))
         clear_request_context()
 
 
@@ -457,6 +410,7 @@ async def _run_ml_task(
         model_name: ML model name.
         ml_class_type: Classification type (for training).
         captured_ctx: Captured request context.
+
     """
     from app.processing.pipeline import PipelineContext
 
@@ -530,7 +484,6 @@ async def _run_ml_task(
             elif task_type == TaskType.ML_PREDICTION:
                 predictions = result.get("predictions")
                 if predictions and filtered_functions:
-                    from app.database.prediction_repository import PredictionRepository
                     from app.services.request_handler import PredictionRequest
 
                     prediction_data = {
@@ -547,7 +500,7 @@ async def _run_ml_task(
                             model_name=model_name,
                             data=prediction_data,
                         )
-                        await _save_prediction_functions_tasks(prediction_request, predictions)
+                        await PredictionService.save_prediction_functions(prediction_request, predictions)
                         logger.info(
                             "Predictions saved for task '{}' ({} predictions)",
                             task_name,
@@ -565,7 +518,7 @@ async def _run_ml_task(
         logger.exception("ML task failed")
         raise
     finally:
-        _create_background_task(_remove_task_delayed(task_uuid))
+        create_background_task(remove_task_delayed(task_uuid))
         clear_request_context()
 
 
@@ -590,6 +543,7 @@ async def _run_similarity_computation_task(
         match_threshold: Minimum similarity score to count a match.
         user_id: ID of the user who initiated the computation.
         captured_ctx: Captured request context.
+
     """
     from app.database.sql_service import SQLUtil
     from app.services.binary_similarity_service import BinarySimilarityService
@@ -669,7 +623,7 @@ async def _run_similarity_computation_task(
                 logger.exception("Failed to persist error state for similarity computation")
         raise
     finally:
-        _create_background_task(_remove_task_delayed(task_uuid))
+        create_background_task(remove_task_delayed(task_uuid))
         clear_request_context()
 
 
@@ -678,7 +632,7 @@ async def _run_similarity_computation_task(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/execute", response_model=SuccessResponse[TaskExecutionResponse])
+@router.post("/execute")
 async def execute_task(
     background_tasks: BackgroundTasks,
     request_values: TaskExecutionRequest,
@@ -695,6 +649,7 @@ async def execute_task(
 
     Returns:
         Task UUID and status for progress tracking.
+
     """
     from app.database.sql_service import SQLUtil
 
@@ -717,14 +672,14 @@ async def execute_task(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="MISSING_MODEL_NAME", error_message="model_name is required for ML tasks"
+                error_code="MISSING_MODEL_NAME", error_message="model_name is required for ML tasks",
             ).model_dump(),
         )
     if request_values.task_type == TaskType.ML_TRAINING and not request_values.ml_class_type:
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="MISSING_ML_CLASS_TYPE", error_message="ml_class_type is required for ML training"
+                error_code="MISSING_ML_CLASS_TYPE", error_message="ml_class_type is required for ML training",
             ).model_dump(),
         )
 
@@ -801,6 +756,7 @@ async def get_task_results(
 
     Returns:
         Task results (structure depends on task type).
+
     """
     status = TaskManager.get_status(task_uuid)
     if status == "UUID Not Found":
@@ -820,7 +776,7 @@ async def get_task_results(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="TASK_RESULTS_NOT_AVAILABLE", error_message="Task results not available"
+                error_code="TASK_RESULTS_NOT_AVAILABLE", error_message="Task results not available",
             ).model_dump(),
         )
 
@@ -842,6 +798,7 @@ async def get_task_status(
 
     Returns:
         Current task status string.
+
     """
     status = TaskManager.get_status(task_uuid)
     if status == "UUID Not Found":
@@ -869,7 +826,6 @@ async def get_task_status(
 
 @router.post(
     "/similarity-computation",
-    response_model=SuccessResponse[TaskExecutionResponse],
 )
 async def start_similarity_computation(
     background_tasks: BackgroundTasks,
@@ -886,6 +842,7 @@ async def start_similarity_computation(
 
     Returns:
         Task UUID and status for progress tracking.
+
     """
     from app.database.sql_service import SQLUtil
 
@@ -940,6 +897,7 @@ async def list_similarity_computations(
 
     Returns:
         List of computation metadata records ordered by creation date.
+
     """
     from app.database.sql_service import SQLUtil
 
@@ -975,6 +933,7 @@ async def get_similarity_computation(
 
     Returns:
         Computation metadata with full similarity matrix.
+
     """
     from app.database.sql_service import SQLUtil
 
@@ -983,7 +942,7 @@ async def get_similarity_computation(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="COMPUTATION_NOT_FOUND", error_message="Computation not found"
+                error_code="COMPUTATION_NOT_FOUND", error_message="Computation not found",
             ).model_dump(),
         )
 
@@ -1007,7 +966,7 @@ async def get_similarity_computation(
                 overall_similarity=pair.overall_similarity,
                 matched_function_count=pair.matched_function_count,
                 total_function_comparisons=pair.total_function_comparisons,
-            )
+            ),
         )
 
     response = SimilarityMatrixResponse(
@@ -1037,6 +996,7 @@ async def delete_similarity_computation(
 
     Returns:
         Confirmation message.
+
     """
     from app.database.sql_service import SQLUtil
 
@@ -1045,7 +1005,7 @@ async def delete_similarity_computation(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="COMPUTATION_NOT_FOUND", error_message="Computation not found"
+                error_code="COMPUTATION_NOT_FOUND", error_message="Computation not found",
             ).model_dump(),
         )
 

@@ -1,8 +1,8 @@
 """Tests for code reuse detection service."""
+
 from unittest import mock
 
 import pytest
-
 from app.services.code_reuse_detector import (
     _longest_common_subsequence,
     compare_binaries,
@@ -157,9 +157,7 @@ class TestCompareBinaries:
             },
         ]
 
-    def _create_mock_binary_function(
-        self, function_name: str, entrypoint: int, raw_code: str
-    ) -> mock.MagicMock:
+    def _create_mock_binary_function(self, function_name: str, entrypoint: int, raw_code: str) -> mock.MagicMock:
         """Create a mock BinaryFunction object."""
         bf = mock.MagicMock()
         bf.function_name = function_name
@@ -234,7 +232,7 @@ class TestCompareBinaries:
                     "functionName": "tgt_func",
                     "tokenList": ["float", "completely", "different"],
                     "tokens": "float completely different",
-                }
+                },
             ]
 
             with mock.patch("app.processing.steps.TokenizeStep") as MockTokenize:
@@ -268,7 +266,7 @@ class TestCompareBinaries:
                     "functionName": "tgt_main",
                     "tokenList": ["int", "tgt_main", "{", "return", "0", "}"],
                     "tokens": "int tgt_main { return 0 }",
-                }
+                },
             ]
 
             with mock.patch("app.processing.steps.TokenizeStep") as MockTokenize:
@@ -309,7 +307,7 @@ class TestCompareBinaries:
                     "functionName": "tgt_func",
                     "tokenList": ["int", "tgt_func"],
                     "tokens": "int tgt_func",
-                }
+                },
             ]
 
             with mock.patch("app.processing.steps.TokenizeStep") as MockTokenize:
@@ -447,7 +445,7 @@ class TestCompareBinaries:
                     "functionName": "tgt_func",
                     "tokenList": ["int", "tgt_func", "{", "}"],
                     "tokens": "int tgt_func { }",
-                }
+                },
             ]
 
             with mock.patch("app.processing.steps.TokenizeStep") as MockTokenize:

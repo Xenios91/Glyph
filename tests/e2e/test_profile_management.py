@@ -8,7 +8,6 @@ on the profile page.
 from typing import Any
 
 from playwright.sync_api import expect
-
 from tests.e2e.utils import BASE_URL, register_and_login
 
 
@@ -17,7 +16,7 @@ class TestProfilePage:
 
     def test_profile_page_loads(self, page: Any, server: Any) -> None:
         """Test that the profile page loads with correct title."""
-        username = register_and_login(page)
+        register_and_login(page)
 
         page.goto(f"{BASE_URL}/profile")
         page.wait_for_load_state("networkidle")

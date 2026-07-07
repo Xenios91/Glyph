@@ -9,7 +9,5 @@ application. Using a single instance ensures:
 
 from fastapi.templating import Jinja2Templates
 
-from app.utils.jinja_utils import configure_jinja2_templates
-
 templates = Jinja2Templates(directory="templates")
-configure_jinja2_templates(templates)
+templates.env.autoescape = True

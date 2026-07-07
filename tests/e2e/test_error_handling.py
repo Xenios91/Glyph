@@ -7,7 +7,6 @@ Tests error pages, 404 handling, and edge case scenarios in the UI.
 from typing import Any
 
 from playwright.sync_api import expect
-
 from tests.e2e.utils import BASE_URL, register_and_login
 
 
@@ -70,21 +69,22 @@ class TestNavigationErrorHandling:
 
     def test_navigating_after_logout_works(self, page: Any, server: Any) -> None:
         """Test that navigation works correctly after logout."""
-        username = register_and_login(page)
+        register_and_login(page)
 
         # Logout
-        page.evaluate(f"""
+        page.evaluate("""
           const menu = document.getElementById('user-menu');
           const toggle = menu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
-          if (menu && toggle) {{
+          if (menu && toggle) {
             menu.classList.add('is-open');
             toggle.setAttribute('aria-expanded', 'true');
-          }}
+          }
         """)
         page.wait_for_selector("#user-menu.is-open", state="visible", timeout=5000)
         page.locator('a[role="menuitem"][aria-label="Logout"]').click()
 
         import re
+
         page.wait_for_url(re.compile(r"/login"), timeout=10000)
 
         # Try to navigate to a protected page - should redirect to login

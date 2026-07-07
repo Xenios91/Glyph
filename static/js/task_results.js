@@ -35,7 +35,7 @@
      */
     async function loadResults() {
         try {
-            var response = await authenticatedFetch('/api/v1/tasks/tasks/' + taskUuid + '/results', {
+            var response = await authenticatedFetch('/api/v1/tasks/' + taskUuid + '/results', {
                 headers: { 'Accept': 'application/json' }
             });
 

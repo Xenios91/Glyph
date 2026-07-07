@@ -2,6 +2,7 @@
 
 from loguru import logger
 from sqlalchemy import delete, select
+from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -32,6 +33,7 @@ class SimilarityRepository:
 
         Returns:
             The created SimilarityComputation instance.
+
         """
         session: AsyncSession = await get_async_session("intelligence")
         try:
@@ -47,7 +49,7 @@ class SimilarityRepository:
             await session.refresh(comp)
             logger.info("Similarity computation '{}' created (id={})", task_name, comp.id)
             return comp
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to create similarity computation '%s'", task_name)
             raise
@@ -66,6 +68,7 @@ class SimilarityRepository:
             computation_id: Database id.
             status: New status string.
             total_comparisons: Optional override for total comparisons count.
+
         """
         session: AsyncSession = await get_async_session("intelligence")
         try:
@@ -77,7 +80,7 @@ class SimilarityRepository:
             if total_comparisons is not None:
                 comp.total_comparisons = total_comparisons
             await session.commit()
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to update computation {}", computation_id)
             raise
@@ -94,6 +97,7 @@ class SimilarityRepository:
         Args:
             computation_id: Parent computation id.
             pairs: List of SimilarityPair ORM instances to save.
+
         """
         session: AsyncSession = await get_async_session("intelligence")
         try:
@@ -106,7 +110,7 @@ class SimilarityRepository:
                 len(pairs),
                 computation_id,
             )
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to save similarity pairs for computation {}", computation_id)
             raise
@@ -122,19 +126,20 @@ class SimilarityRepository:
 
         Returns:
             SimilarityComputation instance with loaded pairs, or None.
+
         """
         session: AsyncSession = await get_async_session("intelligence")
         try:
             result = await session.execute(
                 select(SimilarityComputation)
                 .options(selectinload(SimilarityComputation.pairs))
-                .where(SimilarityComputation.id == computation_id)
+                .where(SimilarityComputation.id == computation_id),
             )
             comp = result.scalar_one_or_none()
             if comp is not None:
                 session.expunge_all()
             return comp
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to retrieve computation {}", computation_id)
             return None
         finally:
@@ -151,6 +156,7 @@ class SimilarityRepository:
 
         Returns:
             List of SimilarityComputation instances.
+
         """
         session: AsyncSession = await get_async_session("intelligence")
         try:
@@ -162,7 +168,7 @@ class SimilarityRepository:
             comps = list(result.scalars().all())
             session.expunge_all()
             return comps
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to list similarity computations")
             return []
         finally:
@@ -174,6 +180,7 @@ class SimilarityRepository:
 
         Args:
             computation_id: Database id.
+
         """
         session: AsyncSession = await get_async_session("intelligence")
         try:
@@ -181,7 +188,7 @@ class SimilarityRepository:
             await session.execute(delete(SimilarityComputation).where(SimilarityComputation.id == computation_id))
             await session.commit()
             logger.info("Similarity computation {} deleted", computation_id)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to delete computation {}", computation_id)
             raise

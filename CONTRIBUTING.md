@@ -46,8 +46,7 @@ python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt  # Or use pyproject.toml dev extras
+pip install .[dev]
 
 # Install pre-commit hooks
 pre-commit install

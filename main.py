@@ -10,30 +10,28 @@ Components:
     create_app: Factory function that builds the FastAPI application.
 """
 
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 from urllib.parse import quote
-from typing import Any, Awaitable, Callable, cast
 
-from loguru import logger
-
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
+from app.api.router import api_router
+from app.auth.endpoints import router as auth_router
+from app.core.lifespan import lifespan
+from app.core.rate_limiter import limiter
+from app.templates import templates
+from app.utils.helpers import ACCEPT_TYPE
+from app.utils.logging_config import setup_logging_from_config
+from app.web.endpoints.web import router as web_router
+from asgi_correlation_id import CorrelationIdMiddleware
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from loguru import logger
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import Response
-
-from asgi_correlation_id import CorrelationIdMiddleware
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-
-from app.core.lifespan import lifespan
-from app.core.rate_limiter import limiter
-from app.api.router import api_router
-from app.web.endpoints.web import router as web_router
-from app.auth.endpoints import router as auth_router
-from app.templates import templates
-from app.utils.logging_config import setup_logging_from_config
-
 
 setup_logging_from_config()
 
@@ -100,10 +98,11 @@ class CSPMiddleware:
             app: The downstream ASGI application.
             use_https: Whether HTTPS is enabled. HSTS header is only included
                 when True to avoid breaking development environments.
+
         """
         self.app = app
         self._security_headers: list[tuple[bytes, bytes]] = (
-            [self._HSTS_HEADER] + self._SECURITY_HEADERS_NO_HSTS
+            [*[self._HSTS_HEADER], *self._SECURITY_HEADERS_NO_HSTS]
             if use_https
             else list(self._SECURITY_HEADERS_NO_HSTS)
         )
@@ -120,6 +119,7 @@ class CSPMiddleware:
             scope: The ASGI connection scope.
             receive: Awaitable callable for receiving events.
             send: Awaitable callable for sending events.
+
         """
         if scope["type"] != "http":
             await self.app(scope, receive, send)
@@ -140,6 +140,16 @@ class CSPMiddleware:
         await self.app(scope, receive, send_wrapper)
 
 
+class RequestBodyTooLarge(Exception):
+    """Custom exception for request body size limit violations.
+
+    Using a dedicated exception class prevents accidentally catching
+    unrelated ValueError exceptions from downstream code.
+    """
+
+    pass
+
+
 class RequestSizeMiddleware:
     """ASGI middleware that enforces a maximum request body size.
 
@@ -157,6 +167,7 @@ class RequestSizeMiddleware:
         Args:
             app: The downstream ASGI application.
             max_size: Maximum allowed request body size in bytes.
+
         """
         self.app = app
         self.max_size = max_size
@@ -173,6 +184,7 @@ class RequestSizeMiddleware:
             scope: The ASGI connection scope.
             receive: Awaitable callable for receiving events.
             send: Awaitable callable for sending events.
+
         """
         if scope["type"] != "http":
             await self.app(scope, receive, send)
@@ -187,15 +199,14 @@ class RequestSizeMiddleware:
                 body_size = len(message["body"])
                 total_size += body_size
                 if total_size > self.max_size:
-                    raise ValueError(
-                        f"Request body size ({total_size} bytes) exceeds "
-                        f"maximum allowed size ({self.max_size} bytes)"
+                    raise RequestBodyTooLarge(
+                        f"Request body size ({total_size} bytes) exceeds maximum allowed size ({self.max_size} bytes)",
                     )
             return message
 
         try:
             await self.app(scope, receive_wrapper, send)
-        except ValueError:
+        except RequestBodyTooLarge:
             response = {
                 "type": "http.response.start",
                 "status": 413,
@@ -208,7 +219,7 @@ class RequestSizeMiddleware:
                 {
                     "type": "http.response.body",
                     "body": b'{"detail": "Request body too large"}',
-                }
+                },
             )
 
 
@@ -225,6 +236,7 @@ class CachedStaticFiles(StaticFiles):
         Args:
             *args: Positional arguments passed to StaticFiles.
             **kwargs: Keyword arguments passed to StaticFiles.
+
         """
         super().__init__(*args, **kwargs)
         self.cache_control_max_age = 86400
@@ -238,6 +250,7 @@ class CachedStaticFiles(StaticFiles):
 
         Returns:
             The response with caching headers applied.
+
         """
         response = await super().get_response(path, scope)
         if isinstance(response, FileResponse):
@@ -254,6 +267,7 @@ def create_app() -> FastAPI:
 
     Returns:
         Configured FastAPI application instance.
+
     """
     app = FastAPI(
         title="Glyph API",
@@ -267,6 +281,7 @@ def create_app() -> FastAPI:
     logger.info("Middleware registered: GZipMiddleware")
 
     from app.config.settings import get_settings
+
     settings = get_settings()
 
     # Request size limit middleware
@@ -276,6 +291,7 @@ def create_app() -> FastAPI:
 
     if settings.logging.request_tracing.enabled:
         from app.core.correlation_bridge import CorrelationIdBridgeMiddleware
+
         app.add_middleware(CorrelationIdBridgeMiddleware)
         app.add_middleware(CorrelationIdMiddleware, header_name="X-Request-ID")
         logger.info("Middleware registered: CorrelationIdMiddleware (asgi-correlation-id)")
@@ -323,6 +339,7 @@ def create_app() -> FastAPI:
 
         Returns:
             JSON response with status "ok".
+
         """
         return JSONResponse({"status": "ok"})
 
@@ -334,6 +351,7 @@ def create_app() -> FastAPI:
 
         Returns:
             JSON response with readiness status and component health.
+
         """
         from app.database.session_handler import get_async_session
 
@@ -349,10 +367,12 @@ def create_app() -> FastAPI:
             component_status["database"] = f"error: {e}"
 
         overall = "ok" if all(v == "ok" for v in component_status.values()) else "degraded"
-        return JSONResponse({
-            "status": overall,
-            "components": component_status,
-        })
+        return JSONResponse(
+            {
+                "status": overall,
+                "components": component_status,
+            },
+        )
 
     return app
 
@@ -366,6 +386,7 @@ async def favicon() -> FileResponse:
 
     Returns:
         FileResponse pointing to the favicon file.
+
     """
     return FileResponse("static/favicon.ico")
 
@@ -387,7 +408,9 @@ _STATUS_ERROR_CODE: dict[int, str] = {
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLResponse | JSONResponse | RedirectResponse:
+async def http_exception_handler(
+    request: Request, exc: HTTPException,
+) -> HTMLResponse | JSONResponse | RedirectResponse:
     """Handle HTTP exceptions with appropriate response format.
 
     Routes 401 errors to the login page for HTML requests, returns styled
@@ -399,26 +422,24 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> HTMLRe
 
     Returns:
         HTML error page, JSON error response, or redirect to login.
+
     """
     level = "WARNING" if exc.status_code >= 500 else "DEBUG"
     logger.log(level, "HTTP error {}: {}", exc.status_code, exc.detail)
 
     accept = request.headers.get("Accept", "")
 
-    if exc.status_code == 401 and "text/html" in accept:
+    if exc.status_code == 401 and ACCEPT_TYPE in accept:
         redirect_path = request.url.path
         if not redirect_path.startswith("/"):
             redirect_path = "/"
-        redirect_path = "/".join(
-            segment for segment in redirect_path.split("/")
-            if segment and segment != ".."
-        )
+        redirect_path = "/".join(segment for segment in redirect_path.split("/") if segment and segment != "..")
         if not redirect_path.startswith("/"):
             redirect_path = "/"
         redirect_url = f"/login?redirect={quote(redirect_path, safe='/')}"
         return RedirectResponse(url=redirect_url, status_code=303)
 
-    if "text/html" in accept:
+    if ACCEPT_TYPE in accept:
         return templates.TemplateResponse(
             request,
             "error.html",
@@ -452,10 +473,11 @@ async def general_exception_handler(request: Request, exc: Exception) -> HTMLRes
 
     Returns:
         HTML error page for browser clients or JSON error for API clients.
+
     """
     logger.exception("Unexpected error")
     accept = request.headers.get("Accept", "")
-    if "text/html" in accept:
+    if ACCEPT_TYPE in accept:
         return templates.TemplateResponse(
             request,
             "error.html",
@@ -477,4 +499,5 @@ async def general_exception_handler(request: Request, exc: Exception) -> HTMLRes
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -3,28 +3,26 @@
 from pathlib import Path
 
 import pytest
-from fastapi import HTTPException
-from loguru import logger
-
-from app.utils.logging_utils import catch_http_exception
-
-from app.utils.logging_config import (
-    setup_logging,
-    SensitiveDataPatcher,
+from app.auth.security_logger import (
+    LoginFailureTracker,
+    log_login_failure,
+    log_login_success,
 )
+from app.utils.logging_config import (
+    SensitiveDataPatcher,
+    setup_logging,
+)
+from app.utils.logging_utils import catch_http_exception
 from app.utils.request_context import (
-    get_request_context,
-    set_request_context,
     clear_request_context,
+    get_request_context,
     get_request_id,
     get_user_id,
     get_username,
+    set_request_context,
 )
-from app.auth.security_logger import (
-    LoginFailureTracker,
-    log_login_success,
-    log_login_failure,
-)
+from fastapi import HTTPException
+from loguru import logger
 
 
 class TestLoggingSetup:
@@ -163,11 +161,12 @@ class TestLoginFailureTracker:
     def test_tracker_is_suspicious(self):
         """Test suspicious detection."""
         tracker = LoginFailureTracker(threshold=3, window=300)
-        
+
         for _ in range(3):
             tracker.record_failure("test_user")
-        
+
         assert tracker.is_suspicious("test_user") is True
+
 
 class TestSecurityLogging:
     """Tests for security logging functions."""
@@ -185,15 +184,19 @@ class TestSecurityLogging:
     def test_log_login_failure_with_attempt_number(self):
         """Test logging failed login with attempt number."""
         from app.auth.security_logger import log_login_failure as _lf
+
         # Should not raise - covers line 215 (attempt_number in bind_kwargs)
         _lf(username="test_user", reason="invalid_password", attempt_number=3)
 
     def test_log_login_failure_suspicious_username(self):
         """Test that suspicious username triggers log_suspicious_activity."""
         from app.auth.security_logger import (
-            log_login_failure as _lf,
             _login_failure_tracker,
         )
+        from app.auth.security_logger import (
+            log_login_failure as _lf,
+        )
+
         # Reset tracker state
         _login_failure_tracker.reset("suspicious_user_test")
         # Record enough failures to trigger suspicious
@@ -205,9 +208,12 @@ class TestSecurityLogging:
     def test_log_login_failure_suspicious_ip(self):
         """Test that suspicious IP triggers log_suspicious_activity."""
         from app.auth.security_logger import (
-            log_login_failure as _lf,
             _login_failure_tracker,
         )
+        from app.auth.security_logger import (
+            log_login_failure as _lf,
+        )
+
         test_ip = "192.168.1.100"
         _login_failure_tracker.reset(test_ip)
         for _ in range(5):
@@ -217,11 +223,13 @@ class TestSecurityLogging:
     def test_log_api_key_usage(self):
         """Test logging API key usage event."""
         from app.auth.security_logger import log_api_key_usage
+
         log_api_key_usage(user_id=1, api_key_prefix="abcd", endpoint="/api/v1/models")
 
     def test_log_permission_denied(self):
         """Test logging permission denied event."""
         from app.auth.security_logger import log_permission_denied
+
         log_permission_denied(
             user_id=1,
             username="test_user",
@@ -232,41 +240,49 @@ class TestSecurityLogging:
     def test_log_password_change(self):
         """Test logging password change event."""
         from app.auth.security_logger import log_password_change
+
         log_password_change(user_id=1, username="test_user")
 
     def test_log_logout(self):
         """Test logging logout event."""
         from app.auth.security_logger import log_logout
+
         log_logout(user_id=1, username="test_user", session_id="sess_123")
 
     def test_log_token_refresh(self):
         """Test logging token refresh event."""
         from app.auth.security_logger import log_token_refresh
+
         log_token_refresh(user_id=1, token_type="access")
 
     def test_log_user_registration(self):
         """Test logging user registration event."""
         from app.auth.security_logger import log_user_registration
+
         log_user_registration(user_id=1, username="new_user")
 
     def test_log_api_key_created(self):
         """Test logging API key creation event."""
         from app.auth.security_logger import log_api_key_created
+
         log_api_key_created(user_id=1, key_id=1, key_prefix="abc12345", name="Test Key")
 
     def test_log_api_key_deleted(self):
         """Test logging API key deletion event."""
         from app.auth.security_logger import log_api_key_deleted
+
         log_api_key_deleted(user_id=1, key_id=1, name="Test Key")
 
     def test_log_login_attempt(self):
         """Test logging login attempt event."""
         from app.auth.security_logger import log_login_attempt
+
         log_login_attempt(username="test_user", ip_address="127.0.0.1")
 
     def test_is_blocked(self):
         """Test is_blocked function."""
-        from app.auth.security_logger import is_blocked, _login_failure_tracker
+        from app.auth.security_logger import _login_failure_tracker, is_blocked
+
         test_user = "blocked_user_test"
         _login_failure_tracker.reset(test_user)
         assert is_blocked(test_user) is False
@@ -280,6 +296,7 @@ class TestSecurityLogging:
         tracker = LoginFailureTracker(threshold=5, window=0.001)
         tracker.record_failure("cleanup_test_user")
         import time
+
         time.sleep(0.01)  # Wait for window to expire
         # Trigger cleanup by recording another failure
         tracker.record_failure("cleanup_test_user2")
@@ -304,12 +321,12 @@ class TestRequestContext:
     def test_set_and_get_context(self):
         """Test setting and getting request context."""
         set_request_context(request_id="test-123", user_id=1, username="test_user")
-        
+
         ctx = get_request_context()
         assert ctx.request_id == "test-123"
         assert ctx.user_id == 1
         assert ctx.username == "test_user"
-        
+
         clear_request_context()
 
     def test_get_request_id(self):
@@ -338,11 +355,11 @@ class TestRequestContext:
         assert ctx.user_id is None
         assert ctx.username is None
 
-
     """Tests for catch_http_exception decorator."""
 
     def test_sync_wrapper_raises_http_exception_on_error(self):
         """Test that sync functions raise HTTPException when an error occurs."""
+
         @catch_http_exception(status_code=400, error_code="TEST_ERROR")
         def failing_sync():
             raise ValueError("test error")
@@ -354,6 +371,7 @@ class TestRequestContext:
 
     def test_sync_wrapper_preserves_http_exception(self):
         """Test that existing HTTPExceptions are re-raised as-is."""
+
         @catch_http_exception(status_code=500, error_code="INTERNAL")
         def raising_http():
             raise HTTPException(status_code=404, detail="Not found")
@@ -364,6 +382,7 @@ class TestRequestContext:
 
     def test_sync_wrapper_success(self):
         """Test that successful sync functions return normally."""
+
         @catch_http_exception(status_code=500, error_code="INTERNAL")
         def working_sync():
             return "success"
@@ -373,6 +392,7 @@ class TestRequestContext:
     @pytest.mark.asyncio
     async def test_async_wrapper_raises_http_exception_on_error(self):
         """Test that async functions raise HTTPException when an error occurs."""
+
         @catch_http_exception(status_code=400, error_code="ASYNC_ERROR")
         async def failing_async():
             raise ValueError("async test error")
@@ -384,6 +404,7 @@ class TestRequestContext:
     @pytest.mark.asyncio
     async def test_async_wrapper_preserves_http_exception(self):
         """Test that existing HTTPExceptions in async are re-raised as-is."""
+
         @catch_http_exception(status_code=500, error_code="INTERNAL")
         async def raising_http_async():
             raise HTTPException(status_code=403, detail="Forbidden")
@@ -395,6 +416,7 @@ class TestRequestContext:
     @pytest.mark.asyncio
     async def test_async_wrapper_success(self):
         """Test that successful async functions return normally."""
+
         @catch_http_exception(status_code=500, error_code="INTERNAL")
         async def working_async():
             return "async success"

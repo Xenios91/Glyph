@@ -13,20 +13,20 @@ function goToPredictionDetailsURL(id) {
     const functionName = id.slice(0, -3);
     const taskNameElement = document.getElementById('task-name');
     const modelNameElement = document.getElementById('model-name');
-    
+
     if (!taskNameElement || !modelNameElement) {
         console.error('Task name or model name element not found');
         return;
     }
-    
+
     const taskName = extractLabelValue(taskNameElement);
     const modelName = extractLabelValue(modelNameElement);
-    
-    const url = '/api/v1/models/getPredictionDetails?function_name=' +
+
+    const url = '/getPredictionDetails?function_name=' +
         encodeURIComponent(functionName) +
         '&task_name=' + encodeURIComponent(taskName) +
         '&model_name=' + encodeURIComponent(modelName);
-    
+
     if (url) {
         window.location = url;
     }
@@ -39,10 +39,10 @@ function goToPredictionDetailsURL(id) {
  * @param {string} taskName - Name of the task
  */
 window.goToPredictionDetails = function goToPredictionDetails(functionName, modelName, taskName) {
-    const url = '/api/v1/models/getPredictionDetails?function_name=' + encodeURIComponent(functionName) +
+    const url = '/getPredictionDetails?function_name=' + encodeURIComponent(functionName) +
         '&task_name=' + encodeURIComponent(taskName) +
         '&model_name=' + encodeURIComponent(modelName);
-    
+
     if (url) {
         window.location = url;
     }
@@ -158,16 +158,16 @@ const selectionManager = new SelectionManager({
 function initSyncScroll() {
     const modelTokensDiv = document.getElementById('model_tokens_div');
     const predictionTokensDiv = document.getElementById('prediction_tokens_div');
-    
+
     if (!modelTokensDiv || !predictionTokensDiv) {
         return;
     }
-    
+
     // Scroll model_tokens_div when prediction_tokens_div scrolls
     predictionTokensDiv.addEventListener('scroll', function() {
         modelTokensDiv.scrollTop = this.scrollTop;
     });
-    
+
     // Scroll prediction_tokens_div when model_tokens_div scrolls
     modelTokensDiv.addEventListener('scroll', function() {
         predictionTokensDiv.scrollTop = this.scrollTop;

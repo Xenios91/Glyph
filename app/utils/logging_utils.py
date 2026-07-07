@@ -22,7 +22,7 @@ _P = ParamSpec("_P")
 
 
 def catch_http_exception(
-    status_code: int = 500, error_code: str = "INTERNAL_ERROR", message: str | None = None
+    status_code: int = 500, error_code: str = "INTERNAL_ERROR", message: str | None = None,
 ) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
     """Decorator that catches exceptions, logs them with logger.exception(),
     and raises an HTTPException.
@@ -47,6 +47,7 @@ def catch_http_exception(
 
     Returns:
         Decorated function with preserved signature.
+
     """
 
     def decorator(func: Callable[_P, _R]) -> Callable[_P, _R]:

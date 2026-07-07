@@ -216,7 +216,7 @@
      */
     async function pollTaskStatus(taskUuid) {
         try {
-            var response = await authenticatedFetch('/api/v1/tasks/tasks/' + taskUuid + '/status', {
+            var response = await authenticatedFetch('/api/v1/tasks/' + taskUuid + '/status', {
                 headers: { 'Accept': 'application/json' }
             });
 

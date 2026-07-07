@@ -4,6 +4,7 @@ from typing import Any
 
 from loguru import logger
 from sqlalchemy import delete, func, select
+from sqlalchemy import exc as sa_exc
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +37,7 @@ class BinaryRepository:
 
         Returns:
             The auto-generated binary id.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -55,7 +57,7 @@ class BinaryRepository:
             binary_id = binary.id
             logger.info("Binary '{}' saved with id {}", name, binary_id)
             return binary_id
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to save binary '{}'", name)
             raise
@@ -71,6 +73,7 @@ class BinaryRepository:
 
         Returns:
             The Binary ORM object or None.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -79,7 +82,7 @@ class BinaryRepository:
             if binary is not None:
                 session.expunge(binary)
             return binary
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to retrieve binary {}", binary_id)
             raise
         finally:
@@ -94,12 +97,13 @@ class BinaryRepository:
 
         Returns:
             Total count of binaries for the user.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
             result = await session.execute(select(func.count()).where(Binary.uploaded_by == user_id))
             return result.scalar_one()
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to count binaries for user {}", user_id)
             raise
         finally:
@@ -114,12 +118,13 @@ class BinaryRepository:
 
         Returns:
             Total count of functions for the binary.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
             result = await session.execute(select(func.count()).where(BinaryFunction.binary_id == binary_id))
             return result.scalar_one()
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to count functions for binary {}", binary_id)
             raise
         finally:
@@ -136,6 +141,7 @@ class BinaryRepository:
 
         Returns:
             List of Binary ORM objects (expunged from session).
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -144,13 +150,13 @@ class BinaryRepository:
                 .where(Binary.uploaded_by == user_id)
                 .order_by(Binary.created_at.desc())
                 .offset(offset)
-                .limit(limit)
+                .limit(limit),
             )
             binaries = result.scalars().all()
             for b in binaries:
                 session.expunge(b)
             return list(binaries)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to list binaries for user {}", user_id)
             raise
         finally:
@@ -164,13 +170,14 @@ class BinaryRepository:
 
         Args:
             binary_id: The binary primary key.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
             await session.execute(delete(Binary).where(Binary.id == binary_id))
             await session.commit()
             logger.info("Binary {} deleted", binary_id)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to delete binary {}", binary_id)
             raise
@@ -187,6 +194,7 @@ class BinaryRepository:
             binary_id: Parent binary primary key.
             functions: List of dicts with keys ``function_name``, ``entrypoint``,
                        and ``raw_code``.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -211,7 +219,7 @@ class BinaryRepository:
                 await session.execute(stmt)
             await session.commit()
             logger.info("Functions saved for binary {}", binary_id)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to save functions for binary {}", binary_id)
             raise
@@ -229,6 +237,7 @@ class BinaryRepository:
 
         Returns:
             List of BinaryFunction ORM objects (expunged).
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -246,7 +255,7 @@ class BinaryRepository:
             for f in functions:
                 session.expunge(f)
             return list(functions)
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to load functions for binary {}", binary_id)
             raise
         finally:
@@ -258,12 +267,13 @@ class BinaryRepository:
 
         Returns:
             List of binary id integers.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
             result = await session.execute(select(Binary.id))
             return list(result.scalars().all())
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to list binary ids")
             raise
         finally:
@@ -278,12 +288,13 @@ class BinaryRepository:
 
         Returns:
             Binary name or None if not found.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
             result = await session.execute(select(Binary.name).where(Binary.id == binary_id))
             return result.scalars().first()
-        except Exception:
+        except sa_exc.SQLAlchemyError:
             logger.exception("Failed to get name for binary {}", binary_id)
             raise
         finally:

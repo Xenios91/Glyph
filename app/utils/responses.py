@@ -1,8 +1,8 @@
 """Unified response format for Glyph API."""
 
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from math import ceil
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_serializer, field_validator
 
@@ -24,6 +24,7 @@ class Metadata(BaseModel):
 
         Returns:
             ISO format string representation of the datetime.
+
         """
         return value.isoformat()
 
@@ -50,14 +51,6 @@ class ErrorResponse(BaseModel):
     metadata: SerializeAsAny[Metadata] = Field(default_factory=Metadata, description="Response metadata")
 
 
-class ErrorDetails(BaseModel):
-    """Error details for ErrorResponse."""
-
-    code: str = Field(..., description="Error code identifier")
-    message: str = Field(..., description="Human-readable error message")
-    details: dict[str, Any] | None = Field(default=None, description="Additional error context")
-
-
 class PaginatedResponse(BaseModel, Generic[T]):
     """Standardized paginated response wrapper.
 
@@ -79,7 +72,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
             return v
         total = info.data.get("total", 0)
         page_size = info.data.get("page_size", 1)
-        return ceil(total / page_size) if page_size > 0 else 0
+        return cast(int, ceil(total / page_size) if page_size > 0 else 0)
 
 
 def create_paginated_response(
@@ -98,6 +91,7 @@ def create_paginated_response(
 
     Returns:
         A PaginatedResponse instance.
+
     """
     return PaginatedResponse(
         items=items,
@@ -109,7 +103,7 @@ def create_paginated_response(
 
 
 def create_success_response(
-    data: T | None = None, message: str | None = None, request_id: str | None = None
+    data: T | None = None, message: str | None = None, request_id: str | None = None,
 ) -> SuccessResponse[T]:
     """Factory function to create a success response.
 
@@ -120,14 +114,15 @@ def create_success_response(
 
     Returns:
         A SuccessResponse instance.
+
     """
     return SuccessResponse(
-        success=True, data=data, message=message, metadata=Metadata(request_id=request_id) if request_id else Metadata()
+        success=True, data=data, message=message, metadata=Metadata(request_id=request_id) if request_id else Metadata(),
     )
 
 
 def create_error_response(
-    error_code: str, error_message: str, details: dict[str, Any] | None = None, request_id: str | None = None
+    error_code: str, error_message: str, details: dict[str, Any] | None = None, request_id: str | None = None,
 ) -> ErrorResponse:
     """Factory function to create an error response.
 
@@ -139,10 +134,13 @@ def create_error_response(
 
     Returns:
         An ErrorResponse instance.
+
     """
-    error_details = ErrorDetails(code=error_code, message=error_message, details=details)
+    error = {"code": error_code, "message": error_message}
+    if details is not None:
+        error["details"] = details
     return ErrorResponse(
         success=False,
-        error=error_details.model_dump(),
+        error=error,
         metadata=Metadata(request_id=request_id) if request_id else Metadata(),
     )

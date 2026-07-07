@@ -8,42 +8,42 @@
 <div class="auth-content">
     <div class="auth-card cyber-container with-title" role="region" aria-labelledby="register-title">
         <h2 class="auth-title" id="register-title">REGISTER</h2>
-        
+
         <div id="register-error" class="auth-error" role="alert" aria-live="assertive" style="display: none;"></div>
-        
+
         <form id="registerForm" method="POST" novalidate>
             <div class="auth-form-group">
                 <label for="username" class="auth-form-label">USERNAME</label>
                 <input type="text" id="username" name="username" class="auth-form-input" required minlength="3" maxlength="64" placeholder="Enter username" aria-required="true">
                 <span class="field-hint">3-64 characters</span>
             </div>
-            
+
             <div class="auth-form-group">
                 <label for="email" class="auth-form-label">EMAIL</label>
                 <input type="email" id="email" name="email" class="auth-form-input" required placeholder="Enter email" aria-required="true">
             </div>
-            
+
             <div class="auth-form-group">
                 <label for="full_name" class="auth-form-label">FULL NAME (OPTIONAL)</label>
                 <input type="text" id="full_name" name="full_name" class="auth-form-input" maxlength="128" placeholder="Enter full name">
             </div>
-            
+
             <div class="auth-form-group">
                 <label for="password" class="auth-form-label">PASSWORD</label>
                 <input type="password" id="password" name="password" class="auth-form-input" required minlength="8" placeholder="Enter password" aria-required="true">
                 <span class="field-hint">Minimum 8 characters</span>
             </div>
-            
+
             <div class="auth-form-group">
                 <label for="confirm_password" class="auth-form-label">CONFIRM PASSWORD</label>
                 <input type="password" id="confirm_password" name="confirm_password" class="auth-form-input" required minlength="8" placeholder="Confirm password" aria-required="true">
             </div>
-            
+
             <button type="submit" class="auth-btn" id="register-submit-btn">
                 [ REGISTER ]
             </button>
         </form>
-        
+
         <div class="auth-links">
             <p>Already have an account? <a href="/login">LOGIN HERE</a></p>
         </div>

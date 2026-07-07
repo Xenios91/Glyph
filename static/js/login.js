@@ -16,12 +16,12 @@ function initLoginForm() {
     const toggleBtn = document.querySelector('.password-toggle-btn');
     const iconEye = toggleBtn?.querySelector('.icon-eye');
     const iconEyeOff = toggleBtn?.querySelector('.icon-eye-off');
-    
+
     if (!form) return;
-    
+
     // Mark form as initialized for testing
     form.setAttribute('data-initialized', 'true');
-    
+
     // Password visibility toggle
     if (toggleBtn && passwordInput) {
         toggleBtn.addEventListener('click', () => {
@@ -32,17 +32,17 @@ function initLoginForm() {
             if (iconEyeOff) iconEyeOff.style.display = isPassword ? 'block' : 'none';
         });
     }
-    
+
     // Real-time validation for username (min 3 characters)
     setupFieldValidation(usernameInput, value => value.length >= 3);
-    
+
     // Real-time validation for password (min 8 characters)
     setupFieldValidation(passwordInput, value => value.length >= 8);
-    
+
     // Form submission
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         // Validate before submission
         if (usernameInput.value.length < 3) {
             usernameInput.classList.add('is-error');
@@ -50,26 +50,26 @@ function initLoginForm() {
             usernameInput.focus();
             return;
         }
-        
+
         if (passwordInput.value.length < 8) {
             passwordInput.classList.add('is-error');
             Toast.error('Password must be at least 8 characters');
             passwordInput.focus();
             return;
         }
-        
+
         // Set loading state
         submitBtn.disabled = true;
         submitBtn.textContent = 'LOGIN...';
-        
+
         const formData = new FormData(form);
-        
+
         try {
             const response = await fetch('/auth/token', {
                 method: 'POST',
                 body: formData
             });
-            
+
             if (response.ok) {
                 Toast.success('Login successful! Redirecting...');
                 // Redirect to home page

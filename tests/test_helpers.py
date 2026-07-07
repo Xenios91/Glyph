@@ -2,6 +2,7 @@
 
 from app.utils.helpers import ACCEPT_TYPE
 
+
 class TestHelpers:
     """Tests for helper constants and functions."""
 

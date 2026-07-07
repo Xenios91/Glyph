@@ -4,7 +4,6 @@ import os
 
 from fastapi import Request
 from slowapi import Limiter
-from slowapi.errors import RateLimitExceeded
 
 
 def _build_rate_limit(max_requests: int, window_seconds: int, env_prefix: str) -> str:
@@ -37,7 +36,7 @@ def rate_limit_key_func(request: Request) -> str:
 
     settings = get_settings()
     client = getattr(request, "client", None)
-    direct_ip = client.host if client and hasattr(client, "host") else "unknown"
+    direct_ip: str = client.host if client and hasattr(client, "host") else "unknown"
 
     trusted_proxies = set(settings.trusted_proxies) if settings.trusted_proxies else set()
 
@@ -62,8 +61,3 @@ LOGIN_LIMIT = _build_rate_limit(10, 60, "LOGIN")
 REGISTER_LIMIT = _build_rate_limit(5, 300, "REGISTER")
 PASSWORD_CHANGE_LIMIT = _build_rate_limit(5, 300, "PASSWORD_CHANGE")
 REFRESH_LIMIT = _build_rate_limit(10, 60, "REFRESH")
-
-
-def get_rate_limit_exceeded_handler() -> type[RateLimitExceeded]:
-    """Return the RateLimitExceeded class for handler registration."""
-    return RateLimitExceeded

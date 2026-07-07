@@ -1,12 +1,13 @@
 """Unit tests for request handler classes and data processing."""
+
 from typing import Any
 
 from app.services.request_handler import (
     DataHandler,
-    TrainingRequest,
-    PredictionRequest,
     GhidraRequest,
     Prediction,
+    PredictionRequest,
+    TrainingRequest,
 )
 
 
@@ -20,8 +21,8 @@ class TestDataHandler:
                 "functions": [
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
-            }
+                ],
+            },
         }
 
         handler = DataHandler("test-uuid", test_data, "test-model")
@@ -37,8 +38,8 @@ class TestDataHandler:
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
-            }
+                ],
+            },
         }
 
         handler = DataHandler("test-uuid", duplicate_data, "test-model")
@@ -51,8 +52,8 @@ class TestDataHandler:
                 "functions": [
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
-            }
+                ],
+            },
         }
 
         handler = DataHandler("test-uuid", test_data, "test-model")
@@ -71,7 +72,7 @@ class TestTrainingRequest:
                 "functions": [
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
+                ],
             },
         }
 
@@ -89,7 +90,7 @@ class TestTrainingRequest:
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
+                ],
             },
         }
 
@@ -109,7 +110,7 @@ class TestPredictionRequest:
                 "functions": [
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
+                ],
             },
         }
 
@@ -127,14 +128,13 @@ class TestPredictionRequest:
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
+                ],
             },
         }
 
         request = PredictionRequest("test-uuid", "test-model", duplicate_data)
         assert len(request.data) == 2  # pyright: ignore[reportArgumentType]
         assert "tokens" in request.data.columns  # pyright: ignore[reportOptionalMemberAccess]
-
 
 
 class TestGhidraRequest:

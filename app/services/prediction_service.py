@@ -44,6 +44,7 @@ class PredictionService:
 
         Raises:
             ValidationError: If task name is empty or whitespace only.
+
         """
         stripped = task_name.strip()
         if not stripped:
@@ -59,6 +60,7 @@ class PredictionService:
 
         Returns:
             True if the task name is unique, False otherwise.
+
         """
         return await PredictionRepository.task_name_exists(task_name)
 
@@ -71,6 +73,7 @@ class PredictionService:
 
         Raises:
             ModelNotFoundError: If the model does not exist.
+
         """
         model = await ModelRepository.get(model_name)
         if model is None:
@@ -101,6 +104,7 @@ class PredictionService:
             ValidationError: If task name is invalid.
             TaskNameExistsError: If task name already exists.
             ModelNotFoundError: If model does not exist.
+
         """
         # Validate task name
         validated_name = await self.validate_task_name(task_name)
@@ -143,6 +147,7 @@ class PredictionService:
 
         Raises:
             RuntimeError: If pipeline execution fails.
+
         """
         functions = prediction_request.get_functions()
 
@@ -189,6 +194,7 @@ class PredictionService:
         Args:
             prediction_request: The prediction request with function data.
             predictions: List of predicted labels matching functions order.
+
         """
         functions: list[dict[str, Any]] = prediction_request.get_functions() or []
         task_name = prediction_request.task_name
@@ -198,9 +204,7 @@ class PredictionService:
                 updated_function = function.copy()
                 updated_function["prediction"] = predictions[ctr]
                 functions[ctr] = updated_function
-            await PredictionRepository.save(
-                task_name, prediction_request.model_name, functions
-            )
+            await PredictionRepository.save(task_name, prediction_request.model_name, functions)
         elif functions:
             logger.warning(
                 "Mismatch between functions ({}) and predictions ({}) for task '{}'",
@@ -224,6 +228,7 @@ class PredictionService:
 
         Returns:
             Tuple of (predictions list, total count).
+
         """
         all_predictions = await PredictionRepository.get_predictions_list()
         total = len(all_predictions)
@@ -246,6 +251,7 @@ class PredictionService:
 
         Raises:
             PredictionNotFoundError: If prediction does not exist.
+
         """
         prediction = await PredictionRepository.get(task_name, model_name)
         if prediction is None:
@@ -273,6 +279,7 @@ class PredictionService:
 
         Raises:
             ValidationError: If arguments are empty.
+
         """
         if not task_name or not model_name or not function_name:
             raise ValidationError("task_name, model_name, and function_name must be non-empty")
@@ -282,9 +289,7 @@ class PredictionService:
             raise ValidationError(f"Function '{function_name}' not found in model '{model_name}'")
 
         try:
-            prediction_data = await PredictionRepository.get_prediction_function(
-                task_name, model_name, function_name
-            )
+            prediction_data = await PredictionRepository.get_prediction_function(task_name, model_name, function_name)
         except Exception:
             prediction_data = None
 
@@ -305,6 +310,7 @@ class PredictionService:
 
         Raises:
             PredictionNotFoundError: If prediction does not exist.
+
         """
         await PredictionRepository.delete(task_name, model_name)
         logger.info("Prediction deleted: task_name={}, model_name={}", task_name, model_name)
@@ -315,6 +321,37 @@ class PredictionService:
 
         Args:
             model_name: The model whose predictions should be deleted.
+
         """
         await PredictionRepository.delete_model_predictions(model_name)
         logger.info("All predictions deleted for model: {}", model_name)
+
+    # --- Prediction Persistence ---
+
+    @staticmethod
+    async def save_prediction_functions(
+        prediction_request: "PredictionRequest", predictions: list[str],
+    ) -> None:
+        """Merge predictions with functions and persist to database.
+
+        Args:
+            prediction_request: The prediction request containing functions.
+            predictions: List of predicted labels.
+
+        """
+        functions: list[dict[str, Any]] = prediction_request.get_functions() or []
+        task_name = prediction_request.task_name
+
+        if functions and len(functions) == len(predictions):
+            for ctr, function in enumerate(functions):
+                updated_function = function.copy()
+                updated_function["prediction"] = predictions[ctr]
+                functions[ctr] = updated_function
+            await PredictionRepository.save(task_name, prediction_request.model_name, functions)
+        elif functions:
+            logger.warning(
+                "Mismatch between functions (%d) and predictions (%d) for task '%s'",
+                len(functions),
+                len(predictions),
+                task_name,
+            )

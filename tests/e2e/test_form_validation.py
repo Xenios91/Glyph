@@ -7,12 +7,9 @@ Tests client-side and server-side form validation for login and registration for
 from typing import Any
 
 from playwright.sync_api import expect
-
 from tests.e2e.utils import (
     BASE_URL,
     generate_unique_username,
-    login_user,
-    register_user,
     wait_for_login_form,
     wait_for_register_form,
 )

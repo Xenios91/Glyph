@@ -1,4 +1,5 @@
 """Unit tests for Ghidra decompiler processing and token manipulation."""
+
 from unittest import mock
 
 

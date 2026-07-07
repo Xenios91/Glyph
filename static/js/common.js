@@ -189,7 +189,7 @@ function onDomReady(callback) {
  */
 function addInteractiveListeners(element, clickHandler, keyHandler) {
     element.addEventListener('click', clickHandler);
-    
+
     if (keyHandler) {
         element.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -206,20 +206,20 @@ function addInteractiveListeners(element, clickHandler, keyHandler) {
  */
 function initTableHoverEffects(selector = '.hover-row') {
     const hoverRows = document.querySelectorAll(selector);
-    
+
     hoverRows.forEach(row => {
         row.addEventListener('mouseenter', function() {
             this.classList.add('is-hovered');
         });
-        
+
         row.addEventListener('mouseleave', function() {
             this.classList.remove('is-hovered');
         });
-        
+
         row.addEventListener('focus', function() {
             this.classList.add('is-hovered');
         });
-        
+
         row.addEventListener('blur', function() {
             this.classList.remove('is-hovered');
         });
@@ -264,7 +264,7 @@ function hideError(elementId) {
  */
 function setupFieldValidation(input, validator) {
     if (!input) return;
-    
+
     input.addEventListener('blur', function() {
         if (!validator(this.value)) {
             this.classList.add('is-error');
@@ -274,7 +274,7 @@ function setupFieldValidation(input, validator) {
             this.setAttribute('aria-invalid', 'false');
         }
     });
-    
+
     input.addEventListener('input', function() {
         if (this.classList.contains('is-error')) {
             this.classList.remove('is-error');
@@ -345,7 +345,7 @@ function initTableDelegation(tableSelector, allowedHandlers, handler, options = 
 /**
  * SelectionManager - Handles checkbox selection, select-all, and delete button state
  * for table-based lists with bulk operations.
- * 
+ *
  * @example
  * const manager = new SelectionManager({
  *     checkboxClass: '.model-select-checkbox',
@@ -603,7 +603,7 @@ class Pagination {
         this.pageSizes = config.pageSizes || [10, 25, 50, 100];
         this.storageKey = config.storageKey || '';
         this.onPageChange = config.onPageChange || null;
-        
+
         this.currentPage = 1;
         this.pageSize = this.defaultPageSize;
         this.totalRows = config.totalRows || 0;

@@ -20,7 +20,6 @@ os.environ.setdefault("GLYPH_RATE_LIMIT_REFRESH_WINDOW", "60")
 
 import pytest
 
-
 # In-memory database URL templates for testing.
 # Each database uses a unique URI so they remain separate in-memory databases.
 # When running under pytest-xdist, the worker ID is included in the URI to avoid
@@ -70,15 +69,22 @@ def _build_database_urls() -> dict[str, str]:
 def pytest_configure(config: Any) -> None:
     """Mocks the Ghidra/Java world so pytest can collect tests safely."""
     mock_modules: list[str] = [
-        "ghidra", "ghidra.app.decompiler", "ghidra.framework.options",
-        "ghidra.util.task", "ghidra.program.model.listing", "ghidra.app.script",
-        "java", "java.lang", "pyghidra",
+        "ghidra",
+        "ghidra.app.decompiler",
+        "ghidra.framework.options",
+        "ghidra.util.task",
+        "ghidra.program.model.listing",
+        "ghidra.app.script",
+        "java",
+        "java.lang",
+        "pyghidra",
     ]
     for mod in mock_modules:
         sys.modules[mod] = mock.MagicMock()
 
     # Switch to in-memory databases for all tests (worker-aware URLs).
     from app.database.session_handler import set_database_urls
+
     set_database_urls(_build_database_urls())
 
 
@@ -181,6 +187,7 @@ def create_app_client(
 
     Returns:
         A TestClient instance wrapping the configured app.
+
     """
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -223,6 +230,7 @@ def mock_current_user_factory() -> Any:
 def models_client() -> Any:
     """Create test client with models router."""
     from app.api.v1.endpoints.models import router as models_router
+
     return create_app_client(
         routers=[(models_router, "/models")],
         mount_static=True,
@@ -233,6 +241,7 @@ def models_client() -> Any:
 def predictions_client() -> Any:
     """Create test client with predictions router."""
     from app.api.v1.endpoints.predictions import router as predictions_router
+
     return create_app_client(
         routers=[(predictions_router, "/predictions")],
         mount_static=True,
@@ -243,6 +252,7 @@ def predictions_client() -> Any:
 def dangerous_functions_client() -> Any:
     """Create test client with dangerous functions router."""
     from app.api.v1.endpoints.dangerous_functions import router as df_router
+
     return create_app_client(
         routers=[(df_router, "/dangerous-functions")],
         mount_static=True,
@@ -254,6 +264,7 @@ def models_client_with_auth(mock_current_user: Any) -> Any:
     """Create test client with models router and auth override."""
     from app.api.v1.endpoints.models import router as models_router
     from app.auth.dependencies import get_current_active_user
+
     return create_app_client(
         routers=[(models_router, "/models")],
         dependency_overrides={get_current_active_user: lambda: mock_current_user},
@@ -266,6 +277,7 @@ def predictions_client_with_auth(mock_current_user: Any) -> Any:
     """Create test client with predictions router and auth override."""
     from app.api.v1.endpoints.predictions import router as predictions_router
     from app.auth.dependencies import get_current_active_user
+
     return create_app_client(
         routers=[(predictions_router, "/predictions")],
         dependency_overrides={get_current_active_user: lambda: mock_current_user},
@@ -278,6 +290,7 @@ def dangerous_functions_client_with_auth(mock_current_user: Any) -> Any:
     """Create test client with dangerous functions router and auth override."""
     from app.api.v1.endpoints.dangerous_functions import router as df_router
     from app.auth.dependencies import get_current_active_user
+
     return create_app_client(
         routers=[(df_router, "/dangerous-functions")],
         dependency_overrides={get_current_active_user: lambda: mock_current_user},
@@ -290,6 +303,7 @@ def config_client(mock_current_user: Any) -> Any:
     """Create test client with config router and auth override."""
     from app.api.v1.endpoints.config import router as config_router
     from app.auth.dependencies import get_current_active_user
+
     return create_app_client(
         routers=[(config_router, "/config")],
         dependency_overrides={get_current_active_user: lambda: mock_current_user},
@@ -301,6 +315,7 @@ def status_client(mock_current_user: Any) -> Any:
     """Create test client with status router and auth override."""
     from app.api.v1.endpoints.status import router as status_router
     from app.auth.dependencies import get_current_active_user
+
     return create_app_client(
         routers=[(status_router, "/status")],
         dependency_overrides={get_current_active_user: lambda: mock_current_user},
@@ -310,8 +325,9 @@ def status_client(mock_current_user: Any) -> Any:
 @pytest.fixture
 def web_client(mock_current_user: Any) -> Any:
     """Create test client with web router and auth override."""
-    from app.web.endpoints.web import router as web_router
     from app.auth.dependencies import get_current_active_user
+    from app.web.endpoints.web import router as web_router
+
     return create_app_client(
         routers=[(web_router, "")],
         dependency_overrides={get_current_active_user: lambda: mock_current_user},
@@ -328,6 +344,7 @@ def web_client(mock_current_user: Any) -> Any:
 def user_factory() -> Any:
     """Return the make_user model factory callable."""
     from tests.factories import make_user
+
     return make_user
 
 
@@ -335,6 +352,7 @@ def user_factory() -> Any:
 def mock_user_factory() -> Any:
     """Return the make_mock_user factory callable (lightweight Mock variant)."""
     from tests.factories import make_mock_user
+
     return make_mock_user
 
 
@@ -342,6 +360,7 @@ def mock_user_factory() -> Any:
 def binary_factory() -> Any:
     """Return the make_binary model factory callable."""
     from tests.factories import make_binary
+
     return make_binary
 
 
@@ -349,6 +368,7 @@ def binary_factory() -> Any:
 def mock_binary_factory() -> Any:
     """Return the make_mock_binary factory callable."""
     from tests.factories import make_mock_binary
+
     return make_mock_binary
 
 
@@ -356,6 +376,7 @@ def mock_binary_factory() -> Any:
 def model_factory() -> Any:
     """Return the make_model model factory callable."""
     from tests.factories import make_model
+
     return make_model
 
 
@@ -363,6 +384,7 @@ def model_factory() -> Any:
 def prediction_factory() -> Any:
     """Return the make_prediction model factory callable."""
     from tests.factories import make_prediction
+
     return make_prediction
 
 
@@ -370,6 +392,7 @@ def prediction_factory() -> Any:
 def function_factory() -> Any:
     """Return the make_function model factory callable."""
     from tests.factories import make_function
+
     return make_function
 
 
@@ -377,6 +400,7 @@ def function_factory() -> Any:
 def binary_function_factory() -> Any:
     """Return the make_binary_function model factory callable."""
     from tests.factories import make_binary_function
+
     return make_binary_function
 
 
@@ -384,4 +408,5 @@ def binary_function_factory() -> Any:
 def task_result_factory() -> Any:
     """Return the make_mock_task_result factory callable."""
     from tests.factories import make_mock_task_result
+
     return make_mock_task_result
