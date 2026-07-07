@@ -9,12 +9,12 @@ Python 3.11+
 
 import asyncio
 import io
-import joblib
 import os
 import re
 import sys
 from typing import Any, cast
 
+import joblib
 from loguru import logger
 from numpy import int64
 from numpy.typing import NDArray

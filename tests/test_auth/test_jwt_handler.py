@@ -131,8 +131,9 @@ class TestJWTHandler:
         """Test that a token with wrong signature raises BadSignatureError."""
         from app.auth.jwt_handler import BadSignatureError
 
-        handler1 = JWTHandler(secret_key="secret_a", algorithm="HS256")
-        handler2 = JWTHandler(secret_key="secret_b", algorithm="HS256")
+        # Use keys >= 112 bits (14 bytes) to avoid joserfc SecurityWarning
+        handler1 = JWTHandler(secret_key="a_secret_key_14", algorithm="HS256")
+        handler2 = JWTHandler(secret_key="b_secret_key_14", algorithm="HS256")
         token = handler1.create_access_token("123")
         with pytest.raises(BadSignatureError):
             handler2.verify_access_token(token)
@@ -141,8 +142,9 @@ class TestJWTHandler:
         """Test that a refresh token with wrong signature raises BadSignatureError."""
         from app.auth.jwt_handler import BadSignatureError
 
-        handler1 = JWTHandler(secret_key="secret_a", algorithm="HS256")
-        handler2 = JWTHandler(secret_key="secret_b", algorithm="HS256")
+        # Use keys >= 112 bits (14 bytes) to avoid joserfc SecurityWarning
+        handler1 = JWTHandler(secret_key="a_secret_key_14", algorithm="HS256")
+        handler2 = JWTHandler(secret_key="b_secret_key_14", algorithm="HS256")
         token = handler1.create_refresh_token("123")
         with pytest.raises(BadSignatureError):
             handler2.verify_refresh_token(token)
@@ -151,8 +153,9 @@ class TestJWTHandler:
         """Test that verify_token raises BadSignatureError on wrong signature."""
         from app.auth.jwt_handler import BadSignatureError
 
-        handler1 = JWTHandler(secret_key="secret_a", algorithm="HS256")
-        handler2 = JWTHandler(secret_key="secret_b", algorithm="HS256")
+        # Use keys >= 112 bits (14 bytes) to avoid joserfc SecurityWarning
+        handler1 = JWTHandler(secret_key="a_secret_key_14", algorithm="HS256")
+        handler2 = JWTHandler(secret_key="b_secret_key_14", algorithm="HS256")
         token = handler1.create_access_token("123")
         with pytest.raises(BadSignatureError):
             handler2.verify_token(token)
