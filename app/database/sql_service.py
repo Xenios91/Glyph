@@ -2,8 +2,17 @@
 
 This module acts as a thin facade that delegates to entity-specific repository
 classes, maintaining backward compatibility for all existing callers.
+
+.. deprecated::
+    SQLUtil is deprecated. Use the corresponding repository classes directly:
+    :class:`~app.database.binary_repository.BinaryRepository`,
+    :class:`~app.database.function_repository.FunctionRepository`,
+    :class:`~app.database.model_repository.ModelRepository`,
+    :class:`~app.database.prediction_repository.PredictionRepository`,
+    :class:`~app.database.similarity_repository.SimilarityRepository`.
 """
 
+import warnings
 from typing import Any
 
 from loguru import logger
@@ -14,9 +23,19 @@ from app.database.model_repository import ModelRepository
 from app.database.prediction_repository import PredictionRepository
 from app.database.similarity_repository import SimilarityRepository
 
+warnings.warn(
+    "SQLUtil is deprecated. Use the corresponding repository classes directly "
+    "(BinaryRepository, FunctionRepository, ModelRepository, PredictionRepository, SimilarityRepository).",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 class SQLUtil:
     """Utility class for SQLite database operations using SQLAlchemy ORM.
+
+    .. deprecated::
+        Use the corresponding repository classes directly instead of this facade.
 
     All methods are async and delegate to entity-specific repository classes.
     This facade maintains backward compatibility with existing callers.
@@ -89,7 +108,7 @@ class SQLUtil:
     async def get_prediction_function(task_name: str, model_name: str, function_name: str) -> dict[str, Any]:
         """Get a specific function prediction from the database."""
         return await PredictionRepository.get_prediction_function(
-            task_name=task_name, model_name=model_name, function_name=function_name
+            task_name=task_name, model_name=model_name, function_name=function_name,
         )
 
     @staticmethod
@@ -145,7 +164,7 @@ class SQLUtil:
     ) -> int:
         """Save binary metadata and return the new binary id."""
         return await BinaryRepository.save_binary(
-            name=name, file_path=file_path, file_size=file_size, mime_type=mime_type, uploaded_by=uploaded_by
+            name=name, file_path=file_path, file_size=file_size, mime_type=mime_type, uploaded_by=uploaded_by,
         )
 
     @staticmethod
@@ -206,7 +225,7 @@ class SQLUtil:
     ) -> Any:
         """Create a new similarity computation record."""
         return await SimilarityRepository.create(
-            task_name=task_name, computed_by=computed_by, binary_count=binary_count, status=status
+            task_name=task_name, computed_by=computed_by, binary_count=binary_count, status=status,
         )
 
     @staticmethod
@@ -217,7 +236,7 @@ class SQLUtil:
     ) -> None:
         """Update status (and optionally total_comparisons) of a computation."""
         await SimilarityRepository.update_status(
-            computation_id=computation_id, status=status, total_comparisons=total_comparisons
+            computation_id=computation_id, status=status, total_comparisons=total_comparisons,
         )
 
     @staticmethod

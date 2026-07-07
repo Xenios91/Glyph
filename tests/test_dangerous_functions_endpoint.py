@@ -3,7 +3,6 @@
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
-import pytest
 from app.auth.dependencies import get_current_active_user
 from tests.conftest import set_dependency_override
 from tests.factories import make_mock_user

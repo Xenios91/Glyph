@@ -77,12 +77,12 @@ class TestRegisterEndpoint:
         """Test registration with duplicate email."""
         # Register first user
         auth_client.post(
-            "/auth/register", json={"username": "user1", "email": "test@example.com", "password": "test_password_123"}
+            "/auth/register", json={"username": "user1", "email": "test@example.com", "password": "test_password_123"},
         )
 
         # Try to register with same email
         response = auth_client.post(
-            "/auth/register", json={"username": "user2", "email": "test@example.com", "password": "test_password_123"}
+            "/auth/register", json={"username": "user2", "email": "test@example.com", "password": "test_password_123"},
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -91,7 +91,7 @@ class TestRegisterEndpoint:
     def test_register_invalid_email(self, auth_client: TestClient) -> None:
         """Test registration with invalid email."""
         response = auth_client.post(
-            "/auth/register", json={"username": "testuser", "email": "invalid-email", "password": "test_password_123"}
+            "/auth/register", json={"username": "testuser", "email": "invalid-email", "password": "test_password_123"},
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -99,7 +99,7 @@ class TestRegisterEndpoint:
     def test_register_short_password(self, auth_client: TestClient) -> None:
         """Test registration with short password."""
         response = auth_client.post(
-            "/auth/register", json={"username": "testuser", "email": "test@example.com", "password": "short"}
+            "/auth/register", json={"username": "testuser", "email": "test@example.com", "password": "short"},
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -238,7 +238,7 @@ class TestAPIKeyEndpoints:
         )
 
         login_response = auth_client.post(
-            "/auth/token", data={"username": "testuser_create_api_key", "password": "test_password_123"}
+            "/auth/token", data={"username": "testuser_create_api_key", "password": "test_password_123"},
         )
 
         access_token = login_response.json()["access_token"]
@@ -271,7 +271,7 @@ class TestAPIKeyEndpoints:
         )
 
         login_response = auth_client.post(
-            "/auth/token", data={"username": f"testuser_list_api_keys_{unique_suffix}", "password": "test_password_123"}
+            "/auth/token", data={"username": f"testuser_list_api_keys_{unique_suffix}", "password": "test_password_123"},
         )
 
         access_token = login_response.json()["access_token"]
@@ -317,7 +317,7 @@ class TestAPIKeyEndpoints:
 
         # Delete API key
         response = auth_client.delete(
-            f"/auth/api-keys/{api_key_id}", headers={"Authorization": f"Bearer {access_token}"}
+            f"/auth/api-keys/{api_key_id}", headers={"Authorization": f"Bearer {access_token}"},
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -335,7 +335,7 @@ class TestAPIKeyEndpoints:
             },
         )
         login_response = auth_client.post(
-            "/auth/token", data={"username": "testuser_delete_not_found", "password": "test_password_123"}
+            "/auth/token", data={"username": "testuser_delete_not_found", "password": "test_password_123"},
         )
         access_token = login_response.json()["access_token"]
 
@@ -406,10 +406,10 @@ class TestChangePasswordEndpoint:
         email = f"test_wrong_pw_{suffix}@example.com"
         # Register and login
         auth_client.post(
-            "/auth/register", json={"username": username, "email": email, "password": "correct_password_123"}
+            "/auth/register", json={"username": username, "email": email, "password": "correct_password_123"},
         )
         login_response = auth_client.post(
-            "/auth/token", data={"username": username, "password": "correct_password_123"}
+            "/auth/token", data={"username": username, "password": "correct_password_123"},
         )
         access_token = login_response.json()["access_token"]
 

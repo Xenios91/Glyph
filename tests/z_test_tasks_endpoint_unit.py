@@ -879,7 +879,7 @@ class TestRunSimilarityComputationTask:
         mock_computation = MagicMock()
         mock_computation.id = 42
         mock_sql_util.create_similarity_computation = AsyncMock(
-            side_effect=[RuntimeError("Main failure"), mock_computation]
+            side_effect=[RuntimeError("Main failure"), mock_computation],
         )
         mock_sql_util.update_similarity_computation_status = AsyncMock()
 
@@ -910,7 +910,7 @@ class TestExecuteTask:
 
     @pytest.mark.asyncio
     async def test_execute_task_code_reuse(
-        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any, mock_tm: Any
+        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any, mock_tm: Any,
     ) -> None:
         """Test execute_task queues code reuse task."""
         from app.api.v1.endpoints.tasks import TaskExecutionRequest, TaskType
@@ -935,7 +935,7 @@ class TestExecuteTask:
 
     @pytest.mark.asyncio
     async def test_execute_task_dangerous_functions(
-        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any, mock_tm: Any
+        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any, mock_tm: Any,
     ) -> None:
         """Test execute_task queues dangerous functions task."""
         from app.api.v1.endpoints.tasks import TaskExecutionRequest, TaskType
@@ -960,7 +960,7 @@ class TestExecuteTask:
 
     @pytest.mark.asyncio
     async def test_execute_task_ml_training(
-        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any, mock_tm: Any
+        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any, mock_tm: Any,
     ) -> None:
         """Test execute_task queues ML training task."""
         from app.api.v1.endpoints.tasks import TaskExecutionRequest, TaskType
@@ -987,7 +987,7 @@ class TestExecuteTask:
 
     @pytest.mark.asyncio
     async def test_execute_task_ml_prediction(
-        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any, mock_tm: Any
+        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any, mock_tm: Any,
     ) -> None:
         """Test execute_task queues ML prediction task."""
         from app.api.v1.endpoints.tasks import TaskExecutionRequest, TaskType
@@ -1013,7 +1013,7 @@ class TestExecuteTask:
 
     @pytest.mark.asyncio
     async def test_execute_task_similarity(
-        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any, mock_tm: Any
+        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any, mock_tm: Any,
     ) -> None:
         """Test execute_task queues similarity computation task."""
         from app.api.v1.endpoints.tasks import TaskExecutionRequest, TaskType
@@ -1086,7 +1086,7 @@ class TestExecuteTask:
 
     @pytest.mark.asyncio
     async def test_execute_task_ml_training_missing_model(
-        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any
+        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any,
     ) -> None:
         """Test execute_task returns 400 when model_name missing for ML training."""
         from app.api.v1.endpoints.tasks import TaskExecutionRequest, TaskType
@@ -1110,7 +1110,7 @@ class TestExecuteTask:
 
     @pytest.mark.asyncio
     async def test_execute_task_ml_training_missing_class_type(
-        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any
+        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any,
     ) -> None:
         """Test execute_task returns 400 when ml_class_type missing for ML training."""
         from app.api.v1.endpoints.tasks import TaskExecutionRequest, TaskType
@@ -1135,7 +1135,7 @@ class TestExecuteTask:
 
     @pytest.mark.asyncio
     async def test_execute_task_ml_prediction_missing_model(
-        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any
+        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any,
     ) -> None:
         """Test execute_task returns 400 when model_name missing for ML prediction."""
         from app.api.v1.endpoints.tasks import TaskExecutionRequest, TaskType
@@ -1266,7 +1266,7 @@ class TestStartSimilarityComputation:
 
     @pytest.mark.asyncio
     async def test_start_similarity_success(
-        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any, mock_tm: Any
+        self, mock_background_tasks: Any, mock_binary: Any, mock_current_user: Any, mock_tm: Any,
     ) -> None:
         """Test start_similarity_computation queues task successfully."""
         from app.api.v1.endpoints.tasks import SimilarityComputationRequest

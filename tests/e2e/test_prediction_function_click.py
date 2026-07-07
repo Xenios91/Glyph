@@ -3,8 +3,6 @@
 import time
 from typing import Any
 
-import pytest
-
 BASE_URL = "http://127.0.0.1:8000"
 
 

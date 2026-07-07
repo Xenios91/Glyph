@@ -131,7 +131,7 @@
         const checkStatus = async () => {
             try {
                 const response = await authenticatedFetch(
-                    '/api/v1/tasks/tasks/' + encodeURIComponent(taskUuid) + '/status',
+                    '/api/v1/tasks/' + encodeURIComponent(taskUuid) + '/status',
                     { method: 'GET', headers: { 'Accept': 'application/json' } }
                 );
 

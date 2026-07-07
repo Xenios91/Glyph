@@ -22,6 +22,7 @@ def setup_decompiler(
 
     Returns:
         Configured decompiler interface.
+
     """
     DecompInterface: type[Any]
     DecompileOptions: type[Any]
@@ -53,6 +54,7 @@ def get_function_tokens(function: Any, decomp_interface: Any) -> tuple[list[str]
 
     Returns:
         A tuple of (token_list, raw_c_code).
+
     """
     _TaskMonitor: Any
     try:
@@ -104,6 +106,7 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list[Any]]:
 
     Returns:
         Dictionary containing functions and errored functions.
+
     """
     decomp_interface = setup_decompiler(state, program)
     functions_map: dict[str, list[Any]] = {"functions": [], "erroredFunctions": []}
@@ -120,7 +123,7 @@ def decompile_all_functions(state: Any, program: Any) -> dict[str, list[Any]]:
 
         if not tokens:
             functions_map["erroredFunctions"].append(
-                {"functionName": function.getName(), "error": "Decompilation failed"}
+                {"functionName": function.getName(), "error": "Decompilation failed"},
             )
             continue
 
@@ -157,13 +160,14 @@ def analyze_binary_and_decompile(binary_path: str) -> dict[str, list[Any]]:
 
     Returns:
         Dictionary containing decompiled functions.
+
     """
     pyghidra: Any
     try:
         import pyghidra
     except ImportError:
         pyghidra = type(
-            "pyghidra", (), {"started": lambda: False, "start": lambda: None, "open_program": lambda *a, **k: None}
+            "pyghidra", (), {"started": lambda: False, "start": lambda: None, "open_program": lambda *a, **k: None},
         )
 
     if not pyghidra.started():

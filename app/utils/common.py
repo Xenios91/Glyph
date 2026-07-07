@@ -54,11 +54,8 @@ def format_code(code: str) -> str:
                     end_pos = idx
                     break
 
-    if end_pos == -1:
-        # No matching closing brace — fall back to original behavior.
-        function_body = code[body_start:]
-    else:
-        function_body = code[body_start:end_pos]
+    # No matching closing brace — fall back to original behavior.
+    function_body = code[body_start:] if end_pos == -1 else code[body_start:end_pos]
 
     function_body = function_body.replace(" ( ", "(").replace(" ) ", ")")
     function_body = function_body.replace(" ;", ";")
@@ -133,7 +130,7 @@ def format_code(code: str) -> str:
 
 
 def build_prediction_details_response(
-    task_name: str, model_name: str, function_name: str, model_tokens: str, prediction_tokens: str
+    task_name: str, model_name: str, function_name: str, model_tokens: str, prediction_tokens: str,
 ) -> dict[str, Any]:
     """Build a standardized prediction details response.
 
@@ -149,6 +146,7 @@ def build_prediction_details_response(
 
     Returns:
         Dictionary containing prediction details.
+
     """
     return {
         "task_name": task_name,

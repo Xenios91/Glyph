@@ -9,11 +9,7 @@ from typing import Any
 from playwright.sync_api import expect
 from tests.e2e.utils import (
     BASE_URL,
-    login_user,
     register_and_login,
-    register_user,
-    wait_for_login_form,
-    wait_for_register_form,
 )
 
 
@@ -56,7 +52,7 @@ class TestProtectedRoutesRedirect:
     def test_prediction_details_redirects_to_login(self, page: Any, server: Any) -> None:
         """Test that accessing prediction details redirects to login."""
         page.goto(
-            f"{BASE_URL}/getPredictionDetails?model_name=test&function_name=test&task_name=test", wait_until="commit"
+            f"{BASE_URL}/getPredictionDetails?model_name=test&function_name=test&task_name=test", wait_until="commit",
         )
         current_url = page.url
         assert "/login" in current_url or "Not authenticated" in page.content()

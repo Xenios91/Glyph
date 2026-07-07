@@ -28,6 +28,7 @@ class CallGraphEdge(BaseModel):
         caller: Name of the calling function.
         callee: Name of the called function.
         call_count: Number of times caller invokes callee.
+
     """
 
     caller: str
@@ -43,6 +44,7 @@ class CallGraphNode(BaseModel):
         entrypoint: Memory address.
         callers: Functions that call this function.
         callees: Functions called by this function.
+
     """
 
     name: str
@@ -61,6 +63,7 @@ class CallGraphResponse(BaseModel):
         total_nodes: Number of functions in the graph.
         total_edges: Number of call relationships.
         entry_points: Functions with no callers (potential entry points).
+
     """
 
     binary_id: int
@@ -73,7 +76,6 @@ class CallGraphResponse(BaseModel):
 
 @router.get(
     "/{binary_id}/graph",
-    response_model=SuccessResponse[CallGraphResponse],
     summary="Generate call graph",
     description=(
         "Generate a function call graph for the specified binary by parsing "
@@ -161,6 +163,7 @@ class FunctionCallersResponse(BaseModel):
         function_name: Name of the queried function.
         callers: Functions that call this function.
         caller_count: Number of unique callers.
+
     """
 
     function_name: str
@@ -170,7 +173,6 @@ class FunctionCallersResponse(BaseModel):
 
 @router.get(
     "/{binary_id}/callers/{function_name}",
-    response_model=SuccessResponse[FunctionCallersResponse],
     summary="Get function callers",
     description=(
         "Get all functions that call the specified function within a binary. "
@@ -235,6 +237,7 @@ class FunctionCalleesResponse(BaseModel):
         function_name: Name of the queried function.
         callees: Functions called by this function.
         callee_count: Number of unique callees.
+
     """
 
     function_name: str
@@ -244,7 +247,6 @@ class FunctionCalleesResponse(BaseModel):
 
 @router.get(
     "/{binary_id}/callees/{function_name}",
-    response_model=SuccessResponse[FunctionCalleesResponse],
     summary="Get function callees",
     description=(
         "Get all functions called by the specified function within a binary. "

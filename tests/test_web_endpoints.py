@@ -4,7 +4,6 @@ import logging
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 logger = logging.getLogger(__name__)
@@ -132,7 +131,7 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
     def test_get_prediction_details_json_success(
-        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient
+        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient,
     ) -> None:
         """Test get prediction details returns JSON on success."""
         mock_func_repo.get = AsyncMock(
@@ -141,12 +140,12 @@ class TestWebEndpoints:
                 "function_name": "test_func",
                 "entrypoint": "0x1000",
                 "tokens": "test tokens",
-            }
+            },
         )
         mock_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
-            }
+            },
         )
 
         response = web_client.get(
@@ -167,14 +166,14 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
     def test_get_prediction_details_function_not_found(
-        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient
+        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient,
     ) -> None:
         """Test get prediction details returns 404 when function not found."""
         mock_func_repo.get = AsyncMock(return_value=None)
         mock_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
-            }
+            },
         )
 
         response = web_client.get(
@@ -192,7 +191,7 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
     def test_get_prediction_details_prediction_not_found(
-        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient
+        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient,
     ) -> None:
         """Test get prediction details returns 404 when prediction not found."""
         mock_model_info = Mock()
@@ -265,7 +264,7 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
     def test_get_prediction_details_html_response(
-        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient
+        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient,
     ) -> None:
         """Test get prediction details returns HTML for browsers."""
         mock_model_info = Mock()
@@ -274,7 +273,7 @@ class TestWebEndpoints:
         mock_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
-            }
+            },
         )
 
         response = web_client.get(

@@ -8,6 +8,8 @@ Python 3.11+
 """
 
 import asyncio
+import io
+import joblib
 import os
 import re
 import sys
@@ -42,6 +44,7 @@ def _check_if_variable(token: str) -> bool:
 
     Returns:
         True if the token matches a Ghidra auto-naming pattern.
+
     """
     return _VARIABLE_REGEX.match(token) is not None
 
@@ -54,6 +57,7 @@ def _remove_comments(tokens_list: list[str]) -> list[str]:
 
     Returns:
         List of tokens with comments removed.
+
     """
     tokens_string: str = " ".join(tokens_list)
     result: str = ""
@@ -79,6 +83,7 @@ def _filter_tokens(tokens_list: list[str]) -> list[str]:
 
     Returns:
         List of filtered and normalized tokens.
+
     """
     filtered: list[str] = []
     for token in tokens_list:
@@ -113,6 +118,7 @@ class ValidationStep(PipelineStep):
 
         Args:
             max_size_mb: Maximum allowed file size in megabytes.
+
         """
         self._max_size_bytes = int(max_size_mb * 1024 * 1024)
 
@@ -128,6 +134,7 @@ class ValidationStep(PipelineStep):
 
         Returns:
             Updated context with validation results.
+
         """
         binary_path = context.binary_path
 
@@ -174,6 +181,7 @@ class DecompileStep(PipelineStep):
 
         Returns:
             Updated context with decompiled functions.
+
         """
         from app.processing import ghidra_processor
 
@@ -220,6 +228,7 @@ class TokenizeStep(PipelineStep):
 
         Returns:
             Updated context with tokenized functions.
+
         """
         functions = context.get("functions")
         if functions is None:
@@ -264,6 +273,7 @@ class FilterStep(PipelineStep):
 
         Returns:
             Updated context with filtered tokens.
+
         """
         tokenized_functions = context.get("tokenized_functions")
         if tokenized_functions is None:
@@ -312,6 +322,7 @@ class FeatureExtractStep(PipelineStep):
 
         Returns:
             Updated context with extracted tokens.
+
         """
         filtered_functions = context.get("filtered_functions")
         if filtered_functions is None:
@@ -353,6 +364,7 @@ class TrainStep(PipelineStep):
 
         Returns:
             Updated context with training results.
+
         """
         import numpy as np
         from sklearn import preprocessing
@@ -390,7 +402,15 @@ class TrainStep(PipelineStep):
 
             await asyncio.to_thread(ml_pipeline.fit, tokens, y)
 
-            await ModelRepository.save_model(model_name, label_encoder, ml_pipeline)  # type: ignore[attr-defined]
+            # Serialize to bytes before saving to database
+            encoder_buffer = io.BytesIO()
+            joblib.dump(label_encoder, encoder_buffer)
+            model_buffer = io.BytesIO()
+            joblib.dump(ml_pipeline, model_buffer)
+
+            await ModelRepository.save(  # type: ignore[attr-defined]
+                model_name, encoder_buffer.getvalue(), model_buffer.getvalue()
+            )
 
             context.set("label_encoder", label_encoder)
             context.set("model", ml_pipeline)
@@ -430,6 +450,7 @@ class PredictStep(PipelineStep):
 
         Returns:
             Updated context with predictions.
+
         """
         filtered_functions = context.get("filtered_functions")
         tokens = context.get("tokens")
@@ -515,6 +536,7 @@ class SaveRawFunctionsStep(PipelineStep):
 
         Returns:
             Updated context with save confirmation.
+
         """
         from app.database.sql_service import SQLUtil
 
@@ -540,7 +562,7 @@ class SaveRawFunctionsStep(PipelineStep):
                     "function_name": func.get("functionName", "unknown"),
                     "entrypoint": func.get("lowAddress", "0"),
                     "raw_code": raw_code,
-                }
+                },
             )
 
         if db_functions:
@@ -579,6 +601,7 @@ class LoadBinaryFunctionsStep(PipelineStep):
 
         Returns:
             Updated context with loaded functions.
+
         """
         from app.database.sql_service import SQLUtil
 
@@ -606,7 +629,7 @@ class LoadBinaryFunctionsStep(PipelineStep):
                         "lowAddress": bf.entrypoint,
                         "tokenList": bf.raw_code.split(),  # Space-separated tokens
                         "raw_code": bf.raw_code,
-                    }
+                    },
                 )
 
             context.set("functions", functions)

@@ -22,8 +22,7 @@ function goToModelURL(rowElement) {
     const statusText = statusCell.dataset.status;
 
     if (statusText === 'complete') {
-        const url = getBaseUrl() +
-            '/api/v1/models/getFunctions?model_name=' + encodeURIComponent(modelName);
+        const url = '/getSymbols?model_name=' + encodeURIComponent(modelName);
 
         if (url) {
             window.location = url;

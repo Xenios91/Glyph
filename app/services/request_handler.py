@@ -23,6 +23,7 @@ class DataHandler:
         bin_dictionary: Optional binary metadata dictionary.
         data: Processed DataFrame ready for ML operations.
         status: Current processing status.
+
     """
 
     uuid: str
@@ -39,6 +40,7 @@ class DataHandler:
             req_uuid: Unique identifier for this request.
             data: Raw request data containing functionsMap.
             model_name: Name of the ML model to use.
+
         """
         self.uuid = req_uuid
         self.model_name = model_name
@@ -77,6 +79,7 @@ class DataHandler:
 
         Returns:
             Deduplicated list of function dictionaries.
+
         """
         return [json.loads(t) for t in {json.dumps(d, sort_keys=True) for d in functions}]
 
@@ -89,6 +92,7 @@ class DataHandler:
 
         Args:
             functions: List of function dictionaries to process (modified in place).
+
         """
         for function in functions:
             token_list = function["tokenList"]
@@ -107,6 +111,7 @@ class DataHandler:
 
         Raises:
             ValueError: If the data is invalid or processing fails.
+
         """
         try:
             functions_temp = list(self.get_functions())
@@ -124,6 +129,7 @@ class DataHandler:
 
         Returns:
             List of function dictionaries from the functionsMap.
+
         """
         return cast(list[dict[str, Any]], self.json_dict["functionsMap"]["functions"])
 
@@ -148,6 +154,7 @@ class TrainingRequest(DataHandler):
 
         Raises:
             ValueError: If the training data is invalid.
+
         """
         super().__init__(req_uuid, data, model_name)
         self._load_data()
@@ -160,6 +167,7 @@ class TrainingRequest(DataHandler):
 
         Raises:
             ValueError: If the training data is invalid.
+
         """
         self.bin_name = self.json_dict["binaryName"]
         super()._load_data(error_label="training")
@@ -174,6 +182,7 @@ class PredictionRequest(DataHandler):
 
     Attributes:
         task_name: Unique name for this prediction task.
+
     """
 
     task_name: str
@@ -188,6 +197,7 @@ class PredictionRequest(DataHandler):
 
         Raises:
             ValueError: If taskName is missing or prediction data is invalid.
+
         """
         super().__init__(req_uuid, data, model_name)
         self.task_name = cast(str, data.get("taskName") or data.get("task_name", ""))
@@ -202,6 +212,7 @@ class PredictionRequest(DataHandler):
 
         Raises:
             ValueError: If the prediction data is invalid.
+
         """
         super()._load_data(error_label="prediction")
 
@@ -219,6 +230,7 @@ class GhidraRequest:
         name: Human-readable task name.
         ml_class_type: Machine learning classification type.
         uuid: Unique identifier for this request.
+
     """
 
     file_name: str
@@ -237,6 +249,7 @@ class GhidraRequest:
             model_name: Name of the ML model.
             name: Human-readable task name.
             ml_class_type: Machine learning classification type.
+
         """
         self.file_name = Path(filename).as_posix()
         self.is_training = is_training
@@ -253,6 +266,7 @@ class Prediction:
         model_name: Name of the model used for prediction.
         task_name: Name of the prediction task.
         predictions: List of prediction result dictionaries.
+
     """
 
     model_name: str
@@ -266,6 +280,7 @@ class Prediction:
             task_name: Name of the prediction task.
             model_name: Name of the model used.
             pred: List of prediction result dictionaries.
+
         """
         self.task_name = task_name
         self.model_name = model_name

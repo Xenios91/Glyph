@@ -114,7 +114,7 @@ def setup_logging(
         raise ValueError(f"Invalid log level: '{level}'. Must be one of: {', '.join(sorted(valid_levels))}")
     if console_level.upper() not in valid_levels:
         raise ValueError(
-            f"Invalid console log level: '{console_level}'. Must be one of: {', '.join(sorted(valid_levels))}"
+            f"Invalid console log level: '{console_level}'. Must be one of: {', '.join(sorted(valid_levels))}",
         )
 
     combined_filter = create_module_level_filter(module_levels) if module_levels else None
@@ -164,7 +164,7 @@ def setup_logging(
                 "level": console_level.upper(),
                 "filter": combined_filter,
                 "colorize": colorize,
-            }
+            },
         )
 
     logger.configure(handlers=handlers, patcher=patcher)

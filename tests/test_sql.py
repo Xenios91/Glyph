@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import exc as sa_exc
 from app.database.models import Base
 from app.database.session_handler import (
     DB_TABLE_MAP,
@@ -16,6 +15,7 @@ from app.database.session_handler import (
     init_async_databases,
 )
 from app.database.sql_service import SQLUtil
+from sqlalchemy import exc as sa_exc
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
@@ -134,7 +134,7 @@ class TestSQLUtilDeleteModel:
         """Test that deleting a model also removes associated functions."""
         await SQLUtil.save_model("delete_func_model", b"encoder", b"model")
         await SQLUtil.save_functions(
-            "delete_func_model", [{"functionName": "func1", "lowAddress": "0x1000", "tokenList": ["t1"]}]
+            "delete_func_model", [{"functionName": "func1", "lowAddress": "0x1000", "tokenList": ["t1"]}],
         )
         await SQLUtil.delete_model("delete_func_model")
         functions = await SQLUtil.get_functions("delete_func_model")
@@ -278,7 +278,7 @@ class TestSQLUtilSaveFunctions:
         with patch("app.database.function_repository.get_async_session", mock_error):
             with pytest.raises(Exception, match="Save Error"):
                 await SQLUtil.save_functions(
-                    "model1", [{"functionName": "f1", "lowAddress": "0x0", "tokenList": ["t"]}]
+                    "model1", [{"functionName": "f1", "lowAddress": "0x0", "tokenList": ["t"]}],
                 )
 
 

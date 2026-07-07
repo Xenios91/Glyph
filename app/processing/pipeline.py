@@ -31,6 +31,7 @@ class PipelineContext:
         data: Arbitrary data payload for step-to-step communication.
         status: Current status of the pipeline execution.
         error: Error message if pipeline failed.
+
     """
 
     uuid: str
@@ -51,6 +52,7 @@ class PipelineContext:
 
         Returns:
             The value associated with the key, or default.
+
         """
         return self.data.get(key, default)
 
@@ -60,6 +62,7 @@ class PipelineContext:
         Args:
             key: The key to set.
             value: The value to store.
+
         """
         self.data[key] = value
 
@@ -90,6 +93,7 @@ class PipelineStep(ABC):
         Raises:
             Exception: If the step fails. The framework will catch this
                        and set context.error and context.status to "error".
+
         """
         pass
 
@@ -99,6 +103,7 @@ class PipelineStep(ABC):
 
         Returns:
             A string identifying this step.
+
         """
         pass
 
@@ -107,6 +112,7 @@ class PipelineStep(ABC):
 
         Returns:
             A human-readable description of what this step does.
+
         """
         return f"{self.get_name()} step"
 
@@ -125,6 +131,7 @@ class ProcessingPipeline:
         Args:
             name: A name identifying this pipeline configuration.
             steps: Ordered list of pipeline steps to execute.
+
         """
         self._name = name
         self._steps = steps
@@ -135,6 +142,7 @@ class ProcessingPipeline:
 
         Returns:
             The pipeline name.
+
         """
         return self._name
 
@@ -144,6 +152,7 @@ class ProcessingPipeline:
 
         Returns:
             List of PipelineStep instances.
+
         """
         return self._steps
 
@@ -155,9 +164,10 @@ class ProcessingPipeline:
 
         Returns:
             The final pipeline context after all steps complete.
+
         """
         logger.info(
-            "Starting pipeline '{}' execution for UUID {} with {} steps", self._name, context.uuid, len(self._steps)
+            "Starting pipeline '{}' execution for UUID {} with {} steps", self._name, context.uuid, len(self._steps),
         )
 
         for step in self._steps:

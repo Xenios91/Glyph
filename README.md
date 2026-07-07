@@ -76,7 +76,7 @@ source glyph_venv/bin/activate  # On Windows: glyph_venv\Scripts\activate
 ### 4. Install Dependencies
 
 ```bash
-pip install -r requirements.txt
+pip install .
 ```
 
 ### 5. Configure the Application

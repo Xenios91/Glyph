@@ -43,6 +43,7 @@ def restore_request_context(
     Args:
         captured: The captured context snapshot.
         override_task_id: If provided, override the task_id from the snapshot.
+
     """
     _request_id_var.set(captured.request_id)
     _user_id_var.set(captured.user_id)
@@ -118,6 +119,7 @@ def set_request_context(
         username: Username if authenticated.
         task_id: Task ID for background tasks.
         clear_unset: If True, clear all fields first, then apply only provided values.
+
     """
     if clear_unset:
         _request_id_var.set(None)

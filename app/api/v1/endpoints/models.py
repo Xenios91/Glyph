@@ -4,7 +4,7 @@ Provides endpoints for retrieving, listing, and deleting ML models,
 as well as accessing function details and prediction information.
 """
 
-from typing import Annotated, Any, Union
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
@@ -25,13 +25,12 @@ router = APIRouter()
 
 @router.delete(
     "/deleteModel",
-    response_model=SuccessResponse[dict[str, Any]],
     summary="Delete a model",
     description="Delete a trained ML model by name and all associated predictions.",
 )
 @catch_http_exception(status_code=500, error_code="DELETE_MODEL_ERROR", message="Failed to delete model")
 async def delete_model(
-    current_user: Annotated[User, Depends(get_current_active_user)], model_name: ModelName = Query(...)
+    current_user: Annotated[User, Depends(get_current_active_user)], model_name: Annotated[ModelName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete a trained ML model by name and all associated predictions."""
     await ModelRepository.delete(model_name)
@@ -41,13 +40,12 @@ async def delete_model(
 
 @router.delete(
     "/deleteModels",
-    response_model=SuccessResponse[dict[str, Any]],
     summary="Delete multiple models",
     description="Delete multiple trained ML models by comma-separated names.",
 )
 @catch_http_exception(status_code=500, error_code="DELETE_MODELS_ERROR", message="Failed to delete models")
 async def delete_models(
-    current_user: Annotated[User, Depends(get_current_active_user)], model_names: str = Query(...)
+    current_user: Annotated[User, Depends(get_current_active_user)], model_names: Annotated[str, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete multiple trained ML models by comma-separated names."""
     names = [name.strip() for name in model_names.split(",") if name.strip()]
@@ -55,7 +53,7 @@ async def delete_models(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_MODEL_NAMES", error_message="At least one model name must be provided"
+                error_code="INVALID_MODEL_NAMES", error_message="At least one model name must be provided",
             ).model_dump(),
         )
 
@@ -86,22 +84,22 @@ async def delete_models(
 )
 async def get_function(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    model_name: ModelName = Query(...),
-    function_name: FunctionName = Query(...),
+    model_name: Annotated[ModelName, Query()],
+    function_name: Annotated[FunctionName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Get decompiled code for a single function from a model."""
     if not model_name or not model_name.strip():
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_MODEL_NAME", error_message="model_name must be a non-empty string"
+                error_code="INVALID_MODEL_NAME", error_message="model_name must be a non-empty string",
             ).model_dump(),
         )
     if not function_name or not function_name.strip():
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_FUNCTION_NAME", error_message="function_name must be a non-empty string"
+                error_code="INVALID_FUNCTION_NAME", error_message="function_name must be a non-empty string",
             ).model_dump(),
         )
 
@@ -111,7 +109,7 @@ async def get_function(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="FUNCTION_NOT_FOUND", error_message="Function not found"
+                error_code="FUNCTION_NOT_FOUND", error_message="Function not found",
             ).model_dump(),
         )
 
@@ -137,7 +135,7 @@ async def get_function(
 )
 async def get_functions(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    model_name: ModelName = Query(...),
+    model_name: Annotated[ModelName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """List all extracted functions for a trained model."""
     functions = await FunctionRepository.get_functions(model_name)
@@ -152,7 +150,7 @@ async def get_functions(
                     "tokens": f.tokens,
                 }
                 for f in functions
-            ]
+            ],
         },
         message="Functions retrieved successfully",
     )
@@ -166,9 +164,9 @@ async def get_functions(
 )
 async def get_prediction_details(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    model_name: ModelName = Query(...),
-    function_name: FunctionName = Query(...),
-    task_name: TaskName = Query(...),
+    model_name: Annotated[ModelName, Query()],
+    function_name: Annotated[FunctionName, Query()],
+    task_name: Annotated[TaskName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Get detailed prediction results for a specific function, comparing model and prediction tokens."""
     try:
@@ -179,7 +177,7 @@ async def get_prediction_details(
             raise HTTPException(
                 status_code=404,
                 detail=create_error_response(
-                    error_code="PREDICTION_NOT_FOUND", error_message="Prediction not found"
+                    error_code="PREDICTION_NOT_FOUND", error_message="Prediction not found",
                 ).model_dump(),
             )
 
@@ -198,7 +196,7 @@ async def get_prediction_details(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="RETRIEVAL_ERROR", error_message="Could not retrieve details"
+                error_code="RETRIEVAL_ERROR", error_message="Could not retrieve details",
             ).model_dump(),
         )
 

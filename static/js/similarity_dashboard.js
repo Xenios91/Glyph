@@ -750,8 +750,7 @@
                 '<td><span class="similarity-badge" style="background:' + color + '; color:' + (pair.overall_similarity > 0.5 ? '#000' : '#333') + '">' +
                     pair.overall_similarity.toFixed(4) + '</span></td>' +
                 '<td>' + pair.matched_function_count + '</td>' +
-                '<td>' + pair.total_function_comparisons + '</td>' +
-                '<td><a href="/run-task?source=' + pair.binary_a_id + '&target=' + pair.binary_b_id + '" class="cyber-btn is-secondary btn-view-details">Compare</a></td>';
+                '<td>' + pair.total_function_comparisons + '</td>';
 
             tbody.appendChild(row);
         });

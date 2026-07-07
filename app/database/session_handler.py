@@ -118,6 +118,7 @@ async def async_session(database: str = "auth") -> AsyncIterator[AsyncSession]:
     Example:
         async with async_session("auth") as session:
             await session.execute(...)
+
     """
     session = await get_async_session(database)
     try:

@@ -4,10 +4,6 @@ Covers Pydantic model validation failures and edge cases
 that are not exercised by the existing endpoint tests.
 """
 
-from __future__ import annotations
-
-from typing import Any
-
 import pytest
 from app.api.types import TaskType
 from pydantic import ValidationError

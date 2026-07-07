@@ -217,7 +217,7 @@ class TestTokenizeStep:
                 "functions": [
                     {"name": "func1", "tokenList": ["int", "x", ";"]},
                     {"name": "func2", "tokenList": ["return", "0", ";"]},
-                ]
+                ],
             },
         )
         result = await step.execute(context)
@@ -261,7 +261,7 @@ class TestFilterStep:
                         "name": "func1",
                         "tokenList": ["0x401000", "FUN_00401000", "var1", "int"],
                     },
-                ]
+                ],
             },
         )
         result = await step.execute(context)
@@ -301,7 +301,7 @@ class TestFeatureExtractStep:
                 "filtered_functions": [
                     {"name": "func1", "tokens": "int x return 0"},
                     {"name": "func2", "tokens": "void y return 1"},
-                ]
+                ],
             },
         )
         result = await step.execute(context)
@@ -459,7 +459,7 @@ class TestFeatureExtractStep_Errors:
                 "filtered_functions": [
                     {"name": "func1", "tokens": ""},
                     {"name": "func2", "tokens": ""},
-                ]
+                ],
             },
         )
         result = await step.execute(context)

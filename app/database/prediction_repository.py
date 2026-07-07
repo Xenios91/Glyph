@@ -5,7 +5,8 @@ from typing import Any
 
 import joblib
 from loguru import logger
-from sqlalchemy import delete, exc as sa_exc, exists, select
+from sqlalchemy import delete, exists, select
+from sqlalchemy import exc as sa_exc
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +28,7 @@ class PredictionRepository:
 
         Returns:
             A list of PredictionResult objects.
+
         """
         prediction_results: list[PredictionResult] = []
         session: AsyncSession = await get_async_session("predictions")
@@ -48,7 +50,7 @@ class PredictionRepository:
                             task_name=pred.task_name,
                             model_name=pred.model_name,
                             pred=preds,
-                        )
+                        ),
                     )
                 except SecureDeserializationError:
                     logger.exception("Secure deserialization blocked prediction '{}'", pred.task_name)
@@ -70,6 +72,7 @@ class PredictionRepository:
 
         Returns:
             PredictionResult object if found, otherwise None.
+
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
@@ -77,7 +80,7 @@ class PredictionRepository:
                 select(Prediction).where(
                     Prediction.task_name == task_name,
                     Prediction.model_name == model_name,
-                )
+                ),
             )
             row = result.scalar_one_or_none()
             if row is None:
@@ -118,6 +121,7 @@ class PredictionRepository:
             name: Name of the task.
             model_name: Name of the model used.
             functions: List of function predictions to save.
+
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
@@ -161,6 +165,7 @@ class PredictionRepository:
 
         Returns:
             Dictionary containing function prediction data, or empty dict if not found.
+
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
@@ -168,7 +173,7 @@ class PredictionRepository:
                 select(Prediction).where(
                     Prediction.model_name == model_name,
                     Prediction.task_name == task_name,
-                )
+                ),
             )
             row = result.scalar_one_or_none()
             if row is None:
@@ -214,6 +219,7 @@ class PredictionRepository:
                 When provided, only predictions matching both task_name and
                 model_name are deleted. When None, all predictions for the
                 task_name are deleted (legacy behavior).
+
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
@@ -222,7 +228,7 @@ class PredictionRepository:
                     delete(Prediction).where(
                         Prediction.task_name == task_name,
                         Prediction.model_name == model_name,
-                    )
+                    ),
                 )
                 logger.info("Prediction for task '{}' model '{}' deleted", task_name, model_name)
             else:
@@ -244,6 +250,7 @@ class PredictionRepository:
 
         Args:
             model_name: Name of the model.
+
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
@@ -268,6 +275,7 @@ class PredictionRepository:
 
         Returns:
             True if the task name exists, False otherwise.
+
         """
         session: AsyncSession | None = None
         try:
@@ -290,6 +298,7 @@ def _cast_list(data: Any) -> list[dict[str, Any]]:
 
     Returns:
         Casted data.
+
     """
     from typing import cast
 

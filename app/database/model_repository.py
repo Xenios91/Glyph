@@ -1,12 +1,17 @@
 """Repository for Model entity database operations."""
 
+import io
+from typing import Any, Tuple
+
 from loguru import logger
-from sqlalchemy import delete, exc as sa_exc, exists, select
+from sqlalchemy import delete, exists, select
+from sqlalchemy import exc as sa_exc
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Model, get_utc_now
 from app.database.session_handler import close_async_session, get_async_session
+from app.utils.secure_deserializer import secure_load
 
 
 class ModelRepository:
@@ -26,6 +31,7 @@ class ModelRepository:
             model_name: Name of the model to save.
             label_encoder: Serialized label encoder bytes.
             model: Serialized model bytes.
+
         """
         session: AsyncSession = await get_async_session("models")
         try:
@@ -64,6 +70,7 @@ class ModelRepository:
 
         Returns:
             A set of model names.
+
         """
         models_set: set[str] = set()
         session: AsyncSession = await get_async_session("models")
@@ -89,6 +96,7 @@ class ModelRepository:
 
         Returns:
             The Model ORM object if found, otherwise None.
+
         """
         session: AsyncSession = await get_async_session("models")
         try:
@@ -116,6 +124,7 @@ class ModelRepository:
 
         Returns:
             True if the model name exists, False otherwise.
+
         """
         session: AsyncSession | None = None
         try:
@@ -135,6 +144,7 @@ class ModelRepository:
 
         Args:
             model_name: Name of the model to delete.
+
         """
         session: AsyncSession = await get_async_session("models")
         try:
@@ -147,3 +157,27 @@ class ModelRepository:
             raise
         finally:
             await close_async_session(session)
+
+    @staticmethod
+    async def load_model(model_name: str) -> Tuple[Any, Any]:
+        """Load and deserialize a model and its label encoder from the database.
+
+        Args:
+            model_name: Name of the model to load.
+
+        Returns:
+            A tuple of (model, label_encoder) deserialized objects.
+
+        Raises:
+            ValueError: If the model is not found in the database.
+
+        """
+        model_row = await ModelRepository.get(model_name)
+        if model_row is None:
+            raise ValueError(f"Model '{model_name}' not found")
+
+        model = secure_load(io.BytesIO(model_row.model_data))  # type: ignore[attr-defined]
+        label_encoder = secure_load(io.BytesIO(model_row.label_encoder_data))  # type: ignore[attr-defined]
+
+        logger.info("Model '{}' loaded successfully", model_name)
+        return model, label_encoder

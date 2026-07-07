@@ -73,6 +73,7 @@ class EventWatcher:
             request: The request object associated with this job.
             future: The Future object to monitor for completion.
             captured_ctx: Captured request context from the originating thread.
+
         """
         with self._data_lock:
             self._callbacks[job_uuid] = callback
@@ -216,6 +217,7 @@ class TaskManager:
 
         Returns:
             The ProcessPoolExecutor instance.
+
         """
         if cls.exec_pool is None or cls._executor_shutdown:
             cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
@@ -241,6 +243,7 @@ class TaskManager:
         Args:
             signum: The signal number received.
             _frame: The current stack frame (unused).
+
         """
         logger.info("Received signal {}, shutting down executor", signum)
         cls._shutdown_executor()
@@ -254,6 +257,7 @@ class TaskManager:
 
         Returns:
             A unique UUID string.
+
         """
         return str(uuid.uuid4())
 
@@ -273,6 +277,7 @@ class TaskManager:
             job_uuid: The UUID of the job.
             initial_status: Initial status string (default "starting").
             owner_id: The user ID that owns this task (for access control).
+
         """
         with cls._lock:
             cls._active_tasks[job_uuid] = initial_status
@@ -292,6 +297,7 @@ class TaskManager:
 
         Returns:
             The status of the job or "UUID Not Found".
+
         """
         with cls._lock:
             if job_uuid in cls._active_tasks:
@@ -317,6 +323,7 @@ class TaskManager:
 
         Returns:
             A dictionary mapping model names / UUIDs to their statuses.
+
         """
         with cls._lock:
             status_list: dict[str, str] = dict(cls._active_tasks)
@@ -339,6 +346,7 @@ class TaskManager:
         Returns:
             True if the user owns the task or no owner is registered,
             False otherwise.
+
         """
         with cls._lock:
             owner = cls._task_owners.get(job_uuid)
@@ -361,6 +369,7 @@ class TaskManager:
         Returns:
             True if the status was set, False if the UUID was not found
             or ownership verification failed.
+
         """
         if owner_id is not None and not cls.verify_task_owner(job_uuid, owner_id):
             logger.warning("Ownership check failed for task {} by user {}", job_uuid, owner_id)
@@ -389,6 +398,7 @@ class TaskManager:
         Args:
             job_uuid: The UUID of the job.
             result: The result payload to associate with the task.
+
         """
         with cls._lock:
             cls._task_results[job_uuid] = result
@@ -403,6 +413,7 @@ class TaskManager:
 
         Returns:
             The stored result, or None if no result exists.
+
         """
         with cls._lock:
             return cls._task_results.get(job_uuid)
@@ -413,6 +424,7 @@ class TaskManager:
 
         Args:
             job_uuid: The UUID of the job to remove.
+
         """
         with cls._lock:
             if job_uuid in cls._active_tasks:
@@ -472,6 +484,7 @@ class Ghidra(TaskManager):
 
         Returns:
             The pipeline context with analysis results.
+
         """
         from app.processing.pipeline_configs import PREDICTION_PIPELINE, TRAINING_PIPELINE
 

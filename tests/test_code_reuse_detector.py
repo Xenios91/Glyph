@@ -232,7 +232,7 @@ class TestCompareBinaries:
                     "functionName": "tgt_func",
                     "tokenList": ["float", "completely", "different"],
                     "tokens": "float completely different",
-                }
+                },
             ]
 
             with mock.patch("app.processing.steps.TokenizeStep") as MockTokenize:
@@ -266,7 +266,7 @@ class TestCompareBinaries:
                     "functionName": "tgt_main",
                     "tokenList": ["int", "tgt_main", "{", "return", "0", "}"],
                     "tokens": "int tgt_main { return 0 }",
-                }
+                },
             ]
 
             with mock.patch("app.processing.steps.TokenizeStep") as MockTokenize:
@@ -307,7 +307,7 @@ class TestCompareBinaries:
                     "functionName": "tgt_func",
                     "tokenList": ["int", "tgt_func"],
                     "tokens": "int tgt_func",
-                }
+                },
             ]
 
             with mock.patch("app.processing.steps.TokenizeStep") as MockTokenize:
@@ -445,7 +445,7 @@ class TestCompareBinaries:
                     "functionName": "tgt_func",
                     "tokenList": ["int", "tgt_func", "{", "}"],
                     "tokens": "int tgt_func { }",
-                }
+                },
             ]
 
             with mock.patch("app.processing.steps.TokenizeStep") as MockTokenize:

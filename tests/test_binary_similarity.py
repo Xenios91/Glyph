@@ -400,7 +400,7 @@ class TestSimilarityAPISchemas:
                     overall_similarity=0.5,
                     matched_function_count=1,
                     total_function_comparisons=4,
-                )
+                ),
             ],
         )
         assert resp.computation_id == 1

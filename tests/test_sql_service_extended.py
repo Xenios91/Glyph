@@ -5,7 +5,6 @@ from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy import exc as sa_exc
 from app.database.models import Base
 from app.database.session_handler import (
     DB_TABLE_MAP,
@@ -14,6 +13,7 @@ from app.database.session_handler import (
     init_async_databases,
 )
 from app.database.sql_service import SQLUtil
+from sqlalchemy import exc as sa_exc
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -337,7 +337,7 @@ class TestSQLUtilBinaryOperations:
             with patch("app.database.binary_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB save funcs failed"):
                     await SQLUtil.save_binary_functions(
-                        1, [{"function_name": "f", "entrypoint": False, "raw_code": "c"}]
+                        1, [{"function_name": "f", "entrypoint": False, "raw_code": "c"}],
                     )
                 mock_error.rollback.assert_awaited_once()
 
@@ -544,7 +544,7 @@ class TestSQLUtilSimilarityComputation:
                         overall_similarity=0.5,
                         matched_function_count=3,
                         total_function_comparisons=5,
-                    )
+                    ),
                 ]
                 with pytest.raises(Exception, match="DB save pairs failed"):
                     await SQLUtil.save_similarity_pairs(1, pairs)
@@ -814,6 +814,6 @@ class TestSQLUtilPredictionDeserializationErrors:
             with patch("app.database.function_repository.close_async_session", new=AsyncMock()):
                 with pytest.raises(Exception, match="DB save failed"):
                     await SQLUtil.save_functions(
-                        "err_model", [{"functionName": "f", "lowAddress": "0", "tokenList": []}]
+                        "err_model", [{"functionName": "f", "lowAddress": "0", "tokenList": []}],
                     )
                 mock_error.rollback.assert_awaited_once()

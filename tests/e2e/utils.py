@@ -24,6 +24,7 @@ def generate_unique_username() -> str:
 
     Returns:
         A unique username string like 'testuser_a1b2c3d_12345'.
+
     """
     short_uuid = uuid.uuid4().hex[:8]
     timestamp = int(time.time() * 1000) % 100000
@@ -44,6 +45,7 @@ def wait_for_register_form(page: Any, timeout: int = 10000) -> None:
     Args:
         page: Playwright page object.
         timeout: Maximum time to wait in milliseconds.
+
     """
     page.wait_for_selector("#registerForm[data-initialized='true']", timeout=timeout)
 
@@ -57,6 +59,7 @@ def wait_for_login_form(page: Any, timeout: int = 10000) -> None:
     Args:
         page: Playwright page object.
         timeout: Maximum time to wait in milliseconds.
+
     """
     page.wait_for_selector("#loginForm[data-initialized='true']", timeout=timeout)
 
@@ -78,6 +81,7 @@ def register_user(page: Any, username: str | None = None) -> tuple[str, str]:
 
     Returns:
         A tuple of (username, email) that was used for registration.
+
     """
     if username is None:
         username = generate_unique_username()
@@ -110,6 +114,7 @@ def login_user(page: Any, username: str, password: str = "SecurePass123!") -> No
         page: Playwright page object.
         username: The username to log in with.
         password: The password to log in with.
+
     """
     if "/login" not in page.url:
         page.goto(f"{BASE_URL}/login")
@@ -131,6 +136,7 @@ def register_and_login(page: Any) -> str:
 
     Returns:
         The username that was registered and logged in.
+
     """
     username, _ = register_user(page)
     login_user(page, username)
@@ -146,6 +152,7 @@ def logout_user(page: Any, username: str) -> None:
     Args:
         page: Playwright page object.
         username: The username of the logged-in user (used to locate the dropdown).
+
     """
     page.evaluate("""
       const menu = document.getElementById('user-menu');
@@ -173,6 +180,7 @@ def open_analysis_dropdown(page: Any) -> None:
 
     Args:
         page: Playwright page object.
+
     """
     page.evaluate("""
       const analysisMenu = document.getElementById('analysis-menu');
@@ -189,6 +197,7 @@ def open_code_reuse_submenu(page: Any) -> None:
 
     Args:
         page: Playwright page object.
+
     """
     page.evaluate("""
       const codeReuseMenu = document.getElementById('code-reuse-menu');
@@ -205,6 +214,7 @@ def open_system_dropdown(page: Any) -> None:
 
     Args:
         page: Playwright page object.
+
     """
     system_toggle = page.locator('button:has-text("SYSTEM")')
     system_toggle.hover()
@@ -217,6 +227,7 @@ def open_user_dropdown(page: Any, username: str) -> None:
     Args:
         page: Playwright page object.
         username: The username of the logged-in user.
+
     """
     user_toggle = page.locator(f"button:has-text('{username.upper()}')")
     user_toggle.hover()

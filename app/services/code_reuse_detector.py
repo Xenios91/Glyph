@@ -22,6 +22,7 @@ class FunctionDict(TypedDict, total=False):
         parameterCount: Number of function parameters.
         highAddress: End address of the function body.
         error: Error message if decompilation failed.
+
     """
 
     functionName: str
@@ -43,6 +44,7 @@ class CodeReuseComparisonResult(TypedDict):
         target_binary_name: Human-readable name of the target binary.
         matched_functions: List of matched function pairs with similarity scores.
         overall_similarity: Average similarity score across all matched functions.
+
     """
 
     target_binary_id: int
@@ -62,6 +64,7 @@ def _longest_common_subsequence(a: list[str], b: list[str]) -> int:
 
     Returns:
         Length of the LCS.
+
     """
     if not a or not b:
         return 0
@@ -94,6 +97,7 @@ def compute_similarity(source_tokens: list[str], target_tokens: list[str], thres
 
     Returns:
         Float similarity score between 0.0 and 1.0.
+
     """
     if not source_tokens or not target_tokens:
         return 0.0
@@ -134,6 +138,7 @@ async def compare_binaries(
     Returns:
         Comparison result dict with target metadata and matched functions,
         or None if the target binary has no functions.
+
     """
     from app.database.sql_service import SQLUtil
     from app.processing.pipeline import PipelineContext
@@ -212,7 +217,7 @@ async def compare_binaries(
                     "similarity_score": round(best_score, 4),
                     "source_tokens": src_token_str,
                     "target_tokens": best_tgt_token_str,
-                }
+                },
             )
 
     overall_similarity = round(sum(similarity_scores) / len(similarity_scores), 4) if similarity_scores else 0.0

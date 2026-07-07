@@ -21,8 +21,8 @@ class TestDataHandler:
                 "functions": [
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
-            }
+                ],
+            },
         }
 
         handler = DataHandler("test-uuid", test_data, "test-model")
@@ -38,8 +38,8 @@ class TestDataHandler:
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
-            }
+                ],
+            },
         }
 
         handler = DataHandler("test-uuid", duplicate_data, "test-model")
@@ -52,8 +52,8 @@ class TestDataHandler:
                 "functions": [
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
-            }
+                ],
+            },
         }
 
         handler = DataHandler("test-uuid", test_data, "test-model")
@@ -72,7 +72,7 @@ class TestTrainingRequest:
                 "functions": [
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
+                ],
             },
         }
 
@@ -90,7 +90,7 @@ class TestTrainingRequest:
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
+                ],
             },
         }
 
@@ -110,7 +110,7 @@ class TestPredictionRequest:
                 "functions": [
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
+                ],
             },
         }
 
@@ -128,7 +128,7 @@ class TestPredictionRequest:
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func1", "tokenList": ["token1", "token2"]},
                     {"name": "func2", "tokenList": ["token3", "token4"]},
-                ]
+                ],
             },
         }
 

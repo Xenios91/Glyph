@@ -48,6 +48,7 @@ class BinaryUploadService:
 
         Raises:
             ValidationError: If MIME type cannot be detected or is not allowed.
+
         """
         try:
             mime_type = magic.from_buffer(file_content[:1024], mime=True)
@@ -73,6 +74,7 @@ class BinaryUploadService:
 
         Raises:
             ValidationError: If filename is empty or contains invalid characters.
+
         """
         if not filename:
             raise ValidationError("Empty filename")
@@ -91,13 +93,14 @@ class BinaryUploadService:
 
         Raises:
             ValidationError: If file exceeds maximum allowed size.
+
         """
         settings = get_settings()
         max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
         if file_size > max_file_size_bytes:
             actual_size_mb = file_size / (1024 * 1024)
             raise ValidationError(
-                f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)"
+                f"File size ({actual_size_mb:.2f}MB) exceeds maximum allowed ({settings.max_file_size_mb}MB)",
             )
 
     @staticmethod
@@ -110,6 +113,7 @@ class BinaryUploadService:
 
         Raises:
             ValidationError: If insufficient disk space.
+
         """
         disk_usage = shutil.disk_usage(upload_folder)
         if disk_usage.free < file_size * 1.1:
@@ -121,6 +125,7 @@ class BinaryUploadService:
 
         Returns:
             A UUID-based filename string.
+
         """
         return str(uuid.uuid4())
 
@@ -139,6 +144,7 @@ class BinaryUploadService:
         Raises:
             ValidationError: If file exceeds maximum size.
             OSError: If write fails.
+
         """
         chunk_size = 1024 * 1024  # 1MB chunks
         file_size = 0
@@ -160,6 +166,7 @@ class BinaryUploadService:
 
         Args:
             file_path: Path to the file to remove.
+
         """
         if os.path.exists(file_path):
             os.remove(file_path)
@@ -190,6 +197,7 @@ class BinaryUploadService:
 
         Raises:
             ValidationError: If validation fails.
+
         """
         settings = get_settings()
         max_file_size_bytes = settings.max_file_size_mb * 1024 * 1024
@@ -255,6 +263,7 @@ class BinaryUploadService:
         Raises:
             BinaryNotFoundError: If binary doesn't exist.
             BinaryAccessError: If user doesn't own the binary.
+
         """
         binary = await BinaryRepository.get(binary_id)
         if binary is None:
@@ -282,6 +291,7 @@ class BinaryUploadService:
         Raises:
             BinaryNotFoundError: If binary doesn't exist.
             BinaryAccessError: If user doesn't own the binary.
+
         """
         binary = await BinaryRepository.get(binary_id)
         if binary is None:
@@ -305,6 +315,7 @@ class BinaryUploadService:
 
         Returns:
             Tuple of (binaries list, total count).
+
         """
         total = await BinaryRepository.count_by_user(user_id)
         binaries = await BinaryRepository.get_by_user(user_id, offset=offset, limit=limit)
@@ -320,6 +331,7 @@ class BinaryUploadService:
 
         Returns:
             List of BinaryFunction objects.
+
         """
         return await BinaryRepository.get_functions(binary_id, offset=offset, limit=limit)
 
@@ -331,6 +343,7 @@ class BinaryUploadService:
 
         Returns:
             Total count of functions.
+
         """
         return await BinaryRepository.count_functions(binary_id)
 
@@ -349,6 +362,7 @@ class BinaryUploadService:
 
         Returns:
             The pipeline result context.
+
         """
         context = PipelineContext(
             uuid=task_uuid,

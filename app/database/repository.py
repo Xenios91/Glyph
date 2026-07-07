@@ -33,6 +33,7 @@ class PasswordHasherService:
             parallelism: Degree of parallelism. Defaults to 4.
             hash_len: Length of the hash. Defaults to 32.
             salt_len: Length of the salt. Defaults to 16.
+
         """
         self.ph = PasswordHasher(
             time_cost=time_cost if time_cost is not None else 3,
@@ -50,6 +51,7 @@ class PasswordHasherService:
 
         Returns:
             Hashed password string
+
         """
         return self.ph.hash(password)
 
@@ -62,6 +64,7 @@ class PasswordHasherService:
 
         Returns:
             True if password matches, False otherwise
+
         """
         try:
             self.ph.verify(hashed_password, password)
@@ -79,6 +82,7 @@ class PasswordHasherService:
 
         Returns:
             True if the hash needs to be rehashed
+
         """
         return self.ph.check_needs_rehash(hashed_password)
 
@@ -92,6 +96,7 @@ class UserRepository:
         Args:
             db: Async database session.
             password_hasher: Optional password hasher service. Uses default settings if not provided.
+
         """
         self.db = db
         self.password_hasher = password_hasher if password_hasher is not None else PasswordHasherService()
@@ -128,6 +133,7 @@ class UserRepository:
 
         Returns:
             The User object if found, None otherwise.
+
         """
         return await self.db.get(User, user_id)
 
@@ -139,6 +145,7 @@ class UserRepository:
 
         Returns:
             The User object if found, None otherwise.
+
         """
         result = await self.db.execute(select(User).where(User.username == username))
         return result.scalar_one_or_none()
@@ -151,6 +158,7 @@ class UserRepository:
 
         Returns:
             The User object if found, None otherwise.
+
         """
         result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
@@ -173,7 +181,7 @@ class UserRepository:
         return None
 
     async def update_user(
-        self, user_id: int, full_name: str | None = None, email: str | None = None, is_active: bool | None = None
+        self, user_id: int, full_name: str | None = None, email: str | None = None, is_active: bool | None = None,
     ) -> User | None:
         """Update a user's information."""
         user = await self.get_by_id(user_id)
@@ -224,6 +232,7 @@ class APIKeyRepository:
 
         Returns:
             A random API key prefixed with the token prefix (e.g., "glp_").
+
         """
         token = secrets.token_urlsafe(32)
         return f"{self.token_prefix}{token}"
@@ -236,6 +245,7 @@ class APIKeyRepository:
 
         Returns:
             The bcrypt hash of the API key.
+
         """
         return bcrypt.hashpw(api_key.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
@@ -248,11 +258,12 @@ class APIKeyRepository:
 
         Returns:
             True if the key matches, False otherwise.
+
         """
         return bcrypt.checkpw(api_key.encode("utf-8"), hashed_key.encode("utf-8"))
 
     async def create_api_key(
-        self, user_id: int, name: str, permissions: list[str] | None = None, expires_days: int | None = None
+        self, user_id: int, name: str, permissions: list[str] | None = None, expires_days: int | None = None,
     ) -> tuple[APIKey, str]:
         """Create a new API key for a user. Returns (APIKey, plain_text_key)."""
         api_key = self.generate_api_key()
@@ -285,6 +296,7 @@ class APIKeyRepository:
 
         Returns:
             The APIKey object if found, None otherwise.
+
         """
         return await self.db.get(APIKey, key_id)
 
@@ -296,6 +308,7 @@ class APIKeyRepository:
 
         Returns:
             The APIKey object if found, None otherwise.
+
         """
         result = await self.db.execute(select(APIKey).where(APIKey.key_prefix == prefix))
         return result.scalar_one_or_none()
@@ -311,6 +324,7 @@ class APIKeyRepository:
 
         Returns:
             The APIKey object if valid, None otherwise.
+
         """
         if not api_key.startswith(self.token_prefix):
             logger.debug("API key verification failed: invalid prefix")
@@ -342,7 +356,7 @@ class APIKeyRepository:
 
     async def get_user_api_keys(self, user_id: int) -> list[APIKey]:
         result = await self.db.execute(
-            select(APIKey).where(APIKey.user_id == user_id).order_by(APIKey.created_at.desc())
+            select(APIKey).where(APIKey.user_id == user_id).order_by(APIKey.created_at.desc()),
         )
         return list(result.scalars().all())
 

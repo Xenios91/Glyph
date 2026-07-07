@@ -14,14 +14,11 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
     """SQLAlchemy declarative base."""
-
-    pass
 
 
 def get_utc_now() -> datetime:
@@ -29,6 +26,7 @@ def get_utc_now() -> datetime:
 
     Returns:
         Current UTC datetime with timezone info.
+
     """
     return datetime.now(UTC)
 
@@ -43,6 +41,7 @@ class Model(Base):
         label_encoder_data: Serialized label encoder bytes (joblib format)
         created_at: Timestamp when the model was created
         modified_at: Timestamp when the model was last modified
+
     """
 
     __tablename__ = "models"
@@ -76,6 +75,7 @@ class Prediction(Base):
         functions_data: Serialized list of function predictions (joblib format)
         created_at: Timestamp when the prediction was created
         modified_at: Timestamp when the prediction was last modified
+
     """
 
     __tablename__ = "predictions"
@@ -112,6 +112,7 @@ class Function(Base):
         tokens: Tokenized function code as text
         created_at: Timestamp when the function was created
         modified_at: Timestamp when the function was last modified
+
     """
 
     __tablename__ = "functions"
@@ -153,6 +154,7 @@ class Binary(Base):
         uploaded_by: Foreign key to User.id
         created_at: Timestamp when the binary was uploaded
         modified_at: Timestamp when the binary was last modified
+
     """
 
     __tablename__ = "binaries"
@@ -198,6 +200,7 @@ class BinaryFunction(Base):
         raw_code: Raw decompiled C code as text
         created_at: Timestamp when the function was extracted
         modified_at: Timestamp when the function was last modified
+
     """
 
     __tablename__ = "binary_functions"
@@ -239,6 +242,7 @@ class User(Base):
         is_active: Whether the user account is active
         created_at: Timestamp when the user was created
         modified_at: Timestamp when the user was last modified
+
     """
 
     __tablename__ = "users"
@@ -284,13 +288,14 @@ class APIKey(Base):
         is_active: Whether the API key is active
         last_used_at: Timestamp when the key was last used
         created_at: Timestamp when the key was created
+
     """
 
     __tablename__ = "api_keys"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,
     )
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     hashed_key: Mapped[str] = mapped_column(String(256), nullable=False)
@@ -331,6 +336,7 @@ class SimilarityComputation(Base):
         status: Computation status (pending, processing, completed, error)
         created_at: Timestamp when the computation was created
         modified_at: Timestamp when the computation was last modified
+
     """
 
     __tablename__ = "similarity_computations"
@@ -373,6 +379,7 @@ class SimilarityPair(Base):
         matched_function_count: Number of function pairs above threshold
         total_function_comparisons: Total function pairs compared
         created_at: Timestamp when the comparison was computed
+
     """
 
     __tablename__ = "similarity_pairs"
@@ -399,6 +406,6 @@ class SimilarityPair(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "computation_id", "binary_a_id", "binary_b_id", name="uq_similarity_pair_computation_binaries"
+            "computation_id", "binary_a_id", "binary_b_id", name="uq_similarity_pair_computation_binaries",
         ),
     )

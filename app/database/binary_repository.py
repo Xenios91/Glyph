@@ -3,7 +3,8 @@
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import delete, exc as sa_exc, func, select
+from sqlalchemy import delete, func, select
+from sqlalchemy import exc as sa_exc
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +37,7 @@ class BinaryRepository:
 
         Returns:
             The auto-generated binary id.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -71,6 +73,7 @@ class BinaryRepository:
 
         Returns:
             The Binary ORM object or None.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -94,6 +97,7 @@ class BinaryRepository:
 
         Returns:
             Total count of binaries for the user.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -114,6 +118,7 @@ class BinaryRepository:
 
         Returns:
             Total count of functions for the binary.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -136,6 +141,7 @@ class BinaryRepository:
 
         Returns:
             List of Binary ORM objects (expunged from session).
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -144,7 +150,7 @@ class BinaryRepository:
                 .where(Binary.uploaded_by == user_id)
                 .order_by(Binary.created_at.desc())
                 .offset(offset)
-                .limit(limit)
+                .limit(limit),
             )
             binaries = result.scalars().all()
             for b in binaries:
@@ -164,6 +170,7 @@ class BinaryRepository:
 
         Args:
             binary_id: The binary primary key.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -187,6 +194,7 @@ class BinaryRepository:
             binary_id: Parent binary primary key.
             functions: List of dicts with keys ``function_name``, ``entrypoint``,
                        and ``raw_code``.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -229,6 +237,7 @@ class BinaryRepository:
 
         Returns:
             List of BinaryFunction ORM objects (expunged).
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -258,6 +267,7 @@ class BinaryRepository:
 
         Returns:
             List of binary id integers.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:
@@ -278,6 +288,7 @@ class BinaryRepository:
 
         Returns:
             Binary name or None if not found.
+
         """
         session: AsyncSession = await get_async_session("binaries")
         try:

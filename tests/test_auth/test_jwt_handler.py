@@ -1,6 +1,6 @@
 """Tests for JWT handler."""
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest

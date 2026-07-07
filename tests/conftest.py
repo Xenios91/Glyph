@@ -187,6 +187,7 @@ def create_app_client(
 
     Returns:
         A TestClient instance wrapping the configured app.
+
     """
     from fastapi import FastAPI
     from fastapi.testclient import TestClient

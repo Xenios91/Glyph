@@ -22,7 +22,7 @@ function goToPredictionDetailsURL(id) {
     const taskName = extractLabelValue(taskNameElement);
     const modelName = extractLabelValue(modelNameElement);
 
-    const url = '/api/v1/models/getPredictionDetails?function_name=' +
+    const url = '/getPredictionDetails?function_name=' +
         encodeURIComponent(functionName) +
         '&task_name=' + encodeURIComponent(taskName) +
         '&model_name=' + encodeURIComponent(modelName);
@@ -39,7 +39,7 @@ function goToPredictionDetailsURL(id) {
  * @param {string} taskName - Name of the task
  */
 window.goToPredictionDetails = function goToPredictionDetails(functionName, modelName, taskName) {
-    const url = '/api/v1/models/getPredictionDetails?function_name=' + encodeURIComponent(functionName) +
+    const url = '/getPredictionDetails?function_name=' + encodeURIComponent(functionName) +
         '&task_name=' + encodeURIComponent(taskName) +
         '&model_name=' + encodeURIComponent(modelName);
 

@@ -3,7 +3,8 @@
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import delete, exc as sa_exc, select
+from sqlalchemy import delete, select
+from sqlalchemy import exc as sa_exc
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +29,7 @@ class FunctionRepository:
         Args:
             model_name: Name of the model.
             functions: List of functions to save.
+
         """
         session: AsyncSession = await get_async_session("functions")
         try:
@@ -75,6 +77,7 @@ class FunctionRepository:
 
         Returns:
             List of Function ORM objects.
+
         """
         session: AsyncSession = await get_async_session("functions")
         try:
@@ -101,6 +104,7 @@ class FunctionRepository:
 
         Returns:
             Function ORM object or None.
+
         """
         session: AsyncSession = await get_async_session("functions")
         try:
@@ -108,7 +112,7 @@ class FunctionRepository:
                 select(Function).where(
                     Function.model_name == model_name,
                     Function.function_name == function_name,
-                )
+                ),
             )
             function = result.scalar_one_or_none()
             if function is not None:
@@ -133,6 +137,7 @@ class FunctionRepository:
 
         Args:
             model_name: Name of the model.
+
         """
         session: AsyncSession = await get_async_session("functions")
         try:

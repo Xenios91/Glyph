@@ -1,7 +1,5 @@
 """Service module for Glyph application background tasks."""
 
-from __future__ import annotations
-
 import asyncio
 from typing import Any, Protocol
 
@@ -28,9 +26,9 @@ class TaskService:
     """
 
     _service_queue: asyncio.Queue[tuple[_TaskRequest, Any]] | None = None
-    __instance: TaskService | None = None
+    __instance: "TaskService | None" = None
 
-    def __new__(cls) -> TaskService:
+    def __new__(cls) -> "TaskService":
         """Create or return the singleton instance of TaskService."""
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)

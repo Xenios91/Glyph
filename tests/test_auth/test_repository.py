@@ -129,7 +129,7 @@ class TestUserRepository:
         repo = UserRepository(db, password_hasher)
 
         created_user = await repo.create_user(
-            username="testuser", email="test@example.com", password="test_password_123"
+            username="testuser", email="test@example.com", password="test_password_123",
         )
 
         retrieved = await repo.get_by_id(created_user.id)
@@ -141,7 +141,7 @@ class TestUserRepository:
         repo = UserRepository(db, password_hasher)
 
         await repo.create_user(
-            username="testuser_username", email="test_username@example.com", password="test_password_123"
+            username="testuser_username", email="test_username@example.com", password="test_password_123",
         )
 
         retrieved = await repo.get_by_username("testuser_username")
@@ -163,7 +163,7 @@ class TestUserRepository:
         repo = UserRepository(db, password_hasher)
 
         await repo.create_user(
-            username="testuser_verify_correct", email="test_verify_correct@example.com", password="test_password_123"
+            username="testuser_verify_correct", email="test_verify_correct@example.com", password="test_password_123",
         )
 
         user = await repo.verify_credentials("testuser_verify_correct", "test_password_123")
@@ -199,7 +199,7 @@ class TestUserRepository:
         repo = UserRepository(db, password_hasher)
 
         user = await repo.create_user(
-            username="testuser_change_password", email="test_change_password@example.com", password="old_password"
+            username="testuser_change_password", email="test_change_password@example.com", password="old_password",
         )
 
         success = await repo.change_password(user.id, "new_password_123")
@@ -299,7 +299,7 @@ class TestAPIKeyRepository:
         user = await user_repo.create_user(username="testuser", email="test@example.com", password="test_password_123")
 
         api_key_record, secret = await api_key_repo.create_api_key(
-            user_id=user.id, name="Test API Key", permissions=["read", "write"], expires_days=30
+            user_id=user.id, name="Test API Key", permissions=["read", "write"], expires_days=30,
         )
 
         assert api_key_record is not None
@@ -406,7 +406,7 @@ class TestAPIKeyRepository:
 
     async def test_verify_and_get_expired_key(self, db: Any, password_hasher: PasswordHasherService) -> None:
         """Test verify_and_get rejects expired API keys."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         user_repo = UserRepository(db, password_hasher)
         api_key_repo = APIKeyRepository(db)

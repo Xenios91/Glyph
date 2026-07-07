@@ -44,7 +44,7 @@ def test_upload_without_auth_rejected(auth_client: TestClient) -> None:
             "test.bin",
             io.BytesIO(elf_content),
             "application/octet-stream",
-        )
+        ),
     }
     data = {"name": "test_binary"}
     response = auth_client.post(

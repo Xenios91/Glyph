@@ -132,7 +132,7 @@ class TestGetFunctionTokens:
     """Tests for get_function_tokens function."""
 
     def _create_mock_decompiled(
-        self, tokens: list[str], plain_c: str | None, raise_plain_c: bool = False
+        self, tokens: list[str], plain_c: str | None, raise_plain_c: bool = False,
     ) -> mock.MagicMock:
         """Create mock decompiled result with tokens and plain C code."""
         mock_decompiled = mock.MagicMock()
@@ -734,7 +734,7 @@ class TestAnalyzeBinaryAndDecompile:
                 analyze_binary_and_decompile("/path/to/binary")
 
                 mock_pyghidra.open_program.assert_called_once_with(
-                    "/path/to/binary", project_location="/tmp/", analyze=False
+                    "/path/to/binary", project_location="/tmp/", analyze=False,
                 )
 
     def test_analyze_binary_import_error_fallback(self) -> None:

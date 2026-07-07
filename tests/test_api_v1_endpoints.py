@@ -117,7 +117,7 @@ class TestConfigRouter:
     @patch("app.api.v1.endpoints.config.get_settings")
     @patch("app.api.v1.endpoints.config._persist_config_changes")
     def test_save_config_partial_update(
-        self, mock_persist: Any, mock_get_settings: Any, config_client: TestClient
+        self, mock_persist: Any, mock_get_settings: Any, config_client: TestClient,
     ) -> None:
         """Test saving config with partial update."""
         from unittest.mock import Mock

@@ -5,8 +5,6 @@ to identify potentially vulnerable code patterns. Extracts usage context
 from decompiled tokens to show how dangerous functions are called.
 """
 
-from __future__ import annotations
-
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -35,6 +33,7 @@ class ScanResult:
         safe_alternative: Recommended replacement.
         usage_context: Decompiled code lines showing how the function is used.
         containing_function_code: Full decompiled code of the containing function.
+
     """
 
     function_name: str
@@ -62,6 +61,7 @@ class ScanReport:
         medium_count: Number of Medium severity matches.
         low_count: Number of Low severity matches.
         results: Individual scan results sorted by severity.
+
     """
 
     model_name: str
@@ -88,6 +88,7 @@ def _extract_usage_context(tokens: list[str], dangerous_function_name: str) -> l
 
     Returns:
         List of code lines calling the dangerous function.
+
     """
     if not tokens:
         return []
@@ -150,6 +151,7 @@ def _scan_function_names(functions: list[dict[str, Any]]) -> list[ScanResult]:
 
     Returns:
         Empty list (name-based scan is deprecated in favor of body scan).
+
     """
     # Name-based scan removed to avoid self-referencing false positives.
     # The body scan (_scan_function_bodies) handles all real detections.
@@ -168,6 +170,7 @@ def scan_functions(functions: list[dict[str, Any]]) -> list[ScanResult]:
 
     Returns:
         List of ScanResult sorted by severity (Critical first).
+
     """
     # Scan function names for direct matches
     name_results = _scan_function_names(functions)
@@ -202,6 +205,7 @@ def _get_function_body_context(tokens: list[str], max_lines: int | None = None) 
 
     Returns:
         List of code lines from the function body.
+
     """
     if not tokens:
         return []
@@ -236,6 +240,7 @@ def _format_full_function_code(tokens: list[str]) -> str:
 
     Returns:
         Formatted function code as a multi-line string.
+
     """
     if not tokens:
         return ""
@@ -260,6 +265,7 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
 
     Returns:
         Additional ScanResults for dangerous function calls found in bodies.
+
     """
     from app.services.dangerous_functions_catalog import FUNCTION_LOOKUP
 
@@ -361,6 +367,7 @@ def generate_report(
 
     Returns:
         ScanReport with aggregated counts and results.
+
     """
     if scan_results is None:
         scan_results = scan_functions(functions)

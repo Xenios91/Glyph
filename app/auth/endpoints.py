@@ -47,10 +47,10 @@ from app.database.repository import APIKeyRepository, UserRepository
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 @limiter.limit(REGISTER_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def register(
-    request: Request, user_data: UserRegister, db: Annotated[AsyncSession, Depends(get_db)]
+    request: Request, user_data: UserRegister, db: Annotated[AsyncSession, Depends(get_db)],
 ) -> UserResponse:
     """Register a new user.
 
@@ -64,6 +64,7 @@ async def register(
 
     Raises:
         HTTPException: If username or email already exists
+
     """
     user_repo = UserRepository(db)
 
@@ -117,6 +118,7 @@ async def login(
 
     Raises:
         HTTPException: If credentials are invalid
+
     """
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
@@ -209,6 +211,7 @@ async def refresh_token(
 
     Raises:
         HTTPException: If refresh token is invalid
+
     """
     ip_address = request.client.host if request.client else None
     try:
@@ -246,7 +249,7 @@ async def refresh_token(
     settings = get_settings()
     response = Response(
         content=TokenResponse(
-            access_token=new_access_token, refresh_token=new_refresh_token, token_type="bearer"
+            access_token=new_access_token, refresh_token=new_refresh_token, token_type="bearer",
         ).model_dump_json(),
         media_type="application/json",
     )
@@ -284,12 +287,15 @@ async def logout(request: Request, current_user: Annotated[User, Depends(get_cur
 
     Returns:
         Redirect to home for web requests, JSON for API requests
+
     """
     ip_address = request.client.host if request.client else None
     log_logout(user_id=current_user.id, username=current_user.username, ip_address=ip_address)
 
+    from app.utils.helpers import ACCEPT_TYPE
+
     accept = request.headers.get("Accept", "")
-    if "text/html" in accept:
+    if ACCEPT_TYPE in accept:
         from fastapi.responses import RedirectResponse
 
         redirect = RedirectResponse(url="/", status_code=303)
@@ -305,7 +311,7 @@ async def logout(request: Request, current_user: Annotated[User, Depends(get_cur
     return json_response
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me")
 async def get_current_user_info(current_user: Annotated[User, Depends(get_current_active_user)]) -> UserResponse:
     """Get current user information.
 
@@ -314,6 +320,7 @@ async def get_current_user_info(current_user: Annotated[User, Depends(get_curren
 
     Returns:
         Current user information
+
     """
     return UserResponse.model_validate(current_user)
 
@@ -339,6 +346,7 @@ async def change_password(
 
     Raises:
         HTTPException: If current password is incorrect
+
     """
     ip_address = request.client.host if request.client else None
     user_repo = UserRepository(db)
@@ -359,7 +367,7 @@ async def change_password(
     return {"message": "Password changed successfully"}
 
 
-@router.post("/update-profile", response_model=UserResponse)
+@router.post("/update-profile")
 async def update_profile(
     update_data: UserUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -374,6 +382,7 @@ async def update_profile(
 
     Returns:
         Updated user information
+
     """
     user_repo = UserRepository(db)
     user = await user_repo.update_user(current_user.id, full_name=update_data.full_name, email=update_data.email)
@@ -384,9 +393,9 @@ async def update_profile(
     return UserResponse.model_validate(user)
 
 
-@router.get("/api-keys", response_model=list[APIKeyResponse])
+@router.get("/api-keys")
 async def list_api_keys(
-    current_user: Annotated[User, Depends(get_current_active_user)], db: Annotated[AsyncSession, Depends(get_db)]
+    current_user: Annotated[User, Depends(get_current_active_user)], db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[APIKeyResponse]:
     """List all API keys for current user.
 
@@ -396,6 +405,7 @@ async def list_api_keys(
 
     Returns:
         List of API keys
+
     """
     api_key_repo = APIKeyRepository(db)
     keys = await api_key_repo.get_user_api_keys(current_user.id)
@@ -403,7 +413,7 @@ async def list_api_keys(
     return [APIKeyResponse.model_validate(key) for key in keys]
 
 
-@router.post("/api-keys", response_model=APIKeyWithSecret, status_code=status.HTTP_201_CREATED)
+@router.post("/api-keys", status_code=status.HTTP_201_CREATED)
 async def create_api_key(
     request: Request,
     key_data: APIKeyCreate,
@@ -420,6 +430,7 @@ async def create_api_key(
 
     Returns:
         Created API key with secret (only shown once)
+
     """
     api_key_repo = APIKeyRepository(db)
     api_key_record, secret = await api_key_repo.create_api_key(
@@ -461,6 +472,7 @@ async def delete_api_key(
 
     Raises:
         HTTPException: If API key not found or doesn't belong to user
+
     """
     api_key_repo = APIKeyRepository(db)
     api_key_record = await api_key_repo.get_by_id(key_id)

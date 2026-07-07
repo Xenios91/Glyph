@@ -34,6 +34,7 @@ def get_jwt_handler() -> JWTHandler:
 
     Returns:
         Configured JWTHandler instance.
+
     """
     settings = get_settings()
     return JWTHandler(
@@ -87,7 +88,7 @@ async def get_current_user(
     if not token:
         logger.warning("Authentication failed: missing token")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"}
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"},
         )
 
     user_id = None
@@ -162,6 +163,7 @@ async def get_current_active_user(current_user: Annotated[User, Depends(get_curr
 
     Raises:
         HTTPException: 403 if the user account is disabled.
+
     """
     if not current_user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is disabled")
@@ -187,6 +189,7 @@ async def get_optional_user(
 
     Returns:
         The User object if authenticated, None otherwise.
+
     """
     settings = get_settings()
     if not settings.auth_enabled:

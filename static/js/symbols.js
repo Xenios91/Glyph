@@ -11,7 +11,7 @@
  */
 function goToFunctionURL(id) {
     const functionName = id.slice(0, -3);
-    const url = '/api/v1/models/getFunction?function_name=' +
+    const url = '/getFunction?function_name=' +
         encodeURIComponent(functionName) + '&model_name=' + getModelName();
 
     if (url) {

@@ -32,6 +32,7 @@ class LoginFailureTracker:
             threshold: Number of failures before triggering alert.
             window: Time window in seconds for counting failures.
             max_keys: Maximum number of unique keys to track (memory bound).
+
         """
         self.threshold = threshold
         self.window = window
@@ -46,6 +47,7 @@ class LoginFailureTracker:
 
         Args:
             now: Current timestamp.
+
         """
         cutoff = now - self.window
         for key in list(self._failures):
@@ -56,7 +58,7 @@ class LoginFailureTracker:
 
         if len(self._failures) > self.max_keys:
             keys_by_activity = sorted(
-                self._failures.keys(), key=lambda k: max(self._failures[k]) if self._failures[k] else 0
+                self._failures.keys(), key=lambda k: max(self._failures[k]) if self._failures[k] else 0,
             )
             keys_to_remove = keys_by_activity[: len(self._failures) - self.max_keys]
             for key in keys_to_remove:
@@ -71,6 +73,7 @@ class LoginFailureTracker:
 
         Returns:
             Current number of failures in the window.
+
         """
         now = time.monotonic()
         if now - self._last_cleanup > self._cleanup_interval:
@@ -90,6 +93,7 @@ class LoginFailureTracker:
 
         Returns:
             Current number of failures in the window.
+
         """
         now = time.monotonic()
         cutoff = now - self.window
@@ -106,6 +110,7 @@ class LoginFailureTracker:
 
         Returns:
             True if the key should be flagged as suspicious.
+
         """
         count = self.get_failure_count(key)
         if count >= self.threshold and not self._alerted.get(key, False):
@@ -118,6 +123,7 @@ class LoginFailureTracker:
 
         Args:
             key: Unique identifier to reset.
+
         """
         self._failures.pop(key, None)
         self._alerted.pop(key, None)
@@ -138,6 +144,7 @@ def is_blocked(username: str, ip_address: str | None = None) -> bool:
 
     Returns:
         True if the username or IP should be blocked.
+
     """
     if _login_failure_tracker.is_suspicious(username):
         return True
@@ -159,14 +166,15 @@ def log_login_attempt(
         username: The username that attempted to log in.
         ip_address: The IP address of the request.
         user_agent: The user agent string.
+
     """
     logger.bind(event="login_attempt", username=username, ip_address=ip_address, user_agent=user_agent).info(
-        "Login attempt initiated"
+        "Login attempt initiated",
     )
 
 
 def log_login_success(
-    user_id: int, username: str, session_id: str | None = None, ip_address: str | None = None
+    user_id: int, username: str, session_id: str | None = None, ip_address: str | None = None,
 ) -> None:
     """Log a successful login.
 
@@ -175,9 +183,10 @@ def log_login_success(
         username: The user's username.
         session_id: The session ID.
         ip_address: The IP address of the request.
+
     """
     logger.bind(
-        event="login_success", user_id=user_id, username=username, session_id=session_id, ip_address=ip_address
+        event="login_success", user_id=user_id, username=username, session_id=session_id, ip_address=ip_address,
     ).info("Login successful")
 
     _login_failure_tracker.reset(username)
@@ -186,7 +195,7 @@ def log_login_success(
 
 
 def log_login_failure(
-    username: str, reason: str, ip_address: str | None = None, attempt_number: int | None = None
+    username: str, reason: str, ip_address: str | None = None, attempt_number: int | None = None,
 ) -> None:
     """Log a failed login attempt with brute-force detection.
 
@@ -195,6 +204,7 @@ def log_login_failure(
         reason: The reason for failure.
         ip_address: The IP address of the request.
         attempt_number: The attempt number (for tracking multiple failures).
+
     """
     bind_kwargs: dict[str, Any] = {
         "event": "login_failure",
@@ -248,9 +258,10 @@ def log_logout(user_id: int, username: str, session_id: str | None = None, ip_ad
         username: The user's username.
         session_id: The session ID.
         ip_address: The IP address of the request.
+
     """
     logger.bind(event="logout", user_id=user_id, username=username, session_id=session_id, ip_address=ip_address).info(
-        "User logged out"
+        "User logged out",
     )
 
 
@@ -261,9 +272,10 @@ def log_token_refresh(user_id: int, token_type: str, ip_address: str | None = No
         user_id: The user's ID.
         token_type: The type of token being refreshed (access, refresh).
         ip_address: The IP address of the request.
+
     """
     logger.bind(event="token_refresh", user_id=user_id, token_type=token_type, ip_address=ip_address).debug(
-        "Token refreshed"
+        "Token refreshed",
     )
 
 
@@ -275,14 +287,15 @@ def log_api_key_usage(user_id: int, api_key_prefix: str, endpoint: str, ip_addre
         api_key_prefix: First 4 characters of the API key for identification.
         endpoint: The API endpoint accessed.
         ip_address: The IP address of the request.
+
     """
     logger.bind(
-        event="api_key_usage", user_id=user_id, api_key_prefix=api_key_prefix, endpoint=endpoint, ip_address=ip_address
+        event="api_key_usage", user_id=user_id, api_key_prefix=api_key_prefix, endpoint=endpoint, ip_address=ip_address,
     ).debug("API key used")
 
 
 def log_permission_denied(
-    user_id: int, username: str | None, resource: str, required_permission: str, ip_address: str | None = None
+    user_id: int, username: str | None, resource: str, required_permission: str, ip_address: str | None = None,
 ) -> None:
     """Log a permission denied event.
 
@@ -292,6 +305,7 @@ def log_permission_denied(
         resource: The resource that was accessed.
         required_permission: The permission that was required.
         ip_address: The IP address of the request.
+
     """
     logger.bind(
         event="permission_denied",
@@ -304,7 +318,7 @@ def log_permission_denied(
 
 
 def log_suspicious_activity(
-    user_id: int | None, activity_type: str, details: dict[str, Any] | None = None, ip_address: str | None = None
+    user_id: int | None, activity_type: str, details: dict[str, Any] | None = None, ip_address: str | None = None,
 ) -> None:
     """Log suspicious activity.
 
@@ -313,6 +327,7 @@ def log_suspicious_activity(
         activity_type: The type of suspicious activity.
         details: Additional details about the activity.
         ip_address: The IP address of the request.
+
     """
     bind_kwargs: dict[str, Any] = {
         "event": "suspicious_activity",
@@ -333,9 +348,10 @@ def log_password_change(user_id: int, username: str, ip_address: str | None = No
         user_id: The user's ID.
         username: The user's username.
         ip_address: The IP address of the request.
+
     """
     logger.bind(event="password_change", user_id=user_id, username=username, ip_address=ip_address).info(
-        "Password changed"
+        "Password changed",
     )
 
 
@@ -349,9 +365,10 @@ def log_user_registration(user_id: int, username: str, ip_address: str | None = 
         user_id: The user's ID.
         username: The user's username.
         ip_address: The IP address of the request.
+
     """
     logger.bind(event="user_registration", user_id=user_id, username=username, ip_address=ip_address).info(
-        "User registered"
+        "User registered",
     )
 
 
@@ -364,9 +381,10 @@ def log_api_key_created(user_id: int, key_id: int, key_prefix: str, name: str, i
         key_prefix: First 8 characters of the API key for identification.
         name: Human-readable name for the key.
         ip_address: The IP address of the request.
+
     """
     logger.bind(
-        event="api_key_created", user_id=user_id, key_id=key_id, key_prefix=key_prefix, name=name, ip_address=ip_address
+        event="api_key_created", user_id=user_id, key_id=key_id, key_prefix=key_prefix, name=name, ip_address=ip_address,
     ).info("API key created")
 
 
@@ -378,7 +396,8 @@ def log_api_key_deleted(user_id: int, key_id: int, name: str, ip_address: str | 
         key_id: The API key record ID.
         name: Human-readable name for the key.
         ip_address: The IP address of the request.
+
     """
     logger.bind(event="api_key_deleted", user_id=user_id, key_id=key_id, name=name, ip_address=ip_address).info(
-        "API key deleted"
+        "API key deleted",
     )

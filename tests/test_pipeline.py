@@ -1,6 +1,6 @@
 """Tests for pipeline orchestration."""
 
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 from app.processing.pipeline import PipelineContext, PipelineStep, ProcessingPipeline
@@ -70,7 +70,7 @@ class _MockStep(PipelineStep):
     """A mock pipeline step for testing."""
 
     def __init__(
-        self, name: str, set_error: bool = False, raise_error: bool = False, data_to_set: dict[str, Any] | None = None
+        self, name: str, set_error: bool = False, raise_error: bool = False, data_to_set: dict[str, Any] | None = None,
     ) -> None:
         self._name = name
         self._set_error = set_error

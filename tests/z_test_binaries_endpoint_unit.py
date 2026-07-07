@@ -5,8 +5,6 @@ level BEFORE importing from binaries.py to prevent ProcessPoolExecutor from spaw
 child processes that hang indefinitely.
 """
 
-from __future__ import annotations
-
 import sys
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, mock_open, patch
@@ -64,7 +62,6 @@ from app.api.v1.endpoints.binaries import (  # noqa: E402
     sanitize_filename,
     validate_binary_mime_type,
 )
-from app.database import sql_service  # noqa: E402  # Ensure loaded for patching
 from tests.factories import make_user  # noqa: E402
 
 # -----------------------------------------------------------------------
@@ -840,7 +837,7 @@ class TestPipelineAnalysis:
     @patch("app.api.v1.endpoints.binaries.FunctionRepository.add_model_functions", new_callable=AsyncMock)
     @patch("app.services.request_handler.TrainingRequest")
     async def test_run_pipeline_analysis_training_success(
-        self, mock_tr: Any, mock_add_model: Any, mock_clear: Any, mock_tm: Any
+        self, mock_tr: Any, mock_add_model: Any, mock_clear: Any, mock_tm: Any,
     ) -> None:
         """Test training pipeline completes successfully."""
         from app.api.v1.endpoints.binaries import _run_pipeline_analysis
@@ -862,10 +859,10 @@ class TestPipelineAnalysis:
                             "tokens": ["int", "main"],
                             "filtered_tokens": ["int", "main"],
                             "returnType": "int",
-                        }
+                        },
                     ],
                     "errored_functions": [],
-                }.get(k, d)
+                }.get(k, d),
             )
 
             mock_run = AsyncMock(return_value=mock_result)
@@ -877,7 +874,7 @@ class TestPipelineAnalysis:
     @patch("app.api.v1.endpoints.binaries.FunctionRepository.add_prediction_functions", new_callable=AsyncMock)
     @patch("app.services.request_handler.PredictionRequest")
     async def test_run_pipeline_analysis_prediction_success(
-        self, mock_pr: Any, mock_add_pred: Any, mock_clear: Any, mock_tm: Any
+        self, mock_pr: Any, mock_add_pred: Any, mock_clear: Any, mock_tm: Any,
     ) -> None:
         """Test prediction pipeline completes successfully."""
         from app.api.v1.endpoints.binaries import _run_pipeline_analysis
@@ -901,10 +898,10 @@ class TestPipelineAnalysis:
                             "tokens": ["int", "main"],
                             "filtered_tokens": ["int", "main"],
                             "returnType": "int",
-                        }
+                        },
                     ],
                     "errored_functions": [],
-                }.get(k, d)
+                }.get(k, d),
             )
 
             mock_run = AsyncMock(return_value=mock_result)

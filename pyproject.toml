@@ -33,7 +33,6 @@ dependencies = [
     "scipy>=1.17.1",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.2",
-    "pydantic-extra-types>=2.11.1",
     "python-dotenv>=1.2.2",
     "python-multipart>=0.0.27",
     "PyYAML>=6.0.3",
@@ -115,11 +114,11 @@ ignore = [
     "B904",  # exception chain 'from' is cosmetic for now
     "E701",  # multiple statements on one line (pre-existing style)
     "N815",  # mixedCase class vars (pre-existing, would be breaking change)
+    "PLC0415",  # lazy imports are intentional to break circular deps / defer heavy loads
     "RUF012",  # mutable class attribute default (intentional constants)
     "SIM105",  # suggests sys.exit() over raise SystemExit
     "SIM116",  # suggests dict.get() over if-else (pre-existing style)
 ]
-
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
@@ -128,6 +127,8 @@ ignore = [
 "app/stubs/**" = ["N802"]  # PyGhidra Java interop stubs match Java method names
 "app/api/v1/endpoints/status.py" = ["N811"]  # UUID type alias imported as non-constant
 "app/config/settings.py" = ["N806"]  # _DEFAULT_JWT_SECRET follows module-level convention
+"app/api/**/endpoints/*.py" = ["ARG001"]  # FastAPI auth deps (current_user, request) often unused
+
 
 [tool.ruff.format]
 quote-style = "double"
@@ -184,13 +185,20 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--strict-markers --tb=short -v"
+pythonpath = ["."]
+addopts = "--strict-markers --tb=short -v --ignore=tests/e2e --timeout-method=thread --cov=app --cov-report=term-missing --cov-report=html:htmlcov"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+timeout = 30
+timeout_func_only = false
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests requiring external services",
     "e2e: marks tests as end-to-end tests requiring Playwright",
     "auth: marks tests related to authentication",
     "security: marks tests related to security features",
+    "regression: marks tests as regression tests for known bugs",
+    "xdist_group: marks tests as belonging to an xdist group for coordinated scheduling",
 ]
 filterwarnings = [
     "error",

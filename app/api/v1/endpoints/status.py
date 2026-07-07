@@ -38,6 +38,7 @@ class StatusUpdatePayload(BaseModel):
     Attributes:
         status: New status value for the task.
         uuid: Unique identifier of the task to update.
+
     """
 
     status: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -46,12 +47,11 @@ class StatusUpdatePayload(BaseModel):
 
 @router.get(
     "/getStatus",
-    response_model=SuccessResponse[dict[str, Any]],
     summary="Get task status",
     description="Retrieve the current status of a background analysis task by its UUID.",
 )
 async def get_status(
-    current_user: Annotated[User, Depends(get_current_active_user)], uuid: UUIDType = Query(...)
+    current_user: Annotated[User, Depends(get_current_active_user)], uuid: Annotated[UUIDType, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     if not TaskManager().verify_task_owner(uuid, current_user.id):
         raise HTTPException(
@@ -78,12 +78,11 @@ async def get_status(
 
 @router.post(
     "/statusUpdate",
-    response_model=SuccessResponse[dict[str, Any]],
     summary="Update task status",
     description="Update the status of a background analysis task. Requires task ownership.",
 )
 async def update_status(
-    payload: StatusUpdatePayload, current_user: Annotated[User, Depends(get_current_active_user)]
+    payload: StatusUpdatePayload, current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[dict[str, Any]]:
     if not TaskManager().verify_task_owner(payload.uuid, current_user.id):
         logger.warning("Access denied: user {} attempted to update UUID {}", current_user.id, payload.uuid)
@@ -126,6 +125,7 @@ async def _stream_task_status(
 
     Yields:
         Formatted SSE event strings.
+
     """
     start_time = time.monotonic()
     last_status: str | None = None

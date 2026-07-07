@@ -1,7 +1,5 @@
 """Unit tests for auth endpoints with mocking to ensure full coverage."""
 
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Any
 from unittest import mock
@@ -199,7 +197,7 @@ class TestLoginEndpoint:
 
     @pytest.mark.asyncio
     async def test_login_invalid_credentials(
-        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, jwt_handler: JWTHandler
+        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, jwt_handler: JWTHandler,
     ) -> None:
         """Test login returns 401 for invalid credentials."""
         from fastapi import HTTPException
@@ -228,7 +226,7 @@ class TestLoginEndpoint:
 
     @pytest.mark.asyncio
     async def test_login_inactive_user(
-        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, jwt_handler: JWTHandler
+        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, jwt_handler: JWTHandler,
     ) -> None:
         """Test login returns 403 for inactive user."""
         from fastapi import HTTPException
@@ -259,7 +257,7 @@ class TestLoginEndpoint:
 
     @pytest.mark.asyncio
     async def test_login_success(
-        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, jwt_handler: JWTHandler, mock_user: User
+        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, jwt_handler: JWTHandler, mock_user: User,
     ) -> None:
         """Test successful login returns tokens with cookies."""
         from fastapi import Response
@@ -304,7 +302,7 @@ class TestRefreshTokenEndpoint:
 
     @pytest.mark.asyncio
     async def test_refresh_token_user_id_none(
-        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, jwt_handler: JWTHandler
+        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, jwt_handler: JWTHandler,
     ) -> None:
         """Test refresh returns 401 when token has no user_id."""
         from fastapi import HTTPException
@@ -349,7 +347,7 @@ class TestRefreshTokenEndpoint:
 
     @pytest.mark.asyncio
     async def test_refresh_token_user_inactive(
-        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, jwt_handler: JWTHandler
+        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, jwt_handler: JWTHandler,
     ) -> None:
         """Test refresh returns 401 for inactive user."""
         from fastapi import HTTPException
@@ -376,7 +374,7 @@ class TestRefreshTokenEndpoint:
 
     @pytest.mark.asyncio
     async def test_refresh_token_success(
-        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, jwt_handler: JWTHandler, mock_user: User
+        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, jwt_handler: JWTHandler, mock_user: User,
     ) -> None:
         """Test successful token refresh."""
         from fastapi import Response
@@ -477,7 +475,7 @@ class TestChangePasswordEndpoint:
 
     @pytest.mark.asyncio
     async def test_change_password_wrong_current(
-        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, mock_user: User
+        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, mock_user: User,
     ) -> None:
         """Test change password returns 400 for wrong current password."""
         from fastapi import HTTPException
@@ -505,7 +503,7 @@ class TestChangePasswordEndpoint:
 
     @pytest.mark.asyncio
     async def test_change_password_success(
-        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, mock_user: User
+        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, mock_user: User,
     ) -> None:
         """Test successful password change."""
         password_data = ChangePassword(
@@ -600,7 +598,7 @@ class TestCreateApiKeyEndpoint:
 
     @pytest.mark.asyncio
     async def test_create_api_key_success(
-        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, mock_user: User
+        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, mock_user: User,
     ) -> None:
         """Test successful API key creation."""
         key_data = APIKeyCreate(name="Test Key", permissions=["read"], expires_days=30)
@@ -642,7 +640,7 @@ class TestDeleteApiKeyEndpoint:
 
     @pytest.mark.asyncio
     async def test_delete_api_key_not_found(
-        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, mock_user: User
+        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, mock_user: User,
     ) -> None:
         """Test delete API key returns 404 when key not found."""
         from fastapi import HTTPException
@@ -664,7 +662,7 @@ class TestDeleteApiKeyEndpoint:
 
     @pytest.mark.asyncio
     async def test_delete_api_key_not_authorized(
-        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, mock_user: User
+        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, mock_user: User,
     ) -> None:
         """Test delete API key returns 403 when not owned by user."""
         from fastapi import HTTPException
@@ -689,7 +687,7 @@ class TestDeleteApiKeyEndpoint:
 
     @pytest.mark.asyncio
     async def test_delete_api_key_success(
-        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, mock_user: User
+        self, mock_request: mock.MagicMock, mock_db: mock.MagicMock, mock_user: User,
     ) -> None:
         """Test successful API key deletion."""
         mock_key = mock.MagicMock()

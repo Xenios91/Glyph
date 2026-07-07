@@ -1,8 +1,5 @@
 """Tests for the CorrelationIdBridgeMiddleware."""
 
-from __future__ import annotations
-
-from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -34,7 +31,7 @@ class _MockResponse:
                     "type": "http.response.start",
                     "status": self.status_code,
                     "headers": [[b"content-type", b"text/plain"]],
-                }
+                },
             )
             self.started = True
         await send({"type": "http.response.body", "body": self.body})
@@ -139,7 +136,7 @@ class TestMiddlewareLifecycle:
                     "type": "http.response.start",
                     "status": 200,
                     "headers": [],
-                }
+                },
             )
             await send({"type": "http.response.body", "body": b"ok"})
 
@@ -196,7 +193,7 @@ class TestMiddlewareLifecycle:
                     "type": "http.response.start",
                     "status": 200,
                     "headers": [],
-                }
+                },
             )
             await send({"type": "http.response.body", "body": b"ok"})
 

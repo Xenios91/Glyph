@@ -119,9 +119,14 @@
 
         tabPanels.forEach(function (panel) {
             var panelId = 'panel-' + tabId;
-            panel.classList.toggle('active', panel.id === panelId);
+            var isActive = panel.id === panelId;
+            panel.classList.toggle('active', isActive);
+            panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
         });
     }
+
+    // Expose switchTab globally for testing
+    window.switchTab = switchTab;
 
     // ============================================================
     // Load Binary Detail
