@@ -49,6 +49,9 @@ dependencies = [
     "rich>=15.0.0",
     "sentry-sdk>=2.63.0",
     "starlette>=1.3.1",
+    # Pinned transitives to keep vulnerability scanners happy:
+    "anyio>=4.14.2",  # via starlette; CVE-2026-63374 (TLS cert spoofing), CVE-2026-64847, CVE-2026-63349
+    "cryptography>=50.0.0",  # via joserfc; PYSEC-2026-3552 / CVE-2026-69247 (PKCS#7 Bleichenbacher oracle)
 ]
 
 [project.optional-dependencies]

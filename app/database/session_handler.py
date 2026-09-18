@@ -1,11 +1,13 @@
 """Database session management for Glyph application."""
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
 from loguru import logger
 from sqlalchemy import event
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -69,8 +71,29 @@ def _configure_sqlite(dbapi_connection: Any, connection_record: Any) -> None:
     cursor.close()
 
 
+def _ensure_sqlite_directory(url: str) -> None:
+    """Ensure the parent directory of a file-backed SQLite database exists.
+
+    SQLite cannot create missing parent directories, so a fresh checkout
+    without ``data/`` would fail with "unable to open database file".
+    In-memory and non-SQLite URLs are left untouched.
+    """
+    parsed = make_url(url)
+    if parsed.get_backend_name() != "sqlite":
+        return
+    db_path = parsed.database or ""
+    if not db_path or db_path == ":memory:":
+        return
+    if parsed.query.get("mode") == "memory":
+        return
+    parent = os.path.dirname(db_path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+
 def _create_engine(url: str) -> AsyncEngine:
     """Create an async engine for SQLite with aiosqlite."""
+    _ensure_sqlite_directory(url)
     engine = create_async_engine(
         url,
         echo=False,
