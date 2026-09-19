@@ -64,6 +64,7 @@ dev = [
     "mypy>=1.14.0",
     "pre-commit>=4.0.0",
     "pytest-xdist>=3.6.0",
+    "httpx2>=2.13.0",  # required by starlette.testclient (fastapi TestClient)
 ]
 test = [
     "playwright>=1.60.0",
@@ -227,7 +228,7 @@ exclude_lines = [
     "abc.abstractmethod",
 ]
 show_missing = true
-fail_under = 70
+fail_under = 80
 
 [tool.coverage.xml]
 output = "coverage.xml"

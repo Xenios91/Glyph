@@ -59,6 +59,7 @@ DB_TABLE_MAP: dict[str, list[Any]] = {
 
 async_engines: dict[str, AsyncEngine] = {}
 async_session_factories: dict[str, async_sessionmaker[AsyncSession]] = {}
+_memory_keepalive_connections: dict[str, Any] = {}
 
 
 def _configure_sqlite(dbapi_connection: Any, connection_record: Any) -> None:
@@ -113,6 +114,12 @@ async def init_async_databases() -> None:
                 autoflush=False,
                 expire_on_commit=False,
             )
+            if make_url(url).query.get("mode") == "memory":
+                # Shared-cache in-memory databases are destroyed when their last
+                # connection closes. With NullPool each session gets a fresh
+                # short-lived connection, so keep one idle connection open for
+                # the lifetime of the engine to keep the database alive.
+                _memory_keepalive_connections[name] = await async_engines[name].connect()
 
         target_tables = DB_TABLE_MAP.get(name)
         if target_tables:
@@ -157,6 +164,10 @@ async def close_async_session(session: AsyncSession) -> None:
 
 async def dispose_async_engines() -> None:
     """Dispose all async database engines."""
+    for name, connection in _memory_keepalive_connections.items():
+        await connection.close()
+        logger.info("Async database '{}' keep-alive connection closed", name)
+    _memory_keepalive_connections.clear()
     for name, engine in async_engines.items():
         await engine.dispose()
         logger.info("Async database '{}' engine disposed", name)
