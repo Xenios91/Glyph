@@ -116,6 +116,36 @@ def reset_rate_limiters() -> Any:
     limiter._storage = _create_storage()  # pyright: ignore[reportPrivateUsage]
 
 
+@pytest.fixture(autouse=True)
+def reset_task_service() -> Any:
+    """Reset the TaskService singleton before and after each test.
+
+    The singleton holds a shared asyncio queue; without a reset, items and
+    task_done() bookkeeping leak across tests and can raise
+    "task_done() called too many times" under parallel execution.
+    """
+    from app.services.task_service import TaskService
+
+    TaskService._reset_for_testing()
+    yield
+    TaskService._reset_for_testing()
+
+
+@pytest.fixture(autouse=True)
+def reset_login_failure_tracker() -> Any:
+    """Reset the login failure tracker before and after each test.
+
+    All TestClient requests share the host "testclient", so failures recorded
+    per IP would otherwise accumulate across tests in the same worker and
+    trigger false brute-force blockouts (429) in unrelated tests.
+    """
+    from app.auth import security_logger
+
+    security_logger.reset_login_failure_tracker()
+    yield
+    security_logger.reset_login_failure_tracker()
+
+
 def set_dependency_override(client: Any, dependency: Any, override: Any) -> None:
     """Set a dependency override on the test client's app.
 

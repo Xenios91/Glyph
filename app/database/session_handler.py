@@ -1,11 +1,13 @@
 """Database session management for Glyph application."""
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
 from loguru import logger
 from sqlalchemy import event
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -57,6 +59,7 @@ DB_TABLE_MAP: dict[str, list[Any]] = {
 
 async_engines: dict[str, AsyncEngine] = {}
 async_session_factories: dict[str, async_sessionmaker[AsyncSession]] = {}
+_memory_keepalive_connections: dict[str, Any] = {}
 
 
 def _configure_sqlite(dbapi_connection: Any, connection_record: Any) -> None:
@@ -69,8 +72,29 @@ def _configure_sqlite(dbapi_connection: Any, connection_record: Any) -> None:
     cursor.close()
 
 
+def _ensure_sqlite_directory(url: str) -> None:
+    """Ensure the parent directory of a file-backed SQLite database exists.
+
+    SQLite cannot create missing parent directories, so a fresh checkout
+    without ``data/`` would fail with "unable to open database file".
+    In-memory and non-SQLite URLs are left untouched.
+    """
+    parsed = make_url(url)
+    if parsed.get_backend_name() != "sqlite":
+        return
+    db_path = parsed.database or ""
+    if not db_path or db_path == ":memory:":
+        return
+    if parsed.query.get("mode") == "memory":
+        return
+    parent = os.path.dirname(db_path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+
 def _create_engine(url: str) -> AsyncEngine:
     """Create an async engine for SQLite with aiosqlite."""
+    _ensure_sqlite_directory(url)
     engine = create_async_engine(
         url,
         echo=False,
@@ -90,6 +114,12 @@ async def init_async_databases() -> None:
                 autoflush=False,
                 expire_on_commit=False,
             )
+            if make_url(url).query.get("mode") == "memory":
+                # Shared-cache in-memory databases are destroyed when their last
+                # connection closes. With NullPool each session gets a fresh
+                # short-lived connection, so keep one idle connection open for
+                # the lifetime of the engine to keep the database alive.
+                _memory_keepalive_connections[name] = await async_engines[name].connect()
 
         target_tables = DB_TABLE_MAP.get(name)
         if target_tables:
@@ -134,6 +164,10 @@ async def close_async_session(session: AsyncSession) -> None:
 
 async def dispose_async_engines() -> None:
     """Dispose all async database engines."""
+    for name, connection in _memory_keepalive_connections.items():
+        await connection.close()
+        logger.info("Async database '{}' keep-alive connection closed", name)
+    _memory_keepalive_connections.clear()
     for name, engine in async_engines.items():
         await engine.dispose()
         logger.info("Async database '{}' engine disposed", name)
