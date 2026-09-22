@@ -53,12 +53,12 @@ class LLMConfig(BaseModel):
     """OpenAI-compatible endpoint configuration for LLM-assisted analysis."""
 
     enabled: bool = False
-    base_url: str = "https://api.openai.com"
+    base_url: str = "https://your.model.url"
     port: int | None = None
     api_path: str = "/v1/chat/completions"
-    model: str = "gpt-4o-mini"
+    model: str = "your model here"
     api_key: str = ""
-    timeout_seconds: float = Field(default=120.0, ge=5, le=600)
+    timeout_seconds: float = Field(default=900.0, ge=60)
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
     max_tokens: int | None = Field(default=None, ge=1)
     max_concurrent: int = Field(default=5, ge=1, le=20)

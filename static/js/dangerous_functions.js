@@ -42,6 +42,8 @@ let availableBinaries = [];
 
 // Last scan report data (findings are sent to the LLM endpoint from here)
 let lastScanData = null;
+// True while a scan request is in flight (prevents concurrent scans/LLM runs)
+let scanInProgress = false;
 // Per-row LLM results keyed by row index:
 // {status, analysis, error, model, source: 'stored'|'fresh', modifiedAt?, elapsedMs?}
 let llmResults = {};
@@ -212,6 +214,7 @@ function updateTargetDropdown(type) {
     targetSelect.disabled = true;
     targetSelect.innerHTML = '<option value="">Loading...</option>';
     scanBtn.disabled = true;
+    updateLlmButtonState();
 
     let targets;
     if (type === 'model') {
@@ -245,17 +248,88 @@ function updateTargetDropdown(type) {
     });
 
     targetSelect.disabled = false;
+    updateLlmButtonState();
 }
 
 /**
  * Update scan button state based on target selection.
+ * The "Check with LLM" button follows the same target-selection rule.
  */
 function updateScanButtonState() {
     if (!scanBtn || !targetSelect) return;
     scanBtn.disabled = !targetSelect.value;
+    updateLlmButtonState();
 }
 
 // ── Scan Execution ────────────────────────────────────────────
+
+/**
+ * Determine the display name of the currently selected target.
+ * @returns {string|null} Target name, or null when no target is selected.
+ */
+function getCurrentTargetName() {
+    if (!targetTypeSelect || !targetSelect || !targetSelect.value) return null;
+
+    const targetType = targetTypeSelect.value;
+    const targetValue = targetSelect.value;
+
+    if (targetType === 'binary') {
+        const binary = availableBinaries.find(b => b.id === parseInt(targetValue, 10));
+        return binary ? binary.name : `Binary ${targetValue}`;
+    }
+    return targetValue;
+}
+
+/**
+ * True when the last scan produced findings for the currently selected target.
+ * @returns {boolean} Whether findings are available for the current target.
+ */
+function hasFindingsForCurrentTarget() {
+    return !!(
+        lastScanData &&
+        Array.isArray(lastScanData.results) &&
+        lastScanData.results.length > 0 &&
+        lastScanData.model_name === getCurrentTargetName()
+    );
+}
+
+/**
+ * Perform a scan request for the currently selected target.
+ * @returns {Promise<{data: Object, targetName: string}>} Scan report data and display name.
+ */
+async function performScan() {
+    if (!targetSelect || !targetSelect.value) {
+        throw new Error('No target selected');
+    }
+
+    const targetType = targetTypeSelect ? targetTypeSelect.value : 'model';
+    const targetValue = targetSelect.value;
+    const targetName = getCurrentTargetName() || targetValue;
+
+    let body;
+    if (targetType === 'binary') {
+        body = { binaryId: parseInt(targetValue, 10) };
+    } else if (targetType === 'model') {
+        body = { modelName: targetValue };
+    } else {
+        body = { taskName: targetValue };
+    }
+
+    const response = await fetch('/api/v1/dangerous-functions/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        const errorMsg = result.error?.message || `Scan failed (${response.status})`;
+        throw new Error(errorMsg);
+    }
+
+    return { data: result.data, targetName };
+}
 
 /**
  * Run the dangerous function scan.
@@ -263,52 +337,21 @@ function updateScanButtonState() {
 async function runScan() {
     if (!targetSelect || !targetSelect.value) return;
 
-    const targetType = targetTypeSelect ? targetTypeSelect.value : 'model';
-    const targetValue = targetSelect.value;
-
     // UI: Show loading state
     setScanLoading(true);
+    scanInProgress = true;
     hideResults();
     hideError();
     resetLlmState();
 
-    let body;
-    let targetName;
-
-    if (targetType === 'binary') {
-        body = { binaryId: parseInt(targetValue, 10) };
-        // Find the binary name for display
-        const binary = availableBinaries.find(b => b.id === parseInt(targetValue, 10));
-        targetName = binary ? binary.name : `Binary ${targetValue}`;
-    } else if (targetType === 'model') {
-        body = { modelName: targetValue };
-        targetName = targetValue;
-    } else {
-        body = { taskName: targetValue };
-        targetName = targetValue;
-    }
-
     try {
-        const response = await fetch('/api/v1/dangerous-functions/scan', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            const errorMsg = result.error?.message || `Scan failed (${response.status})`;
-            throw new Error(errorMsg);
-        }
-
-        const data = result.data;
+        const { data, targetName } = await performScan();
         displayResults(data, targetName);
-
     } catch (error) {
         console.error('Scan failed:', error);
         showScanError(error.message || 'Scan failed. Please try again.');
     } finally {
+        scanInProgress = false;
         setScanLoading(false);
     }
 }
@@ -320,7 +363,12 @@ async function runScan() {
 function setScanLoading(loading) {
     if (!scanBtn) return;
 
-    scanBtn.disabled = loading;
+    if (loading) {
+        scanBtn.disabled = true;
+    } else {
+        updateScanButtonState();
+    }
+
     const btnText = scanBtn.querySelector('.btn-text');
     const btnLoading = scanBtn.querySelector('.btn-loading');
 
@@ -502,14 +550,14 @@ function resetLlmState() {
 }
 
 /**
- * Enable the "Check with LLM" button only when the last scan produced findings.
+ * Enable the "Check with LLM" button when a target is selected or the last
+ * scan produced findings for that target. Clicking it runs a scan first when
+ * no results are available yet for the selected target.
  */
 function updateLlmButtonState() {
     if (!llmCheckBtn) return;
-    const hasResults = !!(
-        lastScanData && Array.isArray(lastScanData.results) && lastScanData.results.length > 0
-    );
-    llmCheckBtn.disabled = !hasResults;
+    const hasTarget = !!(targetSelect && targetSelect.value);
+    llmCheckBtn.disabled = scanInProgress || !(hasFindingsForCurrentTarget() || hasTarget);
 }
 
 /**
@@ -639,10 +687,41 @@ function renderLlmBadges() {
 
 /**
  * Send all findings from the last scan to the LLM analysis endpoint.
+ * When no scan has been run yet for the currently selected target, a scan is
+ * performed first so the user can go straight from target selection to LLM
+ * analysis.
  */
 async function runLLMAnalysis() {
-    if (!lastScanData || !Array.isArray(lastScanData.results) || lastScanData.results.length === 0) {
-        return;
+    // No scan results for the selected target yet: run a scan first
+    if (!hasFindingsForCurrentTarget()) {
+        if (!targetSelect || !targetSelect.value || scanInProgress) return;
+
+        setLlmLoading(true);
+        hideError();
+        scanInProgress = true;
+        resetLlmState();
+
+        try {
+            const { data, targetName } = await performScan();
+            displayResults(data, targetName);
+        } catch (error) {
+            console.error('Scan failed:', error);
+            showScanError(error.message || 'Scan failed. Please try again.');
+            setLlmLoading(false);
+            return;
+        } finally {
+            scanInProgress = false;
+            updateLlmButtonState();
+        }
+
+        // The scan found nothing to analyze
+        if (!hasFindingsForCurrentTarget()) {
+            showErrorBanner(
+                'No dangerous functions were found for this target, so there is nothing to analyze with the LLM.'
+            );
+            setLlmLoading(false);
+            return;
+        }
     }
 
     const scanData = lastScanData;
