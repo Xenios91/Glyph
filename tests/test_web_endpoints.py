@@ -4,6 +4,7 @@ import logging
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
+from app.config.settings import LLMConfig
 from fastapi.testclient import TestClient
 
 logger = logging.getLogger(__name__)
@@ -38,10 +39,11 @@ class TestWebEndpoints:
 
     @patch("app.web.endpoints.web.get_settings")
     def test_config_endpoint(self, mock_get_settings: Any, web_client: TestClient) -> None:
-        """Test config endpoint."""
+        """Test config endpoint renders LLM settings without leaking the API key."""
         mock_settings = Mock()
         mock_settings.cpu_cores = 4
         mock_settings.max_file_size_mb = 100
+        mock_settings.llm = LLMConfig(api_key="sk-test-secret-key")
         mock_get_settings.return_value = mock_settings
 
         response = web_client.get(
@@ -50,6 +52,27 @@ class TestWebEndpoints:
         )
 
         assert response.status_code == 200
+        assert "LLM ANALYSIS SETTINGS" in response.text
+        assert "sk-test-secret-key" not in response.text
+        assert 'value="https://api.openai.com"' in response.text
+        assert 'value="gpt-4o-mini"' in response.text
+
+    @patch("app.web.endpoints.web.get_settings")
+    def test_config_endpoint_llm_no_key_stored(self, mock_get_settings: Any, web_client: TestClient) -> None:
+        """Test config endpoint shows the no-key hint when no LLM API key is stored."""
+        mock_settings = Mock()
+        mock_settings.cpu_cores = 4
+        mock_settings.max_file_size_mb = 100
+        mock_settings.llm = LLMConfig()
+        mock_get_settings.return_value = mock_settings
+
+        response = web_client.get(
+            "/config",
+            headers={"Accept": "text/html"},
+        )
+
+        assert response.status_code == 200
+        assert "local servers" in response.text
 
     def test_error_endpoint_default(self, web_client: TestClient) -> None:
         """Test error endpoint with default message."""

@@ -49,6 +49,21 @@ class LoggingConfig(BaseModel):
     module_levels: dict[str, str] = Field(default_factory=dict)
 
 
+class LLMConfig(BaseModel):
+    """OpenAI-compatible endpoint configuration for LLM-assisted analysis."""
+
+    enabled: bool = False
+    base_url: str = "https://api.openai.com"
+    port: int | None = None
+    api_path: str = "/v1/chat/completions"
+    model: str = "gpt-4o-mini"
+    api_key: str = ""
+    timeout_seconds: float = Field(default=120.0, ge=5, le=600)
+    temperature: float = Field(default=0.1, ge=0.0, le=2.0)
+    max_tokens: int | None = Field(default=None, ge=1)
+    max_concurrent: int = Field(default=5, ge=1, le=20)
+
+
 class GlyphSettings(BaseSettings):
     """Pydantic-based configuration for Glyph application."""
 
@@ -80,6 +95,8 @@ class GlyphSettings(BaseSettings):
     auth_enabled: bool = Field(default=True, description="Whether authentication is enabled")
 
     logging: LoggingConfig = LoggingConfig()
+
+    llm: LLMConfig = Field(default_factory=LLMConfig)
 
     model_config = {"env_prefix": "GLYPH_", "extra": "ignore"}
 

@@ -4,6 +4,10 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 from app.auth.dependencies import get_current_active_user
+from app.config.settings import LLMConfig
+from app.database.models import LLMAnalysisResult
+from app.services.llm_analysis_service import FindingAnalysis
+from sqlalchemy.exc import SQLAlchemyError
 from tests.conftest import set_dependency_override
 from tests.factories import make_mock_user
 
@@ -456,3 +460,340 @@ class TestScanEndpoint:
             assert response.status_code == 200
             data = response.json()
             assert data["data"]["model_name"] == "test_model"
+
+
+# ---------------------------------------------------------------------------
+# POST /llm-analysis tests
+# ---------------------------------------------------------------------------
+
+
+class TestLLMAnalysisEndpoint:
+    """Tests for POST /llm-analysis endpoint."""
+
+    @staticmethod
+    def _make_finding(function_name: str, entrypoint: str = "0x401000") -> dict[str, Any]:
+        return {
+            "function_name": function_name,
+            "containing_function": "main",
+            "entrypoint": entrypoint,
+            "category": "Buffer Overflow",
+            "severity": "High",
+            "cwe": "CWE-120",
+            "description": "Unbounded copy",
+            "safe_alternative": "strlcpy",
+            "usage_context": ["strcpy(buf, src);"],
+            "containing_function_code": "void main() { strcpy(buf, src); }",
+        }
+
+    @staticmethod
+    def _make_settings(enabled: bool = True) -> Any:
+        mock_settings = Mock()
+        mock_settings.llm = LLMConfig(
+            enabled=enabled,
+            base_url="https://llm.example.com",
+            model="test-model",
+            api_key="test-key",
+        )
+        return mock_settings
+
+    def test_llm_analysis_success(self, dangerous_functions_client: Any) -> None:
+        """Test successful analysis with results persisted by default."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        analyses = [
+            FindingAnalysis(status="success", analysis="Low risk.", model="test-model", elapsed_ms=12),
+            FindingAnalysis(status="error", error="Request timed out", model="", elapsed_ms=1200),
+        ]
+        findings = [self._make_finding("strcpy"), self._make_finding("system", "0x402000")]
+
+        with (
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.get_settings",
+                return_value=self._make_settings(),
+            ),
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.analyze_findings",
+                new=AsyncMock(return_value=analyses),
+            ) as mock_analyze,
+            patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo,
+        ):
+            mock_repo.upsert_many = AsyncMock()
+
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/llm-analysis",
+                json={"target_name": "test_model", "findings": findings},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        payload = data["data"]
+        assert payload["target_name"] == "test_model"
+        assert payload["model"] == "test-model"
+        assert payload["total"] == 2
+        assert payload["succeeded"] == 1
+        assert payload["failed"] == 1
+        assert payload["saved"] is True
+        assert set(payload["results"].keys()) == {"0", "1"}
+        assert payload["results"]["0"] == {
+            "status": "success",
+            "analysis": "Low risk.",
+            "error": "",
+            "model": "test-model",
+            "elapsed_ms": 12,
+        }
+        assert payload["results"]["1"]["status"] == "error"
+        assert payload["results"]["1"]["error"] == "Request timed out"
+        assert data["message"] == "LLM analysis complete: 1/2 succeeded"
+
+        # The service received the findings as dumped dicts, in order.
+        passed_findings = mock_analyze.await_args_list[0].args[1]
+        assert passed_findings[0]["function_name"] == "strcpy"
+        assert passed_findings[1]["entrypoint"] == "0x402000"
+
+        # One upserted row per finding, error row included.
+        assert mock_repo.upsert_many.await_count == 1
+        target_name, rows = mock_repo.upsert_many.await_args_list[0].args
+        assert target_name == "test_model"
+        assert len(rows) == 2
+        assert all(isinstance(row, LLMAnalysisResult) for row in rows)
+        assert rows[0].function_name == "strcpy"
+        assert rows[0].containing_function == "main"
+        assert rows[0].entrypoint == "0x401000"
+        assert rows[0].status == "success"
+        assert rows[0].analysis == "Low risk."
+        assert rows[0].model_name == "test-model"
+        assert rows[1].function_name == "system"
+        assert rows[1].status == "error"
+        assert rows[1].analysis == ""
+        assert rows[1].error == "Request timed out"
+
+    def test_llm_analysis_save_false(self, dangerous_functions_client: Any) -> None:
+        """Test that save=false skips persistence."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        analyses = [FindingAnalysis(status="success", analysis="ok", model="test-model", elapsed_ms=5)]
+
+        with (
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.get_settings",
+                return_value=self._make_settings(),
+            ),
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.analyze_findings",
+                new=AsyncMock(return_value=analyses),
+            ),
+            patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo,
+        ):
+            mock_repo.upsert_many = AsyncMock()
+
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/llm-analysis",
+                json={"target_name": "test_model", "save": False, "findings": [self._make_finding("strcpy")]},
+            )
+
+        assert response.status_code == 200
+        payload = response.json()["data"]
+        assert payload["saved"] is False
+        mock_repo.upsert_many.assert_not_awaited()
+
+    def test_llm_analysis_upsert_failure(self, dangerous_functions_client: Any) -> None:
+        """Test that a persistence failure reports saved=false but the request still succeeds."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        analyses = [FindingAnalysis(status="success", analysis="ok", model="test-model", elapsed_ms=5)]
+
+        with (
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.get_settings",
+                return_value=self._make_settings(),
+            ),
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.analyze_findings",
+                new=AsyncMock(return_value=analyses),
+            ),
+            patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo,
+        ):
+            mock_repo.upsert_many = AsyncMock(side_effect=SQLAlchemyError("boom"))
+
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/llm-analysis",
+                json={"target_name": "test_model", "findings": [self._make_finding("strcpy")]},
+            )
+
+        assert response.status_code == 200
+        payload = response.json()["data"]
+        assert payload["saved"] is False
+        assert payload["succeeded"] == 1
+
+    def test_llm_analysis_not_configured(self, dangerous_functions_client: Any) -> None:
+        """Test 503 when the LLM endpoint is disabled (real service fail-fast path)."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with patch(
+            "app.api.v1.endpoints.dangerous_functions.get_settings",
+            return_value=self._make_settings(enabled=False),
+        ):
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/llm-analysis",
+                json={"target_name": "test_model", "findings": [self._make_finding("strcpy")]},
+            )
+
+        assert response.status_code == 503
+        data = response.json()
+        detail = data.get("detail", data)
+        assert detail.get("error", {}).get("code", "") == "LLM_NOT_CONFIGURED"
+
+    def test_llm_analysis_requires_auth(self, dangerous_functions_client: Any) -> None:
+        """Test that the endpoint requires authentication (mocked dependency raises)."""
+        from fastapi import HTTPException
+
+        def raise_unauthenticated() -> None:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        set_dependency_override(dangerous_functions_client, get_current_active_user, raise_unauthenticated)
+        response = dangerous_functions_client.post(
+            "/dangerous-functions/llm-analysis",
+            json={"target_name": "test_model", "findings": [self._make_finding("strcpy")]},
+        )
+        assert response.status_code == 401
+
+    def test_llm_analysis_empty_findings(self, dangerous_functions_client: Any) -> None:
+        """Test 422 when no findings are supplied."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+        response = dangerous_functions_client.post(
+            "/dangerous-functions/llm-analysis",
+            json={"target_name": "test_model", "findings": []},
+        )
+        assert response.status_code == 422
+
+    def test_llm_analysis_missing_target_name(self, dangerous_functions_client: Any) -> None:
+        """Test 422 when target_name is missing."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+        response = dangerous_functions_client.post(
+            "/dangerous-functions/llm-analysis",
+            json={"findings": [self._make_finding("strcpy")]},
+        )
+        assert response.status_code == 422
+
+    def test_llm_analysis_too_many_findings(self, dangerous_functions_client: Any) -> None:
+        """Test 422 when more than 100 findings are supplied."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+        findings = [self._make_finding(f"fn{i}", entrypoint=f"0x{i:06x}") for i in range(101)]
+        response = dangerous_functions_client.post(
+            "/dangerous-functions/llm-analysis",
+            json={"target_name": "test_model", "findings": findings},
+        )
+        assert response.status_code == 422
+
+    def test_llm_analysis_rate_limited(self, dangerous_functions_client: Any) -> None:
+        """Test that more than 10 requests per minute are rejected with 429."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        analyses = [FindingAnalysis(status="success", analysis="ok", model="test-model", elapsed_ms=1)]
+        body = {"target_name": "test_model", "save": False, "findings": [self._make_finding("strcpy")]}
+
+        with (
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.get_settings",
+                return_value=self._make_settings(),
+            ),
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.analyze_findings",
+                new=AsyncMock(return_value=analyses),
+            ),
+        ):
+            for _ in range(10):
+                response = dangerous_functions_client.post(
+                    "/dangerous-functions/llm-analysis", json=body,
+                )
+                assert response.status_code == 200
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/llm-analysis", json=body,
+            )
+            assert response.status_code == 429
+
+
+# ---------------------------------------------------------------------------
+# GET /llm-results tests
+# ---------------------------------------------------------------------------
+
+
+class TestLLMResultsEndpoint:
+    """Tests for GET /llm-results endpoint."""
+
+    @staticmethod
+    def _make_result(function_name: str = "strcpy", entrypoint: str = "0x401000") -> LLMAnalysisResult:
+        from datetime import UTC, datetime
+
+        return LLMAnalysisResult(
+            target_name="test_model",
+            function_name=function_name,
+            containing_function="main",
+            entrypoint=entrypoint,
+            status="success",
+            analysis="Analysis text",
+            error="",
+            model_name="test-model",
+            elapsed_ms=42,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            modified_at=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+
+    def test_get_llm_results(self, dangerous_functions_client: Any) -> None:
+        """Test retrieving stored results for a target."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo:
+            mock_repo.get_for_target = AsyncMock(return_value=[self._make_result()])
+
+            response = dangerous_functions_client.get("/dangerous-functions/llm-results?target_name=test_model")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        payload = data["data"]
+        assert payload["target_name"] == "test_model"
+        assert payload["count"] == 1
+        assert payload["results"][0] == {
+            "function_name": "strcpy",
+            "containing_function": "main",
+            "entrypoint": "0x401000",
+            "status": "success",
+            "analysis": "Analysis text",
+            "error": "",
+            "model_name": "test-model",
+            "elapsed_ms": 42,
+            "modified_at": "2026-01-02T00:00:00+00:00",
+        }
+
+    def test_get_llm_results_empty(self, dangerous_functions_client: Any) -> None:
+        """Test that an empty result set is a valid success."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo:
+            mock_repo.get_for_target = AsyncMock(return_value=[])
+
+            response = dangerous_functions_client.get("/dangerous-functions/llm-results?target_name=test_model")
+
+        assert response.status_code == 200
+        payload = response.json()["data"]
+        assert payload["count"] == 0
+        assert payload["results"] == []
+
+    def test_get_llm_results_requires_auth(self, dangerous_functions_client: Any) -> None:
+        """Test that the endpoint requires authentication (mocked dependency raises)."""
+        from fastapi import HTTPException
+
+        def raise_unauthenticated() -> None:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        set_dependency_override(dangerous_functions_client, get_current_active_user, raise_unauthenticated)
+        response = dangerous_functions_client.get("/dangerous-functions/llm-results?target_name=test_model")
+        assert response.status_code == 401
+
+    def test_get_llm_results_missing_target_name(self, dangerous_functions_client: Any) -> None:
+        """Test 422 when the target_name query parameter is missing."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+        response = dangerous_functions_client.get("/dangerous-functions/llm-results")
+        assert response.status_code == 422

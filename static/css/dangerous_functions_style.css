@@ -587,7 +587,122 @@
     background: rgba(168, 236, 236, 0.06);
 }
 
-/* ── Responsive ─────────────────────────────────────────────── */
+/* ── LLM Analysis ──────────────────────────────────────── */
+
+#llm-check-btn {
+    min-width: 150px;
+}
+
+#llm-check-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* LLM badge column */
+.llm-cell {
+    text-align: center;
+}
+
+.llm-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.llm-badge-placeholder {
+    color: var(--text-dim);
+    border: 1px solid transparent;
+}
+
+.llm-badge-success,
+.llm-badge-error {
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.llm-badge-success {
+    background: rgba(110, 201, 122, 0.12);
+    color: var(--green);
+    border: 1px solid var(--green-dim);
+}
+
+.llm-badge-success:hover {
+    background: rgba(110, 201, 122, 0.22);
+    border-color: var(--green);
+    box-shadow: 0 0 8px rgba(110, 201, 122, 0.3);
+}
+
+.llm-badge-error {
+    background: rgba(201, 84, 106, 0.12);
+    color: var(--red);
+    border: 1px solid var(--red-dim);
+}
+
+.llm-badge-error:hover {
+    background: rgba(201, 84, 106, 0.22);
+    border-color: var(--red);
+    box-shadow: 0 0 8px rgba(201, 84, 106, 0.3);
+}
+
+/* LLM modal sections */
+.llm-error-section {
+    margin-bottom: 1.25rem;
+    padding: 0.85rem 1.1rem;
+    background: rgba(201, 84, 106, 0.1);
+    border-left: 3px solid var(--red);
+    border-radius: 0 3px 3px 0;
+}
+
+.llm-error-section h4 {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    color: var(--red);
+    letter-spacing: 0.05em;
+    margin: 0 0 0.5rem;
+}
+
+.llm-error-section p {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    margin: 0 0 0.75rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.llm-analysis-section h4 {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    color: var(--magenta);
+    letter-spacing: 0.05em;
+    margin: 0 0 0.5rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.llm-analysis-content {
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 3px;
+    padding: 0.85rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
 
 @media (max-width: 768px) {
     .scanner-controls {

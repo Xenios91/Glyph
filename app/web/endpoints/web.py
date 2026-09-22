@@ -68,6 +68,7 @@ async def config(request: Request, current_user: Annotated[User, Depends(get_cur
     """Loads the configuration page of Glyph
     """
     settings = get_settings()
+    llm = settings.llm
     return templates.TemplateResponse(
         request,
         "config.html",
@@ -76,6 +77,15 @@ async def config(request: Request, current_user: Annotated[User, Depends(get_cur
             "max_cpu_cores": MAX_CPU_CORES,
             "current_cpu_cores": settings.cpu_cores,
             "current_max_file_size": settings.max_file_size_mb,
+            "llm_enabled": llm.enabled,
+            "llm_base_url": llm.base_url,
+            "llm_port": llm.port,
+            "llm_api_path": llm.api_path,
+            "llm_model": llm.model,
+            "llm_api_key_set": bool(llm.api_key),
+            "llm_timeout_seconds": f"{llm.timeout_seconds:g}",
+            "llm_temperature": f"{llm.temperature:g}",
+            "llm_max_concurrent": llm.max_concurrent,
             "user": current_user,
         },
     )

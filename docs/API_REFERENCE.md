@@ -47,8 +47,10 @@ Error responses follow this format:
 | 403 | Forbidden - Insufficient permissions |
 | 404 | Not Found - Resource doesn't exist |
 | 413 | Payload Too Large - File exceeds size limit |
+| 422 | Unprocessable Entity - Validation error |
 | 429 | Too Many Requests - Rate limit exceeded |
 | 500 | Internal Server Error |
+| 503 | Service Unavailable - Feature disabled or not configured (e.g., LLM analysis) |
 
 ---
 
@@ -368,6 +370,34 @@ Save application configuration.
 
 ---
 
+#### POST `/llm-test`
+
+Send a minimal prompt to the configured LLM endpoint to verify it is reachable.
+
+**Request:** no body.
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "ok": true,
+    "model": "gpt-4o-mini",
+    "elapsed_ms": 412
+  },
+  "message": "LLM endpoint is reachable"
+}
+```
+
+If the endpoint is reachable but misbehaves (timeout, non-200 status, unexpected response format, empty content), the response is `200 OK` with `ok: false` and an `error` message.
+
+**Errors:**
+- `429` — Rate limit exceeded
+- `503` — `LLM_NOT_CONFIGURED` (LLM feature disabled or base URL missing/malformed)
+
+---
+
 ### Dangerous Functions
 
 Base path: `/api/v1/dangerous-functions`
@@ -443,6 +473,118 @@ Scan a model, prediction task, or binary for dangerous functions.
   "message": "Scan completed"
 }
 ```
+
+---
+
+#### POST `/llm-analysis`
+
+Send scanner findings to the user-configured OpenAI-compatible chat completions endpoint for analysis. No re-scan is performed — the client supplies findings obtained from a prior scan. When `save` is `true` (the default), results are upserted to the database.
+
+**Request Body:**
+```json
+{
+  "target_name": "trojan_detector",
+  "save": true,
+  "findings": [
+    {
+      "function_name": "strcpy",
+      "containing_function": "func_401000",
+      "entrypoint": "0x401000",
+      "category": "Buffer Overflow",
+      "severity": "high",
+      "cwe": "CWE-120",
+      "description": "Buffer overflow via unbounded string copy",
+      "safe_alternative": "strncpy",
+      "usage_context": ["char buf[64];", "strcpy(buf, input);"],
+      "containing_function_code": "..."
+    }
+  ]
+}
+```
+
+- `target_name` (required, 1-128 chars): Stable name of the scanned target, typically the scan's `model_name`.
+- `save` (optional, default `true`): Persist results to the database.
+- `findings` (required, 1-100 items): Scanner findings in the same shape as the scan response `results` array.
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "target_name": "trojan_detector",
+    "model": "gpt-4o-mini",
+    "total": 2,
+    "succeeded": 1,
+    "failed": 1,
+    "saved": true,
+    "results": {
+      "0": {
+        "status": "success",
+        "analysis": "1) Exploitability: ...",
+        "error": "",
+        "model": "gpt-4o-mini",
+        "elapsed_ms": 1832
+      },
+      "1": {
+        "status": "error",
+        "analysis": "",
+        "error": "Request timed out after 120s",
+        "model": "",
+        "elapsed_ms": 120001
+      }
+    }
+  },
+  "message": "LLM analysis complete: 1/2 succeeded"
+}
+```
+
+`results` is keyed by the zero-based index of each finding in `findings`. Per-finding failures (timeout, non-200 HTTP status, unexpected response format) are reported inside `results` with `status: "error"`; `error` is `""` on success. `saved` is `false` when persistence is disabled or fails (the analysis itself still succeeds).
+
+**Errors:**
+- `422` — Validation error (missing `target_name`, empty `findings`, or more than 100 findings)
+- `429` — Rate limit exceeded (default 10 per minute)
+- `503` — `LLM_NOT_CONFIGURED` (LLM feature disabled or base URL missing/malformed)
+
+---
+
+#### GET `/llm-results`
+
+Retrieve stored LLM analysis results for a scanned target.
+
+**Query Parameters:**
+- `target_name` (required, 1-128 chars): Name of the scanned target.
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "target_name": "trojan_detector",
+    "count": 1,
+    "results": [
+      {
+        "function_name": "strcpy",
+        "containing_function": "func_401000",
+        "entrypoint": "0x401000",
+        "status": "success",
+        "analysis": "1) Exploitability: ...",
+        "error": "",
+        "model_name": "gpt-4o-mini",
+        "elapsed_ms": 1832,
+        "modified_at": "2026-09-18T12:04:11.123456+00:00"
+      }
+    ]
+  },
+  "message": "LLM results retrieved for 'trojan_detector'"
+}
+```
+
+An empty `results` list (`count: 0`) is a valid response when nothing has been saved for the target yet.
+
+**Errors:**
+- `422` — Missing or empty `target_name`
 
 ---
 
@@ -561,10 +703,11 @@ Delete a saved similarity computation and its pairwise results.
 
 | Endpoint | Limit |
 |---|---|
-| Login | Configurable (default: 5 per minute) |
-| Registration | Configurable (default: 3 per minute) |
-| Password Change | Configurable (default: 5 per minute) |
+| Login | Configurable (default: 10 per minute) |
+| Registration | Configurable (default: 5 per 5 minutes) |
+| Password Change | Configurable (default: 5 per 5 minutes) |
 | Token Refresh | Configurable (default: 10 per minute) |
+| LLM Analysis (`/llm-analysis`, `/llm-test`) | Configurable (default: 10 per minute) |
 
 Rate limits are configurable via environment variables:
 - `GLYPH_RATE_LIMIT_LOGIN_MAX`
@@ -575,3 +718,5 @@ Rate limits are configurable via environment variables:
 - `GLYPH_RATE_LIMIT_PASSWORD_CHANGE_WINDOW`
 - `GLYPH_RATE_LIMIT_REFRESH_MAX`
 - `GLYPH_RATE_LIMIT_REFRESH_WINDOW`
+- `GLYPH_RATE_LIMIT_LLM_ANALYSIS_MAX`
+- `GLYPH_RATE_LIMIT_LLM_ANALYSIS_WINDOW`

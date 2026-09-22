@@ -88,11 +88,114 @@
                                 min="1" max="{{ max_cores }}" value="{{ cpu_cores }}"
                                 aria-label="Exact number of CPU cores for analysis workers">
                             <span class="unit-label">cores</span>
+                            </div>
                         </div>
-                    </div>
+                    </article>
+
+                    <!-- LLM Analysis Settings Card -->
+                    <article class="config-card llm-card" id="llm-card" aria-labelledby="llm-settings-title">
+                        <header class="config-card-header">
+                            <span class="card-icon" aria-hidden="true">🤖</span>
+                            <h2 class="config-card-title" id="llm-settings-title">LLM ANALYSIS SETTINGS</h2>
+                        </header>
+                        <div class="config-card-body">
+                            <div class="config-setting">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="llm-enabled" class="cyber-checkbox"
+                                        {% if llm_enabled %}checked{% endif %}>
+                                    <span>Enable LLM Analysis</span>
+                                </label>
+                                <p class="config-setting-description">
+                                    Send flagged vulnerable functions to an OpenAI-compatible chat completions endpoint
+                                    for additional AI-assisted analysis.
+                                </p>
+                            </div>
+
+                            <div class="llm-fields">
+                                <div class="llm-field">
+                                    <label for="llm-base-url" class="config-setting-label">Base URL</label>
+                                    <input type="text" id="llm-base-url" class="cyber-input"
+                                        value="{{ llm_base_url | e }}" placeholder="https://api.openai.com"
+                                        spellcheck="false">
+                                    <p class="field-hint">Server host only (http or https) — the path goes in API Path.</p>
+                                </div>
+
+                                <div class="llm-field">
+                                    <label for="llm-port" class="config-setting-label">Port</label>
+                                    <input type="number" id="llm-port" class="cyber-input"
+                                        min="1" max="65535"
+                                        {% if llm_port is not none %}value="{{ llm_port }}"{% endif %}>
+                                    <p class="field-hint">Blank = port from Base URL, or the scheme default (80/443).</p>
+                                </div>
+
+                                <div class="llm-field">
+                                    <label for="llm-api-path" class="config-setting-label">API Path</label>
+                                    <input type="text" id="llm-api-path" class="cyber-input"
+                                        value="{{ llm_api_path | e }}" placeholder="/v1/chat/completions"
+                                        spellcheck="false">
+                                    <p class="field-hint">A leading / is added automatically if missing.</p>
+                                </div>
+
+                                <div class="llm-field">
+                                    <label for="llm-model" class="config-setting-label">Model</label>
+                                    <input type="text" id="llm-model" class="cyber-input"
+                                        value="{{ llm_model | e }}" placeholder="gpt-4o-mini"
+                                        spellcheck="false">
+                                </div>
+
+                                <div class="llm-field llm-field-wide">
+                                    <label for="llm-api-key" class="config-setting-label">API Key</label>
+                                    <div class="llm-key-row">
+                                        <input type="password" id="llm-api-key" class="cyber-input"
+                                            placeholder="••••••••••••" autocomplete="new-password" spellcheck="false">
+                                        <label class="checkbox-label llm-clear-label">
+                                            <input type="checkbox" id="llm-api-key-clear" class="cyber-checkbox">
+                                            <span>Clear stored key</span>
+                                        </label>
+                                    </div>
+                                    {% if llm_api_key_set %}
+                                    <p class="field-hint">A key is already stored. Leave blank to keep it, or type a new key to replace it.</p>
+                                    {% else %}
+                                    <p class="field-hint">Optional — local servers (e.g. vLLM, LM Studio) often need no key.</p>
+                                    {% endif %}
+                                </div>
+
+                                <div class="llm-field">
+                                    <label for="llm-timeout" class="config-setting-label">Timeout (seconds)</label>
+                                    <input type="number" id="llm-timeout" class="cyber-input"
+                                        min="5" max="600" step="1" value="{{ llm_timeout_seconds }}">
+                                </div>
+
+                                <div class="llm-field">
+                                    <label for="llm-temperature" class="config-setting-label">Temperature</label>
+                                    <input type="number" id="llm-temperature" class="cyber-input"
+                                        min="0" max="2" step="0.1" value="{{ llm_temperature }}">
+                                </div>
+
+                                <div class="llm-field">
+                                    <label for="llm-max-concurrent" class="config-setting-label">Max Concurrent</label>
+                                    <input type="number" id="llm-max-concurrent" class="cyber-input"
+                                        min="1" max="20" step="1" value="{{ llm_max_concurrent }}">
+                                </div>
+                            </div>
+
+                            <p class="llm-privacy-note">
+                                ⚠ Code snippets from your binaries will be sent to this endpoint.
+                            </p>
+
+                            <div class="llm-test-row">
+                                <button type="button" class="cyber-btn is-success is-small" id="llm-test-btn"
+                                    aria-label="Test LLM endpoint connection">
+                                    <span aria-hidden="true">[ TEST CONNECTION ]</span>
+                                </button>
+                                <div id="llm-test-status" class="llm-test-status" role="status" aria-live="polite" hidden>
+                                    <span class="llm-test-status-icon" aria-hidden="true"></span>
+                                    <p id="llm-test-status-msg"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
                 </div>
-            </article>
-        </div>
 
         <!-- Action Buttons -->
         <div class="config-actions btn-group">

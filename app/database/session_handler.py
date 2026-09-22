@@ -15,6 +15,7 @@ from app.database.models import (
     Binary,
     BinaryFunction,
     Function,
+    LLMAnalysisResult,
     Model,
     Prediction,
     SimilarityComputation,
@@ -52,7 +53,11 @@ DB_TABLE_MAP: dict[str, list[Any]] = {
     "functions": [Function.__table__],
     "auth": [User.__table__, APIKey.__table__],
     "binaries": [Binary.__table__, BinaryFunction.__table__],
-    "intelligence": [SimilarityComputation.__table__, SimilarityPair.__table__],
+    "intelligence": [
+        SimilarityComputation.__table__,
+        SimilarityPair.__table__,
+        LLMAnalysisResult.__table__,
+    ],
 }
 
 async_engines: dict[str, AsyncEngine] = {}

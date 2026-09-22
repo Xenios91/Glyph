@@ -19,6 +19,12 @@ const scanErrorMessage = document.getElementById('scan-error-message');
 const contextModal = document.getElementById('context-modal');
 const modalCloseBtn = document.getElementById('modal-close-btn');
 
+// LLM analysis elements
+const llmCheckBtn = document.getElementById('llm-check-btn');
+const llmModal = document.getElementById('llm-modal');
+const llmModalCloseBtn = document.getElementById('llm-modal-close-btn');
+const llmModalRetryBtn = document.getElementById('llm-modal-retry-btn');
+
 // Severity count elements
 const criticalCountEl = document.getElementById('critical-count');
 const highCountEl = document.getElementById('high-count');
@@ -28,11 +34,19 @@ const totalCountEl = document.getElementById('total-count');
 const totalScannedEl = document.getElementById('total-scanned');
 const scanTargetNameEl = document.getElementById('scan-target-name');
 
-// ── State ─────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────
 
 let availableModels = [];
 let availablePredictions = [];
 let availableBinaries = [];
+
+// Last scan report data (findings are sent to the LLM endpoint from here)
+let lastScanData = null;
+// Per-row LLM results keyed by row index:
+// {status, analysis, error, model, source: 'stored'|'fresh', modifiedAt?, elapsedMs?}
+let llmResults = {};
+// Row index currently open in the LLM modal
+let llmModalOpenIndex = null;
 
 // ── Initialization ────────────────────────────────────────────
 
@@ -143,10 +157,39 @@ function setupEventListeners() {
         });
     }
 
-    // Close modal on Escape key
+    if (llmCheckBtn) {
+        llmCheckBtn.addEventListener('click', runLLMAnalysis);
+    }
+
+    if (llmModalCloseBtn) {
+        llmModalCloseBtn.addEventListener('click', closeLlmModal);
+    }
+
+    // Close LLM modal on background click
+    if (llmModal) {
+        llmModal.addEventListener('click', (e) => {
+            if (e.target === llmModal) {
+                closeLlmModal();
+            }
+        });
+    }
+
+    if (llmModalRetryBtn) {
+        llmModalRetryBtn.addEventListener('click', () => {
+            if (llmModalOpenIndex !== null) {
+                retryLlmFinding(llmModalOpenIndex);
+            }
+        });
+    }
+
+    // Close modals on Escape key
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && contextModal && contextModal.style.display !== 'none') {
+        if (e.key !== 'Escape') return;
+        if (contextModal && contextModal.style.display !== 'none') {
             closeModal();
+        }
+        if (llmModal && llmModal.style.display !== 'none') {
+            closeLlmModal();
         }
     });
 
@@ -227,6 +270,7 @@ async function runScan() {
     setScanLoading(true);
     hideResults();
     hideError();
+    resetLlmState();
 
     let body;
     let targetName;
@@ -303,11 +347,17 @@ function displayResults(data, targetName) {
 
     const results = data.results || [];
 
+    // New scan: reset LLM state (stored results are re-fetched below)
+    lastScanData = data;
+    llmResults = {};
+    llmModalOpenIndex = null;
+
     if (results.length === 0) {
         // No dangerous functions found
         scanSummary.style.display = '';
         scanResultsContainer.style.display = 'none';
         noResultsMessage.style.display = '';
+        updateLlmButtonState();
         return;
     }
 
@@ -324,6 +374,13 @@ function displayResults(data, targetName) {
             scanResultsBody.appendChild(row);
         });
     }
+
+    // Refresh LLM badges (placeholders first; stored results fill in asynchronously)
+    renderLlmBadges();
+    updateLlmButtonState();
+
+    // Pre-populate badges from stored LLM results for this target (non-blocking)
+    loadStoredLlmResults(data.model_name);
 
     // Initialize pagination
     const paginationEl = document.getElementById('scan-results-pagination');
@@ -359,6 +416,7 @@ function createResultRow(result, index) {
         <td>${escapeHtml(result.function_name)}</td>
         <td>${escapeHtml(result.containing_function)}</td>
         <td><span class="severity-badge ${severityClass}">${escapeHtml(result.severity)}</span></td>
+        <td class="llm-cell"><span class="llm-badge llm-badge-placeholder">&ndash;</span></td>
     `;
 
     // Make entire row clickable
@@ -431,6 +489,355 @@ function closeModal() {
     }
 }
 
+// ── LLM Analysis ──────────────────────────────────────
+
+/**
+ * Reset LLM state at the start of a new scan.
+ */
+function resetLlmState() {
+    lastScanData = null;
+    llmResults = {};
+    llmModalOpenIndex = null;
+    updateLlmButtonState();
+}
+
+/**
+ * Enable the "Check with LLM" button only when the last scan produced findings.
+ */
+function updateLlmButtonState() {
+    if (!llmCheckBtn) return;
+    const hasResults = !!(
+        lastScanData && Array.isArray(lastScanData.results) && lastScanData.results.length > 0
+    );
+    llmCheckBtn.disabled = !hasResults;
+}
+
+/**
+ * Set the LLM button loading state (reuses the btn-text/btn-loading swap pattern).
+ * @param {boolean} loading - Whether LLM analysis is in progress.
+ */
+function setLlmLoading(loading) {
+    if (!llmCheckBtn) return;
+
+    const btnText = llmCheckBtn.querySelector('.btn-text');
+    const btnLoading = llmCheckBtn.querySelector('.btn-loading');
+
+    if (btnText) btnText.style.display = loading ? 'none' : '';
+    if (btnLoading) btnLoading.style.display = loading ? '' : 'none';
+
+    if (loading) {
+        llmCheckBtn.disabled = true;
+    } else {
+        updateLlmButtonState();
+    }
+}
+
+/**
+ * Format an ISO timestamp as "YYYY-MM-DD HH:MM UTC" for tooltips/labels.
+ * @param {string|undefined} iso - ISO 8601 timestamp.
+ * @returns {string}
+ */
+function formatUtcTimestamp(iso) {
+    if (!iso) return 'unknown time';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return String(iso);
+    const pad = (n) => String(n).padStart(2, '0');
+    return (
+        `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ` +
+        `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`
+    );
+}
+
+/**
+ * Fetch stored LLM results for a target and fill matching row badges.
+ * Non-fatal: on failure the placeholder badges stay in place.
+ * @param {string} targetName - The scanned target name (persistence key).
+ */
+async function loadStoredLlmResults(targetName) {
+    if (!targetName) return;
+    const expectedScan = lastScanData;
+
+    try {
+        const response = await fetch(
+            `/api/v1/dangerous-functions/llm-results?target_name=${encodeURIComponent(targetName)}`
+        );
+        if (!response.ok) return;
+
+        const result = await response.json();
+        const storedResults = (result.data && result.data.results) || [];
+
+        // Bail out if a newer scan has replaced the current one while fetching
+        if (expectedScan !== lastScanData) return;
+
+        storedResults.forEach((entry) => {
+            const index = (expectedScan.results || []).findIndex(
+                (r) =>
+                    r.function_name === entry.function_name &&
+                    r.containing_function === entry.containing_function &&
+                    String(r.entrypoint ?? '') === String(entry.entrypoint ?? '')
+            );
+            if (index === -1) return;
+
+            llmResults[index] = {
+                status: entry.status,
+                analysis: entry.analysis || '',
+                error: entry.error || '',
+                model: entry.model_name || '',
+                source: 'stored',
+                modifiedAt: entry.modified_at,
+                elapsedMs: entry.elapsed_ms,
+            };
+        });
+
+        renderLlmBadges();
+    } catch (error) {
+        console.warn('Failed to load stored LLM results:', error);
+    }
+}
+
+/**
+ * Render the LLM badge in each results row based on llmResults.
+ */
+function renderLlmBadges() {
+    if (!scanResultsBody) return;
+
+    scanResultsBody.querySelectorAll('tr[data-index]').forEach((row) => {
+        const index = Number(row.getAttribute('data-index'));
+        const cell = row.querySelector('.llm-cell');
+        if (!cell) return;
+
+        const entry = llmResults[index];
+        if (!entry) {
+            cell.innerHTML = '<span class="llm-badge llm-badge-placeholder">&ndash;</span>';
+            return;
+        }
+
+        const isSuccess = entry.status === 'success';
+        const finding =
+            lastScanData && Array.isArray(lastScanData.results) ? lastScanData.results[index] : null;
+        const findingName = finding && finding.function_name ? finding.function_name : '';
+        const badge = document.createElement('button');
+        badge.type = 'button';
+        badge.className = `llm-badge ${isSuccess ? 'llm-badge-success' : 'llm-badge-error'}`;
+        badge.textContent = isSuccess ? 'AI \u2713' : 'AI !';
+        badge.title =
+            entry.source === 'stored'
+                ? `Stored ${formatUtcTimestamp(entry.modifiedAt)}`
+                : 'New - just analyzed';
+        badge.setAttribute('aria-label', isSuccess
+            ? `View LLM analysis for ${findingName}`
+            : `View LLM analysis error for ${findingName}`);
+        badge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openLlmModal(index);
+        });
+
+        cell.innerHTML = '';
+        cell.appendChild(badge);
+    });
+}
+
+/**
+ * Send all findings from the last scan to the LLM analysis endpoint.
+ */
+async function runLLMAnalysis() {
+    if (!lastScanData || !Array.isArray(lastScanData.results) || lastScanData.results.length === 0) {
+        return;
+    }
+
+    const scanData = lastScanData;
+    const findings = scanData.results;
+
+    setLlmLoading(true);
+    hideError();
+
+    try {
+        const response = await fetch('/api/v1/dangerous-functions/llm-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                target_name: scanData.model_name,
+                save: true,
+                findings: findings,
+            }),
+        });
+
+        if (response.status === 503) {
+            showErrorBanner(
+                'LLM analysis is not configured or disabled. Enable it in Settings (LLM Analysis), then try again.'
+            );
+            return;
+        }
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const message =
+                (errorData.detail && errorData.detail.error && errorData.detail.error.message) ||
+                `LLM analysis failed (${response.status})`;
+            showErrorBanner(message);
+            return;
+        }
+
+        const result = await response.json();
+        if (scanData !== lastScanData) return; // a newer scan replaced these results
+
+        const data = result.data || {};
+        const resultsMap = data.results || {};
+        findings.forEach((_, index) => {
+            const entry = resultsMap[String(index)];
+            if (!entry) return;
+            llmResults[index] = {
+                status: entry.status,
+                analysis: entry.analysis || '',
+                error: entry.error || '',
+                model: entry.model || data.model || '',
+                source: 'fresh',
+                elapsedMs: entry.elapsed_ms,
+            };
+        });
+
+        renderLlmBadges();
+
+        if (typeof Toast !== 'undefined') {
+            const succeeded = data.succeeded ?? 0;
+            const total = data.total ?? findings.length;
+            if (succeeded > 0) {
+                Toast.success(`LLM analysis complete: ${succeeded}/${total} succeeded`);
+            }
+            if (data.failed > 0) {
+                Toast.error(`${data.failed} finding(s) failed LLM analysis - click "AI !" to view details.`);
+            }
+        }
+    } catch (error) {
+        console.error('LLM analysis failed:', error);
+        showErrorBanner('LLM analysis request failed. Please try again.');
+    } finally {
+        setLlmLoading(false);
+    }
+}
+
+/**
+ * Re-analyze a single finding (per-finding retry from the LLM modal).
+ * @param {number} index - Row index of the finding to retry.
+ */
+async function retryLlmFinding(index) {
+    if (!lastScanData || !Array.isArray(lastScanData.results)) return;
+    const scanData = lastScanData;
+    const finding = scanData.results[index];
+    if (!finding) return;
+
+    setLlmLoading(true);
+
+    try {
+        const response = await fetch('/api/v1/dangerous-functions/llm-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                target_name: scanData.model_name,
+                save: true,
+                findings: [finding],
+            }),
+        });
+
+        if (response.status === 503) {
+            showErrorBanner(
+                'LLM analysis is not configured or disabled. Enable it in Settings (LLM Analysis), then try again.'
+            );
+            return;
+        }
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const message =
+                (errorData.detail && errorData.detail.error && errorData.detail.error.message) ||
+                `LLM analysis failed (${response.status})`;
+            showErrorBanner(message);
+            return;
+        }
+
+        const result = await response.json();
+        if (scanData !== lastScanData) return; // a newer scan replaced these results
+
+        const data = result.data || {};
+        const entry = (data.results || {})['0'];
+        if (!entry) return;
+
+        llmResults[index] = {
+            status: entry.status,
+            analysis: entry.analysis || '',
+            error: entry.error || '',
+            model: entry.model || data.model || '',
+            source: 'fresh',
+            elapsedMs: entry.elapsed_ms,
+        };
+
+        renderLlmBadges();
+
+        // Refresh the modal if it is still open on this row
+        if (llmModalOpenIndex === index) {
+            openLlmModal(index);
+        }
+    } catch (error) {
+        console.error('LLM retry failed:', error);
+        showErrorBanner('LLM analysis request failed. Please try again.');
+    } finally {
+        setLlmLoading(false);
+    }
+}
+
+/**
+ * Open the LLM analysis modal for a row.
+ * @param {number} index - Row index of the finding.
+ */
+function openLlmModal(index) {
+    if (!llmModal) return;
+    const entry = llmResults[index];
+    const finding =
+        lastScanData && Array.isArray(lastScanData.results) ? lastScanData.results[index] : null;
+    if (!entry || !finding) return;
+
+    llmModalOpenIndex = index;
+
+    const elFunctionName = document.getElementById('llm-modal-function-name');
+    const elContaining = document.getElementById('llm-modal-containing-function');
+    const elSource = document.getElementById('llm-modal-source');
+    const elModel = document.getElementById('llm-modal-model');
+    const elElapsed = document.getElementById('llm-modal-elapsed');
+    const errorSection = document.getElementById('llm-modal-error-section');
+    const elErrorMessage = document.getElementById('llm-modal-error-message');
+    const analysisSection = document.getElementById('llm-modal-analysis-section');
+    const elAnalysis = document.getElementById('llm-modal-analysis');
+
+    if (elFunctionName) elFunctionName.textContent = finding.function_name;
+    if (elContaining) elContaining.textContent = finding.containing_function;
+    if (elSource) {
+        elSource.textContent =
+            entry.source === 'stored'
+                ? `Stored ${formatUtcTimestamp(entry.modifiedAt)}`
+                : 'New - just analyzed';
+    }
+    if (elModel) elModel.textContent = entry.model || 'unknown';
+    if (elElapsed) elElapsed.textContent = entry.elapsedMs != null ? `${entry.elapsedMs} ms` : 'N/A';
+
+    const isSuccess = entry.status === 'success';
+    if (errorSection) errorSection.style.display = isSuccess ? 'none' : '';
+    if (analysisSection) analysisSection.style.display = isSuccess ? '' : 'none';
+    if (!isSuccess && elErrorMessage) elErrorMessage.textContent = entry.error || 'Unknown error';
+    if (isSuccess && elAnalysis) elAnalysis.textContent = entry.analysis || '';
+
+    llmModal.style.display = 'flex';
+}
+
+/**
+ * Close the LLM analysis modal.
+ */
+function closeLlmModal() {
+    if (llmModal) {
+        llmModal.style.display = 'none';
+    }
+    llmModalOpenIndex = null;
+}
+
 // ── UI Helpers ────────────────────────────────────────────────
 
 /**
@@ -448,6 +855,15 @@ function hideResults() {
  */
 function showScanError(message) {
     hideResults();
+    if (scanErrorMessage) scanErrorMessage.textContent = message;
+    if (scanError) scanError.style.display = '';
+}
+
+/**
+ * Show the error banner without hiding existing results (for LLM failures).
+ * @param {string} message - Error message to display.
+ */
+function showErrorBanner(message) {
     if (scanErrorMessage) scanErrorMessage.textContent = message;
     if (scanError) scanError.style.display = '';
 }

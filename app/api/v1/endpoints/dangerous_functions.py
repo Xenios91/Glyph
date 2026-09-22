@@ -10,12 +10,15 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_active_user
+from app.config.settings import get_settings
+from app.core.rate_limiter import LLM_ANALYSIS_LIMIT, limiter
 from app.database.function_repository import FunctionRepository
+from app.database.llm_result_repository import LLMResultRepository
 from app.database.model_repository import ModelRepository
-from app.database.models import User
+from app.database.models import LLMAnalysisResult, User
 from app.database.prediction_repository import PredictionRepository
 from app.services.dangerous_function_scanner import (
     ScanReport,
@@ -28,6 +31,7 @@ from app.services.dangerous_functions_catalog import (
     get_entries_by_category,
     get_entry,
 )
+from app.services.llm_analysis_service import LLMNotConfiguredError, analyze_findings
 from app.utils.responses import (
     ErrorResponse,
     SuccessResponse,
@@ -113,6 +117,21 @@ class ScanReportResponse(BaseModel):
     medium_count: int
     low_count: int
     results: list[ScanResultDict] = []
+
+
+class LLMAnalysisRequest(BaseModel):
+    """Request schema for triggering LLM analysis of scan findings.
+
+    Attributes:
+        target_name: Stable name of the scanned target the findings belong to.
+        save: Whether to persist the results to the database (default true).
+        findings: Scanner findings to analyze, as obtained from a prior scan.
+
+    """
+
+    target_name: str = Field(min_length=1, max_length=128)
+    save: bool = True
+    findings: list[ScanResultDict] = Field(min_length=1, max_length=100)
 
 
 class CatalogEntryDict(BaseModel):
@@ -446,4 +465,154 @@ async def scan_dangerous_functions(
     return create_success_response(
         data=_scan_report_to_dict(report).model_dump(),
         message=f"Scan complete: {report.total_found} dangerous functions found",
+    )
+
+
+@router.post(
+    "/llm-analysis",
+    summary="Analyze scan findings with the configured LLM endpoint",
+    description=(
+        "Send scanner findings to the user-configured OpenAI-compatible chat completions "
+        "endpoint for analysis. Results are persisted to the database by default."
+    ),
+)
+@limiter.limit(LLM_ANALYSIS_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
+async def analyze_dangerous_functions(
+    request: Request,
+    body: LLMAnalysisRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[dict[str, Any]]:
+    """Send scan findings to the configured LLM endpoint for analysis.
+
+    The client supplies findings it already obtained from a scan; no re-scan
+    is performed. One result per finding is returned, keyed by the finding's
+    zero-based index. When save is true (the default), results are upserted
+    to the database; a persistence failure is reported via saved=false but
+    does not fail the request.
+
+    Args:
+        request: FastAPI request object (used for rate limiting).
+        body: Analysis request with target name, save flag, and findings.
+        current_user: Authenticated user.
+
+    Returns:
+        Success response with per-finding results and summary counts.
+
+    Raises:
+        HTTPException: 503 LLM_NOT_CONFIGURED when the LLM endpoint is
+            disabled or cannot be built from the current configuration.
+
+    """
+    settings = get_settings()
+    try:
+        analyses = await analyze_findings(settings.llm, [f.model_dump() for f in body.findings])
+    except LLMNotConfiguredError as exc:
+        logger.warning("LLM analysis rejected: {}", exc)
+        raise HTTPException(
+            status_code=503,
+            detail=create_error_response(
+                error_code="LLM_NOT_CONFIGURED",
+                error_message=str(exc),
+            ).model_dump(),
+        ) from exc
+
+    results: dict[str, dict[str, Any]] = {
+        str(index): {
+            "status": analysis.status,
+            "analysis": analysis.analysis,
+            "error": analysis.error,
+            "model": analysis.model,
+            "elapsed_ms": analysis.elapsed_ms,
+        }
+        for index, analysis in enumerate(analyses)
+    }
+
+    total = len(analyses)
+    succeeded = sum(1 for analysis in analyses if analysis.status == "success")
+    failed = total - succeeded
+
+    saved = False
+    if body.save:
+        rows = [
+            LLMAnalysisResult(
+                target_name=body.target_name,
+                function_name=finding.function_name,
+                containing_function=finding.containing_function,
+                entrypoint=finding.entrypoint,
+                status=analysis.status,
+                analysis=analysis.analysis,
+                error=analysis.error,
+                model_name=analysis.model,
+                elapsed_ms=analysis.elapsed_ms,
+            )
+            for finding, analysis in zip(body.findings, analyses, strict=True)
+        ]
+        try:
+            await LLMResultRepository.upsert_many(body.target_name, rows)
+            saved = True
+        except Exception:
+            saved = False
+            logger.exception("Failed to save LLM analysis results for target '{}'", body.target_name)
+
+    model_name = next(
+        (analysis.model for analysis in analyses if analysis.status == "success" and analysis.model),
+        settings.llm.model,
+    )
+
+    return create_success_response(
+        data={
+            "target_name": body.target_name,
+            "model": model_name,
+            "total": total,
+            "succeeded": succeeded,
+            "failed": failed,
+            "saved": saved,
+            "results": results,
+        },
+        message=f"LLM analysis complete: {succeeded}/{total} succeeded",
+    )
+
+
+@router.get(
+    "/llm-results",
+    summary="Retrieve stored LLM analysis results for a target",
+    description="Return the persisted LLM analysis results previously saved for a scanned target.",
+)
+async def get_llm_results(
+    request: Request,
+    target_name: Annotated[str, Query(min_length=1, max_length=128, description="Name of the scanned target")],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[dict[str, Any]]:
+    """Get the stored LLM analysis results for a scanned target.
+
+    Args:
+        request: FastAPI request object.
+        target_name: Stable name of the scanned target.
+        current_user: Authenticated user.
+
+    Returns:
+        Success response with the stored results (an empty list is a valid
+        success when nothing has been saved yet).
+
+    """
+    rows = await LLMResultRepository.get_for_target(target_name)
+
+    results = [
+        {
+            "function_name": row.function_name,
+            "containing_function": row.containing_function,
+            "entrypoint": row.entrypoint,
+            "status": row.status,
+            "analysis": row.analysis,
+            "error": row.error,
+            "model_name": row.model_name,
+            "elapsed_ms": row.elapsed_ms,
+            "modified_at": row.modified_at.isoformat(),
+        }
+        for row in rows
+    ]
+
+    return create_success_response(
+        data={"target_name": target_name, "count": len(results), "results": results},
+        message=f"LLM results retrieved for '{target_name}'",
     )

@@ -90,30 +90,20 @@ def pytest_configure(config: Any) -> None:
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiters() -> Any:
-    """Reset rate limiter storage before and after each test to prevent false rate limiting.
+    """Reset rate limiter state before and after each test to prevent false rate limiting.
 
-    slowapi uses an in-memory storage backend by default. We reset it both before
-    and after each test to ensure each test starts with a clean slate. Storage is
-    always recreated (rather than conditionally cleared) because slowapi may
-    initialize it lazily during request processing.
+    slowapi wraps its storage object in a ``limits`` RateLimiter (``limiter._limiter``)
+    that keeps a reference to the original storage, so replacing ``limiter._storage``
+    alone does not clear the live state. ``limiter.reset()`` instead invokes
+    ``storage.reset()`` on the storage object the active RateLimiter actually uses
+    (the default MemoryStorage backend supports reset).
     """
     from app.core.rate_limiter import limiter
-    from limits.storage import MemoryStorage
 
-    def _create_storage():
-        try:
-            return MemoryStorage()
-        except RuntimeError:
-            # If thread creation fails (e.g., under heavy load or ulimit constraints),
-            # return the existing storage to avoid breaking the test.
-            return limiter._storage
-
-    # Always replace with fresh storage to clear all rate limit state.
-    # This handles both pre-initialized and lazily-initialized storage.
-    limiter._storage = _create_storage()  # pyright: ignore[reportPrivateUsage]
+    limiter.reset()
     yield
     # Reset again after the test to ensure clean state for the next test.
-    limiter._storage = _create_storage()  # pyright: ignore[reportPrivateUsage]
+    limiter.reset()
 
 
 def set_dependency_override(client: Any, dependency: Any, override: Any) -> None:
@@ -189,10 +179,16 @@ def create_app_client(
         A TestClient instance wrapping the configured app.
 
     """
+    from app.core.rate_limiter import limiter
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+    from slowapi import _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
 
     app = FastAPI()
+
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
     if mount_static:
         _mount_static_files(app)

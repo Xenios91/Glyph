@@ -664,14 +664,15 @@ export GLYPH_JWT_SECRET_KEY="your-generated-secret-here"
 
 ### Rate Limiting
 
-Glyph applies rate limiting to authentication endpoints to prevent brute-force attacks:
+Glyph applies rate limiting to authentication endpoints and LLM analysis to prevent brute-force attacks and excessive LLM usage:
 
 | Endpoint | Limit |
 |----------|-------|
-| Login | 5 requests per minute |
-| Registration | 3 requests per minute |
-| Password Change | 3 requests per minute |
+| Login | 10 requests per minute |
+| Registration | 5 requests per 5 minutes |
+| Password Change | 5 requests per 5 minutes |
 | Token Refresh | 10 requests per minute |
+| LLM Analysis (`/llm-analysis`, `/llm-test`) | 10 requests per minute |
 
 If you receive a `429 Too Many Requests` response, wait before retrying.
 

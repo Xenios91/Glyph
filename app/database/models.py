@@ -409,3 +409,59 @@ class SimilarityPair(Base):
             "computation_id", "binary_a_id", "binary_b_id", name="uq_similarity_pair_computation_binaries",
         ),
     )
+
+
+class LLMAnalysisResult(Base):
+    """Model representing a stored LLM analysis of a dangerous function finding.
+
+    One row per (target, dangerous function) — re-running the analysis
+    upserts the row so the latest result (and its timestamp) is kept.
+
+    Attributes:
+        id: Primary key
+        target_name: Stable name of the scanned target (the report's model_name)
+        function_name: Name of the dangerous function (e.g., "strcpy")
+        containing_function: Function that contains the dangerous call
+        entrypoint: Memory address of the containing function
+        status: Analysis status ("success" or "error")
+        analysis: LLM analysis text (empty when status is "error")
+        error: Error message (empty when status is "success")
+        model_name: LLM model that produced the analysis
+        elapsed_ms: Analysis duration in milliseconds
+        created_at: Timestamp when the result was first stored
+        modified_at: Timestamp when the result was last updated
+
+    """
+
+    __tablename__ = "llm_analysis_results"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    target_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    function_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    containing_function: Mapped[str] = mapped_column(String(256), nullable=False)
+    entrypoint: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    analysis: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    error: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    model_name: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    elapsed_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "target_name", "function_name", "containing_function", "entrypoint",
+            name="uq_llm_analysis_target_function",
+        ),
+    )
