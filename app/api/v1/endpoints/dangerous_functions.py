@@ -5,6 +5,7 @@ functions and retrieving scan results with severity, CWE references,
 and usage context.
 """
 
+import json
 from io import BytesIO
 from typing import Annotated, Any
 
@@ -20,6 +21,7 @@ from app.database.llm_result_repository import LLMResultRepository
 from app.database.model_repository import ModelRepository
 from app.database.models import LLMAnalysisResult, User
 from app.database.prediction_repository import PredictionRepository
+from app.database.scan_report_repository import ScanReportRepository
 from app.services.dangerous_function_scanner import (
     ScanReport,
     ScanResult,
@@ -444,10 +446,56 @@ async def scan_dangerous_functions(
             detail="One of 'modelName', 'taskName', or 'binaryId' must be provided",
         )
 
-    if not functions_data:
+    # Perform scan (empty function lists produce an empty report)
+    report = generate_report(target_name or "unknown", functions_data)
+    report_dict = _scan_report_to_dict(report).model_dump()
+
+    # Persist the report so it can be restored when the target is re-selected.
+    # A persistence failure must not fail the scan itself.
+    try:
+        await ScanReportRepository.save_report(report_dict)
+    except Exception:
+        logger.exception("Failed to persist scan report for target '{}'", target_name)
+
+    message = (
+        f"No functions found for '{target_name}'"
+        if not functions_data
+        else f"Scan complete: {report.total_found} dangerous functions found"
+    )
+    return create_success_response(data=report_dict, message=message)
+
+
+@router.get(
+    "/scan-results",
+    summary="Retrieve the last stored scan report for a target",
+    description=(
+        "Return the most recent dangerous function scan report previously persisted "
+        "for the given target name. Returns an empty success when the target has "
+        "never been scanned."
+    ),
+)
+async def get_scan_results(
+    request: Request,
+    target_name: Annotated[str, Query(min_length=1, max_length=256, description="Name of the scanned target")],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[Any]:
+    """Get the last stored scan report for a target.
+
+    Args:
+        request: FastAPI request object.
+        target_name: Stable name of the scanned target.
+        current_user: Authenticated user.
+
+    Returns:
+        Success response with the stored scan report (empty report when
+        nothing has been saved yet).
+
+    """
+    row = await ScanReportRepository.get_report(target_name)
+    if row is None:
         return create_success_response(
             data=ScanReportResponse(
-                model_name=target_name or "unknown",
+                model_name=target_name,
                 total_functions_scanned=0,
                 total_found=0,
                 critical_count=0,
@@ -456,16 +504,57 @@ async def scan_dangerous_functions(
                 low_count=0,
                 results=[],
             ).model_dump(),
-            message=f"No functions found for '{target_name}'",
+            message=f"No stored scan results for '{target_name}'",
         )
 
-    # Perform scan
-    report = generate_report(target_name or "unknown", functions_data)
+    try:
+        results = json.loads(row.results_json) if row.results_json else []
+    except (json.JSONDecodeError, TypeError):
+        logger.exception("Failed to decode stored scan results for target '{}'", target_name)
+        results = []
 
     return create_success_response(
-        data=_scan_report_to_dict(report).model_dump(),
-        message=f"Scan complete: {report.total_found} dangerous functions found",
+        data={
+            "model_name": row.target_name,
+            "total_functions_scanned": row.total_functions_scanned,
+            "total_found": row.total_found,
+            "critical_count": row.critical_count,
+            "high_count": row.high_count,
+            "medium_count": row.medium_count,
+            "low_count": row.low_count,
+            "results": results,
+            "modified_at": row.modified_at.isoformat(),
+        },
+        message=f"Stored scan results retrieved for '{target_name}'",
     )
+
+
+@router.delete(
+    "/scan-results",
+    summary="Delete the stored scan report for a target",
+    description="Remove the persisted dangerous function scan report for the given target name.",
+)
+async def delete_scan_results(
+    request: Request,
+    target_name: Annotated[str, Query(min_length=1, max_length=256, description="Name of the scanned target")],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[str]:
+    """Delete the stored scan report for a target.
+
+    Args:
+        request: FastAPI request object.
+        target_name: Stable name of the scanned target.
+        current_user: Authenticated user.
+
+    Returns:
+        Success response confirming deletion (or that nothing was stored).
+
+    """
+    deleted = await ScanReportRepository.delete_for_target(target_name)
+    if not deleted:
+        return create_success_response(data="not_found", message=f"No stored scan results for '{target_name}'")
+
+    return create_success_response(data="deleted", message=f"Stored scan results deleted for '{target_name}'")
 
 
 @router.post(

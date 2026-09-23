@@ -18,6 +18,7 @@ from app.database.models import (
     LLMAnalysisResult,
     Model,
     Prediction,
+    ScanReport,
     SimilarityComputation,
     SimilarityPair,
     User,
@@ -57,6 +58,7 @@ DB_TABLE_MAP: dict[str, list[Any]] = {
         SimilarityComputation.__table__,
         SimilarityPair.__table__,
         LLMAnalysisResult.__table__,
+        ScanReport.__table__,
     ],
 }
 

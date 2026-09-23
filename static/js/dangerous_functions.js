@@ -19,6 +19,12 @@ const scanErrorMessage = document.getElementById('scan-error-message');
 const contextModal = document.getElementById('context-modal');
 const modalCloseBtn = document.getElementById('modal-close-btn');
 
+// Stored scan results banner elements
+const storedResultsBanner = document.getElementById('stored-results-banner');
+const storedResultsText = document.getElementById('stored-results-text');
+const viewStoredBtn = document.getElementById('view-stored-btn');
+const clearStoredBtn = document.getElementById('clear-stored-btn');
+
 // LLM analysis elements
 const llmCheckBtn = document.getElementById('llm-check-btn');
 const llmModal = document.getElementById('llm-modal');
@@ -42,6 +48,8 @@ let availableBinaries = [];
 
 // Last scan report data (findings are sent to the LLM endpoint from here)
 let lastScanData = null;
+// Cached stored scan reports keyed by target name (filled on target selection)
+let storedReportCache = {};
 // True while a scan request is in flight (prevents concurrent scans/LLM runs)
 let scanInProgress = false;
 // Per-row LLM results keyed by row index:
@@ -122,6 +130,7 @@ function selectBinaryTarget(binary) {
         if (targetSelect) {
             targetSelect.value = String(binary.id);
             updateScanButtonState();
+            checkStoredResults();
         }
     }, 100);
 }
@@ -139,6 +148,7 @@ function setupEventListeners() {
     if (targetSelect) {
         targetSelect.addEventListener('change', () => {
             updateScanButtonState();
+            checkStoredResults();
         });
     }
 
@@ -182,6 +192,14 @@ function setupEventListeners() {
                 retryLlmFinding(llmModalOpenIndex);
             }
         });
+    }
+
+    if (viewStoredBtn) {
+        viewStoredBtn.addEventListener('click', viewStoredResults);
+    }
+
+    if (clearStoredBtn) {
+        clearStoredBtn.addEventListener('click', clearStoredResults);
     }
 
     // Close modals on Escape key
@@ -342,11 +360,14 @@ async function runScan() {
     scanInProgress = true;
     hideResults();
     hideError();
+    hideStoredResultsBanner();
     resetLlmState();
 
     try {
         const { data, targetName } = await performScan();
         displayResults(data, targetName);
+        // The fresh scan just overwrote the stored report for this target
+        storedReportCache[targetName] = data;
     } catch (error) {
         console.error('Scan failed:', error);
         showScanError(error.message || 'Scan failed. Please try again.');
@@ -443,6 +464,103 @@ function displayResults(data, targetName) {
         });
         pagination.init();
     }
+}
+
+// ── Stored Scan Results ───────────────────────────────────────
+
+/**
+ * Check whether the currently selected target has stored scan results
+ * and show the banner when it does.
+ */
+async function checkStoredResults() {
+    const targetName = getCurrentTargetName();
+    if (!targetName) {
+        hideStoredResultsBanner();
+        return;
+    }
+
+    let report = storedReportCache[targetName];
+    if (!report) {
+        try {
+            const response = await fetch(
+                `/api/v1/dangerous-functions/scan-results?target_name=${encodeURIComponent(targetName)}`
+            );
+            if (!response.ok) return;
+            const result = await response.json();
+            report = result.data || null;
+            storedReportCache[targetName] = report;
+        } catch (error) {
+            console.warn('Failed to check stored scan results:', error);
+            return;
+        }
+    }
+
+    // A target may have been changed while the request was in flight
+    if (getCurrentTargetName() !== targetName) return;
+
+    const hasResults = !!(report && Array.isArray(report.results) && report.results.length > 0);
+    if (!hasResults) {
+        hideStoredResultsBanner();
+        return;
+    }
+
+    if (storedResultsText) {
+        storedResultsText.textContent =
+            `Stored scan results available for this target ` +
+            `(${report.total_found || 0} finding${(report.total_found || 0) === 1 ? '' : 's'}).`;
+    }
+    if (storedResultsBanner) storedResultsBanner.style.display = '';
+}
+
+/**
+ * Display the cached stored scan results for the current target.
+ */
+function viewStoredResults() {
+    const targetName = getCurrentTargetName();
+    const report = targetName ? storedReportCache[targetName] : null;
+    if (!report || !Array.isArray(report.results)) return;
+    displayResults(report, targetName);
+    hideStoredResultsBanner();
+}
+
+/**
+ * Delete the stored scan results for the current target.
+ */
+async function clearStoredResults() {
+    const targetName = getCurrentTargetName();
+    if (!targetName || !clearStoredBtn) return;
+
+    const btnText = clearStoredBtn.querySelector('.btn-text');
+    const btnLoading = clearStoredBtn.querySelector('.btn-loading');
+    clearStoredBtn.disabled = true;
+    if (btnText) btnText.style.display = 'none';
+    if (btnLoading) btnLoading.style.display = '';
+
+    try {
+        const response = await fetch(
+            `/api/v1/dangerous-functions/scan-results?target_name=${encodeURIComponent(targetName)}`,
+            { method: 'DELETE' }
+        );
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        delete storedReportCache[targetName];
+        hideStoredResultsBanner();
+    } catch (error) {
+        console.error('Failed to clear stored scan results:', error);
+        showScanError('Failed to clear stored scan results. Please try again.');
+    } finally {
+        clearStoredBtn.disabled = false;
+        if (btnText) btnText.style.display = '';
+        if (btnLoading) btnLoading.style.display = 'none';
+    }
+}
+
+/**
+ * Hide the stored results banner.
+ */
+function hideStoredResultsBanner() {
+    if (storedResultsBanner) storedResultsBanner.style.display = 'none';
 }
 
 /**
@@ -926,6 +1044,7 @@ function hideResults() {
     if (scanSummary) scanSummary.style.display = 'none';
     if (scanResultsContainer) scanResultsContainer.style.display = 'none';
     if (noResultsMessage) noResultsMessage.style.display = 'none';
+    hideStoredResultsBanner();
 }
 
 /**

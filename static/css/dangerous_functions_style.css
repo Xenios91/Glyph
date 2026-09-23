@@ -413,6 +413,41 @@
     font-size: var(--text-sm);
 }
 
+/* ── Stored Results Banner ───────────────────────────────────── */
+
+.stored-results-banner {
+    width: 100%;
+    max-width: 1200px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.85rem 1.25rem;
+    background: rgba(0, 191, 255, 0.08);
+    border: 1px solid rgba(0, 191, 255, 0.35);
+    border-radius: 4px;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.stored-results-info {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-code);
+    font-size: var(--text-sm);
+    color: var(--cyan-bright);
+}
+
+.stored-results-icon {
+    font-size: 1.1rem;
+}
+
+.stored-results-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
 /* ── Modal ──────────────────────────────────────────────────── */
 
 .modal {

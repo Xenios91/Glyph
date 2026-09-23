@@ -41,6 +41,23 @@
         </div>
     </div>
 
+    <!-- Stored Scan Results Banner (shown when the selected target has saved results) -->
+    <div id="stored-results-banner" class="stored-results-banner" style="display: none;">
+        <span class="stored-results-info">
+            <span class="stored-results-icon">&#128190;</span>
+            <span id="stored-results-text">Stored scan results available for this target.</span>
+        </span>
+        <span class="stored-results-actions">
+            <button type="button" id="view-stored-btn" class="cyber-btn is-success" aria-label="View stored results">
+                <span class="btn-text">View Stored Results</span>
+            </button>
+            <button type="button" id="clear-stored-btn" class="cyber-btn is-danger" aria-label="Clear stored results">
+                <span class="btn-text">Clear</span>
+                <span class="btn-loading" style="display: none;">Clearing...</span>
+            </button>
+        </span>
+    </div>
+
     <!-- Results Summary (hidden until scan completes) -->
     <div id="scan-summary" class="scan-summary" style="display: none;">
         <div class="summary-header">

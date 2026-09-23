@@ -1,6 +1,7 @@
 """Tests for LLMResultRepository (stored LLM analysis results)."""
 
 import asyncio
+import json
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -8,6 +9,7 @@ import pytest
 import pytest_asyncio
 from app.database.llm_result_repository import LLMResultRepository
 from app.database.models import Base, LLMAnalysisResult
+from app.database.scan_report_repository import ScanReportRepository
 from app.database.session_handler import (
     DB_TABLE_MAP,
     async_engines,
@@ -244,3 +246,130 @@ class TestDeleteForTarget:
     async def test_delete_unknown_target_is_noop(self, fresh_intelligence_tables: Any) -> None:
         """Deleting a target with no stored results does not raise."""
         await LLMResultRepository.delete_for_target("missing")
+
+
+# ---------------------------------------------------------------------------
+# ScanReportRepository tests
+# ---------------------------------------------------------------------------
+
+
+def _make_scan_report(
+    target_name: str = "test_model",
+    total_found: int = 1,
+    results: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Build a scan report dict matching the scanner's JSON shape."""
+    if results is None:
+        results = [
+            {
+                "function_name": "strcpy",
+                "containing_function": "main",
+                "entrypoint": "0x401000",
+                "category": "Buffer Overflow",
+                "severity": "High",
+                "cwe": "CWE-120",
+                "description": "Unbounded copy",
+                "safe_alternative": "strlcpy",
+                "usage_context": ["strcpy(buf, src);"],
+                "containing_function_code": "void main() { strcpy(buf, src); }",
+            }
+        ]
+    return {
+        "model_name": target_name,
+        "total_functions_scanned": 10,
+        "total_found": total_found,
+        "critical_count": 0,
+        "high_count": total_found,
+        "medium_count": 0,
+        "low_count": 0,
+        "results": results,
+    }
+
+
+class TestScanReportRepository:
+    """Persistence behaviour of ScanReportRepository."""
+
+    async def test_table_registered_under_intelligence(self) -> None:
+        """ScanReport.__table__ is registered under 'intelligence'."""
+        table_names = {table.name for table in DB_TABLE_MAP["intelligence"]}
+        assert "scan_reports" in table_names
+
+    async def test_save_and_get_roundtrip(self, fresh_intelligence_tables: Any) -> None:
+        """A saved report is returned with all fields intact."""
+        await ScanReportRepository.save_report(_make_scan_report())
+
+        row = await ScanReportRepository.get_report("test_model")
+        assert row is not None
+        assert row.target_name == "test_model"
+        assert row.total_functions_scanned == 10
+        assert row.total_found == 1
+        assert row.high_count == 1
+        results = json.loads(row.results_json)
+        assert len(results) == 1
+        assert results[0]["function_name"] == "strcpy"
+        assert results[0]["usage_context"] == ["strcpy(buf, src);"]
+
+    async def test_get_unknown_target_returns_none(self, fresh_intelligence_tables: Any) -> None:
+        """No stored report means None, not an error."""
+        assert await ScanReportRepository.get_report("missing") is None
+
+    async def test_save_overwrites_existing_report(self, fresh_intelligence_tables: Any) -> None:
+        """Re-saving a target replaces the previous report."""
+        await ScanReportRepository.save_report(_make_scan_report(total_found=1))
+        await ScanReportRepository.save_report(_make_scan_report(total_found=0, results=[]))
+
+        row = await ScanReportRepository.get_report("test_model")
+        assert row is not None
+        assert row.total_found == 0
+        assert json.loads(row.results_json) == []
+
+    async def test_empty_report_is_stored(self, fresh_intelligence_tables: Any) -> None:
+        """A report with no findings is a valid stored value."""
+        await ScanReportRepository.save_report(
+            _make_scan_report("clean_model", total_found=0, results=[]),
+        )
+
+        row = await ScanReportRepository.get_report("clean_model")
+        assert row is not None
+        assert row.total_found == 0
+        assert json.loads(row.results_json) == []
+
+    async def test_reports_are_scoped_per_target(self, fresh_intelligence_tables: Any) -> None:
+        """Saving one target leaves other targets' reports intact."""
+        await ScanReportRepository.save_report(_make_scan_report("target_a"))
+        await ScanReportRepository.save_report(
+            _make_scan_report("target_b", total_found=0, results=[]),
+        )
+
+        row_a = await ScanReportRepository.get_report("target_a")
+        row_b = await ScanReportRepository.get_report("target_b")
+        assert row_a is not None and row_a.total_found == 1
+        assert row_b is not None and row_b.total_found == 0
+
+    async def test_delete_removes_only_that_target(self, fresh_intelligence_tables: Any) -> None:
+        """Deleting one target's report leaves other targets intact."""
+        await ScanReportRepository.save_report(_make_scan_report("target_a"))
+        await ScanReportRepository.save_report(_make_scan_report("target_b"))
+
+        deleted = await ScanReportRepository.delete_for_target("target_a")
+
+        assert deleted is True
+        assert await ScanReportRepository.get_report("target_a") is None
+        assert await ScanReportRepository.get_report("target_b") is not None
+
+    async def test_delete_unknown_target_is_noop(self, fresh_intelligence_tables: Any) -> None:
+        """Deleting a target with no stored report returns False without raising."""
+        deleted = await ScanReportRepository.delete_for_target("missing")
+        assert deleted is False
+
+    async def test_delete_does_not_affect_llm_results(
+        self, fresh_intelligence_tables: Any,
+    ) -> None:
+        """Deleting a scan report leaves LLM analysis results untouched."""
+        await LLMResultRepository.upsert_many("target_a", [_make_result()])
+        await ScanReportRepository.save_report(_make_scan_report("target_a"))
+
+        await ScanReportRepository.delete_for_target("target_a")
+
+        assert await ScanReportRepository.get_report("target_a") is None
+        assert len(await LLMResultRepository.get_for_target("target_a")) == 1

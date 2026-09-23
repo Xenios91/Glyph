@@ -797,3 +797,202 @@ class TestLLMResultsEndpoint:
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
         response = dangerous_functions_client.get("/dangerous-functions/llm-results")
         assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Scan report persistence tests
+# ---------------------------------------------------------------------------
+
+
+class TestScanReportPersistence:
+    """The scan endpoint must persist its report for later retrieval."""
+
+    def _scan_with_functions(self, dangerous_functions_client: Any) -> Any:
+        from unittest.mock import Mock
+
+        mock_func = Mock()
+        mock_func.function_name = "my_func"
+        mock_func.entrypoint = "0x401000"
+        mock_func.tokens = "strcpy(dst, src); return 0;"
+
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml,
+            patch("app.api.v1.endpoints.dangerous_functions.FunctionRepository") as mock_func_repo,
+        ):
+            mock_ml.exists = AsyncMock(return_value=True)
+            mock_func_repo.get_functions = AsyncMock(return_value=[mock_func])
+            return dangerous_functions_client.post(
+                "/dangerous-functions/scan",
+                json={"modelName": "test_model"},
+            )
+
+    def test_scan_persists_report(self, dangerous_functions_client: Any) -> None:
+        """A successful scan saves its report via ScanReportRepository."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo:
+            mock_repo.save_report = AsyncMock()
+            response = self._scan_with_functions(dangerous_functions_client)
+
+        assert response.status_code == 200
+        assert mock_repo.save_report.await_count == 1
+        saved = mock_repo.save_report.await_args_list[0].args[0]
+        assert saved["model_name"] == "test_model"
+        assert saved["total_found"] >= 1
+
+    def test_scan_succeeds_when_persistence_fails(self, dangerous_functions_client: Any) -> None:
+        """A persistence failure must not fail the scan request."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo:
+            mock_repo.save_report = AsyncMock(side_effect=Exception("db down"))
+            response = self._scan_with_functions(dangerous_functions_client)
+
+        assert response.status_code == 200
+        assert response.json()["data"]["total_found"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# GET /scan-results tests
+# ---------------------------------------------------------------------------
+
+
+class TestGetScanResultsEndpoint:
+    """Tests for GET /scan-results endpoint."""
+
+    @staticmethod
+    def _make_row(target_name: str = "test_model") -> Mock:
+        from datetime import UTC, datetime
+
+        row = Mock()
+        row.target_name = target_name
+        row.total_functions_scanned = 12
+        row.total_found = 2
+        row.critical_count = 1
+        row.high_count = 1
+        row.medium_count = 0
+        row.low_count = 0
+        row.results_json = (
+            '[{"function_name": "strcpy", "containing_function": "main", '
+            '"entrypoint": "0x401000", "category": "Buffer Overflow", '
+            '"severity": "High", "cwe": "CWE-120", "description": "d", '
+            '"safe_alternative": "strlcpy", "usage_context": ["strcpy(a, b);"], '
+            '"containing_function_code": "void main() {}"}]'
+        )
+        row.modified_at = datetime(2026, 1, 2, 12, 0, 0, tzinfo=UTC)
+        return row
+
+    def test_get_scan_results(self, dangerous_functions_client: Any) -> None:
+        """Test retrieving a stored scan report."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo:
+            mock_repo.get_report = AsyncMock(return_value=self._make_row())
+            response = dangerous_functions_client.get(
+                "/dangerous-functions/scan-results?target_name=test_model"
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        payload = data["data"]
+        assert payload["model_name"] == "test_model"
+        assert payload["total_functions_scanned"] == 12
+        assert payload["total_found"] == 2
+        assert payload["critical_count"] == 1
+        assert payload["high_count"] == 1
+        assert len(payload["results"]) == 1
+        assert payload["results"][0]["function_name"] == "strcpy"
+        assert payload["modified_at"] == "2026-01-02T12:00:00+00:00"
+
+    def test_get_scan_results_empty(self, dangerous_functions_client: Any) -> None:
+        """Test that a target with no stored report returns an empty report."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo:
+            mock_repo.get_report = AsyncMock(return_value=None)
+            response = dangerous_functions_client.get(
+                "/dangerous-functions/scan-results?target_name=test_model"
+            )
+
+        assert response.status_code == 200
+        payload = response.json()["data"]
+        assert payload["model_name"] == "test_model"
+        assert payload["total_found"] == 0
+        assert payload["results"] == []
+
+    def test_get_scan_results_requires_auth(self, dangerous_functions_client: Any) -> None:
+        """Test that the endpoint requires authentication (mocked dependency raises)."""
+        from fastapi import HTTPException
+
+        def raise_unauthenticated() -> None:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        set_dependency_override(dangerous_functions_client, get_current_active_user, raise_unauthenticated)
+        response = dangerous_functions_client.get(
+            "/dangerous-functions/scan-results?target_name=test_model"
+        )
+        assert response.status_code == 401
+
+    def test_get_scan_results_missing_target_name(self, dangerous_functions_client: Any) -> None:
+        """Test 422 when the target_name query parameter is missing."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+        response = dangerous_functions_client.get("/dangerous-functions/scan-results")
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# DELETE /scan-results tests
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteScanResultsEndpoint:
+    """Tests for DELETE /scan-results endpoint."""
+
+    def test_delete_scan_results(self, dangerous_functions_client: Any) -> None:
+        """Test deleting a stored scan report."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo:
+            mock_repo.delete_for_target = AsyncMock(return_value=True)
+            response = dangerous_functions_client.request(
+                "DELETE", "/dangerous-functions/scan-results?target_name=test_model"
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["data"] == "deleted"
+        mock_repo.delete_for_target.assert_awaited_once_with("test_model")
+
+    def test_delete_scan_results_not_found(self, dangerous_functions_client: Any) -> None:
+        """Test deleting a target with no stored report is still a success."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo:
+            mock_repo.delete_for_target = AsyncMock(return_value=False)
+            response = dangerous_functions_client.request(
+                "DELETE", "/dangerous-functions/scan-results?target_name=test_model"
+            )
+
+        assert response.status_code == 200
+        assert response.json()["data"] == "not_found"
+
+    def test_delete_scan_results_requires_auth(self, dangerous_functions_client: Any) -> None:
+        """Test that the endpoint requires authentication (mocked dependency raises)."""
+        from fastapi import HTTPException
+
+        def raise_unauthenticated() -> None:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        set_dependency_override(dangerous_functions_client, get_current_active_user, raise_unauthenticated)
+        response = dangerous_functions_client.request(
+            "DELETE", "/dangerous-functions/scan-results?target_name=test_model"
+        )
+        assert response.status_code == 401
+
+    def test_delete_scan_results_missing_target_name(self, dangerous_functions_client: Any) -> None:
+        """Test 422 when the target_name query parameter is missing."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+        response = dangerous_functions_client.request("DELETE", "/dangerous-functions/scan-results")
+        assert response.status_code == 422
