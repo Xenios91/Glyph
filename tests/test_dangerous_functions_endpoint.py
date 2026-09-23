@@ -950,11 +950,15 @@ class TestDeleteScanResultsEndpoint:
     """Tests for DELETE /scan-results endpoint."""
 
     def test_delete_scan_results(self, dangerous_functions_client: Any) -> None:
-        """Test deleting a stored scan report."""
+        """Test deleting a stored scan report also deletes stored LLM results."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
-        with patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo:
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo,
+            patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_llm_repo,
+        ):
             mock_repo.delete_for_target = AsyncMock(return_value=True)
+            mock_llm_repo.delete_for_target = AsyncMock(return_value=None)
             response = dangerous_functions_client.request(
                 "DELETE", "/dangerous-functions/scan-results?target_name=test_model"
             )
@@ -964,19 +968,45 @@ class TestDeleteScanResultsEndpoint:
         assert data["success"] is True
         assert data["data"] == "deleted"
         mock_repo.delete_for_target.assert_awaited_once_with("test_model")
+        mock_llm_repo.delete_for_target.assert_awaited_once_with("test_model")
+
+    def test_delete_scan_results_llm_delete_failure_is_non_fatal(
+        self, dangerous_functions_client: Any
+    ) -> None:
+        """Test that an LLM results deletion failure does not fail the request."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo,
+            patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_llm_repo,
+        ):
+            mock_repo.delete_for_target = AsyncMock(return_value=True)
+            mock_llm_repo.delete_for_target = AsyncMock(side_effect=SQLAlchemyError("boom", None, None))
+            response = dangerous_functions_client.request(
+                "DELETE", "/dangerous-functions/scan-results?target_name=test_model"
+            )
+
+        assert response.status_code == 200
+        assert response.json()["data"] == "deleted"
+        mock_llm_repo.delete_for_target.assert_awaited_once_with("test_model")
 
     def test_delete_scan_results_not_found(self, dangerous_functions_client: Any) -> None:
         """Test deleting a target with no stored report is still a success."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
-        with patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo:
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo,
+            patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_llm_repo,
+        ):
             mock_repo.delete_for_target = AsyncMock(return_value=False)
+            mock_llm_repo.delete_for_target = AsyncMock(return_value=None)
             response = dangerous_functions_client.request(
                 "DELETE", "/dangerous-functions/scan-results?target_name=test_model"
             )
 
         assert response.status_code == 200
         assert response.json()["data"] == "not_found"
+        mock_llm_repo.delete_for_target.assert_awaited_once_with("test_model")
 
     def test_delete_scan_results_requires_auth(self, dangerous_functions_client: Any) -> None:
         """Test that the endpoint requires authentication (mocked dependency raises)."""

@@ -532,14 +532,20 @@ async def get_scan_results(
 @router.delete(
     "/scan-results",
     summary="Delete the stored scan report for a target",
-    description="Remove the persisted dangerous function scan report for the given target name.",
+    description=(
+        "Remove the persisted dangerous function scan report and any stored LLM "
+        "analysis results for the given target name."
+    ),
 )
 async def delete_scan_results(
     request: Request,
     target_name: Annotated[str, Query(min_length=1, max_length=256, description="Name of the scanned target")],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[str]:
-    """Delete the stored scan report for a target.
+    """Delete the stored scan report and LLM analysis results for a target.
+
+    Clearing the stored scan report also removes the LLM analysis results
+    that were persisted for the same target, so the target is fully reset.
 
     Args:
         request: FastAPI request object.
@@ -551,6 +557,11 @@ async def delete_scan_results(
 
     """
     deleted = await ScanReportRepository.delete_for_target(target_name)
+    try:
+        await LLMResultRepository.delete_for_target(target_name)
+    except Exception:
+        logger.exception("Failed to delete LLM analysis results for target '{}'", target_name)
+
     if not deleted:
         return create_success_response(data="not_found", message=f"No stored scan results for '{target_name}'")
 

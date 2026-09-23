@@ -545,6 +545,13 @@ async function clearStoredResults() {
             throw new Error(`HTTP ${response.status}`);
         }
         delete storedReportCache[targetName];
+        // The server also deletes the stored LLM analysis results for this
+        // target, so drop them from memory and reset the row badges.
+        if (lastScanData && lastScanData.model_name === targetName) {
+            llmResults = {};
+            renderLlmBadges();
+            updateLlmButtonState();
+        }
         hideStoredResultsBanner();
     } catch (error) {
         console.error('Failed to clear stored scan results:', error);
