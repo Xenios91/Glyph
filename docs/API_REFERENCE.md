@@ -588,6 +588,101 @@ An empty `results` list (`count: 0`) is a valid response when nothing has been s
 
 ---
 
+#### DELETE `/llm-results`
+
+Delete the stored LLM analysis results for a target. The stored scan report is **not** affected.
+
+**Query Parameters:**
+- `target_name` (required, 1-128 chars): Name of the scanned target.
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": "deleted",
+  "message": "Stored LLM results deleted for 'trojan_detector'"
+}
+```
+
+`data` is `not_found` when nothing was stored for the target.
+
+**Errors:**
+- `422` — Missing or empty `target_name`
+
+---
+
+#### GET `/scan-results`
+
+Retrieve the last stored scan report for a target.
+
+**Query Parameters:**
+- `target_name` (required, 1-256 chars): Name of the scanned target.
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "model_name": "trojan_detector",
+    "total_functions_scanned": 1234,
+    "total_found": 1,
+    "critical_count": 0,
+    "high_count": 1,
+    "medium_count": 0,
+    "low_count": 0,
+    "results": [
+      {
+        "function_name": "strcpy",
+        "containing_function": "func_401000",
+        "entrypoint": "0x401000",
+        "category": "Buffer Overflow",
+        "severity": "High",
+        "cwe": "CWE-120",
+        "description": "...",
+        "safe_alternative": "strlcpy",
+        "usage_context": ["strcpy(a, b);"],
+        "containing_function_code": "..."
+      }
+    ],
+    "modified_at": "2026-09-18T12:04:11.123456+00:00"
+  },
+  "message": "Stored scan results retrieved for 'trojan_detector'"
+}
+```
+
+`data` is `null` when the target has never been scanned (no stored report).
+
+**Errors:**
+- `422` — Missing or empty `target_name`
+
+---
+
+#### DELETE `/scan-results`
+
+Delete the stored scan report **and** the stored LLM analysis results for a target. Use `DELETE /llm-results` to remove only the LLM results while keeping the scan report.
+
+**Query Parameters:**
+- `target_name` (required, 1-128 chars): Name of the scanned target.
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": "deleted",
+  "message": "Stored scan results and LLM results deleted for 'trojan_detector'"
+}
+```
+
+`data` is `not_found` when neither a scan report nor LLM results were stored for the target.
+
+**Errors:**
+- `422` — Missing or empty `target_name`
+
+---
+
 ### Tasks
 
 Base path: `/api/v1/tasks`

@@ -272,6 +272,11 @@ class User(Base):
         back_populates="user",
         cascade="save-update, merge, delete, delete-orphan",
     )
+    llm_config: Mapped["LLMUserConfig | None"] = relationship(
+        back_populates="user",
+        cascade="save-update, merge, delete, delete-orphan",
+        uselist=False,
+    )
 
 
 class APIKey(Base):
@@ -319,6 +324,63 @@ class APIKey(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="api_keys")
+
+
+class LLMUserConfig(Base):
+    """Per-user LLM endpoint configuration.
+
+    Stores an OpenAI-compatible LLM endpoint configuration for a single user.
+    Values not set for a user fall back to the global defaults in config.yml.
+
+    Attributes:
+        id: Primary key
+        user_id: Foreign key to User (unique)
+        enabled: Whether LLM analysis is enabled for this user
+        base_url: Base URL of the LLM endpoint
+        port: Optional port override
+        api_path: Path of the chat completions endpoint
+        model: Model identifier
+        api_key: API key (may be empty for local servers)
+        timeout_seconds: Request timeout in seconds
+        temperature: Sampling temperature
+        max_tokens: Optional max tokens limit
+        max_concurrent: Max concurrent requests
+        created_at: Timestamp when the config was created
+        modified_at: Timestamp when the config was last modified
+
+    """
+
+    __tablename__ = "llm_user_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True,
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    base_url: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    api_path: Mapped[str] = mapped_column(String(256), default="", nullable=False)
+    model: Mapped[str] = mapped_column(String(256), default="", nullable=False)
+    api_key: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    timeout_seconds: Mapped[float] = mapped_column(Float, default=900.0, nullable=False)
+    temperature: Mapped[float] = mapped_column(Float, default=0.1, nullable=False)
+    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_concurrent: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship(back_populates="llm_config")
 
 
 class SimilarityComputation(Base):

@@ -101,18 +101,26 @@ class LLMResultRepository:
             await close_async_session(session)
 
     @staticmethod
-    async def delete_for_target(target_name: str) -> None:
+    async def delete_for_target(target_name: str) -> bool:
         """Delete all stored LLM analysis results for a target.
 
         Args:
             target_name: Stable name of the scanned target.
 
+        Returns:
+            True when at least one row was deleted, False when nothing was stored.
+
         """
         session: AsyncSession = await get_async_session("intelligence")
         try:
-            await session.execute(delete(LLMAnalysisResult).where(LLMAnalysisResult.target_name == target_name))
+            result = await session.execute(
+                delete(LLMAnalysisResult).where(LLMAnalysisResult.target_name == target_name),
+            )
             await session.commit()
-            logger.info("Deleted LLM analysis results for target '{}'", target_name)
+            deleted = (result.rowcount or 0) > 0
+            if deleted:
+                logger.info("Deleted LLM analysis results for target '{}'", target_name)
+            return deleted
         except sa_exc.SQLAlchemyError:
             await session.rollback()
             logger.exception("Failed to delete LLM analysis results for target '{}'", target_name)

@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from app.auth.dependencies import get_current_active_user
 from app.config.settings import MAX_CPU_CORES, get_settings, reload_settings
 from app.core.rate_limiter import LLM_ANALYSIS_LIMIT, limiter
+from app.database.llm_user_config_repository import LLMUserConfigRepository, resolve_user_llm_config
 from app.database.models import User
 from app.services.llm_analysis_service import LLMNotConfiguredError, test_llm_connection
 from app.utils.responses import SuccessResponse, create_error_response, create_success_response
@@ -166,13 +167,13 @@ def _validate_llm_payload(llm: LLMConfigPayload) -> dict[str, Any]:
     return updates
 
 
-def _persist_config_changes(settings: Any, llm_updates: dict[str, Any] | None = None) -> None:
+def _persist_config_changes(settings: Any) -> None:
     """Write current settings back to config.yml.
 
     Reads the existing file, updates the mutable fields, and writes back
-    so that changes survive a process restart. Only explicitly provided LLM
-    fields are merged into the persisted ``llm`` section, so values sourced
-    from environment variables are never baked into the file.
+    so that changes survive a process restart. The ``llm`` section of the
+    file is left untouched: LLM settings are stored per user in the
+    database and the file's ``llm`` section only provides global defaults.
     """
     existing: dict[str, Any] = {}
     if _CONFIG_FILE.exists():
@@ -184,9 +185,6 @@ def _persist_config_changes(settings: Any, llm_updates: dict[str, Any] | None = 
 
     existing["max_file_size_mb"] = settings.max_file_size_mb
     existing["cpu_cores"] = settings.cpu_cores
-
-    if llm_updates:
-        existing["llm"] = {**(existing.get("llm") or {}), **llm_updates}
 
     try:
         with open(_CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -245,15 +243,14 @@ async def save_config(
                 ).model_dump(),
             )
 
-    llm_updates: dict[str, Any] | None = None
     if payload.llm is not None:
         llm_updates = _validate_llm_payload(payload.llm)
         for name, value in llm_updates.items():
             log_value = "****" if name == "api_key" and value else value
             logger.info("Configuration updated: llm.{}={}", name, log_value)
-            setattr(settings.llm, name, value)
+        await LLMUserConfigRepository.upsert(current_user.id, llm_updates)
 
-    _persist_config_changes(settings, llm_updates)
+    _persist_config_changes(settings)
     reload_settings()
 
     logger.info("Configuration saved")
@@ -285,9 +282,9 @@ async def test_llm_endpoint(
             built from the current configuration.
 
     """
-    settings = get_settings()
+    llm = await resolve_user_llm_config(current_user.id)
     try:
-        result = await test_llm_connection(settings.llm)
+        result = await test_llm_connection(llm)
     except LLMNotConfiguredError as exc:
         logger.warning("LLM connection test rejected: {}", exc)
         raise HTTPException(

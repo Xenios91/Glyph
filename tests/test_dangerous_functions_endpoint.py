@@ -486,15 +486,13 @@ class TestLLMAnalysisEndpoint:
         }
 
     @staticmethod
-    def _make_settings(enabled: bool = True) -> Any:
-        mock_settings = Mock()
-        mock_settings.llm = LLMConfig(
+    def _make_llm(enabled: bool = True) -> Any:
+        return LLMConfig(
             enabled=enabled,
             base_url="https://llm.example.com",
             model="test-model",
             api_key="test-key",
         )
-        return mock_settings
 
     def test_llm_analysis_success(self, dangerous_functions_client: Any) -> None:
         """Test successful analysis with results persisted by default."""
@@ -508,8 +506,8 @@ class TestLLMAnalysisEndpoint:
 
         with (
             patch(
-                "app.api.v1.endpoints.dangerous_functions.get_settings",
-                return_value=self._make_settings(),
+                "app.api.v1.endpoints.dangerous_functions.resolve_user_llm_config",
+                new=AsyncMock(return_value=self._make_llm()),
             ),
             patch(
                 "app.api.v1.endpoints.dangerous_functions.analyze_findings",
@@ -576,8 +574,8 @@ class TestLLMAnalysisEndpoint:
 
         with (
             patch(
-                "app.api.v1.endpoints.dangerous_functions.get_settings",
-                return_value=self._make_settings(),
+                "app.api.v1.endpoints.dangerous_functions.resolve_user_llm_config",
+                new=AsyncMock(return_value=self._make_llm()),
             ),
             patch(
                 "app.api.v1.endpoints.dangerous_functions.analyze_findings",
@@ -605,8 +603,8 @@ class TestLLMAnalysisEndpoint:
 
         with (
             patch(
-                "app.api.v1.endpoints.dangerous_functions.get_settings",
-                return_value=self._make_settings(),
+                "app.api.v1.endpoints.dangerous_functions.resolve_user_llm_config",
+                new=AsyncMock(return_value=self._make_llm()),
             ),
             patch(
                 "app.api.v1.endpoints.dangerous_functions.analyze_findings",
@@ -631,8 +629,8 @@ class TestLLMAnalysisEndpoint:
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         with patch(
-            "app.api.v1.endpoints.dangerous_functions.get_settings",
-            return_value=self._make_settings(enabled=False),
+            "app.api.v1.endpoints.dangerous_functions.resolve_user_llm_config",
+            new=AsyncMock(return_value=self._make_llm(enabled=False)),
         ):
             response = dangerous_functions_client.post(
                 "/dangerous-functions/llm-analysis",
@@ -695,8 +693,8 @@ class TestLLMAnalysisEndpoint:
 
         with (
             patch(
-                "app.api.v1.endpoints.dangerous_functions.get_settings",
-                return_value=self._make_settings(),
+                "app.api.v1.endpoints.dangerous_functions.resolve_user_llm_config",
+                new=AsyncMock(return_value=self._make_llm()),
             ),
             patch(
                 "app.api.v1.endpoints.dangerous_functions.analyze_findings",
@@ -906,7 +904,7 @@ class TestGetScanResultsEndpoint:
         assert payload["modified_at"] == "2026-01-02T12:00:00+00:00"
 
     def test_get_scan_results_empty(self, dangerous_functions_client: Any) -> None:
-        """Test that a target with no stored report returns an empty report."""
+        """Test that a target with no stored report returns a null data payload."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         with patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo:
@@ -916,10 +914,9 @@ class TestGetScanResultsEndpoint:
             )
 
         assert response.status_code == 200
-        payload = response.json()["data"]
-        assert payload["model_name"] == "test_model"
-        assert payload["total_found"] == 0
-        assert payload["results"] == []
+        body = response.json()
+        assert body["success"] is True
+        assert body["data"] is None
 
     def test_get_scan_results_requires_auth(self, dangerous_functions_client: Any) -> None:
         """Test that the endpoint requires authentication (mocked dependency raises)."""
@@ -950,7 +947,7 @@ class TestDeleteScanResultsEndpoint:
     """Tests for DELETE /scan-results endpoint."""
 
     def test_delete_scan_results(self, dangerous_functions_client: Any) -> None:
-        """Test deleting a stored scan report also deletes stored LLM results."""
+        """Test deleting a stored scan report also deletes the LLM results."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         with (
@@ -958,7 +955,7 @@ class TestDeleteScanResultsEndpoint:
             patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_llm_repo,
         ):
             mock_repo.delete_for_target = AsyncMock(return_value=True)
-            mock_llm_repo.delete_for_target = AsyncMock(return_value=None)
+            mock_llm_repo.delete_for_target = AsyncMock(return_value=True)
             response = dangerous_functions_client.request(
                 "DELETE", "/dangerous-functions/scan-results?target_name=test_model"
             )
@@ -970,28 +967,8 @@ class TestDeleteScanResultsEndpoint:
         mock_repo.delete_for_target.assert_awaited_once_with("test_model")
         mock_llm_repo.delete_for_target.assert_awaited_once_with("test_model")
 
-    def test_delete_scan_results_llm_delete_failure_is_non_fatal(
-        self, dangerous_functions_client: Any
-    ) -> None:
-        """Test that an LLM results deletion failure does not fail the request."""
-        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
-
-        with (
-            patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo,
-            patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_llm_repo,
-        ):
-            mock_repo.delete_for_target = AsyncMock(return_value=True)
-            mock_llm_repo.delete_for_target = AsyncMock(side_effect=SQLAlchemyError("boom", None, None))
-            response = dangerous_functions_client.request(
-                "DELETE", "/dangerous-functions/scan-results?target_name=test_model"
-            )
-
-        assert response.status_code == 200
-        assert response.json()["data"] == "deleted"
-        mock_llm_repo.delete_for_target.assert_awaited_once_with("test_model")
-
-    def test_delete_scan_results_not_found(self, dangerous_functions_client: Any) -> None:
-        """Test deleting a target with no stored report is still a success."""
+    def test_delete_scan_results_no_report_but_llm(self, dangerous_functions_client: Any) -> None:
+        """Test deleting a target with only LLM results still reports deleted."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         with (
@@ -999,14 +976,32 @@ class TestDeleteScanResultsEndpoint:
             patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_llm_repo,
         ):
             mock_repo.delete_for_target = AsyncMock(return_value=False)
-            mock_llm_repo.delete_for_target = AsyncMock(return_value=None)
+            mock_llm_repo.delete_for_target = AsyncMock(return_value=True)
+            response = dangerous_functions_client.request(
+                "DELETE", "/dangerous-functions/scan-results?target_name=test_model"
+            )
+
+        assert response.status_code == 200
+        assert response.json()["data"] == "deleted"
+        mock_repo.delete_for_target.assert_awaited_once_with("test_model")
+        mock_llm_repo.delete_for_target.assert_awaited_once_with("test_model")
+
+    def test_delete_scan_results_not_found(self, dangerous_functions_client: Any) -> None:
+        """Test deleting a target with no stored report or LLM results is still a success."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo,
+            patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_llm_repo,
+        ):
+            mock_repo.delete_for_target = AsyncMock(return_value=False)
+            mock_llm_repo.delete_for_target = AsyncMock(return_value=False)
             response = dangerous_functions_client.request(
                 "DELETE", "/dangerous-functions/scan-results?target_name=test_model"
             )
 
         assert response.status_code == 200
         assert response.json()["data"] == "not_found"
-        mock_llm_repo.delete_for_target.assert_awaited_once_with("test_model")
 
     def test_delete_scan_results_requires_auth(self, dangerous_functions_client: Any) -> None:
         """Test that the endpoint requires authentication (mocked dependency raises)."""
@@ -1025,4 +1020,66 @@ class TestDeleteScanResultsEndpoint:
         """Test 422 when the target_name query parameter is missing."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
         response = dangerous_functions_client.request("DELETE", "/dangerous-functions/scan-results")
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# DELETE /llm-results tests
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteLlmResultsEndpoint:
+    """Tests for DELETE /llm-results endpoint."""
+
+    def test_delete_llm_results(self, dangerous_functions_client: Any) -> None:
+        """Test deleting stored LLM results does not touch the scan report."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with (
+            patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo,
+            patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_llm_repo,
+        ):
+            mock_repo.delete_for_target = AsyncMock(return_value=True)
+            mock_llm_repo.delete_for_target = AsyncMock(return_value=True)
+            response = dangerous_functions_client.request(
+                "DELETE", "/dangerous-functions/llm-results?target_name=test_model"
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["data"] == "deleted"
+        mock_llm_repo.delete_for_target.assert_awaited_once_with("test_model")
+        mock_repo.delete_for_target.assert_not_awaited()
+
+    def test_delete_llm_results_not_found(self, dangerous_functions_client: Any) -> None:
+        """Test deleting a target with no stored LLM results is still a success."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_llm_repo:
+            mock_llm_repo.delete_for_target = AsyncMock(return_value=False)
+            response = dangerous_functions_client.request(
+                "DELETE", "/dangerous-functions/llm-results?target_name=test_model"
+            )
+
+        assert response.status_code == 200
+        assert response.json()["data"] == "not_found"
+
+    def test_delete_llm_results_requires_auth(self, dangerous_functions_client: Any) -> None:
+        """Test that the endpoint requires authentication (mocked dependency raises)."""
+        from fastapi import HTTPException
+
+        def raise_unauthenticated() -> None:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        set_dependency_override(dangerous_functions_client, get_current_active_user, raise_unauthenticated)
+        response = dangerous_functions_client.request(
+            "DELETE", "/dangerous-functions/llm-results?target_name=test_model"
+        )
+        assert response.status_code == 401
+
+    def test_delete_llm_results_missing_target_name(self, dangerous_functions_client: Any) -> None:
+        """Test 422 when the target_name query parameter is missing."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+        response = dangerous_functions_client.request("DELETE", "/dangerous-functions/llm-results")
         assert response.status_code == 422

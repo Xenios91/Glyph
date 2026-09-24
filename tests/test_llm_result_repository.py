@@ -238,14 +238,17 @@ class TestDeleteForTarget:
         await LLMResultRepository.upsert_many("target_a", [_make_result()])
         await LLMResultRepository.upsert_many("target_b", [_make_result()])
 
-        await LLMResultRepository.delete_for_target("target_a")
+        deleted = await LLMResultRepository.delete_for_target("target_a")
 
+        assert deleted is True
         assert await LLMResultRepository.get_for_target("target_a") == []
         assert len(await LLMResultRepository.get_for_target("target_b")) == 1
 
     async def test_delete_unknown_target_is_noop(self, fresh_intelligence_tables: Any) -> None:
-        """Deleting a target with no stored results does not raise."""
-        await LLMResultRepository.delete_for_target("missing")
+        """Deleting a target with no stored results does not raise and reports False."""
+        deleted = await LLMResultRepository.delete_for_target("missing")
+
+        assert deleted is False
 
 
 # ---------------------------------------------------------------------------

@@ -19,6 +19,7 @@ from app.auth.jwt_handler import JWTHandler
 from app.config.settings import MAX_CPU_CORES, get_settings
 from app.core.rate_limiter import LOGIN_LIMIT, REGISTER_LIMIT, limiter
 from app.database.function_repository import FunctionRepository
+from app.database.llm_user_config_repository import resolve_user_llm_config
 from app.database.model_repository import ModelRepository
 from app.database.models import User
 from app.database.prediction_repository import PredictionRepository
@@ -68,7 +69,6 @@ async def config(request: Request, current_user: Annotated[User, Depends(get_cur
     """Loads the configuration page of Glyph
     """
     settings = get_settings()
-    llm = settings.llm
     return templates.TemplateResponse(
         request,
         "config.html",
@@ -77,15 +77,6 @@ async def config(request: Request, current_user: Annotated[User, Depends(get_cur
             "max_cpu_cores": MAX_CPU_CORES,
             "current_cpu_cores": settings.cpu_cores,
             "current_max_file_size": settings.max_file_size_mb,
-            "llm_enabled": llm.enabled,
-            "llm_base_url": llm.base_url,
-            "llm_port": llm.port,
-            "llm_api_path": llm.api_path,
-            "llm_model": llm.model,
-            "llm_api_key_set": bool(llm.api_key),
-            "llm_timeout_seconds": f"{llm.timeout_seconds:g}",
-            "llm_temperature": f"{llm.temperature:g}",
-            "llm_max_concurrent": llm.max_concurrent,
             "user": current_user,
         },
     )
@@ -490,6 +481,7 @@ async def profile_page(
 ) -> HTMLResponse:
     """Loads the user profile page
     """
+    llm = await resolve_user_llm_config(current_user.id)
     return templates.TemplateResponse(
         request,
         "profile.html",
@@ -501,6 +493,15 @@ async def profile_page(
                 "full_name": current_user.full_name,
                 "created_at": current_user.created_at,
             },
+            "llm_enabled": llm.enabled,
+            "llm_base_url": llm.base_url,
+            "llm_port": llm.port,
+            "llm_api_path": llm.api_path,
+            "llm_model": llm.model,
+            "llm_api_key_set": bool(llm.api_key),
+            "llm_timeout_seconds": f"{llm.timeout_seconds:g}",
+            "llm_temperature": f"{llm.temperature:g}",
+            "llm_max_concurrent": llm.max_concurrent,
         },
     )
 

@@ -43,8 +43,11 @@ Each catalog entry includes:
 | GET | `/api/v1/dangerous-functions/catalog/{name}` | Get single catalog entry |
 | GET | `/api/v1/dangerous-functions/available-models` | List scannable models |
 | POST | `/api/v1/dangerous-functions/scan` | Run a scan |
+| GET | `/api/v1/dangerous-functions/scan-results` | Retrieve the last stored scan report for a target (null data when none) |
 | POST | `/api/v1/dangerous-functions/llm-analysis` | Analyze findings with the configured LLM endpoint |
 | GET | `/api/v1/dangerous-functions/llm-results` | Retrieve stored LLM analysis results |
+| DELETE | `/api/v1/dangerous-functions/llm-results` | Delete stored LLM analysis results for a target (keeps the scan report) |
+| DELETE | `/api/v1/dangerous-functions/scan-results` | Delete the stored scan report **and** LLM results for a target |
 
 ### Browsing the Catalog
 
@@ -265,6 +268,9 @@ The scanner page (`/getDangerousFunctions`) exposes LLM analysis directly:
 - **LLM column** — each finding row shows a badge: `AI ✓` (green) for a successful analysis, `AI !` (red) for a failed one. The tooltip distinguishes stored results (`Stored <timestamp>`) from fresh ones (`New - just analyzed`).
 - **LLM modal** — clicking a badge opens a modal with the finding details, the model used, elapsed time, and the analysis text. Failed findings show the error and a **Retry This Finding** button that re-runs analysis for that single finding.
 - **Pre-population** — every scan loads the stored results for the target from `GET /llm-results`, so previously analyzed findings show their badges without re-running the LLM.
+- **Stored results banner** — shown only when the selected target actually has a stored scan report (`GET /scan-results` returns non-null data). It offers **View Stored Results**, **Clear LLM Results**, and **Delete**.
+- **Clear LLM Results** button — enabled only when the target has stored LLM analysis results; removes only those results (`DELETE /llm-results`), keeping the scan report and its findings.
+- **Delete** button — removes both the stored scan report and the LLM analysis results (`DELETE /scan-results`), clearing the results table and LLM badges for the target and hiding the banner.
 
 ## Severity Levels
 

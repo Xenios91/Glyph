@@ -38,12 +38,13 @@ class TestWebEndpoints:
         assert "text/html" in response.headers.get("content-type", "")
 
     @patch("app.web.endpoints.web.get_settings")
-    def test_config_endpoint(self, mock_get_settings: Any, web_client: TestClient) -> None:
-        """Test config endpoint renders LLM settings without leaking the API key."""
+    def test_config_endpoint(
+        self, mock_get_settings: Any, web_client: TestClient,
+    ) -> None:
+        """Test config endpoint renders system settings (LLM lives on the profile page)."""
         mock_settings = Mock()
         mock_settings.cpu_cores = 4
         mock_settings.max_file_size_mb = 100
-        mock_settings.llm = LLMConfig(api_key="sk-test-secret-key")
         mock_get_settings.return_value = mock_settings
 
         response = web_client.get(
@@ -52,22 +53,37 @@ class TestWebEndpoints:
         )
 
         assert response.status_code == 200
-        assert "LLM ANALYSIS SETTINGS" in response.text
-        assert "sk-test-secret-key" not in response.text
-        assert 'value="https://api.openai.com"' in response.text
-        assert 'value="gpt-4o-mini"' in response.text
+        assert "SYSTEM CONFIGURATION" in response.text
+        assert "llm-base-url" not in response.text
 
-    @patch("app.web.endpoints.web.get_settings")
-    def test_config_endpoint_llm_no_key_stored(self, mock_get_settings: Any, web_client: TestClient) -> None:
-        """Test config endpoint shows the no-key hint when no LLM API key is stored."""
-        mock_settings = Mock()
-        mock_settings.cpu_cores = 4
-        mock_settings.max_file_size_mb = 100
-        mock_settings.llm = LLMConfig()
-        mock_get_settings.return_value = mock_settings
+    @patch("app.web.endpoints.web.resolve_user_llm_config", new_callable=AsyncMock)
+    def test_profile_endpoint_renders_llm_settings(
+        self, mock_resolve: Any, web_client: TestClient,
+    ) -> None:
+        """Test profile page renders LLM settings without leaking the API key."""
+        mock_resolve.return_value = LLMConfig(api_key="sk-test-secret-key")
 
         response = web_client.get(
-            "/config",
+            "/profile",
+            headers={"Accept": "text/html"},
+        )
+
+        assert response.status_code == 200
+        assert "LLM Analysis Settings" in response.text
+        assert "sk-test-secret-key" not in response.text
+        assert 'value="https://your.model.url"' in response.text
+        assert 'value="your model here"' in response.text
+        mock_resolve.assert_awaited_once_with(1)
+
+    @patch("app.web.endpoints.web.resolve_user_llm_config", new_callable=AsyncMock)
+    def test_profile_endpoint_llm_no_key_stored(
+        self, mock_resolve: Any, web_client: TestClient,
+    ) -> None:
+        """Test profile page shows the no-key hint when no LLM API key is stored."""
+        mock_resolve.return_value = LLMConfig()
+
+        response = web_client.get(
+            "/profile",
             headers={"Accept": "text/html"},
         )
 
@@ -337,8 +353,10 @@ class TestWebEndpoints:
         )
         assert response.status_code == 200
 
-    def test_profile_page(self, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.resolve_user_llm_config", new_callable=AsyncMock)
+    def test_profile_page(self, mock_resolve: Any, web_client: TestClient) -> None:
         """Test profile page loads."""
+        mock_resolve.return_value = LLMConfig()
         response = web_client.get(
             "/profile",
             headers={"Accept": "text/html"},

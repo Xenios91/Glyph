@@ -24,6 +24,7 @@ const storedResultsBanner = document.getElementById('stored-results-banner');
 const storedResultsText = document.getElementById('stored-results-text');
 const viewStoredBtn = document.getElementById('view-stored-btn');
 const clearStoredBtn = document.getElementById('clear-stored-btn');
+const deleteStoredBtn = document.getElementById('delete-stored-btn');
 
 // LLM analysis elements
 const llmCheckBtn = document.getElementById('llm-check-btn');
@@ -57,6 +58,8 @@ let scanInProgress = false;
 let llmResults = {};
 // Row index currently open in the LLM modal
 let llmModalOpenIndex = null;
+// True when the current target has stored LLM analysis results in the DB.
+let hasStoredLlmResults = false;
 
 // ── Initialization ────────────────────────────────────────────
 
@@ -200,6 +203,10 @@ function setupEventListeners() {
 
     if (clearStoredBtn) {
         clearStoredBtn.addEventListener('click', clearStoredResults);
+    }
+
+    if (deleteStoredBtn) {
+        deleteStoredBtn.addEventListener('click', deleteStoredResults);
     }
 
     // Close modals on Escape key
@@ -368,6 +375,8 @@ async function runScan() {
         displayResults(data, targetName);
         // The fresh scan just overwrote the stored report for this target
         storedReportCache[targetName] = data;
+        // Re-evaluate the banner now that this target has a stored report
+        checkStoredResults();
     } catch (error) {
         console.error('Scan failed:', error);
         showScanError(error.message || 'Scan failed. Please try again.');
@@ -498,8 +507,10 @@ async function checkStoredResults() {
     // A target may have been changed while the request was in flight
     if (getCurrentTargetName() !== targetName) return;
 
-    const hasResults = !!(report && Array.isArray(report.results) && report.results.length > 0);
-    if (!hasResults) {
+    // The banner shows whenever a stored scan report exists for the target,
+    // even when the report has no findings (a zero-finding scan is still
+    // worth restoring later).
+    if (!report) {
         hideStoredResultsBanner();
         return;
     }
@@ -510,6 +521,9 @@ async function checkStoredResults() {
             `(${report.total_found || 0} finding${(report.total_found || 0) === 1 ? '' : 's'}).`;
     }
     if (storedResultsBanner) storedResultsBanner.style.display = '';
+
+    // Decide whether "Clear LLM Results" is actionable for this target.
+    await refreshStoredLlmFlag(targetName);
 }
 
 /**
@@ -520,11 +534,16 @@ function viewStoredResults() {
     const report = targetName ? storedReportCache[targetName] : null;
     if (!report || !Array.isArray(report.results)) return;
     displayResults(report, targetName);
-    hideStoredResultsBanner();
+    // The stored report is still in the database, so re-check the banner
+    // instead of hiding it.
+    checkStoredResults();
 }
 
 /**
- * Delete the stored scan results for the current target.
+ * Clear the stored LLM analysis results for the current target.
+ *
+ * Only the LLM results are removed; the stored scan report stays in place,
+ * so the banner is re-checked instead of being hidden outright.
  */
 async function clearStoredResults() {
     const targetName = getCurrentTargetName();
@@ -538,6 +557,52 @@ async function clearStoredResults() {
 
     try {
         const response = await fetch(
+            `/api/v1/dangerous-functions/llm-results?target_name=${encodeURIComponent(targetName)}`,
+            { method: 'DELETE' }
+        );
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        // Drop the stored LLM results from memory and reset the row badges.
+        if (lastScanData && lastScanData.model_name === targetName) {
+            llmResults = {};
+            renderLlmBadges();
+            updateLlmButtonState();
+        }
+        // The LLM results are gone; the scan report remains, so keep the
+        // banner but disable Clear until new LLM results exist.
+        hasStoredLlmResults = false;
+        updateClearLlmButtonState();
+        // The scan report is untouched, so re-check the banner state.
+        checkStoredResults();
+    } catch (error) {
+        console.error('Failed to clear stored LLM results:', error);
+        showScanError('Failed to clear stored LLM results. Please try again.');
+    } finally {
+        clearStoredBtn.disabled = false;
+        if (btnText) btnText.style.display = '';
+        if (btnLoading) btnLoading.style.display = 'none';
+    }
+}
+
+/**
+ * Delete the stored scan report and LLM results for the current target.
+ *
+ * Both the scan report and the stored LLM results are removed, and the
+ * results display is reset so no stale data remains on the page.
+ */
+async function deleteStoredResults() {
+    const targetName = getCurrentTargetName();
+    if (!targetName || !deleteStoredBtn) return;
+
+    const btnText = deleteStoredBtn.querySelector('.btn-text');
+    const btnLoading = deleteStoredBtn.querySelector('.btn-loading');
+    deleteStoredBtn.disabled = true;
+    if (btnText) btnText.style.display = 'none';
+    if (btnLoading) btnLoading.style.display = '';
+
+    try {
+        const response = await fetch(
             `/api/v1/dangerous-functions/scan-results?target_name=${encodeURIComponent(targetName)}`,
             { method: 'DELETE' }
         );
@@ -545,19 +610,23 @@ async function clearStoredResults() {
             throw new Error(`HTTP ${response.status}`);
         }
         delete storedReportCache[targetName];
-        // The server also deletes the stored LLM analysis results for this
-        // target, so drop them from memory and reset the row badges.
+        // The scan report and LLM results are gone, so reset the in-memory
+        // state and clear the results display for this target.
         if (lastScanData && lastScanData.model_name === targetName) {
+            lastScanData = null;
             llmResults = {};
-            renderLlmBadges();
+            llmModalOpenIndex = null;
+            hideResults();
             updateLlmButtonState();
         }
+        hasStoredLlmResults = false;
+        updateClearLlmButtonState();
         hideStoredResultsBanner();
     } catch (error) {
-        console.error('Failed to clear stored scan results:', error);
-        showScanError('Failed to clear stored scan results. Please try again.');
+        console.error('Failed to delete stored scan results:', error);
+        showScanError('Failed to delete stored scan results. Please try again.');
     } finally {
-        clearStoredBtn.disabled = false;
+        deleteStoredBtn.disabled = false;
         if (btnText) btnText.style.display = '';
         if (btnLoading) btnLoading.style.display = 'none';
     }
@@ -568,6 +637,37 @@ async function clearStoredResults() {
  */
 function hideStoredResultsBanner() {
     if (storedResultsBanner) storedResultsBanner.style.display = 'none';
+}
+
+/**
+ * Refresh whether the current target has stored LLM results and update the
+ * "Clear LLM Results" button state accordingly.
+ * @param {string} targetName - The target to check.
+ */
+async function refreshStoredLlmFlag(targetName) {
+    try {
+        const response = await fetch(
+            `/api/v1/dangerous-functions/llm-results?target_name=${encodeURIComponent(targetName)}`
+        );
+        if (!response.ok) return;
+        const result = await response.json();
+        const count = (result.data && result.data.count) || 0;
+        if (getCurrentTargetName() === targetName) {
+            hasStoredLlmResults = count > 0;
+            updateClearLlmButtonState();
+        }
+    } catch (error) {
+        console.warn('Failed to check stored LLM results:', error);
+    }
+}
+
+/**
+ * Enable the "Clear LLM Results" button only when the current target has
+ * stored LLM analysis results to clear.
+ */
+function updateClearLlmButtonState() {
+    if (!clearStoredBtn) return;
+    clearStoredBtn.disabled = !hasStoredLlmResults;
 }
 
 /**

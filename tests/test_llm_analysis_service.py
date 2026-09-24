@@ -163,12 +163,12 @@ class TestTestLLMConnection:
         """Test that a timeout produces a friendly error."""
         client = FakeClient(exc=httpx.TimeoutException("timed out"))
         _patch_client(monkeypatch, client)
-        llm = _make_llm(timeout_seconds=5)
+        llm = _make_llm(timeout_seconds=60)
 
         result = await service.test_llm_connection(llm)
 
         assert result.ok is False
-        assert result.error == "Request timed out after 5s"
+        assert result.error == "Request timed out after 60s"
 
     async def test_connect_error(self, monkeypatch: Any) -> None:
         """Test that a connection error names the exception type."""
@@ -373,7 +373,7 @@ class TestAnalyzeFinding:
         assert "strcpy(dst, src);" in messages[1]["content"]
         assert headers is not None
         assert headers["Authorization"] == "Bearer sk-abc"
-        assert client.timeout == 120.0
+        assert client.timeout == 900.0
 
     async def test_model_fallback_to_configured(self, monkeypatch: Any) -> None:
         """Test that the configured model is reported when the body lacks one."""
@@ -390,10 +390,10 @@ class TestAnalyzeFinding:
         client = FakeClient(exc=httpx.TimeoutException("timed out"))
         _patch_client(monkeypatch, client)
 
-        result = await service.analyze_finding(_make_llm(timeout_seconds=5), self._finding())
+        result = await service.analyze_finding(_make_llm(timeout_seconds=60), self._finding())
 
         assert result.status == "error"
-        assert result.error == "Request timed out after 5s"
+        assert result.error == "Request timed out after 60s"
         assert result.analysis == ""
 
     async def test_connect_error(self, monkeypatch: Any) -> None:

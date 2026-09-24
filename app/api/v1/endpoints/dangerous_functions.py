@@ -14,10 +14,10 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_active_user
-from app.config.settings import get_settings
 from app.core.rate_limiter import LLM_ANALYSIS_LIMIT, limiter
 from app.database.function_repository import FunctionRepository
 from app.database.llm_result_repository import LLMResultRepository
+from app.database.llm_user_config_repository import resolve_user_llm_config
 from app.database.model_repository import ModelRepository
 from app.database.models import LLMAnalysisResult, User
 from app.database.prediction_repository import PredictionRepository
@@ -470,7 +470,7 @@ async def scan_dangerous_functions(
     summary="Retrieve the last stored scan report for a target",
     description=(
         "Return the most recent dangerous function scan report previously persisted "
-        "for the given target name. Returns an empty success when the target has "
+        "for the given target name. The data payload is null when the target has "
         "never been scanned."
     ),
 )
@@ -487,23 +487,14 @@ async def get_scan_results(
         current_user: Authenticated user.
 
     Returns:
-        Success response with the stored scan report (empty report when
-        nothing has been saved yet).
+        Success response with the stored scan report, or a null data payload
+        when nothing has been saved yet for the target.
 
     """
     row = await ScanReportRepository.get_report(target_name)
     if row is None:
         return create_success_response(
-            data=ScanReportResponse(
-                model_name=target_name,
-                total_functions_scanned=0,
-                total_found=0,
-                critical_count=0,
-                high_count=0,
-                medium_count=0,
-                low_count=0,
-                results=[],
-            ).model_dump(),
+            data=None,
             message=f"No stored scan results for '{target_name}'",
         )
 
@@ -531,10 +522,12 @@ async def get_scan_results(
 
 @router.delete(
     "/scan-results",
-    summary="Delete the stored scan report for a target",
+    summary="Delete the stored scan report and LLM results for a target",
     description=(
-        "Remove the persisted dangerous function scan report and any stored LLM "
-        "analysis results for the given target name."
+        "Remove the persisted dangerous function scan report and the stored "
+        "LLM analysis results for the given target name. Use DELETE "
+        "/llm-results to remove only the LLM results while keeping the scan "
+        "report."
     ),
 )
 async def delete_scan_results(
@@ -542,10 +535,12 @@ async def delete_scan_results(
     target_name: Annotated[str, Query(min_length=1, max_length=256, description="Name of the scanned target")],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[str]:
-    """Delete the stored scan report and LLM analysis results for a target.
+    """Delete the stored scan report and LLM results for a target.
 
-    Clearing the stored scan report also removes the LLM analysis results
-    that were persisted for the same target, so the target is fully reset.
+    The persisted scan report is removed together with any stored LLM
+    analysis results for the target, so a "Delete" clears both the scan and
+    the LLM results. To remove only the LLM results while keeping the scan
+    report, use DELETE /llm-results.
 
     Args:
         request: FastAPI request object.
@@ -556,16 +551,52 @@ async def delete_scan_results(
         Success response confirming deletion (or that nothing was stored).
 
     """
-    deleted = await ScanReportRepository.delete_for_target(target_name)
-    try:
-        await LLMResultRepository.delete_for_target(target_name)
-    except Exception:
-        logger.exception("Failed to delete LLM analysis results for target '{}'", target_name)
+    report_deleted = await ScanReportRepository.delete_for_target(target_name)
+    llm_deleted = await LLMResultRepository.delete_for_target(target_name)
 
-    if not deleted:
+    if not report_deleted and not llm_deleted:
         return create_success_response(data="not_found", message=f"No stored scan results for '{target_name}'")
 
-    return create_success_response(data="deleted", message=f"Stored scan results deleted for '{target_name}'")
+    return create_success_response(
+        data="deleted",
+        message=f"Stored scan results and LLM results deleted for '{target_name}'",
+    )
+
+
+@router.delete(
+    "/llm-results",
+    summary="Delete the stored LLM analysis results for a target",
+    description=(
+        "Remove the persisted LLM analysis results for the given target name. "
+        "The stored scan report is not affected; use DELETE /scan-results "
+        "to remove that."
+    ),
+)
+async def delete_llm_results(
+    request: Request,
+    target_name: Annotated[str, Query(min_length=1, max_length=128, description="Name of the scanned target")],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[str]:
+    """Delete the stored LLM analysis results for a target.
+
+    Only the persisted LLM analysis rows are removed; the stored scan
+    report for the target is kept (delete it via DELETE /scan-results).
+
+    Args:
+        request: FastAPI request object.
+        target_name: Stable name of the scanned target.
+        current_user: Authenticated user.
+
+    Returns:
+        Success response confirming deletion (or that nothing was stored).
+
+    """
+    deleted = await LLMResultRepository.delete_for_target(target_name)
+
+    if not deleted:
+        return create_success_response(data="not_found", message=f"No stored LLM results for '{target_name}'")
+
+    return create_success_response(data="deleted", message=f"Stored LLM results deleted for '{target_name}'")
 
 
 @router.post(
@@ -603,9 +634,9 @@ async def analyze_dangerous_functions(
             disabled or cannot be built from the current configuration.
 
     """
-    settings = get_settings()
+    llm = await resolve_user_llm_config(current_user.id)
     try:
-        analyses = await analyze_findings(settings.llm, [f.model_dump() for f in body.findings])
+        analyses = await analyze_findings(llm, [f.model_dump() for f in body.findings])
     except LLMNotConfiguredError as exc:
         logger.warning("LLM analysis rejected: {}", exc)
         raise HTTPException(
@@ -656,7 +687,7 @@ async def analyze_dangerous_functions(
 
     model_name = next(
         (analysis.model for analysis in analyses if analysis.status == "success" and analysis.model),
-        settings.llm.model,
+        llm.model,
     )
 
     return create_success_response(

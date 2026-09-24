@@ -16,6 +16,7 @@ from app.database.models import (
     BinaryFunction,
     Function,
     LLMAnalysisResult,
+    LLMUserConfig,
     Model,
     Prediction,
     ScanReport,
@@ -52,7 +53,7 @@ DB_TABLE_MAP: dict[str, list[Any]] = {
     "models": [Model.__table__],
     "predictions": [Prediction.__table__],
     "functions": [Function.__table__],
-    "auth": [User.__table__, APIKey.__table__],
+    "auth": [User.__table__, APIKey.__table__, LLMUserConfig.__table__],
     "binaries": [Binary.__table__, BinaryFunction.__table__],
     "intelligence": [
         SimilarityComputation.__table__,
