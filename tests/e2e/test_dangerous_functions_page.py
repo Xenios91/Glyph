@@ -143,3 +143,68 @@ class TestLlmButtonState:
 
         # The LLM button must now be enabled, even before any scan has run.
         expect(page.locator("#llm-check-btn")).to_be_enabled()
+
+
+class TestViewStoredButtonState:
+    """Tests for the 'View Stored Results' button enable/disable behavior."""
+
+    def test_view_stored_button_disabled_after_results_loaded(
+        self, page: Any, server: Any, tmp_path: Any
+    ) -> None:
+        """The 'View Stored Results' button is disabled once the stored
+        results for the selected target are displayed on the page.
+
+        Regression test: the button used to stay enabled after the stored
+        results had been loaded, so it could be clicked repeatedly even
+        though there was nothing left to load.
+        """
+        register_and_login(page)
+
+        # Upload a binary so at least one is available in the library.
+        elf_path = tmp_path / "sample_elf"
+        elf_path.write_bytes(_minimal_elf64())
+
+        page.goto(f"{BASE_URL}/binary-library")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#binary-name").fill("view_stored_btn_bin")
+        page.locator("#upload-binary").set_input_files(str(elf_path))
+
+        # Wait until the uploaded binary appears in the library table.
+        page.wait_for_selector("#binaries-tbody tr", timeout=30000)
+
+        # Go to the scanner page and switch the target type to binary.
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#scan-target-type").select_option("binary")
+
+        # Wait for the target dropdown to be populated and enabled.
+        page.wait_for_function("() => !document.getElementById('scan-target-select').disabled")
+
+        # Select the first available binary option (index 0 is the placeholder).
+        page.locator("#scan-target-select").select_option(index=1)
+
+        # No stored report yet: the banner (and its buttons) are hidden.
+        expect(page.locator("#stored-results-banner")).to_be_hidden()
+
+        # Run a scan; the report is persisted and the results are displayed.
+        page.locator("#scan-btn").click()
+        page.wait_for_selector("#scan-summary", state="visible", timeout=30000)
+
+        # The banner now shows, but the stored results are already on
+        # screen, so the "View Stored Results" button must be disabled.
+        expect(page.locator("#stored-results-banner")).to_be_visible()
+        expect(page.locator("#view-stored-btn")).to_be_disabled()
+
+        # Reload the page: the stored results are restored automatically on
+        # target selection, so the button must stay disabled.
+        page.reload()
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#scan-target-type").select_option("binary")
+        page.wait_for_function("() => !document.getElementById('scan-target-select').disabled")
+        page.locator("#scan-target-select").select_option(index=1)
+
+        page.wait_for_selector("#stored-results-banner", state="visible", timeout=30000)
+        expect(page.locator("#view-stored-btn")).to_be_disabled()

@@ -240,6 +240,7 @@ function updateTargetDropdown(type) {
     targetSelect.innerHTML = '<option value="">Loading...</option>';
     scanBtn.disabled = true;
     updateLlmButtonState();
+    updateViewStoredButtonState();
 
     let targets;
     if (type === 'model') {
@@ -255,6 +256,7 @@ function updateTargetDropdown(type) {
     if (targets.length === 0) {
         targetSelect.innerHTML = '<option value="">No targets available</option>';
         targetSelect.disabled = true;
+        updateViewStoredButtonState();
         return;
     }
 
@@ -274,6 +276,7 @@ function updateTargetDropdown(type) {
 
     targetSelect.disabled = false;
     updateLlmButtonState();
+    updateViewStoredButtonState();
 }
 
 /**
@@ -284,6 +287,7 @@ function updateScanButtonState() {
     if (!scanBtn || !targetSelect) return;
     scanBtn.disabled = !targetSelect.value;
     updateLlmButtonState();
+    updateViewStoredButtonState();
 }
 
 // ── Scan Execution ────────────────────────────────────────────
@@ -478,13 +482,18 @@ function displayResults(data, targetName) {
 // ── Stored Scan Results ───────────────────────────────────────
 
 /**
- * Check whether the currently selected target has stored scan results
- * and show the banner when it does.
+ * Check whether the currently selected target has stored scan results and
+ * show the banner when it does. When the target has a stored report but no
+ * scan results are currently displayed on the page, the stored report (and
+ * its stored LLM analysis results) is displayed immediately, so results
+ * appear dynamically on target selection instead of only after a page
+ * refresh or an explicit click.
  */
 async function checkStoredResults() {
     const targetName = getCurrentTargetName();
     if (!targetName) {
         hideStoredResultsBanner();
+        updateViewStoredButtonState();
         return;
     }
 
@@ -494,12 +503,16 @@ async function checkStoredResults() {
             const response = await fetch(
                 `/api/v1/dangerous-functions/scan-results?target_name=${encodeURIComponent(targetName)}`
             );
-            if (!response.ok) return;
+            if (!response.ok) {
+                updateViewStoredButtonState();
+                return;
+            }
             const result = await response.json();
             report = result.data || null;
             storedReportCache[targetName] = report;
         } catch (error) {
             console.warn('Failed to check stored scan results:', error);
+            updateViewStoredButtonState();
             return;
         }
     }
@@ -512,6 +525,7 @@ async function checkStoredResults() {
     // worth restoring later).
     if (!report) {
         hideStoredResultsBanner();
+        updateViewStoredButtonState();
         return;
     }
 
@@ -524,6 +538,18 @@ async function checkStoredResults() {
 
     // Decide whether "Clear LLM Results" is actionable for this target.
     await refreshStoredLlmFlag(targetName);
+
+    // Dynamically show the stored scan results (and their LLM analysis
+    // badges) as soon as the target is selected. If results for this target
+    // are already on screen (e.g., right after a fresh scan or a manual
+    // "View Stored Results"), skip the re-render to avoid a flicker.
+    if (!hasFindingsForCurrentTarget()) {
+        displayResults(report, targetName);
+    }
+
+    // The stored report is now on screen (or was already), so the
+    // "View Stored Results" button has nothing left to load.
+    updateViewStoredButtonState();
 }
 
 /**
@@ -534,9 +560,37 @@ function viewStoredResults() {
     const report = targetName ? storedReportCache[targetName] : null;
     if (!report || !Array.isArray(report.results)) return;
     displayResults(report, targetName);
+    // The stored report is now on screen, so the "View Stored Results"
+    // button no longer has anything to load.
+    updateViewStoredButtonState();
     // The stored report is still in the database, so re-check the banner
     // instead of hiding it.
     checkStoredResults();
+}
+
+/**
+ * True when the results currently displayed on the page belong to the
+ * currently selected target (from a fresh scan or a loaded stored report).
+ * @returns {boolean} Whether the current target's results are on screen.
+ */
+function isCurrentTargetResultsLoaded() {
+    const targetName = getCurrentTargetName();
+    return !!(targetName && lastScanData && lastScanData.model_name === targetName);
+}
+
+/**
+ * Enable the "View Stored Results" button only while the current target has
+ * a stored report whose results are not already displayed on the page. Once
+ * the stored results have been loaded (or a fresh scan ran for the target),
+ * the button is disabled until the target changes or the results are
+ * cleared/deleted.
+ */
+function updateViewStoredButtonState() {
+    if (!viewStoredBtn) return;
+    const targetName = getCurrentTargetName();
+    const hasStoredReport = !!(targetName && storedReportCache[targetName]);
+    viewStoredBtn.disabled =
+        scanInProgress || !hasStoredReport || isCurrentTargetResultsLoaded();
 }
 
 /**
@@ -637,6 +691,7 @@ async function deleteStoredResults() {
  */
 function hideStoredResultsBanner() {
     if (storedResultsBanner) storedResultsBanner.style.display = 'none';
+    updateViewStoredButtonState();
 }
 
 /**
