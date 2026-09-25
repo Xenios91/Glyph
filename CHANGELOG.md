@@ -24,9 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Updated GitHub Actions to latest versions (checkout@v5, setup-python@v5)
+- Dangerous functions table now shows a per-row "Analyzing…" spinner in each LLM cell while a finding's LLM analysis is in progress, so users can see which rows are still being processed
 - Improved cookie security with path scoping and strict SameSite for refresh tokens
 - Enhanced JWT secret validation with production enforcement
 - Ruff workflow for linting checks
+
+### Fixed
+- "Clear LLM Results" button on the dangerous functions page now updates dynamically: it becomes enabled as soon as LLM analysis results exist for the findings currently on screen (e.g., right after a scan's findings are analyzed), instead of only re-evaluating when the target is selected
 
 ### Security
 - Added HSTS header with `max-age=31536000; includeSubDomains; preload`

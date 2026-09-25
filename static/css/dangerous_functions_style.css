@@ -655,6 +655,30 @@
     border: 1px solid transparent;
 }
 
+/* LLM badge shown while a finding's analysis is in flight */
+.llm-badge-pending {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(168, 236, 236, 0.08);
+    color: var(--cyan);
+    border: 1px solid var(--cyan-dim);
+}
+
+.llm-spinner {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 2px solid rgba(168, 236, 236, 0.25);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: llm-spin 0.8s linear infinite;
+}
+
+@keyframes llm-spin {
+    to { transform: rotate(360deg); }
+}
+
 .llm-badge-success,
 .llm-badge-error {
     cursor: pointer;
@@ -722,19 +746,159 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+/* LLM analysis is rendered as a Markdown preview */
 .llm-analysis-content {
     background: rgba(0, 0, 0, 0.55);
     border: 1px solid var(--cyan-dim);
     border-radius: 3px;
     padding: 0.85rem 1rem;
-    font-family: var(--font-code);
+    font-family: var(--font-body);
     font-size: 0.95rem;
     color: var(--text-primary);
     line-height: 1.7;
-    white-space: pre-wrap;
     word-break: break-word;
     max-height: 400px;
     overflow-y: auto;
+}
+
+/* ── Markdown preview elements (LLM analysis) ───────────────── */
+
+.llm-analysis-content > :first-child {
+    margin-top: 0;
+}
+
+.llm-analysis-content > :last-child {
+    margin-bottom: 0;
+}
+
+.llm-analysis-content h1,
+.llm-analysis-content h2,
+.llm-analysis-content h3,
+.llm-analysis-content h4,
+.llm-analysis-content h5,
+.llm-analysis-content h6 {
+    font-family: var(--font-display);
+    color: var(--magenta);
+    letter-spacing: 0.05em;
+    margin: 1rem 0 0.5rem;
+    line-height: 1.4;
+}
+
+.llm-analysis-content h1 { font-size: 1.1rem; }
+.llm-analysis-content h2 { font-size: 1rem; }
+.llm-analysis-content h3 { font-size: 0.95rem; }
+.llm-analysis-content h4,
+.llm-analysis-content h5,
+.llm-analysis-content h6 { font-size: 0.9rem; }
+
+.llm-analysis-content p {
+    margin: 0.5rem 0;
+}
+
+.llm-analysis-content ul,
+.llm-analysis-content ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.llm-analysis-content li {
+    margin: 0.25rem 0;
+}
+
+.llm-analysis-content li::marker {
+    color: var(--cyan);
+}
+
+.llm-analysis-content a {
+    color: var(--cyan);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.llm-analysis-content a:hover {
+    color: var(--cyan-bright);
+}
+
+.llm-analysis-content strong {
+    color: var(--cyan);
+    font-weight: var(--font-weight-semibold);
+}
+
+.llm-analysis-content del {
+    color: var(--text-muted);
+}
+
+.llm-analysis-content code {
+    font-family: var(--font-code);
+    font-size: 0.85em;
+    background: rgba(125, 216, 216, 0.1);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 2px;
+    padding: 0.1em 0.35em;
+    color: var(--cyan-bright);
+    word-break: break-word;
+}
+
+.llm-analysis-content pre {
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 3px;
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+    overflow-x: auto;
+}
+
+.llm-analysis-content pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    white-space: pre;
+}
+
+.llm-analysis-content blockquote {
+    margin: 0.75rem 0;
+    padding: 0.5rem 1rem;
+    border-left: 3px solid var(--magenta);
+    background: rgba(200, 122, 184, 0.08);
+    border-radius: 0 3px 3px 0;
+    color: var(--text-primary);
+}
+
+.llm-analysis-content blockquote p {
+    margin: 0.25rem 0;
+}
+
+.llm-analysis-content hr {
+    border: none;
+    border-top: 1px solid var(--cyan-dim);
+    margin: 1rem 0;
+}
+
+.llm-analysis-content table {
+    border-collapse: collapse;
+    margin: 0.75rem 0;
+    width: 100%;
+    font-size: 0.9rem;
+}
+
+.llm-analysis-content th,
+.llm-analysis-content td {
+    border: 1px solid var(--cyan-dim);
+    padding: 0.4rem 0.65rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.llm-analysis-content th {
+    background: rgba(125, 216, 216, 0.1);
+    color: var(--cyan);
+    font-family: var(--font-code);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 /* ── Responsive ─────────────────────────────────────────── */

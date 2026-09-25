@@ -56,6 +56,8 @@ let scanInProgress = false;
 // Per-row LLM results keyed by row index:
 // {status, analysis, error, model, source: 'stored'|'fresh', modifiedAt?, elapsedMs?}
 let llmResults = {};
+// Row indices whose LLM analysis is currently in flight (spinner shown in the LLM cell)
+let llmPendingIndices = new Set();
 // Row index currently open in the LLM modal
 let llmModalOpenIndex = null;
 // True when the current target has stored LLM analysis results in the DB.
@@ -432,6 +434,7 @@ function displayResults(data, targetName) {
     // New scan: reset LLM state (stored results are re-fetched below)
     lastScanData = data;
     llmResults = {};
+    llmPendingIndices.clear();
     llmModalOpenIndex = null;
 
     if (results.length === 0) {
@@ -633,7 +636,9 @@ async function clearStoredResults() {
         console.error('Failed to clear stored LLM results:', error);
         showScanError('Failed to clear stored LLM results. Please try again.');
     } finally {
-        clearStoredBtn.disabled = false;
+        // Re-derive the button state: disabled once the results are gone,
+        // re-enabled if the clear request failed and results still exist.
+        updateClearLlmButtonState();
         if (btnText) btnText.style.display = '';
         if (btnLoading) btnLoading.style.display = 'none';
     }
@@ -717,12 +722,24 @@ async function refreshStoredLlmFlag(targetName) {
 }
 
 /**
- * Enable the "Clear LLM Results" button only when the current target has
- * stored LLM analysis results to clear.
+ * True when the current target has LLM analysis results available to clear,
+ * either stored in the database or freshly loaded in memory after an LLM
+ * analysis run (e.g., right after a scan's findings are analyzed).
+ * @returns {boolean} Whether there are LLM results to clear.
+ */
+function hasLlmResultsToClear() {
+    if (hasStoredLlmResults) return true;
+    return isCurrentTargetResultsLoaded() && Object.keys(llmResults).length > 0;
+}
+
+/**
+ * Enable the "Clear LLM Results" button whenever the current target has LLM
+ * analysis results to clear — stored in the database or freshly loaded in
+ * memory after a scan's findings are analyzed.
  */
 function updateClearLlmButtonState() {
     if (!clearStoredBtn) return;
-    clearStoredBtn.disabled = !hasStoredLlmResults;
+    clearStoredBtn.disabled = !hasLlmResultsToClear();
 }
 
 /**
@@ -825,6 +842,7 @@ function closeModal() {
 function resetLlmState() {
     lastScanData = null;
     llmResults = {};
+    llmPendingIndices.clear();
     llmModalOpenIndex = null;
     updateLlmButtonState();
 }
@@ -918,6 +936,9 @@ async function loadStoredLlmResults(targetName) {
         });
 
         renderLlmBadges();
+        // Stored results just appeared for the on-screen target, so the
+        // "Clear LLM Results" button must reflect that dynamically.
+        updateClearLlmButtonState();
     } catch (error) {
         console.warn('Failed to load stored LLM results:', error);
     }
@@ -936,7 +957,15 @@ function renderLlmBadges() {
 
         const entry = llmResults[index];
         if (!entry) {
-            cell.innerHTML = '<span class="llm-badge llm-badge-placeholder">&ndash;</span>';
+            if (llmPendingIndices.has(index)) {
+                // Analysis for this finding is in flight: show a spinner so
+                // the user can see the row is being processed.
+                cell.innerHTML =
+                    '<span class="llm-badge llm-badge-pending" role="status" aria-label="LLM analysis in progress">' +
+                    '<span class="llm-spinner" aria-hidden="true"></span>Analyzing&hellip;</span>';
+            } else {
+                cell.innerHTML = '<span class="llm-badge llm-badge-placeholder">&ndash;</span>';
+            }
             return;
         }
 
@@ -1010,6 +1039,10 @@ async function runLLMAnalysis() {
     setLlmLoading(true);
     hideError();
 
+    // Show a spinner in every LLM cell while the analysis is in flight
+    findings.forEach((_, index) => llmPendingIndices.add(index));
+    renderLlmBadges();
+
     try {
         const response = await fetch('/api/v1/dangerous-functions/llm-analysis', {
             method: 'POST',
@@ -1056,6 +1089,9 @@ async function runLLMAnalysis() {
         });
 
         renderLlmBadges();
+        // Fresh LLM results were just saved for the current target, so the
+        // "Clear LLM Results" button must become enabled dynamically.
+        updateClearLlmButtonState();
 
         if (typeof Toast !== 'undefined') {
             const succeeded = data.succeeded ?? 0;
@@ -1071,7 +1107,9 @@ async function runLLMAnalysis() {
         console.error('LLM analysis failed:', error);
         showErrorBanner('LLM analysis request failed. Please try again.');
     } finally {
+        llmPendingIndices.clear();
         setLlmLoading(false);
+        renderLlmBadges();
     }
 }
 
@@ -1086,6 +1124,8 @@ async function retryLlmFinding(index) {
     if (!finding) return;
 
     setLlmLoading(true);
+    llmPendingIndices.add(index);
+    renderLlmBadges();
 
     try {
         const response = await fetch('/api/v1/dangerous-functions/llm-analysis', {
@@ -1131,6 +1171,7 @@ async function retryLlmFinding(index) {
         };
 
         renderLlmBadges();
+        updateClearLlmButtonState();
 
         // Refresh the modal if it is still open on this row
         if (llmModalOpenIndex === index) {
@@ -1140,7 +1181,9 @@ async function retryLlmFinding(index) {
         console.error('LLM retry failed:', error);
         showErrorBanner('LLM analysis request failed. Please try again.');
     } finally {
+        llmPendingIndices.delete(index);
         setLlmLoading(false);
+        renderLlmBadges();
     }
 }
 
@@ -1182,7 +1225,14 @@ function openLlmModal(index) {
     if (errorSection) errorSection.style.display = isSuccess ? 'none' : '';
     if (analysisSection) analysisSection.style.display = isSuccess ? '' : 'none';
     if (!isSuccess && elErrorMessage) elErrorMessage.textContent = entry.error || 'Unknown error';
-    if (isSuccess && elAnalysis) elAnalysis.textContent = entry.analysis || '';
+    if (isSuccess && elAnalysis) {
+        // Render the LLM analysis as Markdown preview. The renderer escapes
+        // all source text, so no raw HTML from the model can execute.
+        elAnalysis.innerHTML =
+            typeof renderMarkdown === 'function'
+                ? renderMarkdown(entry.analysis || '')
+                : escapeHtml(entry.analysis || '');
+    }
 
     llmModal.style.display = 'flex';
 }
