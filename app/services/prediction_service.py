@@ -204,7 +204,9 @@ class PredictionService:
                 updated_function = function.copy()
                 updated_function["prediction"] = predictions[ctr]
                 functions[ctr] = updated_function
-            await PredictionRepository.save(task_name, prediction_request.model_name, functions)
+            await PredictionRepository.save(
+                task_name, prediction_request.model_name, functions, user_id=prediction_request.user_id,
+            )
         elif functions:
             logger.warning(
                 "Mismatch between functions ({}) and predictions ({}) for task '{}'",
@@ -347,7 +349,9 @@ class PredictionService:
                 updated_function = function.copy()
                 updated_function["prediction"] = predictions[ctr]
                 functions[ctr] = updated_function
-            await PredictionRepository.save(task_name, prediction_request.model_name, functions)
+            await PredictionRepository.save(
+                task_name, prediction_request.model_name, functions, user_id=prediction_request.user_id,
+            )
         elif functions:
             logger.warning(
                 "Mismatch between functions (%d) and predictions (%d) for task '%s'",

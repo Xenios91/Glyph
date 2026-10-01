@@ -145,6 +145,138 @@ class TestLlmButtonState:
         expect(page.locator("#llm-check-btn")).to_be_enabled()
 
 
+class TestScanButtonState:
+    """Tests for the 'Scan' button enable/disable behavior."""
+
+    def test_scan_button_disabled_after_scan_completed(self, page: Any, server: Any, tmp_path: Any) -> None:
+        """The Scan button is disabled once a scan has already been performed
+        for the selected target, and re-enabled when the stored results are
+        deleted.
+
+        Regression test: the button stayed enabled after a scan, so the same
+        target could be scanned repeatedly even though its results (and the
+        stored report) were already on screen.
+        """
+        register_and_login(page)
+
+        # Upload a binary so at least one is available in the library.
+        elf_path = tmp_path / "sample_elf"
+        elf_path.write_bytes(_minimal_elf64())
+
+        page.goto(f"{BASE_URL}/binary-library")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#binary-name").fill("scan_btn_regression_bin")
+        page.locator("#upload-binary").set_input_files(str(elf_path))
+
+        # Wait until the uploaded binary appears in the library table.
+        page.wait_for_selector("#binaries-tbody tr", timeout=30000)
+
+        # Go to the scanner page and switch the target type to binary.
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#scan-target-type").select_option("binary")
+
+        # Wait for the target dropdown to be populated and enabled.
+        page.wait_for_function("() => !document.getElementById('scan-target-select').disabled")
+
+        # Select the first available binary option (index 0 is the placeholder).
+        page.locator("#scan-target-select").select_option(index=1)
+
+        # A target is selected and no scan has run yet: the button is enabled.
+        expect(page.locator("#scan-btn")).to_be_enabled()
+
+        # Run a scan; the report is persisted and the results are displayed.
+        page.locator("#scan-btn").click()
+        page.wait_for_selector("#scan-summary", state="visible", timeout=30000)
+
+        # A scan has already occurred for this target, so the button must
+        # now be disabled.
+        expect(page.locator("#scan-btn")).to_be_disabled()
+
+        # Reload the page: the stored report is restored on target selection,
+        # so the button must stay disabled.
+        page.reload()
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#scan-target-type").select_option("binary")
+        page.wait_for_function("() => !document.getElementById('scan-target-select').disabled")
+        page.locator("#scan-target-select").select_option(index=1)
+
+        page.wait_for_selector("#stored-results-banner", state="visible", timeout=30000)
+        expect(page.locator("#scan-btn")).to_be_disabled()
+
+        # Deleting the stored report makes a new scan possible again, so the
+        # button must be re-enabled.
+        page.locator("#delete-stored-btn").click()
+        page.wait_for_selector("#stored-results-banner", state="hidden", timeout=30000)
+        expect(page.locator("#scan-btn")).to_be_enabled()
+
+    def test_scan_button_state_reflects_scanned_target(self, page: Any, server: Any) -> None:
+        """The Scan button is disabled while results for the selected target
+        are on screen (fresh scan or restored stored report) and enabled
+        otherwise."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        # No target selected: the button must be disabled.
+        expect(page.locator("#scan-btn")).to_be_disabled()
+
+        # A target is selected but no scan has been performed yet: the
+        # button must be enabled. (A matching option is appended first so the
+        # select actually holds the value; assigning a value with no matching
+        # option reverts the select to empty.)
+        page.evaluate(
+            """() => {
+                targetTypeSelect.value = 'model';
+                const opt = document.createElement('option');
+                opt.value = 'uns-scanned-target';
+                opt.textContent = 'uns-scanned-target';
+                targetSelect.appendChild(opt);
+                targetSelect.value = 'uns-scanned-target';
+                lastScanData = null;
+                updateScanButtonState();
+            }"""
+        )
+        expect(page.locator("#scan-btn")).to_be_enabled()
+
+        # A scan has already produced results for the selected target: the
+        # button must be disabled.
+        page.evaluate(
+            """() => {
+                lastScanData = {
+                    model_name: 'uns-scanned-target',
+                    results: [
+                        {
+                            function_name: 'strcpy',
+                            containing_function: 'main',
+                            entrypoint: '0x401000',
+                        },
+                    ],
+                };
+                updateScanButtonState();
+            }"""
+        )
+        expect(page.locator("#scan-btn")).to_be_disabled()
+
+        # Switching to a different target that has not been scanned yet
+        # re-enables the button.
+        page.evaluate(
+            """() => {
+                const opt = document.createElement('option');
+                opt.value = 'uns-scanned-other';
+                opt.textContent = 'uns-scanned-other';
+                targetSelect.appendChild(opt);
+                targetSelect.value = 'uns-scanned-other';
+                updateScanButtonState();
+            }"""
+        )
+        expect(page.locator("#scan-btn")).to_be_enabled()
+
+
 class TestViewStoredButtonState:
     """Tests for the 'View Stored Results' button enable/disable behavior."""
 
@@ -251,6 +383,12 @@ class TestClearLlmButtonState:
         page.evaluate(
             """() => {
                 targetTypeSelect.value = 'model';
+                // A matching option must exist or the select reverts to
+                // empty, leaving no current target for the button state.
+                const opt = document.createElement('option');
+                opt.value = 'sim-target';
+                opt.textContent = 'sim-target';
+                targetSelect.appendChild(opt);
                 targetSelect.value = 'sim-target';
                 lastScanData = {
                     model_name: 'sim-target',

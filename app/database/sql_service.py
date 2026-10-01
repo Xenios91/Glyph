@@ -56,9 +56,13 @@ class SQLUtil:
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def save_model(model_name: str, label_encoder: bytes, model: bytes) -> None:
+    async def save_model(
+        model_name: str, label_encoder: bytes, model: bytes, user_id: int | None = None,
+    ) -> None:
         """Save or update a model in the models database."""
-        await ModelRepository.save(model_name=model_name, label_encoder=label_encoder, model=model)
+        await ModelRepository.save(
+            model_name=model_name, label_encoder=label_encoder, model=model, user_id=user_id,
+        )
 
     @staticmethod
     async def get_models_list() -> set[str]:
@@ -131,9 +135,11 @@ class SQLUtil:
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def save_functions(model_name: str, functions: list[dict[str, Any]]) -> None:
+    async def save_functions(
+        model_name: str, functions: list[dict[str, Any]], user_id: int | None = None,
+    ) -> None:
         """Save or update functions in the functions database."""
-        await FunctionRepository.save(model_name=model_name, functions=functions)
+        await FunctionRepository.save(model_name=model_name, functions=functions, user_id=user_id)
 
     @staticmethod
     async def get_functions(model_name: str) -> list[Any]:

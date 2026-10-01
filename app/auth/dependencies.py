@@ -7,7 +7,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import OAuth2PasswordBearer
 from loguru import logger
-from sqlalchemy import exc as sa_exc
+from sqlalchemy import exc as sa_exc, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt_handler import (
@@ -237,3 +237,93 @@ async def get_optional_user(
         return user
 
     return None
+
+
+def can_access(resource: object, current_user: User) -> bool:
+    """Return True if the current user may access the resource row.
+
+    The rule:
+
+    - A row whose ``user_id`` is ``None`` (legacy / unowned) is accessible to
+      any authenticated user. This keeps pre-existing data usable while the
+      backfill attributes ownership, and matches the historical global-access
+      behavior for rows that could not be attributed to a user.
+    - A row whose ``user_id`` is set is accessible only to that owner.
+
+    Args:
+        resource: The ORM row. Must expose a ``user_id`` attribute.
+        current_user: The authenticated user making the request.
+
+    """
+    owner_id = getattr(resource, "user_id", None)
+    if owner_id is None:
+        return True
+    return current_user.id == owner_id
+
+
+def assert_owned(resource: object, current_user: User, resource_label: str) -> None:
+    """Enforce ownership of a single resource row, raising on denial.
+
+    Call this from an endpoint after it has loaded the resource row it is
+    about to read or modify. See :func:`can_access` for the access rule.
+
+    Args:
+        resource: The ORM row. Must expose a ``user_id`` attribute.
+        current_user: The authenticated user making the request.
+        resource_label: Human-readable label for the error message
+            (e.g. "model", "prediction", "scan report").
+
+    Raises:
+        HTTPException: 404 if the row is owned by another user (404 rather
+            than 403 so the existence of other users' resources is not
+            leaked), or 403 if the caller is the anonymous user (auth
+            disabled) attempting to access an owned row.
+
+    """
+    if can_access(resource, current_user):
+        return
+    owner_id = getattr(resource, "user_id", None)
+    if current_user.id == 0:
+        # Anonymous (auth disabled) cannot touch owned resources.
+        logger.warning(
+            "Anonymous user attempted to access owned %s (owner=%s)",
+            resource_label,
+            owner_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access to this resource requires authentication",
+        )
+    logger.warning(
+        "User %s denied access to %s owned by user %s",
+        current_user.id,
+        resource_label,
+        owner_id,
+    )
+    # 404 (not 403) to avoid leaking the existence of other users' resources.
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"{resource_label.capitalize()} not found",
+    )
+
+
+def owned_or_unowned_filter(user_id_column, current_user: User):
+    """Build a SQLAlchemy filter scoping a list query to the current user.
+
+    Returns ``user_id == current_user.id OR user_id IS NULL`` so that the
+    caller sees their own rows plus any legacy/unowned rows, but never rows
+    owned by other users.
+
+    Args:
+        user_id_column: The mapped ``user_id`` column of the model being
+            queried.
+        current_user: The authenticated user.
+
+    Returns:
+        A SQLAlchemy boolean clause to add to the query's ``where``.
+
+    """
+    if current_user.id == 0:
+        # Anonymous (auth disabled): only unowned rows are visible.
+        return user_id_column.is_(None)
+    return or_(user_id_column == current_user.id, user_id_column.is_(None))

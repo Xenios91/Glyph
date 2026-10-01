@@ -282,12 +282,28 @@ function updateTargetDropdown(type) {
 }
 
 /**
+ * True when a scan has already been performed for the currently selected
+ * target, either a fresh scan in this session or a stored report that has
+ * been loaded for the target (freshly scanned or restored from the database).
+ * The scan button is disabled in that state to avoid redundant scans; it is
+ * re-enabled when the stored results are deleted or the target changes.
+ * @returns {boolean} Whether the current target has already been scanned.
+ */
+function hasScannedCurrentTarget() {
+    return isCurrentTargetResultsLoaded() || hasFindingsForCurrentTarget();
+}
+
+/**
  * Update scan button state based on target selection.
+ * The button is disabled while no target is selected, while a scan is in
+ * flight, and once a scan has already been performed for the selected target
+ * (its results are on screen from a fresh scan or a restored stored report).
  * The "Check with LLM" button follows the same target-selection rule.
  */
 function updateScanButtonState() {
     if (!scanBtn || !targetSelect) return;
-    scanBtn.disabled = !targetSelect.value;
+    scanBtn.disabled =
+        scanInProgress || !targetSelect.value || hasScannedCurrentTarget();
     updateLlmButtonState();
     updateViewStoredButtonState();
 }
@@ -436,6 +452,11 @@ function displayResults(data, targetName) {
     llmResults = {};
     llmPendingIndices.clear();
     llmModalOpenIndex = null;
+
+    // A scan has now been performed (or a stored report restored) for this
+    // target, so the Scan button must be disabled until the target changes
+    // or the stored results are deleted.
+    updateScanButtonState();
 
     if (results.length === 0) {
         // No dangerous functions found
@@ -681,6 +702,9 @@ async function deleteStoredResults() {
         hasStoredLlmResults = false;
         updateClearLlmButtonState();
         hideStoredResultsBanner();
+        // The stored report is gone, so a new scan is possible again for this
+        // target: re-enable the Scan button.
+        updateScanButtonState();
     } catch (error) {
         console.error('Failed to delete stored scan results:', error);
         showScanError('Failed to delete stored scan results. Please try again.');
@@ -848,14 +872,31 @@ function resetLlmState() {
 }
 
 /**
+ * True when LLM analysis results are already available for the findings
+ * currently displayed for the selected target (in memory, whether stored or
+ * freshly analyzed). Only successful analyses count as available results;
+ * failed analyses leave the button enabled so the run can be retried.
+ * @returns {boolean} Whether LLM results are available for the current target.
+ */
+function hasLlmResultsForCurrentTarget() {
+    if (!isCurrentTargetResultsLoaded()) return false;
+    return Object.values(llmResults).some((entry) => entry && entry.status === 'success');
+}
+
+/**
  * Enable the "Check with LLM" button when a target is selected or the last
- * scan produced findings for that target. Clicking it runs a scan first when
- * no results are available yet for the selected target.
+ * scan produced findings for that target — unless LLM results are already
+ * available for the current target, in which case the button is disabled.
+ * Clicking it runs a scan first when no results are available yet for the
+ * selected target.
  */
 function updateLlmButtonState() {
     if (!llmCheckBtn) return;
     const hasTarget = !!(targetSelect && targetSelect.value);
-    llmCheckBtn.disabled = scanInProgress || !(hasFindingsForCurrentTarget() || hasTarget);
+    llmCheckBtn.disabled =
+        scanInProgress ||
+        hasLlmResultsForCurrentTarget() ||
+        !(hasFindingsForCurrentTarget() || hasTarget);
 }
 
 /**
@@ -939,6 +980,9 @@ async function loadStoredLlmResults(targetName) {
         // Stored results just appeared for the on-screen target, so the
         // "Clear LLM Results" button must reflect that dynamically.
         updateClearLlmButtonState();
+        // LLM results are now available for the current target, so the
+        // "Check with LLM" button must be disabled dynamically.
+        updateLlmButtonState();
     } catch (error) {
         console.warn('Failed to load stored LLM results:', error);
     }

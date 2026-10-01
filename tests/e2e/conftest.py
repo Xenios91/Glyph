@@ -6,8 +6,10 @@ See: https://github.com/microsoft/pyright/discussions/6243
 """
 
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -38,9 +40,14 @@ def wait_for_server(url: str, timeout: int = 60) -> None:
 @pytest.fixture(scope="session")
 def server() -> Any:
     """Start the FastAPI server for testing and stop it after all tests complete."""
+    # Point the application's per-purpose SQLite databases at a clean,
+    # session-scoped temp directory so state (uploaded binaries, scan
+    # reports, LLM results) does not leak between test runs or pollute the
+    # real data/ directory.
+    data_dir = tempfile.mkdtemp(prefix="glyph_e2e_data_")
     env = os.environ.copy()
     env["GLYPH_JWT_SECRET_KEY"] = "test-secret-key-for-playwright-testing"
-    env["GLYPH_DATABASE_URL"] = "sqlite+aiosqlite:///./test_playwright.db"
+    env["GLYPH_DATA_DIR"] = data_dir
     # Set generous rate limits for testing (100 requests per 60 seconds)
     env["GLYPH_RATE_LIMIT_LOGIN_MAX"] = "100"
     env["GLYPH_RATE_LIMIT_LOGIN_WINDOW"] = "60"
@@ -66,10 +73,8 @@ def server() -> Any:
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait()
-        # Clean up test database
-        db_path = PROJECT_ROOT / "test_playwright.db"
-        if db_path.exists():
-            db_path.unlink()
+        # Clean up the temp data directory (databases) used by the server
+        shutil.rmtree(data_dir, ignore_errors=True)
 
 
 @pytest.fixture(scope="session")

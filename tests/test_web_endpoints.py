@@ -114,7 +114,7 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.TaskManager")
     def test_get_models_json_response(self, mock_task_manager: Any, mock_ml_repo: Any, web_client: TestClient) -> None:
         """Test get models endpoint returns JSON for API clients."""
-        mock_ml_repo.get_models_list = AsyncMock(return_value={"model1", "model2"})
+        mock_ml_repo.get_models_list_for_user = AsyncMock(return_value=["model1", "model2"])
         mock_task_manager.get_all_status.return_value = {}
 
         response = web_client.get(
@@ -131,7 +131,7 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.TaskManager")
     def test_get_models_html_response(self, mock_task_manager: Any, mock_ml_repo: Any, web_client: TestClient) -> None:
         """Test get models endpoint returns HTML for browsers."""
-        mock_ml_repo.get_models_list = AsyncMock(return_value={"model1", "model2"})
+        mock_ml_repo.get_models_list_for_user = AsyncMock(return_value=["model1", "model2"])
         mock_task_manager.get_all_status.return_value = {}
 
         response = web_client.get(
@@ -181,6 +181,7 @@ class TestWebEndpoints:
                 "tokens": "test tokens",
             },
         )
+        mock_pred_repo.get_owner = AsyncMock(return_value=None)
         mock_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
@@ -257,6 +258,7 @@ class TestWebEndpoints:
         mock_prediction.task_name = "test_task"
         mock_prediction.model_name = "test_model"
         mock_prediction.predictions = []
+        mock_prediction.user_id = None
         mock_pred_repo.get = AsyncMock(return_value=mock_prediction)
 
         response = web_client.get(
@@ -277,6 +279,7 @@ class TestWebEndpoints:
         mock_prediction.task_name = "test_task"
         mock_prediction.model_name = "test_model"
         mock_prediction.predictions = []
+        mock_prediction.user_id = None
         mock_pred_repo.get = AsyncMock(return_value=mock_prediction)
 
         response = web_client.get(
@@ -308,7 +311,9 @@ class TestWebEndpoints:
         """Test get prediction details returns HTML for browsers."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
+        mock_model_info.user_id = None
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
+        mock_pred_repo.get_owner = AsyncMock(return_value=None)
         mock_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
@@ -382,7 +387,7 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.ModelRepository")
     def test_run_task_page(self, mock_ml_repo: Any, web_client: TestClient) -> None:
         """Test run task page loads."""
-        mock_ml_repo.get_models_list = AsyncMock(return_value=["model1"])
+        mock_ml_repo.get_models_list_for_user = AsyncMock(return_value=["model1"])
         response = web_client.get(
             "/run-task",
             params={"binary_id": 1, "binary_name": "test.bin"},
@@ -437,8 +442,12 @@ class TestWebEndpoints:
     ) -> None:
         """Test home stats endpoint."""
         mock_sql.get_binaries_by_user = AsyncMock(return_value=[1, 2, 3])
-        mock_ml_repo.get_models_list = AsyncMock(return_value={"model1", "model2"})
-        mock_pred_repo.get_predictions_list = AsyncMock(return_value=[Mock(), Mock()])
+        mock_ml_repo.get_models_list_for_user = AsyncMock(return_value=["model1", "model2"])
+        pred1 = Mock()
+        pred1.user_id = None
+        pred2 = Mock()
+        pred2.user_id = None
+        mock_pred_repo.get_predictions_list = AsyncMock(return_value=[pred1, pred2])
 
         response = web_client.get("/stats")
         assert response.status_code == 200

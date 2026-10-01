@@ -37,6 +37,7 @@ class Model(Base):
     Attributes:
         id: Primary key
         model_name: Unique name identifier for the model
+        user_id: ID of the user who owns this model (nullable for legacy rows)
         model_data: Serialized model bytes (joblib format)
         label_encoder_data: Serialized label encoder bytes (joblib format)
         created_at: Timestamp when the model was created
@@ -48,6 +49,7 @@ class Model(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     model_name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     model_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     label_encoder_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -72,6 +74,7 @@ class Prediction(Base):
         id: Primary key
         task_name: Name of the prediction task
         model_name: Name of the model used for prediction
+        user_id: ID of the user who owns this prediction (nullable for legacy rows)
         functions_data: Serialized list of function predictions (joblib format)
         created_at: Timestamp when the prediction was created
         modified_at: Timestamp when the prediction was last modified
@@ -83,6 +86,7 @@ class Prediction(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     task_name: Mapped[str] = mapped_column(String(64), nullable=False)
     model_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     functions_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -107,6 +111,7 @@ class Function(Base):
     Attributes:
         id: Primary key
         model_name: Name of the model this function belongs to
+        user_id: ID of the user who owns this function (nullable for legacy rows)
         function_name: Name of the function
         entrypoint: Memory address/entry point of the function
         tokens: Tokenized function code as text
@@ -119,6 +124,7 @@ class Function(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     model_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     function_name: Mapped[str] = mapped_column(String(256), nullable=False)
     entrypoint: Mapped[str] = mapped_column(String(16), nullable=False)
     tokens: Mapped[str] = mapped_column(Text, nullable=False)
@@ -482,6 +488,7 @@ class LLMAnalysisResult(Base):
     Attributes:
         id: Primary key
         target_name: Stable name of the scanned target (the report's model_name)
+        user_id: ID of the user who owns this analysis (nullable for legacy rows)
         function_name: Name of the dangerous function (e.g., "strcpy")
         containing_function: Function that contains the dangerous call
         entrypoint: Memory address of the containing function
@@ -499,6 +506,7 @@ class LLMAnalysisResult(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     target_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     function_name: Mapped[str] = mapped_column(String(256), nullable=False)
     containing_function: Mapped[str] = mapped_column(String(256), nullable=False)
     entrypoint: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -535,6 +543,7 @@ class ScanReport(Base):
     Attributes:
         id: Primary key.
         target_name: Stable name of the scanned target (model, task, or binary name).
+        user_id: ID of the user who owns this report (nullable for legacy rows).
         total_functions_scanned: Total number of functions analyzed.
         total_found: Total number of dangerous function matches.
         critical_count: Number of Critical severity matches.
@@ -551,6 +560,7 @@ class ScanReport(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     target_name: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     total_functions_scanned: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     critical_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

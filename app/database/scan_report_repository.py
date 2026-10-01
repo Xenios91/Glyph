@@ -4,12 +4,31 @@ import json
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import ScanReport
 from app.database.session_handler import close_async_session, get_async_session
+
+
+def _ownership_clause(user_id: int | None):
+    """Build an ownership filter for a ScanReport query.
+
+    A report whose ``user_id`` is ``None`` (legacy/unowned) is visible to any
+    authenticated user; otherwise only its owner sees it. The anonymous user
+    (auth disabled, id 0) may only see unowned reports.
+
+    Args:
+        user_id: The current user's id (0 for anonymous).
+
+    Returns:
+        A SQLAlchemy boolean clause to add to the query's ``where``.
+
+    """
+    if user_id == 0:
+        return ScanReport.user_id.is_(None)
+    return or_(ScanReport.user_id == user_id, ScanReport.user_id.is_(None))
 
 
 class ScanReportRepository:
@@ -19,7 +38,7 @@ class ScanReportRepository:
     """
 
     @staticmethod
-    async def save_report(report: dict[str, Any]) -> None:
+    async def save_report(report: dict[str, Any], user_id: int | None = None) -> None:
         """Insert or update the stored scan report for its target.
 
         The report dict is expected to match the API's ScanReportResponse
@@ -29,6 +48,7 @@ class ScanReportRepository:
 
         Args:
             report: Serialized scan report (ScanReportResponse.model_dump()).
+            user_id: Owner of the report (None for legacy/unowned).
 
         """
         target_name = str(report.get("model_name") or "unknown")
@@ -41,7 +61,7 @@ class ScanReportRepository:
                 )
             ).scalar_one_or_none()
             if row is None:
-                row = ScanReport(target_name=target_name)
+                row = ScanReport(target_name=target_name, user_id=user_id)
                 session.add(row)
             row.total_functions_scanned = int(report.get("total_functions_scanned") or 0)
             row.total_found = int(report.get("total_found") or 0)
@@ -60,21 +80,27 @@ class ScanReportRepository:
             await close_async_session(session)
 
     @staticmethod
-    async def get_report(target_name: str) -> ScanReport | None:
+    async def get_report(target_name: str, user_id: int | None = None) -> ScanReport | None:
         """Retrieve the stored scan report for a target.
 
         Args:
             target_name: Stable name of the scanned target.
+            user_id: The current user's id (0 for anonymous); scopes the
+                query to reports the user may access.
 
         Returns:
-            The ScanReport row, or None when nothing is stored yet.
+            The ScanReport row, or None when nothing is stored yet or the
+            report is owned by another user.
 
         """
         session: AsyncSession = await get_async_session("intelligence")
         try:
             row = (
                 await session.execute(
-                    select(ScanReport).where(ScanReport.target_name == target_name),
+                    select(ScanReport).where(
+                        ScanReport.target_name == target_name,
+                        _ownership_clause(user_id),
+                    ),
                 )
             ).scalar_one_or_none()
             if row is None:
@@ -88,11 +114,13 @@ class ScanReportRepository:
             await close_async_session(session)
 
     @staticmethod
-    async def delete_for_target(target_name: str) -> bool:
+    async def delete_for_target(target_name: str, user_id: int | None = None) -> bool:
         """Delete the stored scan report for a target.
 
         Args:
             target_name: Stable name of the scanned target.
+            user_id: The current user's id (0 for anonymous); only reports the
+                user may access are deleted.
 
         Returns:
             True when a report was deleted, False when nothing was stored.
@@ -101,7 +129,10 @@ class ScanReportRepository:
         session: AsyncSession = await get_async_session("intelligence")
         try:
             result = await session.execute(
-                delete(ScanReport).where(ScanReport.target_name == target_name),
+                delete(ScanReport).where(
+                    ScanReport.target_name == target_name,
+                    _ownership_clause(user_id),
+                ),
             )
             await session.commit()
             deleted = (result.rowcount or 0) > 0

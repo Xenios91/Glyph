@@ -6,6 +6,7 @@ and usage context.
 """
 
 import json
+import types
 from io import BytesIO
 from typing import Annotated, Any
 
@@ -13,8 +14,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from app.auth.dependencies import get_current_active_user
+from app.auth.dependencies import assert_owned, can_access, get_current_active_user
 from app.core.rate_limiter import LLM_ANALYSIS_LIMIT, limiter
+from app.database.binary_repository import BinaryRepository
 from app.database.function_repository import FunctionRepository
 from app.database.llm_result_repository import LLMResultRepository
 from app.database.llm_user_config_repository import resolve_user_llm_config
@@ -319,10 +321,13 @@ async def get_available_models(
         Success response with lists of model names and prediction task names.
 
     """
-    models = await ModelRepository.get_models_list()
-    predictions = await PredictionRepository.get_predictions_list()
+    # Scope to targets the current user may access (own + legacy/unowned).
+    models = await ModelRepository.get_models_list_for_user(current_user.id)
+    predictions = [
+        p for p in await PredictionRepository.get_predictions_list() if can_access(p, current_user)
+    ]
 
-    task_names: list[str] = [p.task_name for p in predictions] if predictions else []
+    task_names: list[str] = sorted({p.task_name for p in predictions}) if predictions else []
 
     return create_success_response(
         data={
@@ -360,19 +365,23 @@ async def scan_dangerous_functions(
     """
     target_name: str | None = None
     functions_data: list[dict[str, Any]] = []
+    report_owner_id: int | None = None
 
     if body.modelName:
         target_name = body.modelName
-        # Check model exists
-        exists = await ModelRepository.exists(target_name)
-        if not exists:
+        # Check model exists and is accessible by the current user
+        model_row = await ModelRepository.get(target_name)
+        if model_row is None:
             raise HTTPException(
                 status_code=404,
                 detail=f"Model '{target_name}' not found",
             )
+        assert_owned(model_row, current_user, "model")
+        report_owner_id = model_row.user_id
 
-        # Get functions for this model
+        # Get functions for this model (scoped to accessible rows)
         functions = await FunctionRepository.get_functions(target_name)
+        functions = [f for f in functions if can_access(f, current_user)]
         functions_data = _functions_to_dicts(functions)
 
     elif body.binaryId is not None:
@@ -393,6 +402,7 @@ async def scan_dangerous_functions(
             )
 
         target_name = binary.name
+        report_owner_id = binary.uploaded_by
 
         # Load binary functions and convert to dict format
         binary_functions = await SQLUtil.get_binary_functions(body.binaryId)
@@ -417,6 +427,10 @@ async def scan_dangerous_functions(
                 detail=f"Prediction task '{target_name}' not found",
             )
         prediction = matching[0]
+
+        # Enforce prediction ownership before exposing any prediction data.
+        assert_owned(prediction, current_user, "prediction")
+        report_owner_id = prediction.user_id
 
         # Deserialize prediction functions
         try:
@@ -453,7 +467,7 @@ async def scan_dangerous_functions(
     # Persist the report so it can be restored when the target is re-selected.
     # A persistence failure must not fail the scan itself.
     try:
-        await ScanReportRepository.save_report(report_dict)
+        await ScanReportRepository.save_report(report_dict, user_id=report_owner_id)
     except Exception:
         logger.exception("Failed to persist scan report for target '{}'", target_name)
 
@@ -491,7 +505,7 @@ async def get_scan_results(
         when nothing has been saved yet for the target.
 
     """
-    row = await ScanReportRepository.get_report(target_name)
+    row = await ScanReportRepository.get_report(target_name, current_user.id)
     if row is None:
         return create_success_response(
             data=None,
@@ -551,8 +565,8 @@ async def delete_scan_results(
         Success response confirming deletion (or that nothing was stored).
 
     """
-    report_deleted = await ScanReportRepository.delete_for_target(target_name)
-    llm_deleted = await LLMResultRepository.delete_for_target(target_name)
+    report_deleted = await ScanReportRepository.delete_for_target(target_name, current_user.id)
+    llm_deleted = await LLMResultRepository.delete_for_target(target_name, current_user.id)
 
     if not report_deleted and not llm_deleted:
         return create_success_response(data="not_found", message=f"No stored scan results for '{target_name}'")
@@ -591,7 +605,7 @@ async def delete_llm_results(
         Success response confirming deletion (or that nothing was stored).
 
     """
-    deleted = await LLMResultRepository.delete_for_target(target_name)
+    deleted = await LLMResultRepository.delete_for_target(target_name, current_user.id)
 
     if not deleted:
         return create_success_response(data="not_found", message=f"No stored LLM results for '{target_name}'")
@@ -634,6 +648,20 @@ async def analyze_dangerous_functions(
             disabled or cannot be built from the current configuration.
 
     """
+    # Integrity + authorization: the target must have a stored scan report that
+    # the current user may access. This guarantees the findings were produced by
+    # a real scan of a target the user owns (rather than an arbitrary name).
+    report = await ScanReportRepository.get_report(body.target_name, current_user.id)
+    if report is None:
+        raise HTTPException(
+            status_code=404,
+            detail=create_error_response(
+                error_code="SCAN_NOT_FOUND",
+                error_message=f"No scan results found for target '{body.target_name}'. Run a scan first.",
+            ).model_dump(),
+        )
+    report_owner_id = report.user_id
+
     llm = await resolve_user_llm_config(current_user.id)
     try:
         analyses = await analyze_findings(llm, [f.model_dump() for f in body.findings])
@@ -679,7 +707,7 @@ async def analyze_dangerous_functions(
             for finding, analysis in zip(body.findings, analyses, strict=True)
         ]
         try:
-            await LLMResultRepository.upsert_many(body.target_name, rows)
+            await LLMResultRepository.upsert_many(body.target_name, rows, user_id=report_owner_id)
             saved = True
         except Exception:
             saved = False
@@ -726,7 +754,7 @@ async def get_llm_results(
         success when nothing has been saved yet).
 
     """
-    rows = await LLMResultRepository.get_for_target(target_name)
+    rows = await LLMResultRepository.get_for_target(target_name, current_user.id)
 
     results = [
         {

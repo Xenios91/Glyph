@@ -4,13 +4,14 @@ Provides endpoints for retrieving, listing, and deleting ML models,
 as well as accessing function details and prediction information.
 """
 
+import types
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
 from app.api.types import FunctionName, ModelName, TaskName
-from app.auth.dependencies import get_current_active_user
+from app.auth.dependencies import assert_owned, can_access, get_current_active_user
 from app.database.function_repository import FunctionRepository
 from app.database.model_repository import ModelRepository
 from app.database.models import User
@@ -33,6 +34,15 @@ async def delete_model(
     current_user: Annotated[User, Depends(get_current_active_user)], model_name: Annotated[ModelName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete a trained ML model by name and all associated predictions."""
+    model_row = await ModelRepository.get(model_name)
+    if model_row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=create_error_response(
+                error_code="MODEL_NOT_FOUND", error_message="Model not found",
+            ).model_dump(),
+        )
+    assert_owned(model_row, current_user, "model")
     await ModelRepository.delete(model_name)
     await PredictionService.delete_predictions_for_model(model_name)
     return create_success_response(data={}, message="Model deleted successfully")
@@ -56,11 +66,24 @@ async def delete_models(
                 error_code="INVALID_MODEL_NAMES", error_message="At least one model name must be provided",
             ).model_dump(),
         )
+    if len(names) > 100:
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="TOO_MANY_MODELS",
+                error_message="At most 100 model names may be deleted per request",
+            ).model_dump(),
+        )
 
     deleted: list[str] = []
     failed: list[str] = []
     for name in names:
         try:
+            model_row = await ModelRepository.get(name)
+            if model_row is None or not can_access(model_row, current_user):
+                # Missing or owned by another user: skip (do not leak existence).
+                failed.append(name)
+                continue
             await ModelRepository.delete(name)
             await PredictionService.delete_predictions_for_model(name)
             deleted.append(name)
@@ -113,6 +136,8 @@ async def get_function(
             ).model_dump(),
         )
 
+    assert_owned(function_information, current_user, "function")
+
     f_name = function_information.function_name
     f_entry = function_information.entrypoint
 
@@ -139,6 +164,8 @@ async def get_functions(
 ) -> SuccessResponse[dict[str, Any]]:
     """List all extracted functions for a trained model."""
     functions = await FunctionRepository.get_functions(model_name)
+    # Scope to rows the current user may access (own + legacy/unowned).
+    functions = [f for f in functions if can_access(f, current_user)]
 
     return create_success_response(
         data={
@@ -170,6 +197,10 @@ async def get_prediction_details(
 ) -> SuccessResponse[dict[str, Any]]:
     """Get detailed prediction results for a specific function, comparing model and prediction tokens."""
     try:
+        # Enforce prediction ownership before exposing any prediction data.
+        pred_owner_id = await PredictionRepository.get_owner(task_name, model_name)
+        assert_owned(types.SimpleNamespace(user_id=pred_owner_id), current_user, "prediction")
+
         model_info = await FunctionRepository.get(model_name, function_name)
         prediction_data = await PredictionRepository.get_prediction_function(task_name, model_name, function_name)
 

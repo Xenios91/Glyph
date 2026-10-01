@@ -264,6 +264,8 @@ An empty `results` list is a valid response when nothing has been saved for the 
 
 The scanner page (`/getDangerousFunctions`) exposes LLM analysis directly:
 
+- **Scan** button — enabled once a target is selected and no scan has been performed for it yet. Once a scan has already occurred for the selected target (fresh scan in this session or a stored report restored from the database), the button is disabled to avoid redundant scans. It is re-enabled when the stored results are deleted or a different target is selected.
+
 - **Check with LLM** button — enabled once a scan has produced at least one finding; sends the scan's findings to the configured endpoint and shows progress while running. If the LLM feature is not enabled, an error banner points at the Settings page.
 - **LLM column** — each finding row shows a badge: `AI ✓` (green) for a successful analysis, `AI !` (red) for a failed one. The tooltip distinguishes stored results (`Stored <timestamp>`) from fresh ones (`New - just analyzed`).
 - **LLM modal** — clicking a badge opens a modal with the finding details, the model used, elapsed time, and the analysis text. Failed findings show the error and a **Retry This Finding** button that re-runs analysis for that single finding.

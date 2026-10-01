@@ -1,12 +1,31 @@
 """Repository for LLMAnalysisResult entity database operations."""
 
 from loguru import logger
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import LLMAnalysisResult
 from app.database.session_handler import close_async_session, get_async_session
+
+
+def _ownership_clause(user_id: int | None):
+    """Build an ownership filter for an LLMAnalysisResult query.
+
+    A result whose ``user_id`` is ``None`` (legacy/unowned) is visible to any
+    authenticated user; otherwise only its owner sees it. The anonymous user
+    (auth disabled, id 0) may only see unowned results.
+
+    Args:
+        user_id: The current user's id (0 for anonymous).
+
+    Returns:
+        A SQLAlchemy boolean clause to add to the query's ``where``.
+
+    """
+    if user_id == 0:
+        return LLMAnalysisResult.user_id.is_(None)
+    return or_(LLMAnalysisResult.user_id == user_id, LLMAnalysisResult.user_id.is_(None))
 
 
 class LLMResultRepository:
@@ -16,7 +35,7 @@ class LLMResultRepository:
     """
 
     @staticmethod
-    async def upsert_many(target_name: str, results: list[LLMAnalysisResult]) -> None:
+    async def upsert_many(target_name: str, results: list[LLMAnalysisResult], user_id: int | None = None) -> None:
         """Insert or update stored LLM analysis results for one target.
 
         Rows are matched on (target_name, function_name, containing_function,
@@ -29,6 +48,7 @@ class LLMResultRepository:
             target_name: Stable name of the scanned target (the report's model_name).
             results: LLMAnalysisResult instances to persist (their target_name
                 is ignored and taken from the argument instead).
+            user_id: Owner of the results (None for legacy/unowned).
 
         """
         session: AsyncSession = await get_async_session("intelligence")
@@ -51,6 +71,7 @@ class LLMResultRepository:
                     if row is None:
                         row = LLMAnalysisResult(
                             target_name=target_name,
+                            user_id=user_id,
                             function_name=result.function_name,
                             containing_function=result.containing_function,
                             entrypoint=result.entrypoint,
@@ -72,11 +93,13 @@ class LLMResultRepository:
             await close_async_session(session)
 
     @staticmethod
-    async def get_for_target(target_name: str) -> list[LLMAnalysisResult]:
+    async def get_for_target(target_name: str, user_id: int | None = None) -> list[LLMAnalysisResult]:
         """Retrieve all stored LLM analysis results for a target.
 
         Args:
             target_name: Stable name of the scanned target.
+            user_id: The current user's id (0 for anonymous); scopes the
+                query to results the user may access.
 
         Returns:
             List of LLMAnalysisResult instances ordered by function name,
@@ -87,7 +110,10 @@ class LLMResultRepository:
         try:
             stmt = (
                 select(LLMAnalysisResult)
-                .where(LLMAnalysisResult.target_name == target_name)
+                .where(
+                    LLMAnalysisResult.target_name == target_name,
+                    _ownership_clause(user_id),
+                )
                 .order_by(LLMAnalysisResult.function_name, LLMAnalysisResult.containing_function)
             )
             result = await session.execute(stmt)
@@ -101,11 +127,13 @@ class LLMResultRepository:
             await close_async_session(session)
 
     @staticmethod
-    async def delete_for_target(target_name: str) -> bool:
+    async def delete_for_target(target_name: str, user_id: int | None = None) -> bool:
         """Delete all stored LLM analysis results for a target.
 
         Args:
             target_name: Stable name of the scanned target.
+            user_id: The current user's id (0 for anonymous); only results the
+                user may access are deleted.
 
         Returns:
             True when at least one row was deleted, False when nothing was stored.
@@ -114,7 +142,10 @@ class LLMResultRepository:
         session: AsyncSession = await get_async_session("intelligence")
         try:
             result = await session.execute(
-                delete(LLMAnalysisResult).where(LLMAnalysisResult.target_name == target_name),
+                delete(LLMAnalysisResult).where(
+                    LLMAnalysisResult.target_name == target_name,
+                    _ownership_clause(user_id),
+                ),
             )
             await session.commit()
             deleted = (result.rowcount or 0) > 0
