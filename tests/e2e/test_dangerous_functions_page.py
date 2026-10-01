@@ -445,11 +445,13 @@ class TestLlmPendingSpinners:
                                 function_name: 'strcpy',
                                 containing_function: 'main',
                                 entrypoint: '0x401000',
+                                severity: 'Critical',
                             },
                             {
                                 function_name: 'gets',
                                 containing_function: 'read_input',
                                 entrypoint: '0x402000',
+                                severity: 'High',
                             },
                         ],
                     },
