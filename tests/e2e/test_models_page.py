@@ -58,7 +58,8 @@ class TestModelsPage:
 
         empty_state = page.locator(".no-models-empty-state")
         if empty_state.is_visible():
-            expect(page.locator(".empty-state-description")).to_be_visible()
+            # The empty state may contain multiple description paragraphs.
+            expect(page.locator(".empty-state-description").first).to_be_visible()
         # If empty state is not visible, models exist - that's also valid
 
     def test_models_empty_state_has_create_model_link(self, page: Any, server: Any) -> None:
