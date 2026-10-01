@@ -58,7 +58,8 @@ class LoginFailureTracker:
 
         if len(self._failures) > self.max_keys:
             keys_by_activity = sorted(
-                self._failures.keys(), key=lambda k: max(self._failures[k]) if self._failures[k] else 0,
+                self._failures.keys(),
+                key=lambda k: max(self._failures[k]) if self._failures[k] else 0,
             )
             keys_to_remove = keys_by_activity[: len(self._failures) - self.max_keys]
             for key in keys_to_remove:
@@ -128,8 +129,27 @@ class LoginFailureTracker:
         self._failures.pop(key, None)
         self._alerted.pop(key, None)
 
+    def clear_all(self) -> None:
+        """Clear all recorded failures and alerted flags.
+
+        Unlike reset(), which targets a single key, this wipes the entire
+        tracker state. Intended for test isolation so brute-force state
+        never leaks across tests.
+        """
+        self._failures.clear()
+        self._alerted.clear()
+
 
 _login_failure_tracker = LoginFailureTracker()
+
+
+def reset_login_failure_tracker() -> None:
+    """Reset the global login failure tracker to a pristine state.
+
+    Primarily useful for tests: clears all recorded failures and alerted
+    flags so per-username/IP blockout state never accumulates across tests.
+    """
+    _login_failure_tracker.clear_all()
 
 
 def is_blocked(username: str, ip_address: str | None = None) -> bool:
@@ -174,7 +194,10 @@ def log_login_attempt(
 
 
 def log_login_success(
-    user_id: int, username: str, session_id: str | None = None, ip_address: str | None = None,
+    user_id: int,
+    username: str,
+    session_id: str | None = None,
+    ip_address: str | None = None,
 ) -> None:
     """Log a successful login.
 
@@ -186,7 +209,11 @@ def log_login_success(
 
     """
     logger.bind(
-        event="login_success", user_id=user_id, username=username, session_id=session_id, ip_address=ip_address,
+        event="login_success",
+        user_id=user_id,
+        username=username,
+        session_id=session_id,
+        ip_address=ip_address,
     ).info("Login successful")
 
     _login_failure_tracker.reset(username)
@@ -195,7 +222,10 @@ def log_login_success(
 
 
 def log_login_failure(
-    username: str, reason: str, ip_address: str | None = None, attempt_number: int | None = None,
+    username: str,
+    reason: str,
+    ip_address: str | None = None,
+    attempt_number: int | None = None,
 ) -> None:
     """Log a failed login attempt with brute-force detection.
 
@@ -290,12 +320,20 @@ def log_api_key_usage(user_id: int, api_key_prefix: str, endpoint: str, ip_addre
 
     """
     logger.bind(
-        event="api_key_usage", user_id=user_id, api_key_prefix=api_key_prefix, endpoint=endpoint, ip_address=ip_address,
+        event="api_key_usage",
+        user_id=user_id,
+        api_key_prefix=api_key_prefix,
+        endpoint=endpoint,
+        ip_address=ip_address,
     ).debug("API key used")
 
 
 def log_permission_denied(
-    user_id: int, username: str | None, resource: str, required_permission: str, ip_address: str | None = None,
+    user_id: int,
+    username: str | None,
+    resource: str,
+    required_permission: str,
+    ip_address: str | None = None,
 ) -> None:
     """Log a permission denied event.
 
@@ -318,7 +356,10 @@ def log_permission_denied(
 
 
 def log_suspicious_activity(
-    user_id: int | None, activity_type: str, details: dict[str, Any] | None = None, ip_address: str | None = None,
+    user_id: int | None,
+    activity_type: str,
+    details: dict[str, Any] | None = None,
+    ip_address: str | None = None,
 ) -> None:
     """Log suspicious activity.
 
@@ -384,7 +425,12 @@ def log_api_key_created(user_id: int, key_id: int, key_prefix: str, name: str, i
 
     """
     logger.bind(
-        event="api_key_created", user_id=user_id, key_id=key_id, key_prefix=key_prefix, name=name, ip_address=ip_address,
+        event="api_key_created",
+        user_id=user_id,
+        key_id=key_id,
+        key_prefix=key_prefix,
+        name=name,
+        ip_address=ip_address,
     ).info("API key created")
 
 

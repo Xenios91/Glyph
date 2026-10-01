@@ -55,8 +55,11 @@ class TaskService:
         instance = cls()
         queue = instance.service_queue
         while True:  # pragma: no cover
+            # get() stays outside the try so that cancellation while blocked
+            # on an empty queue does not run task_done() with no item,
+            # which would spurious-decrement unfinished_tasks.
+            item: tuple[_TaskRequest, Any] = await queue.get()
             try:
-                item: tuple[_TaskRequest, Any] = await queue.get()
                 task = item[0]
                 captured_ctx = item[1]
                 job_uuid: str = task.uuid

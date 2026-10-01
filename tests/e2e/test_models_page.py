@@ -33,8 +33,9 @@ class TestModelsPage:
         # Page should show either the empty state or a models table
         empty_state = page.locator(".no-models-empty-state")
         models_table = page.locator("table.cyber-table")
-        assert empty_state.is_visible() or models_table.is_visible(), \
+        assert empty_state.is_visible() or models_table.is_visible(), (
             "Models page should show either empty state or models table"
+        )
 
     def test_models_empty_state_structure(self, page: Any, server: Any) -> None:
         """Test that the models page has correct empty state structure when no models exist."""
@@ -58,7 +59,10 @@ class TestModelsPage:
 
         empty_state = page.locator(".no-models-empty-state")
         if empty_state.is_visible():
-            expect(page.locator(".empty-state-description")).to_be_visible()
+            # Check that at least one description paragraph exists within the empty state
+            description = empty_state.locator(".empty-state-description")
+            assert description.count() >= 1, "Empty state should have description text"
+            expect(description.first).to_be_visible()
         # If empty state is not visible, models exist - that's also valid
 
     def test_models_empty_state_has_create_model_link(self, page: Any, server: Any) -> None:

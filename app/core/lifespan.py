@@ -68,6 +68,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.exception("Failed to initialize async databases")
         raise RuntimeError("Async database initialization failed.") from e
 
+    task: asyncio.Task[None] | None = None
     try:
         task = asyncio.create_task(TaskService.start_service())
         task.add_done_callback(_task_done_callback)
@@ -87,6 +88,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         yield
     finally:
         logger.info("Shutting down Glyph service")
+        if task is not None:
+            task.cancel()
+            try:
+                await asyncio.gather(task, return_exceptions=True)
+            except Exception:
+                logger.exception("Failed to cancel task service background task")
         event_watcher.stop_watching()
         try:
             await dispose_async_engines()

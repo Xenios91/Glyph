@@ -58,16 +58,24 @@ class TestRegisterEndpoint:
 
     def test_register_duplicate_username(self, auth_client: TestClient) -> None:
         """Test registration with duplicate username."""
+        unique_suffix = get_unique_suffix()
+        username = f"testuser_{unique_suffix}"
+
         # Register first user
-        auth_client.post(
+        first_response = auth_client.post(
             "/auth/register",
-            json={"username": "testuser", "email": "test@example.com", "password": "test_password_123"},
+            json={"username": username, "email": f"first_{unique_suffix}@example.com", "password": "test_password_123"},
         )
+        assert first_response.status_code == status.HTTP_201_CREATED
 
         # Try to register again
         response = auth_client.post(
             "/auth/register",
-            json={"username": "testuser", "email": "different@example.com", "password": "test_password_123"},
+            json={
+                "username": username,
+                "email": f"second_{unique_suffix}@example.com",
+                "password": "test_password_123",
+            },
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -75,14 +83,20 @@ class TestRegisterEndpoint:
 
     def test_register_duplicate_email(self, auth_client: TestClient) -> None:
         """Test registration with duplicate email."""
+        unique_suffix = get_unique_suffix()
+        shared_email = f"shared_{unique_suffix}@example.com"
+
         # Register first user
-        auth_client.post(
-            "/auth/register", json={"username": "user1", "email": "test@example.com", "password": "test_password_123"},
+        first_response = auth_client.post(
+            "/auth/register",
+            json={"username": f"user1_{unique_suffix}", "email": shared_email, "password": "test_password_123"},
         )
+        assert first_response.status_code == status.HTTP_201_CREATED
 
         # Try to register with same email
         response = auth_client.post(
-            "/auth/register", json={"username": "user2", "email": "test@example.com", "password": "test_password_123"},
+            "/auth/register",
+            json={"username": f"user2_{unique_suffix}", "email": shared_email, "password": "test_password_123"},
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -91,7 +105,8 @@ class TestRegisterEndpoint:
     def test_register_invalid_email(self, auth_client: TestClient) -> None:
         """Test registration with invalid email."""
         response = auth_client.post(
-            "/auth/register", json={"username": "testuser", "email": "invalid-email", "password": "test_password_123"},
+            "/auth/register",
+            json={"username": "testuser", "email": "invalid-email", "password": "test_password_123"},
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -99,7 +114,8 @@ class TestRegisterEndpoint:
     def test_register_short_password(self, auth_client: TestClient) -> None:
         """Test registration with short password."""
         response = auth_client.post(
-            "/auth/register", json={"username": "testuser", "email": "test@example.com", "password": "short"},
+            "/auth/register",
+            json={"username": "testuser", "email": "test@example.com", "password": "short"},
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -110,14 +126,22 @@ class TestLoginEndpoint:
 
     def test_login_success(self, auth_client: TestClient) -> None:
         """Test successful login."""
+        unique_suffix = get_unique_suffix()
+        username = f"testuser_{unique_suffix}"
+
         # Register user first
-        auth_client.post(
+        register_response = auth_client.post(
             "/auth/register",
-            json={"username": "testuser", "email": "test@example.com", "password": "test_password_123"},
+            json={
+                "username": username,
+                "email": f"login_success_{unique_suffix}@example.com",
+                "password": "test_password_123",
+            },
         )
+        assert register_response.status_code == status.HTTP_201_CREATED
 
         # Login
-        response = auth_client.post("/auth/token", data={"username": "testuser", "password": "test_password_123"})
+        response = auth_client.post("/auth/token", data={"username": username, "password": "test_password_123"})
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -127,14 +151,22 @@ class TestLoginEndpoint:
 
     def test_login_invalid_credentials(self, auth_client: TestClient) -> None:
         """Test login with invalid credentials."""
+        unique_suffix = get_unique_suffix()
+        username = f"testuser_{unique_suffix}"
+
         # Register user first
-        auth_client.post(
+        register_response = auth_client.post(
             "/auth/register",
-            json={"username": "testuser", "email": "test@example.com", "password": "test_password_123"},
+            json={
+                "username": username,
+                "email": f"invalid_creds_{unique_suffix}@example.com",
+                "password": "test_password_123",
+            },
         )
+        assert register_response.status_code == status.HTTP_201_CREATED
 
         # Try to login with wrong password
-        response = auth_client.post("/auth/token", data={"username": "testuser", "password": "wrong_password"})
+        response = auth_client.post("/auth/token", data={"username": username, "password": "wrong_password"})
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -150,13 +182,22 @@ class TestRefreshEndpoint:
 
     def test_refresh_success(self, auth_client: TestClient) -> None:
         """Test successful token refresh."""
-        # Register user and login
-        auth_client.post(
-            "/auth/register",
-            json={"username": "testuser", "email": "test@example.com", "password": "test_password_123"},
-        )
+        unique_suffix = get_unique_suffix()
+        username = f"testuser_{unique_suffix}"
 
-        login_response = auth_client.post("/auth/token", data={"username": "testuser", "password": "test_password_123"})
+        # Register user and login
+        register_response = auth_client.post(
+            "/auth/register",
+            json={
+                "username": username,
+                "email": f"refresh_{unique_suffix}@example.com",
+                "password": "test_password_123",
+            },
+        )
+        assert register_response.status_code == status.HTTP_201_CREATED
+
+        login_response = auth_client.post("/auth/token", data={"username": username, "password": "test_password_123"})
+        assert login_response.status_code == status.HTTP_200_OK
 
         refresh_token = login_response.json()["refresh_token"]
 
@@ -180,12 +221,22 @@ class TestLogoutEndpoint:
 
     def test_logout_success(self, auth_client: TestClient) -> None:
         """Test successful logout."""
+        unique_suffix = get_unique_suffix()
+        username = f"testuser_{unique_suffix}"
+
         # Register and login first to get an access token
-        auth_client.post(
+        register_response = auth_client.post(
             "/auth/register",
-            json={"username": "testuser", "email": "test@example.com", "password": "test_password_123"},
+            json={
+                "username": username,
+                "email": f"logout_{unique_suffix}@example.com",
+                "password": "test_password_123",
+            },
         )
-        login_response = auth_client.post("/auth/token", data={"username": "testuser", "password": "test_password_123"})
+        assert register_response.status_code == status.HTTP_201_CREATED
+
+        login_response = auth_client.post("/auth/token", data={"username": username, "password": "test_password_123"})
+        assert login_response.status_code == status.HTTP_200_OK
         access_token = login_response.json()["access_token"]
         response = auth_client.post("/auth/logout", headers={"Authorization": f"Bearer {access_token}"})
 
@@ -197,13 +248,19 @@ class TestMeEndpoint:
 
     def test_me_success(self, auth_client: TestClient) -> None:
         """Test getting current user info."""
-        # Register user and login
-        auth_client.post(
-            "/auth/register",
-            json={"username": "testuser", "email": "test@example.com", "password": "test_password_123"},
-        )
+        unique_suffix = get_unique_suffix()
+        username = f"testuser_{unique_suffix}"
+        email = f"me_{unique_suffix}@example.com"
 
-        login_response = auth_client.post("/auth/token", data={"username": "testuser", "password": "test_password_123"})
+        # Register user and login
+        register_response = auth_client.post(
+            "/auth/register",
+            json={"username": username, "email": email, "password": "test_password_123"},
+        )
+        assert register_response.status_code == status.HTTP_201_CREATED
+
+        login_response = auth_client.post("/auth/token", data={"username": username, "password": "test_password_123"})
+        assert login_response.status_code == status.HTTP_200_OK
 
         access_token = login_response.json()["access_token"]
 
@@ -212,8 +269,8 @@ class TestMeEndpoint:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["username"] == "testuser"
-        assert data["email"] == "test@example.com"
+        assert data["username"] == username
+        assert data["email"] == email
 
     def test_me_unauthorized(self, auth_client: TestClient) -> None:
         """Test getting current user without authentication."""
@@ -238,7 +295,8 @@ class TestAPIKeyEndpoints:
         )
 
         login_response = auth_client.post(
-            "/auth/token", data={"username": "testuser_create_api_key", "password": "test_password_123"},
+            "/auth/token",
+            data={"username": "testuser_create_api_key", "password": "test_password_123"},
         )
 
         access_token = login_response.json()["access_token"]
@@ -271,7 +329,8 @@ class TestAPIKeyEndpoints:
         )
 
         login_response = auth_client.post(
-            "/auth/token", data={"username": f"testuser_list_api_keys_{unique_suffix}", "password": "test_password_123"},
+            "/auth/token",
+            data={"username": f"testuser_list_api_keys_{unique_suffix}", "password": "test_password_123"},
         )
 
         access_token = login_response.json()["access_token"]
@@ -296,13 +355,22 @@ class TestAPIKeyEndpoints:
 
     def test_delete_api_key(self, auth_client: TestClient) -> None:
         """Test deleting an API key."""
-        # Register user and login
-        auth_client.post(
-            "/auth/register",
-            json={"username": "testuser", "email": "test@example.com", "password": "test_password_123"},
-        )
+        unique_suffix = get_unique_suffix()
+        username = f"testuser_{unique_suffix}"
 
-        login_response = auth_client.post("/auth/token", data={"username": "testuser", "password": "test_password_123"})
+        # Register user and login
+        register_response = auth_client.post(
+            "/auth/register",
+            json={
+                "username": username,
+                "email": f"delete_key_{unique_suffix}@example.com",
+                "password": "test_password_123",
+            },
+        )
+        assert register_response.status_code == status.HTTP_201_CREATED
+
+        login_response = auth_client.post("/auth/token", data={"username": username, "password": "test_password_123"})
+        assert login_response.status_code == status.HTTP_200_OK
 
         access_token = login_response.json()["access_token"]
 
@@ -310,14 +378,16 @@ class TestAPIKeyEndpoints:
         create_response = auth_client.post(
             "/auth/api-keys",
             headers={"Authorization": f"Bearer {access_token}"},
-            json={"name": "Test API Key", "permissions": ["read"]},
+            json={"name": f"Test API Key {unique_suffix}", "permissions": ["read"]},
         )
+        assert create_response.status_code == status.HTTP_201_CREATED
 
         api_key_id = create_response.json()["id"]
 
         # Delete API key
         response = auth_client.delete(
-            f"/auth/api-keys/{api_key_id}", headers={"Authorization": f"Bearer {access_token}"},
+            f"/auth/api-keys/{api_key_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -335,7 +405,8 @@ class TestAPIKeyEndpoints:
             },
         )
         login_response = auth_client.post(
-            "/auth/token", data={"username": "testuser_delete_not_found", "password": "test_password_123"},
+            "/auth/token",
+            data={"username": "testuser_delete_not_found", "password": "test_password_123"},
         )
         access_token = login_response.json()["access_token"]
 
@@ -347,28 +418,38 @@ class TestAPIKeyEndpoints:
 
     def test_delete_api_key_not_authorized(self, auth_client: TestClient) -> None:
         """Test deleting another user's API key."""
+        unique_suffix = get_unique_suffix()
+        user_a = f"user_a_{unique_suffix}"
+        user_b = f"user_b_{unique_suffix}"
+
         # Create two users
-        auth_client.post(
+        response_a = auth_client.post(
             "/auth/register",
-            json={"username": "user_a", "email": "user_a@example.com", "password": "test_password_123"},
+            json={"username": user_a, "email": f"user_a_{unique_suffix}@example.com", "password": "test_password_123"},
         )
-        auth_client.post(
+        assert response_a.status_code == status.HTTP_201_CREATED
+
+        response_b = auth_client.post(
             "/auth/register",
-            json={"username": "user_b", "email": "user_b@example.com", "password": "test_password_123"},
+            json={"username": user_b, "email": f"user_b_{unique_suffix}@example.com", "password": "test_password_123"},
         )
+        assert response_b.status_code == status.HTTP_201_CREATED
 
         # Login as user_a and create a key
-        login_a = auth_client.post("/auth/token", data={"username": "user_a", "password": "test_password_123"})
+        login_a = auth_client.post("/auth/token", data={"username": user_a, "password": "test_password_123"})
+        assert login_a.status_code == status.HTTP_200_OK
         token_a = login_a.json()["access_token"]
         create_resp = auth_client.post(
             "/auth/api-keys",
             headers={"Authorization": f"Bearer {token_a}"},
-            json={"name": "UserA Key", "permissions": ["read"]},
+            json={"name": f"UserA Key {unique_suffix}", "permissions": ["read"]},
         )
+        assert create_resp.status_code == status.HTTP_201_CREATED
         key_id = create_resp.json()["id"]
 
         # Login as user_b and try to delete user_a's key
-        login_b = auth_client.post("/auth/token", data={"username": "user_b", "password": "test_password_123"})
+        login_b = auth_client.post("/auth/token", data={"username": user_b, "password": "test_password_123"})
+        assert login_b.status_code == status.HTTP_200_OK
         token_b = login_b.json()["access_token"]
 
         response = auth_client.delete(f"/auth/api-keys/{key_id}", headers={"Authorization": f"Bearer {token_b}"})
@@ -406,10 +487,12 @@ class TestChangePasswordEndpoint:
         email = f"test_wrong_pw_{suffix}@example.com"
         # Register and login
         auth_client.post(
-            "/auth/register", json={"username": username, "email": email, "password": "correct_password_123"},
+            "/auth/register",
+            json={"username": username, "email": email, "password": "correct_password_123"},
         )
         login_response = auth_client.post(
-            "/auth/token", data={"username": username, "password": "correct_password_123"},
+            "/auth/token",
+            data={"username": username, "password": "correct_password_123"},
         )
         access_token = login_response.json()["access_token"]
 
