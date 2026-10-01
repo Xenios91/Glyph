@@ -365,6 +365,216 @@ async function changePassword(formData) {
     }
 }
 
+// ── LLM Settings ──────────────────────────────────────────
+
+/**
+ * Collect LLM settings field elements from the page
+ * @returns {Object|null} Map of field id to element, or null if the panel is missing
+ */
+function collectLlmSettings() {
+    const ids = [
+        'llm-enabled',
+        'llm-base-url',
+        'llm-port',
+        'llm-api-path',
+        'llm-model',
+        'llm-api-key',
+        'llm-api-key-clear',
+        'llm-timeout',
+        'llm-temperature',
+        'llm-max-concurrent'
+    ];
+
+    const els = {};
+    for (const id of ids) {
+        const el = document.getElementById(id);
+        if (!el) return null;
+        els[id] = el;
+    }
+    return els;
+}
+
+/**
+ * Build the LLM section of the config save payload
+ * @param {Object} els - LLM field elements from collectLlmSettings()
+ * @returns {Object} LLM settings payload
+ */
+function buildLlmPayload(els) {
+    const payload = {
+        enabled: els['llm-enabled'].checked,
+        base_url: els['llm-base-url'].value.trim(),
+        port: els['llm-port'].value.trim() === '' ? null : parseInt(els['llm-port'].value, 10),
+        api_path: els['llm-api-path'].value.trim(),
+        model: els['llm-model'].value.trim(),
+        timeout_seconds: parseFloat(els['llm-timeout'].value),
+        temperature: parseFloat(els['llm-temperature'].value),
+        max_concurrent: parseInt(els['llm-max-concurrent'].value, 10)
+    };
+
+    // api_key semantics: clear checkbox = explicit "" (clears stored key);
+    // non-empty input = replace; blank input = key omitted entirely (no-op)
+    if (els['llm-api-key-clear'].checked) {
+        payload.api_key = '';
+    } else {
+        const key = els['llm-api-key'].value;
+        if (key) {
+            payload.api_key = key;
+        }
+    }
+
+    return payload;
+}
+
+/**
+ * Show LLM connection test result status
+ * @param {boolean|null} success - true for success, false for error, null for info
+ * @param {string} message - Message to display
+ */
+function setLlmTestStatus(success, message) {
+    const box = document.getElementById('llm-test-status');
+    const msg = document.getElementById('llm-test-status-msg');
+    const icon = box?.querySelector('.llm-test-status-icon');
+
+    if (!box || !msg) return;
+
+    box.removeAttribute('hidden');
+    box.classList.remove('is-success', 'is-error', 'is-info');
+
+    if (success === true) {
+        box.classList.add('is-success');
+        if (icon) icon.textContent = '✓';
+    } else if (success === false) {
+        box.classList.add('is-error');
+        if (icon) icon.textContent = '✗';
+    } else {
+        box.classList.add('is-info');
+        if (icon) icon.textContent = 'ℹ';
+    }
+    msg.textContent = message;
+}
+
+/**
+ * Clear LLM connection test status
+ */
+function clearLlmTestStatus() {
+    const box = document.getElementById('llm-test-status');
+    if (box) {
+        box.setAttribute('hidden', '');
+        box.classList.remove('is-success', 'is-error', 'is-info');
+    }
+}
+
+/**
+ * Test the LLM endpoint connection
+ */
+async function testLlmConnection() {
+    const btn = document.getElementById('llm-test-btn');
+    if (!btn) return;
+
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+
+    try {
+        const response = await fetch('/api/v1/config/llm-test', { method: 'POST' });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.data && data.data.ok) {
+                setLlmTestStatus(true, `OK — ${data.data.model} responded in ${data.data.elapsed_ms} ms`);
+            } else {
+                setLlmTestStatus(false, (data.data && data.data.error) || 'CONNECTION TEST FAILED');
+            }
+        } else if (response.status === 503) {
+            setLlmTestStatus(null, 'Save your LLM settings first, then test.');
+        } else if (response.status === 429) {
+            setLlmTestStatus(false, 'Too many test attempts. Wait a minute and try again.');
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage =
+                (errorData.detail && errorData.detail.error && errorData.detail.error.message) ||
+                'CONNECTION TEST FAILED';
+            setLlmTestStatus(false, errorMessage);
+        }
+    } catch (error) {
+        console.error('LLM test error:', error);
+        setLlmTestStatus(false, 'NETWORK ERROR - PLEASE TRY AGAIN');
+    } finally {
+        btn.disabled = false;
+        btn.classList.remove('is-loading');
+    }
+}
+
+/**
+ * Save LLM settings to server (per-user)
+ */
+async function saveLlmSettings() {
+    const els = collectLlmSettings();
+    if (!els) {
+        showError('llm-error', 'LLM settings form not fully loaded');
+        return;
+    }
+
+    const bad = [];
+    const portValue = els['llm-port'].value.trim();
+    if (portValue !== '' && !Number.isFinite(parseInt(portValue, 10))) {
+        bad.push('port');
+    }
+    if (!Number.isFinite(parseFloat(els['llm-timeout'].value))) {
+        bad.push('timeout');
+    }
+    if (!Number.isFinite(parseFloat(els['llm-temperature'].value))) {
+        bad.push('temperature');
+    }
+    if (!Number.isFinite(parseInt(els['llm-max-concurrent'].value, 10))) {
+        bad.push('max_concurrent');
+    }
+    if (bad.length) {
+        showError('llm-error', 'INVALID NUMERIC VALUE(S): ' + bad.join(', '));
+        return;
+    }
+
+    const saveBtn = document.getElementById('llm-save-btn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+    }
+
+    try {
+        const response = await fetch('/api/v1/config/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ llm: buildLlmPayload(els) })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            hideError('llm-error');
+            const successDiv = document.getElementById('llm-success');
+            if (successDiv) {
+                successDiv.textContent = data.message || 'LLM settings saved successfully';
+                successDiv.style.display = 'block';
+                setTimeout(() => { successDiv.style.display = 'none'; }, 3000);
+            }
+            Toast.success('LLM settings saved successfully');
+            clearLlmTestStatus();
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData.detail || errorData.message || 'Failed to save LLM settings';
+            showError('llm-error', errorMessage);
+            Toast.error(errorMessage);
+        }
+    } catch (error) {
+        console.error('LLM save error:', error);
+        showError('llm-error', 'Network error. Please try again.');
+        Toast.error('Network error. Please try again.');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save LLM Settings';
+        }
+    }
+}
+
 // ── Utility Functions ──────────────────────────────────────────
 
 /**
@@ -495,6 +705,24 @@ function initProfilePage() {
             closeCreateApiKeyModal();
         }
     });
+
+    // ── LLM Settings: Save & Test Connection ──────────────────────────────────────────
+    const llmSaveBtn = document.getElementById('llm-save-btn');
+    if (llmSaveBtn) {
+        llmSaveBtn.addEventListener('click', saveLlmSettings);
+    }
+
+    const llmTestBtn = document.getElementById('llm-test-btn');
+    if (llmTestBtn) {
+        llmTestBtn.addEventListener('click', testLlmConnection);
+    }
+
+    // Clear stale LLM test results when LLM fields change
+    const llmPanel = document.getElementById('panel-llm');
+    if (llmPanel) {
+        llmPanel.addEventListener('input', clearLlmTestStatus);
+        llmPanel.addEventListener('change', clearLlmTestStatus);
+    }
 
     // ── Accessibility: Dyslexia Font Toggle ──────────────────────────────────────────
     const dyslexiaToggle = document.getElementById('dyslexia-font-toggle');

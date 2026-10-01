@@ -396,6 +396,7 @@ async def _run_ml_task(
     model_name: str,
     ml_class_type: str | None = None,
     captured_ctx: CapturedContext | None = None,
+    user_id: int | None = None,
 ) -> None:
     """Execute ML training or prediction pipeline.
 
@@ -431,6 +432,7 @@ async def _run_ml_task(
                 "model_name": model_name,
                 "task_name": task_name,
                 "ml_class_type": ml_class_type,
+                "user_id": user_id,
             },
         )
         context.set("binary_id", binary_id)
@@ -472,7 +474,7 @@ async def _run_ml_task(
                         )
                         functions = training_request.get_functions() or []
                         if functions:
-                            await FunctionRepository.save(model_name, functions)
+                            await FunctionRepository.save(model_name, functions, user_id=user_id)
                         logger.info(
                             "Functions saved for model '{}' ({} functions)",
                             model_name,
@@ -500,6 +502,7 @@ async def _run_ml_task(
                             model_name=model_name,
                             data=prediction_data,
                         )
+                        prediction_request.user_id = user_id
                         await PredictionService.save_prediction_functions(prediction_request, predictions)
                         logger.info(
                             "Predictions saved for task '{}' ({} predictions)",
@@ -724,6 +727,7 @@ async def execute_task(
             request_values.model_name or "",
             request_values.ml_class_type,
             captured_ctx,
+            current_user.id,
         )
 
     logger.info(

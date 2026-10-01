@@ -50,6 +50,7 @@ class PredictionRepository:
                             task_name=pred.task_name,
                             model_name=pred.model_name,
                             pred=preds,
+                            user_id=pred.user_id,
                         ),
                     )
                 except SecureDeserializationError:
@@ -103,7 +104,7 @@ class PredictionRepository:
                 logger.exception("Failed to deserialize prediction for task '{}'", task_name)
                 return None
 
-            return PredictionResult(task_name=task_name, model_name=model_name, pred=prediction_data)
+            return PredictionResult(task_name=task_name, model_name=model_name, pred=prediction_data, user_id=row.user_id)
         except sa_exc.SQLAlchemyError:
             logger.exception("Failed to retrieve predictions for task '{}'", task_name)
             return None
@@ -111,7 +112,7 @@ class PredictionRepository:
             await close_async_session(session)
 
     @staticmethod
-    async def save(name: str, model_name: str, functions: list[Any]) -> None:
+    async def save(name: str, model_name: str, functions: list[Any], user_id: int | None = None) -> None:
         """Save or update predictions in the database.
 
         Uses SQLAlchemy 2.0's on_conflict_do_update() for efficient upserts
@@ -121,6 +122,7 @@ class PredictionRepository:
             name: Name of the task.
             model_name: Name of the model used.
             functions: List of function predictions to save.
+            user_id: Owner of the prediction (None for legacy/unowned).
 
         """
         session: AsyncSession = await get_async_session("predictions")
@@ -134,6 +136,7 @@ class PredictionRepository:
                 task_name=name,
                 model_name=model_name,
                 functions_data=functions_serialized,
+                user_id=user_id,
                 created_at=now,
                 modified_at=now,
             )
@@ -261,6 +264,58 @@ class PredictionRepository:
             await session.rollback()
             logger.exception("Failed to delete predictions for model '{}'", model_name)
             raise
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
+    async def get_owner_by_task(task_name: str) -> int | None:
+        """Return the owner (user_id) of a prediction by task name only.
+
+        Args:
+            task_name: Name of the task.
+
+        Returns:
+            The owning user_id, or None if the prediction does not exist
+            or is unowned/legacy.
+
+        """
+        session: AsyncSession = await get_async_session("predictions")
+        try:
+            result = await session.execute(
+                select(Prediction.user_id).where(Prediction.task_name == task_name),
+            )
+            return result.scalars().first()
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to retrieve owner of prediction for task '{}'", task_name)
+            return None
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
+    async def get_owner(task_name: str, model_name: str) -> int | None:
+        """Return the owner (user_id) of a prediction without deserializing it.
+
+        Args:
+            task_name: Name of the task.
+            model_name: Name of the model.
+
+        Returns:
+            The owning user_id, or None if the prediction does not exist
+            or is unowned/legacy.
+
+        """
+        session: AsyncSession = await get_async_session("predictions")
+        try:
+            result = await session.execute(
+                select(Prediction.user_id).where(
+                    Prediction.task_name == task_name,
+                    Prediction.model_name == model_name,
+                ),
+            )
+            return result.scalar_one_or_none()
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to retrieve owner of prediction for task '{}'", task_name)
+            return None
         finally:
             await close_async_session(session)
 

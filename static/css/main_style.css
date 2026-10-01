@@ -118,6 +118,17 @@
     letter-spacing: 0.06em;
 }
 
+/* Stat value loading state — subtle pulse while stats are fetched */
+.stat-value.is-loading {
+    color: var(--text-dim);
+    animation: stat-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes stat-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
 /* ── Feature Cards ──────────────────────────────────────────── */
 .feature-cards {
     display: grid;

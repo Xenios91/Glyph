@@ -19,6 +19,19 @@ const scanErrorMessage = document.getElementById('scan-error-message');
 const contextModal = document.getElementById('context-modal');
 const modalCloseBtn = document.getElementById('modal-close-btn');
 
+// Stored scan results banner elements
+const storedResultsBanner = document.getElementById('stored-results-banner');
+const storedResultsText = document.getElementById('stored-results-text');
+const viewStoredBtn = document.getElementById('view-stored-btn');
+const clearStoredBtn = document.getElementById('clear-stored-btn');
+const deleteStoredBtn = document.getElementById('delete-stored-btn');
+
+// LLM analysis elements
+const llmCheckBtn = document.getElementById('llm-check-btn');
+const llmModal = document.getElementById('llm-modal');
+const llmModalCloseBtn = document.getElementById('llm-modal-close-btn');
+const llmModalRetryBtn = document.getElementById('llm-modal-retry-btn');
+
 // Severity count elements
 const criticalCountEl = document.getElementById('critical-count');
 const highCountEl = document.getElementById('high-count');
@@ -28,11 +41,27 @@ const totalCountEl = document.getElementById('total-count');
 const totalScannedEl = document.getElementById('total-scanned');
 const scanTargetNameEl = document.getElementById('scan-target-name');
 
-// ── State ─────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────
 
 let availableModels = [];
 let availablePredictions = [];
 let availableBinaries = [];
+
+// Last scan report data (findings are sent to the LLM endpoint from here)
+let lastScanData = null;
+// Cached stored scan reports keyed by target name (filled on target selection)
+let storedReportCache = {};
+// True while a scan request is in flight (prevents concurrent scans/LLM runs)
+let scanInProgress = false;
+// Per-row LLM results keyed by row index:
+// {status, analysis, error, model, source: 'stored'|'fresh', modifiedAt?, elapsedMs?}
+let llmResults = {};
+// Row indices whose LLM analysis is currently in flight (spinner shown in the LLM cell)
+let llmPendingIndices = new Set();
+// Row index currently open in the LLM modal
+let llmModalOpenIndex = null;
+// True when the current target has stored LLM analysis results in the DB.
+let hasStoredLlmResults = false;
 
 // ── Initialization ────────────────────────────────────────────
 
@@ -106,6 +135,7 @@ function selectBinaryTarget(binary) {
         if (targetSelect) {
             targetSelect.value = String(binary.id);
             updateScanButtonState();
+            checkStoredResults();
         }
     }, 100);
 }
@@ -123,6 +153,7 @@ function setupEventListeners() {
     if (targetSelect) {
         targetSelect.addEventListener('change', () => {
             updateScanButtonState();
+            checkStoredResults();
         });
     }
 
@@ -143,10 +174,51 @@ function setupEventListeners() {
         });
     }
 
-    // Close modal on Escape key
+    if (llmCheckBtn) {
+        llmCheckBtn.addEventListener('click', runLLMAnalysis);
+    }
+
+    if (llmModalCloseBtn) {
+        llmModalCloseBtn.addEventListener('click', closeLlmModal);
+    }
+
+    // Close LLM modal on background click
+    if (llmModal) {
+        llmModal.addEventListener('click', (e) => {
+            if (e.target === llmModal) {
+                closeLlmModal();
+            }
+        });
+    }
+
+    if (llmModalRetryBtn) {
+        llmModalRetryBtn.addEventListener('click', () => {
+            if (llmModalOpenIndex !== null) {
+                retryLlmFinding(llmModalOpenIndex);
+            }
+        });
+    }
+
+    if (viewStoredBtn) {
+        viewStoredBtn.addEventListener('click', viewStoredResults);
+    }
+
+    if (clearStoredBtn) {
+        clearStoredBtn.addEventListener('click', clearStoredResults);
+    }
+
+    if (deleteStoredBtn) {
+        deleteStoredBtn.addEventListener('click', deleteStoredResults);
+    }
+
+    // Close modals on Escape key
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && contextModal && contextModal.style.display !== 'none') {
+        if (e.key !== 'Escape') return;
+        if (contextModal && contextModal.style.display !== 'none') {
             closeModal();
+        }
+        if (llmModal && llmModal.style.display !== 'none') {
+            closeLlmModal();
         }
     });
 
@@ -169,6 +241,8 @@ function updateTargetDropdown(type) {
     targetSelect.disabled = true;
     targetSelect.innerHTML = '<option value="">Loading...</option>';
     scanBtn.disabled = true;
+    updateLlmButtonState();
+    updateViewStoredButtonState();
 
     let targets;
     if (type === 'model') {
@@ -184,6 +258,7 @@ function updateTargetDropdown(type) {
     if (targets.length === 0) {
         targetSelect.innerHTML = '<option value="">No targets available</option>';
         targetSelect.disabled = true;
+        updateViewStoredButtonState();
         return;
     }
 
@@ -202,17 +277,106 @@ function updateTargetDropdown(type) {
     });
 
     targetSelect.disabled = false;
+    updateLlmButtonState();
+    updateViewStoredButtonState();
+}
+
+/**
+ * True when a scan has already been performed for the currently selected
+ * target, either a fresh scan in this session or a stored report that has
+ * been loaded for the target (freshly scanned or restored from the database).
+ * The scan button is disabled in that state to avoid redundant scans; it is
+ * re-enabled when the stored results are deleted or the target changes.
+ * @returns {boolean} Whether the current target has already been scanned.
+ */
+function hasScannedCurrentTarget() {
+    return isCurrentTargetResultsLoaded() || hasFindingsForCurrentTarget();
 }
 
 /**
  * Update scan button state based on target selection.
+ * The button is disabled while no target is selected, while a scan is in
+ * flight, and once a scan has already been performed for the selected target
+ * (its results are on screen from a fresh scan or a restored stored report).
+ * The "Check with LLM" button follows the same target-selection rule.
  */
 function updateScanButtonState() {
     if (!scanBtn || !targetSelect) return;
-    scanBtn.disabled = !targetSelect.value;
+    scanBtn.disabled =
+        scanInProgress || !targetSelect.value || hasScannedCurrentTarget();
+    updateLlmButtonState();
+    updateViewStoredButtonState();
 }
 
 // ── Scan Execution ────────────────────────────────────────────
+
+/**
+ * Determine the display name of the currently selected target.
+ * @returns {string|null} Target name, or null when no target is selected.
+ */
+function getCurrentTargetName() {
+    if (!targetTypeSelect || !targetSelect || !targetSelect.value) return null;
+
+    const targetType = targetTypeSelect.value;
+    const targetValue = targetSelect.value;
+
+    if (targetType === 'binary') {
+        const binary = availableBinaries.find(b => b.id === parseInt(targetValue, 10));
+        return binary ? binary.name : `Binary ${targetValue}`;
+    }
+    return targetValue;
+}
+
+/**
+ * True when the last scan produced findings for the currently selected target.
+ * @returns {boolean} Whether findings are available for the current target.
+ */
+function hasFindingsForCurrentTarget() {
+    return !!(
+        lastScanData &&
+        Array.isArray(lastScanData.results) &&
+        lastScanData.results.length > 0 &&
+        lastScanData.model_name === getCurrentTargetName()
+    );
+}
+
+/**
+ * Perform a scan request for the currently selected target.
+ * @returns {Promise<{data: Object, targetName: string}>} Scan report data and display name.
+ */
+async function performScan() {
+    if (!targetSelect || !targetSelect.value) {
+        throw new Error('No target selected');
+    }
+
+    const targetType = targetTypeSelect ? targetTypeSelect.value : 'model';
+    const targetValue = targetSelect.value;
+    const targetName = getCurrentTargetName() || targetValue;
+
+    let body;
+    if (targetType === 'binary') {
+        body = { binaryId: parseInt(targetValue, 10) };
+    } else if (targetType === 'model') {
+        body = { modelName: targetValue };
+    } else {
+        body = { taskName: targetValue };
+    }
+
+    const response = await fetch('/api/v1/dangerous-functions/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        const errorMsg = result.error?.message || `Scan failed (${response.status})`;
+        throw new Error(errorMsg);
+    }
+
+    return { data: result.data, targetName };
+}
 
 /**
  * Run the dangerous function scan.
@@ -220,51 +384,26 @@ function updateScanButtonState() {
 async function runScan() {
     if (!targetSelect || !targetSelect.value) return;
 
-    const targetType = targetTypeSelect ? targetTypeSelect.value : 'model';
-    const targetValue = targetSelect.value;
-
     // UI: Show loading state
     setScanLoading(true);
+    scanInProgress = true;
     hideResults();
     hideError();
-
-    let body;
-    let targetName;
-
-    if (targetType === 'binary') {
-        body = { binaryId: parseInt(targetValue, 10) };
-        // Find the binary name for display
-        const binary = availableBinaries.find(b => b.id === parseInt(targetValue, 10));
-        targetName = binary ? binary.name : `Binary ${targetValue}`;
-    } else if (targetType === 'model') {
-        body = { modelName: targetValue };
-        targetName = targetValue;
-    } else {
-        body = { taskName: targetValue };
-        targetName = targetValue;
-    }
+    hideStoredResultsBanner();
+    resetLlmState();
 
     try {
-        const response = await fetch('/api/v1/dangerous-functions/scan', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            const errorMsg = result.error?.message || `Scan failed (${response.status})`;
-            throw new Error(errorMsg);
-        }
-
-        const data = result.data;
+        const { data, targetName } = await performScan();
         displayResults(data, targetName);
-
+        // The fresh scan just overwrote the stored report for this target
+        storedReportCache[targetName] = data;
+        // Re-evaluate the banner now that this target has a stored report
+        checkStoredResults();
     } catch (error) {
         console.error('Scan failed:', error);
         showScanError(error.message || 'Scan failed. Please try again.');
     } finally {
+        scanInProgress = false;
         setScanLoading(false);
     }
 }
@@ -276,7 +415,12 @@ async function runScan() {
 function setScanLoading(loading) {
     if (!scanBtn) return;
 
-    scanBtn.disabled = loading;
+    if (loading) {
+        scanBtn.disabled = true;
+    } else {
+        updateScanButtonState();
+    }
+
     const btnText = scanBtn.querySelector('.btn-text');
     const btnLoading = scanBtn.querySelector('.btn-loading');
 
@@ -303,11 +447,23 @@ function displayResults(data, targetName) {
 
     const results = data.results || [];
 
+    // New scan: reset LLM state (stored results are re-fetched below)
+    lastScanData = data;
+    llmResults = {};
+    llmPendingIndices.clear();
+    llmModalOpenIndex = null;
+
+    // A scan has now been performed (or a stored report restored) for this
+    // target, so the Scan button must be disabled until the target changes
+    // or the stored results are deleted.
+    updateScanButtonState();
+
     if (results.length === 0) {
         // No dangerous functions found
         scanSummary.style.display = '';
         scanResultsContainer.style.display = 'none';
         noResultsMessage.style.display = '';
+        updateLlmButtonState();
         return;
     }
 
@@ -325,6 +481,13 @@ function displayResults(data, targetName) {
         });
     }
 
+    // Refresh LLM badges (placeholders first; stored results fill in asynchronously)
+    renderLlmBadges();
+    updateLlmButtonState();
+
+    // Pre-populate badges from stored LLM results for this target (non-blocking)
+    loadStoredLlmResults(data.model_name);
+
     // Initialize pagination
     const paginationEl = document.getElementById('scan-results-pagination');
     if (paginationEl) {
@@ -338,6 +501,269 @@ function displayResults(data, targetName) {
         });
         pagination.init();
     }
+}
+
+// ── Stored Scan Results ───────────────────────────────────────
+
+/**
+ * Check whether the currently selected target has stored scan results and
+ * show the banner when it does. When the target has a stored report but no
+ * scan results are currently displayed on the page, the stored report (and
+ * its stored LLM analysis results) is displayed immediately, so results
+ * appear dynamically on target selection instead of only after a page
+ * refresh or an explicit click.
+ */
+async function checkStoredResults() {
+    const targetName = getCurrentTargetName();
+    if (!targetName) {
+        hideStoredResultsBanner();
+        updateViewStoredButtonState();
+        return;
+    }
+
+    let report = storedReportCache[targetName];
+    if (!report) {
+        try {
+            const response = await fetch(
+                `/api/v1/dangerous-functions/scan-results?target_name=${encodeURIComponent(targetName)}`
+            );
+            if (!response.ok) {
+                updateViewStoredButtonState();
+                return;
+            }
+            const result = await response.json();
+            report = result.data || null;
+            storedReportCache[targetName] = report;
+        } catch (error) {
+            console.warn('Failed to check stored scan results:', error);
+            updateViewStoredButtonState();
+            return;
+        }
+    }
+
+    // A target may have been changed while the request was in flight
+    if (getCurrentTargetName() !== targetName) return;
+
+    // The banner shows whenever a stored scan report exists for the target,
+    // even when the report has no findings (a zero-finding scan is still
+    // worth restoring later).
+    if (!report) {
+        hideStoredResultsBanner();
+        updateViewStoredButtonState();
+        return;
+    }
+
+    if (storedResultsText) {
+        storedResultsText.textContent =
+            `Stored scan results available for this target ` +
+            `(${report.total_found || 0} finding${(report.total_found || 0) === 1 ? '' : 's'}).`;
+    }
+    if (storedResultsBanner) storedResultsBanner.style.display = '';
+
+    // Decide whether "Clear LLM Results" is actionable for this target.
+    await refreshStoredLlmFlag(targetName);
+
+    // Dynamically show the stored scan results (and their LLM analysis
+    // badges) as soon as the target is selected. If results for this target
+    // are already on screen (e.g., right after a fresh scan or a manual
+    // "View Stored Results"), skip the re-render to avoid a flicker.
+    if (!hasFindingsForCurrentTarget()) {
+        displayResults(report, targetName);
+    }
+
+    // The stored report is now on screen (or was already), so the
+    // "View Stored Results" button has nothing left to load.
+    updateViewStoredButtonState();
+}
+
+/**
+ * Display the cached stored scan results for the current target.
+ */
+function viewStoredResults() {
+    const targetName = getCurrentTargetName();
+    const report = targetName ? storedReportCache[targetName] : null;
+    if (!report || !Array.isArray(report.results)) return;
+    displayResults(report, targetName);
+    // The stored report is now on screen, so the "View Stored Results"
+    // button no longer has anything to load.
+    updateViewStoredButtonState();
+    // The stored report is still in the database, so re-check the banner
+    // instead of hiding it.
+    checkStoredResults();
+}
+
+/**
+ * True when the results currently displayed on the page belong to the
+ * currently selected target (from a fresh scan or a loaded stored report).
+ * @returns {boolean} Whether the current target's results are on screen.
+ */
+function isCurrentTargetResultsLoaded() {
+    const targetName = getCurrentTargetName();
+    return !!(targetName && lastScanData && lastScanData.model_name === targetName);
+}
+
+/**
+ * Enable the "View Stored Results" button only while the current target has
+ * a stored report whose results are not already displayed on the page. Once
+ * the stored results have been loaded (or a fresh scan ran for the target),
+ * the button is disabled until the target changes or the results are
+ * cleared/deleted.
+ */
+function updateViewStoredButtonState() {
+    if (!viewStoredBtn) return;
+    const targetName = getCurrentTargetName();
+    const hasStoredReport = !!(targetName && storedReportCache[targetName]);
+    viewStoredBtn.disabled =
+        scanInProgress || !hasStoredReport || isCurrentTargetResultsLoaded();
+}
+
+/**
+ * Clear the stored LLM analysis results for the current target.
+ *
+ * Only the LLM results are removed; the stored scan report stays in place,
+ * so the banner is re-checked instead of being hidden outright.
+ */
+async function clearStoredResults() {
+    const targetName = getCurrentTargetName();
+    if (!targetName || !clearStoredBtn) return;
+
+    const btnText = clearStoredBtn.querySelector('.btn-text');
+    const btnLoading = clearStoredBtn.querySelector('.btn-loading');
+    clearStoredBtn.disabled = true;
+    if (btnText) btnText.style.display = 'none';
+    if (btnLoading) btnLoading.style.display = '';
+
+    try {
+        const response = await fetch(
+            `/api/v1/dangerous-functions/llm-results?target_name=${encodeURIComponent(targetName)}`,
+            { method: 'DELETE' }
+        );
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        // Drop the stored LLM results from memory and reset the row badges.
+        if (lastScanData && lastScanData.model_name === targetName) {
+            llmResults = {};
+            renderLlmBadges();
+            updateLlmButtonState();
+        }
+        // The LLM results are gone; the scan report remains, so keep the
+        // banner but disable Clear until new LLM results exist.
+        hasStoredLlmResults = false;
+        updateClearLlmButtonState();
+        // The scan report is untouched, so re-check the banner state.
+        checkStoredResults();
+    } catch (error) {
+        console.error('Failed to clear stored LLM results:', error);
+        showScanError('Failed to clear stored LLM results. Please try again.');
+    } finally {
+        // Re-derive the button state: disabled once the results are gone,
+        // re-enabled if the clear request failed and results still exist.
+        updateClearLlmButtonState();
+        if (btnText) btnText.style.display = '';
+        if (btnLoading) btnLoading.style.display = 'none';
+    }
+}
+
+/**
+ * Delete the stored scan report and LLM results for the current target.
+ *
+ * Both the scan report and the stored LLM results are removed, and the
+ * results display is reset so no stale data remains on the page.
+ */
+async function deleteStoredResults() {
+    const targetName = getCurrentTargetName();
+    if (!targetName || !deleteStoredBtn) return;
+
+    const btnText = deleteStoredBtn.querySelector('.btn-text');
+    const btnLoading = deleteStoredBtn.querySelector('.btn-loading');
+    deleteStoredBtn.disabled = true;
+    if (btnText) btnText.style.display = 'none';
+    if (btnLoading) btnLoading.style.display = '';
+
+    try {
+        const response = await fetch(
+            `/api/v1/dangerous-functions/scan-results?target_name=${encodeURIComponent(targetName)}`,
+            { method: 'DELETE' }
+        );
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        delete storedReportCache[targetName];
+        // The scan report and LLM results are gone, so reset the in-memory
+        // state and clear the results display for this target.
+        if (lastScanData && lastScanData.model_name === targetName) {
+            lastScanData = null;
+            llmResults = {};
+            llmModalOpenIndex = null;
+            hideResults();
+            updateLlmButtonState();
+        }
+        hasStoredLlmResults = false;
+        updateClearLlmButtonState();
+        hideStoredResultsBanner();
+        // The stored report is gone, so a new scan is possible again for this
+        // target: re-enable the Scan button.
+        updateScanButtonState();
+    } catch (error) {
+        console.error('Failed to delete stored scan results:', error);
+        showScanError('Failed to delete stored scan results. Please try again.');
+    } finally {
+        deleteStoredBtn.disabled = false;
+        if (btnText) btnText.style.display = '';
+        if (btnLoading) btnLoading.style.display = 'none';
+    }
+}
+
+/**
+ * Hide the stored results banner.
+ */
+function hideStoredResultsBanner() {
+    if (storedResultsBanner) storedResultsBanner.style.display = 'none';
+    updateViewStoredButtonState();
+}
+
+/**
+ * Refresh whether the current target has stored LLM results and update the
+ * "Clear LLM Results" button state accordingly.
+ * @param {string} targetName - The target to check.
+ */
+async function refreshStoredLlmFlag(targetName) {
+    try {
+        const response = await fetch(
+            `/api/v1/dangerous-functions/llm-results?target_name=${encodeURIComponent(targetName)}`
+        );
+        if (!response.ok) return;
+        const result = await response.json();
+        const count = (result.data && result.data.count) || 0;
+        if (getCurrentTargetName() === targetName) {
+            hasStoredLlmResults = count > 0;
+            updateClearLlmButtonState();
+        }
+    } catch (error) {
+        console.warn('Failed to check stored LLM results:', error);
+    }
+}
+
+/**
+ * True when the current target has LLM analysis results available to clear,
+ * either stored in the database or freshly loaded in memory after an LLM
+ * analysis run (e.g., right after a scan's findings are analyzed).
+ * @returns {boolean} Whether there are LLM results to clear.
+ */
+function hasLlmResultsToClear() {
+    if (hasStoredLlmResults) return true;
+    return isCurrentTargetResultsLoaded() && Object.keys(llmResults).length > 0;
+}
+
+/**
+ * Enable the "Clear LLM Results" button whenever the current target has LLM
+ * analysis results to clear — stored in the database or freshly loaded in
+ * memory after a scan's findings are analyzed.
+ */
+function updateClearLlmButtonState() {
+    if (!clearStoredBtn) return;
+    clearStoredBtn.disabled = !hasLlmResultsToClear();
 }
 
 /**
@@ -359,6 +785,7 @@ function createResultRow(result, index) {
         <td>${escapeHtml(result.function_name)}</td>
         <td>${escapeHtml(result.containing_function)}</td>
         <td><span class="severity-badge ${severityClass}">${escapeHtml(result.severity)}</span></td>
+        <td class="llm-cell"><span class="llm-badge llm-badge-placeholder">&ndash;</span></td>
     `;
 
     // Make entire row clickable
@@ -431,6 +858,439 @@ function closeModal() {
     }
 }
 
+// ── LLM Analysis ──────────────────────────────────────
+
+/**
+ * Reset LLM state at the start of a new scan.
+ */
+function resetLlmState() {
+    lastScanData = null;
+    llmResults = {};
+    llmPendingIndices.clear();
+    llmModalOpenIndex = null;
+    updateLlmButtonState();
+}
+
+/**
+ * True when LLM analysis results are already available for the findings
+ * currently displayed for the selected target (in memory, whether stored or
+ * freshly analyzed). Only successful analyses count as available results;
+ * failed analyses leave the button enabled so the run can be retried.
+ * @returns {boolean} Whether LLM results are available for the current target.
+ */
+function hasLlmResultsForCurrentTarget() {
+    if (!isCurrentTargetResultsLoaded()) return false;
+    return Object.values(llmResults).some((entry) => entry && entry.status === 'success');
+}
+
+/**
+ * Enable the "Check with LLM" button when a target is selected or the last
+ * scan produced findings for that target — unless LLM results are already
+ * available for the current target, in which case the button is disabled.
+ * Clicking it runs a scan first when no results are available yet for the
+ * selected target.
+ */
+function updateLlmButtonState() {
+    if (!llmCheckBtn) return;
+    const hasTarget = !!(targetSelect && targetSelect.value);
+    llmCheckBtn.disabled =
+        scanInProgress ||
+        hasLlmResultsForCurrentTarget() ||
+        !(hasFindingsForCurrentTarget() || hasTarget);
+}
+
+/**
+ * Set the LLM button loading state (reuses the btn-text/btn-loading swap pattern).
+ * @param {boolean} loading - Whether LLM analysis is in progress.
+ */
+function setLlmLoading(loading) {
+    if (!llmCheckBtn) return;
+
+    const btnText = llmCheckBtn.querySelector('.btn-text');
+    const btnLoading = llmCheckBtn.querySelector('.btn-loading');
+
+    if (btnText) btnText.style.display = loading ? 'none' : '';
+    if (btnLoading) btnLoading.style.display = loading ? '' : 'none';
+
+    if (loading) {
+        llmCheckBtn.disabled = true;
+    } else {
+        updateLlmButtonState();
+    }
+}
+
+/**
+ * Format an ISO timestamp as "YYYY-MM-DD HH:MM UTC" for tooltips/labels.
+ * @param {string|undefined} iso - ISO 8601 timestamp.
+ * @returns {string}
+ */
+function formatUtcTimestamp(iso) {
+    if (!iso) return 'unknown time';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return String(iso);
+    const pad = (n) => String(n).padStart(2, '0');
+    return (
+        `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ` +
+        `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`
+    );
+}
+
+/**
+ * Fetch stored LLM results for a target and fill matching row badges.
+ * Non-fatal: on failure the placeholder badges stay in place.
+ * @param {string} targetName - The scanned target name (persistence key).
+ */
+async function loadStoredLlmResults(targetName) {
+    if (!targetName) return;
+    const expectedScan = lastScanData;
+
+    try {
+        const response = await fetch(
+            `/api/v1/dangerous-functions/llm-results?target_name=${encodeURIComponent(targetName)}`
+        );
+        if (!response.ok) return;
+
+        const result = await response.json();
+        const storedResults = (result.data && result.data.results) || [];
+
+        // Bail out if a newer scan has replaced the current one while fetching
+        if (expectedScan !== lastScanData) return;
+
+        storedResults.forEach((entry) => {
+            const index = (expectedScan.results || []).findIndex(
+                (r) =>
+                    r.function_name === entry.function_name &&
+                    r.containing_function === entry.containing_function &&
+                    String(r.entrypoint ?? '') === String(entry.entrypoint ?? '')
+            );
+            if (index === -1) return;
+
+            llmResults[index] = {
+                status: entry.status,
+                analysis: entry.analysis || '',
+                error: entry.error || '',
+                model: entry.model_name || '',
+                source: 'stored',
+                modifiedAt: entry.modified_at,
+                elapsedMs: entry.elapsed_ms,
+            };
+        });
+
+        renderLlmBadges();
+        // Stored results just appeared for the on-screen target, so the
+        // "Clear LLM Results" button must reflect that dynamically.
+        updateClearLlmButtonState();
+        // LLM results are now available for the current target, so the
+        // "Check with LLM" button must be disabled dynamically.
+        updateLlmButtonState();
+    } catch (error) {
+        console.warn('Failed to load stored LLM results:', error);
+    }
+}
+
+/**
+ * Render the LLM badge in each results row based on llmResults.
+ */
+function renderLlmBadges() {
+    if (!scanResultsBody) return;
+
+    scanResultsBody.querySelectorAll('tr[data-index]').forEach((row) => {
+        const index = Number(row.getAttribute('data-index'));
+        const cell = row.querySelector('.llm-cell');
+        if (!cell) return;
+
+        const entry = llmResults[index];
+        if (!entry) {
+            if (llmPendingIndices.has(index)) {
+                // Analysis for this finding is in flight: show a spinner so
+                // the user can see the row is being processed.
+                cell.innerHTML =
+                    '<span class="llm-badge llm-badge-pending" role="status" aria-label="LLM analysis in progress">' +
+                    '<span class="llm-spinner" aria-hidden="true"></span>Analyzing&hellip;</span>';
+            } else {
+                cell.innerHTML = '<span class="llm-badge llm-badge-placeholder">&ndash;</span>';
+            }
+            return;
+        }
+
+        const isSuccess = entry.status === 'success';
+        const finding =
+            lastScanData && Array.isArray(lastScanData.results) ? lastScanData.results[index] : null;
+        const findingName = finding && finding.function_name ? finding.function_name : '';
+        const badge = document.createElement('button');
+        badge.type = 'button';
+        badge.className = `llm-badge ${isSuccess ? 'llm-badge-success' : 'llm-badge-error'}`;
+        badge.textContent = isSuccess ? 'AI \u2713' : 'AI !';
+        badge.title =
+            entry.source === 'stored'
+                ? `Stored ${formatUtcTimestamp(entry.modifiedAt)}`
+                : 'New - just analyzed';
+        badge.setAttribute('aria-label', isSuccess
+            ? `View LLM analysis for ${findingName}`
+            : `View LLM analysis error for ${findingName}`);
+        badge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openLlmModal(index);
+        });
+
+        cell.innerHTML = '';
+        cell.appendChild(badge);
+    });
+}
+
+/**
+ * Send all findings from the last scan to the LLM analysis endpoint.
+ * When no scan has been run yet for the currently selected target, a scan is
+ * performed first so the user can go straight from target selection to LLM
+ * analysis.
+ */
+async function runLLMAnalysis() {
+    // No scan results for the selected target yet: run a scan first
+    if (!hasFindingsForCurrentTarget()) {
+        if (!targetSelect || !targetSelect.value || scanInProgress) return;
+
+        setLlmLoading(true);
+        hideError();
+        scanInProgress = true;
+        resetLlmState();
+
+        try {
+            const { data, targetName } = await performScan();
+            displayResults(data, targetName);
+        } catch (error) {
+            console.error('Scan failed:', error);
+            showScanError(error.message || 'Scan failed. Please try again.');
+            setLlmLoading(false);
+            return;
+        } finally {
+            scanInProgress = false;
+            updateLlmButtonState();
+        }
+
+        // The scan found nothing to analyze
+        if (!hasFindingsForCurrentTarget()) {
+            showErrorBanner(
+                'No dangerous functions were found for this target, so there is nothing to analyze with the LLM.'
+            );
+            setLlmLoading(false);
+            return;
+        }
+    }
+
+    const scanData = lastScanData;
+    const findings = scanData.results;
+
+    setLlmLoading(true);
+    hideError();
+
+    // Show a spinner in every LLM cell while the analysis is in flight
+    findings.forEach((_, index) => llmPendingIndices.add(index));
+    renderLlmBadges();
+
+    try {
+        const response = await fetch('/api/v1/dangerous-functions/llm-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                target_name: scanData.model_name,
+                save: true,
+                findings: findings,
+            }),
+        });
+
+        if (response.status === 503) {
+            showErrorBanner(
+                'LLM analysis is not configured or disabled. Enable it in Settings (LLM Analysis), then try again.'
+            );
+            return;
+        }
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const message =
+                (errorData.detail && errorData.detail.error && errorData.detail.error.message) ||
+                `LLM analysis failed (${response.status})`;
+            showErrorBanner(message);
+            return;
+        }
+
+        const result = await response.json();
+        if (scanData !== lastScanData) return; // a newer scan replaced these results
+
+        const data = result.data || {};
+        const resultsMap = data.results || {};
+        findings.forEach((_, index) => {
+            const entry = resultsMap[String(index)];
+            if (!entry) return;
+            llmResults[index] = {
+                status: entry.status,
+                analysis: entry.analysis || '',
+                error: entry.error || '',
+                model: entry.model || data.model || '',
+                source: 'fresh',
+                elapsedMs: entry.elapsed_ms,
+            };
+        });
+
+        renderLlmBadges();
+        // Fresh LLM results were just saved for the current target, so the
+        // "Clear LLM Results" button must become enabled dynamically.
+        updateClearLlmButtonState();
+
+        if (typeof Toast !== 'undefined') {
+            const succeeded = data.succeeded ?? 0;
+            const total = data.total ?? findings.length;
+            if (succeeded > 0) {
+                Toast.success(`LLM analysis complete: ${succeeded}/${total} succeeded`);
+            }
+            if (data.failed > 0) {
+                Toast.error(`${data.failed} finding(s) failed LLM analysis - click "AI !" to view details.`);
+            }
+        }
+    } catch (error) {
+        console.error('LLM analysis failed:', error);
+        showErrorBanner('LLM analysis request failed. Please try again.');
+    } finally {
+        llmPendingIndices.clear();
+        setLlmLoading(false);
+        renderLlmBadges();
+    }
+}
+
+/**
+ * Re-analyze a single finding (per-finding retry from the LLM modal).
+ * @param {number} index - Row index of the finding to retry.
+ */
+async function retryLlmFinding(index) {
+    if (!lastScanData || !Array.isArray(lastScanData.results)) return;
+    const scanData = lastScanData;
+    const finding = scanData.results[index];
+    if (!finding) return;
+
+    setLlmLoading(true);
+    llmPendingIndices.add(index);
+    renderLlmBadges();
+
+    try {
+        const response = await fetch('/api/v1/dangerous-functions/llm-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                target_name: scanData.model_name,
+                save: true,
+                findings: [finding],
+            }),
+        });
+
+        if (response.status === 503) {
+            showErrorBanner(
+                'LLM analysis is not configured or disabled. Enable it in Settings (LLM Analysis), then try again.'
+            );
+            return;
+        }
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const message =
+                (errorData.detail && errorData.detail.error && errorData.detail.error.message) ||
+                `LLM analysis failed (${response.status})`;
+            showErrorBanner(message);
+            return;
+        }
+
+        const result = await response.json();
+        if (scanData !== lastScanData) return; // a newer scan replaced these results
+
+        const data = result.data || {};
+        const entry = (data.results || {})['0'];
+        if (!entry) return;
+
+        llmResults[index] = {
+            status: entry.status,
+            analysis: entry.analysis || '',
+            error: entry.error || '',
+            model: entry.model || data.model || '',
+            source: 'fresh',
+            elapsedMs: entry.elapsed_ms,
+        };
+
+        renderLlmBadges();
+        updateClearLlmButtonState();
+
+        // Refresh the modal if it is still open on this row
+        if (llmModalOpenIndex === index) {
+            openLlmModal(index);
+        }
+    } catch (error) {
+        console.error('LLM retry failed:', error);
+        showErrorBanner('LLM analysis request failed. Please try again.');
+    } finally {
+        llmPendingIndices.delete(index);
+        setLlmLoading(false);
+        renderLlmBadges();
+    }
+}
+
+/**
+ * Open the LLM analysis modal for a row.
+ * @param {number} index - Row index of the finding.
+ */
+function openLlmModal(index) {
+    if (!llmModal) return;
+    const entry = llmResults[index];
+    const finding =
+        lastScanData && Array.isArray(lastScanData.results) ? lastScanData.results[index] : null;
+    if (!entry || !finding) return;
+
+    llmModalOpenIndex = index;
+
+    const elFunctionName = document.getElementById('llm-modal-function-name');
+    const elContaining = document.getElementById('llm-modal-containing-function');
+    const elSource = document.getElementById('llm-modal-source');
+    const elModel = document.getElementById('llm-modal-model');
+    const elElapsed = document.getElementById('llm-modal-elapsed');
+    const errorSection = document.getElementById('llm-modal-error-section');
+    const elErrorMessage = document.getElementById('llm-modal-error-message');
+    const analysisSection = document.getElementById('llm-modal-analysis-section');
+    const elAnalysis = document.getElementById('llm-modal-analysis');
+
+    if (elFunctionName) elFunctionName.textContent = finding.function_name;
+    if (elContaining) elContaining.textContent = finding.containing_function;
+    if (elSource) {
+        elSource.textContent =
+            entry.source === 'stored'
+                ? `Stored ${formatUtcTimestamp(entry.modifiedAt)}`
+                : 'New - just analyzed';
+    }
+    if (elModel) elModel.textContent = entry.model || 'unknown';
+    if (elElapsed) elElapsed.textContent = entry.elapsedMs != null ? `${entry.elapsedMs} ms` : 'N/A';
+
+    const isSuccess = entry.status === 'success';
+    if (errorSection) errorSection.style.display = isSuccess ? 'none' : '';
+    if (analysisSection) analysisSection.style.display = isSuccess ? '' : 'none';
+    if (!isSuccess && elErrorMessage) elErrorMessage.textContent = entry.error || 'Unknown error';
+    if (isSuccess && elAnalysis) {
+        // Render the LLM analysis as Markdown preview. The renderer escapes
+        // all source text, so no raw HTML from the model can execute.
+        elAnalysis.innerHTML =
+            typeof renderMarkdown === 'function'
+                ? renderMarkdown(entry.analysis || '')
+                : escapeHtml(entry.analysis || '');
+    }
+
+    llmModal.style.display = 'flex';
+}
+
+/**
+ * Close the LLM analysis modal.
+ */
+function closeLlmModal() {
+    if (llmModal) {
+        llmModal.style.display = 'none';
+    }
+    llmModalOpenIndex = null;
+}
+
 // ── UI Helpers ────────────────────────────────────────────────
 
 /**
@@ -440,6 +1300,7 @@ function hideResults() {
     if (scanSummary) scanSummary.style.display = 'none';
     if (scanResultsContainer) scanResultsContainer.style.display = 'none';
     if (noResultsMessage) noResultsMessage.style.display = 'none';
+    hideStoredResultsBanner();
 }
 
 /**
@@ -448,6 +1309,15 @@ function hideResults() {
  */
 function showScanError(message) {
     hideResults();
+    if (scanErrorMessage) scanErrorMessage.textContent = message;
+    if (scanError) scanError.style.display = '';
+}
+
+/**
+ * Show the error banner without hiding existing results (for LLM failures).
+ * @param {string} message - Error message to display.
+ */
+function showErrorBanner(message) {
     if (scanErrorMessage) scanErrorMessage.textContent = message;
     if (scanError) scanError.style.display = '';
 }

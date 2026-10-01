@@ -7,6 +7,14 @@ from tests.conftest import clear_dependency_overrides, set_dependency_override
 from tests.factories import make_mock_user
 
 
+def _make_model(name: str) -> Mock:
+    """Create a mock Model ORM object (unowned/legacy row)."""
+    model = Mock()
+    model.model_name = name
+    model.user_id = None
+    return model
+
+
 class TestModelsRouter:
     """Tests for models router endpoints."""
 
@@ -16,6 +24,7 @@ class TestModelsRouter:
         """Test deleting a model successfully."""
         from app.auth.dependencies import get_current_active_user
 
+        mock_model_repo.get = AsyncMock(return_value=_make_model("test_model"))
         mock_model_repo.delete = AsyncMock()
         mock_pred_service.delete_predictions_for_model = AsyncMock()
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
@@ -63,6 +72,7 @@ class TestModelsRouter:
         mock_func.function_name = "test_func"
         mock_func.entrypoint = "0x1000"
         mock_func.tokens = "test tokens"
+        mock_func.user_id = None
         mock_func_repo.get = AsyncMock(return_value=mock_func)
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
@@ -158,11 +168,13 @@ class TestModelsRouter:
         mock_func1.function_name = "func1"
         mock_func1.entrypoint = "0x1000"
         mock_func1.tokens = "tokens1"
+        mock_func1.user_id = None
         mock_func2 = Mock()
         mock_func2.id = 2
         mock_func2.function_name = "func2"
         mock_func2.entrypoint = "0x2000"
         mock_func2.tokens = "tokens2"
+        mock_func2.user_id = None
         mock_func_repo.get_functions = AsyncMock(return_value=[mock_func1, mock_func2])
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
@@ -214,7 +226,9 @@ class TestModelsRouter:
         # model_info needs .tokens attribute
         mock_model_info = Mock()
         mock_model_info.tokens = "model tokens"
+        mock_model_info.user_id = None
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
+        mock_pred_repo.get_owner = AsyncMock(return_value=None)
         # prediction_data uses .get("tokens")
         mock_pred_repo.get_prediction_function = AsyncMock(
             return_value={
@@ -257,6 +271,7 @@ class TestModelsRouter:
         from app.auth.dependencies import get_current_active_user
 
         mock_func_repo.get = AsyncMock(return_value=None)
+        mock_pred_repo.get_owner = AsyncMock(return_value=None)
         mock_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
@@ -300,6 +315,7 @@ class TestModelsRouter:
                 "tokens": "model tokens",
             },
         )
+        mock_pred_repo.get_owner = AsyncMock(return_value=None)
         mock_pred_repo.get_prediction_function = AsyncMock(return_value=None)
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
@@ -322,12 +338,16 @@ class TestModelsRouter:
         finally:
             clear_dependency_overrides(models_client)
 
+    @patch("app.api.v1.endpoints.models.PredictionRepository")
     @patch("app.api.v1.endpoints.models.FunctionRepository")
-    def test_get_prediction_details_retrieval_error(self, mock_func_repo: Any, models_client: Any) -> None:
+    def test_get_prediction_details_retrieval_error(
+        self, mock_func_repo: Any, mock_pred_repo: Any, models_client: Any,
+    ) -> None:
         """Test getting prediction details when retrieval fails returns 400."""
         from app.auth.dependencies import get_current_active_user
 
         mock_func_repo.get = AsyncMock(side_effect=TypeError("Invalid data type"))
+        mock_pred_repo.get_owner = AsyncMock(return_value=None)
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
@@ -359,6 +379,7 @@ class TestModelsRouter:
         mock_func.function_name = "test_func"
         mock_func.entrypoint = "0x1000"
         mock_func.tokens = "test tokens"
+        mock_func.user_id = None
         mock_func_repo.get = AsyncMock(return_value=mock_func)
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
@@ -386,6 +407,7 @@ class TestModelsRouter:
         mock_func1.function_name = "func1"
         mock_func1.entrypoint = "0x1000"
         mock_func1.tokens = "tokens1"
+        mock_func1.user_id = None
         mock_func_repo.get_functions = AsyncMock(return_value=[mock_func1])
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
@@ -413,7 +435,9 @@ class TestModelsRouter:
 
         mock_model_info = Mock()
         mock_model_info.tokens = "model tokens"
+        mock_model_info.user_id = None
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
+        mock_pred_repo.get_owner = AsyncMock(return_value=None)
         mock_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
@@ -444,6 +468,9 @@ class TestModelsRouter:
         """Test deleting multiple models successfully."""
         from app.auth.dependencies import get_current_active_user
 
+        mock_model_repo.get = AsyncMock(
+            side_effect=[_make_model("model1"), _make_model("model2"), _make_model("model3")],
+        )
         mock_model_repo.delete = AsyncMock()
         mock_pred_service.delete_predictions_for_model = AsyncMock()
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
@@ -472,6 +499,9 @@ class TestModelsRouter:
         from app.auth.dependencies import get_current_active_user
 
         # First call succeeds, second raises, third succeeds
+        mock_model_repo.get = AsyncMock(
+            side_effect=[_make_model("model1"), _make_model("model2"), _make_model("model3")],
+        )
         mock_model_repo.delete = AsyncMock(side_effect=[None, Exception("DB error"), None])
         mock_pred_service.delete_predictions_for_model = AsyncMock()
         set_dependency_override(models_client, get_current_active_user, make_mock_user)

@@ -33,8 +33,33 @@
                 <span class="btn-text">Scan</span>
                 <span class="btn-loading" style="display: none;">Scanning...</span>
             </button>
+            <button type="button" id="llm-check-btn" class="cyber-btn is-magenta" disabled aria-label="Check with LLM">
+                <span class="btn-text">Check with LLM</span>
+                <span class="btn-loading" style="display: none;">Analyzing with LLM...</span>
+            </button>
             <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
         </div>
+    </div>
+
+    <!-- Stored Scan Results Banner (shown when the selected target has saved results) -->
+    <div id="stored-results-banner" class="stored-results-banner" style="display: none;">
+        <span class="stored-results-info">
+            <span class="stored-results-icon">&#128190;</span>
+            <span id="stored-results-text">Stored scan results available for this target.</span>
+        </span>
+        <span class="stored-results-actions">
+            <button type="button" id="view-stored-btn" class="cyber-btn is-success" aria-label="View stored results">
+                <span class="btn-text">View Stored Results</span>
+            </button>
+            <button type="button" id="clear-stored-btn" class="cyber-btn is-magenta" aria-label="Clear LLM results">
+                <span class="btn-text">Clear LLM Results</span>
+                <span class="btn-loading" style="display: none;">Clearing...</span>
+            </button>
+            <button type="button" id="delete-stored-btn" class="cyber-btn is-danger" aria-label="Delete stored scan results">
+                <span class="btn-text">Delete</span>
+                <span class="btn-loading" style="display: none;">Deleting...</span>
+            </button>
+        </span>
     </div>
 
     <!-- Results Summary (hidden until scan completes) -->
@@ -79,6 +104,7 @@
                         <th scope="col">Dangerous Function</th>
                         <th scope="col">Containing Function</th>
                         <th scope="col">Severity</th>
+                        <th scope="col">LLM</th>
                     </tr>
                 </thead>
                 <tbody id="scan-results-body">
@@ -151,8 +177,55 @@
     </div>
 </div>
 
+<!-- LLM Analysis Modal -->
+<div id="llm-modal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="llm-modal-title">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="llm-modal-title">LLM Analysis</h3>
+            <button type="button" class="modal-close" id="llm-modal-close-btn" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Metadata Summary Bar -->
+            <div class="finding-summary">
+                <div class="summary-item">
+                    <span class="summary-label">Dangerous Function</span>
+                    <span class="summary-value" id="llm-modal-function-name"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Containing</span>
+                    <span class="summary-value" id="llm-modal-containing-function"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Source</span>
+                    <span class="summary-value" id="llm-modal-source"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Model</span>
+                    <span class="summary-value" id="llm-modal-model"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Elapsed</span>
+                    <span class="summary-value" id="llm-modal-elapsed"></span>
+                </div>
+            </div>
+            <!-- Error Section (shown only for failed findings) -->
+            <div class="llm-error-section" id="llm-modal-error-section" style="display: none;">
+                <h4>Analysis Failed</h4>
+                <p id="llm-modal-error-message"></p>
+                <button type="button" id="llm-modal-retry-btn" class="cyber-btn is-magenta is-small">Retry This Finding</button>
+            </div>
+            <!-- Analysis Text (escaped, pre-wrap) -->
+            <div class="llm-analysis-section" id="llm-modal-analysis-section">
+                <h4>LLM Analysis</h4>
+                <div class="llm-analysis-content" id="llm-modal-analysis"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock content %}
 
 {% block scripts %}
+<script src="{{ url_for('static', path='js/markdown.js') }}" defer></script>
 <script src="{{ url_for('static', path='js/dangerous_functions.js') }}" defer></script>
 {% endblock scripts %}

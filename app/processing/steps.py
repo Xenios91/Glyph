@@ -385,6 +385,8 @@ class TrainStep(PipelineStep):
             context.error = "model_name not found in context metadata"
             return context
 
+        user_id = context.metadata.get("user_id")
+
         labels = [f.get("functionName", "Unknown") for f in filtered_functions]
 
         label_encoder = preprocessing.LabelEncoder()
@@ -409,7 +411,7 @@ class TrainStep(PipelineStep):
             joblib.dump(ml_pipeline, model_buffer)
 
             await ModelRepository.save(  # type: ignore[attr-defined]
-                model_name, encoder_buffer.getvalue(), model_buffer.getvalue()
+                model_name, encoder_buffer.getvalue(), model_buffer.getvalue(), user_id=user_id,
             )
 
             context.set("label_encoder", label_encoder)

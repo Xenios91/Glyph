@@ -3,7 +3,7 @@
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +19,7 @@ class FunctionRepository:
     """
 
     @staticmethod
-    async def save(model_name: str, functions: list[dict[str, Any]]) -> None:
+    async def save(model_name: str, functions: list[dict[str, Any]], user_id: int | None = None) -> None:
         """Save or update functions in the functions database.
 
         Uses SQLAlchemy 2.0's on_conflict_do_update() for efficient upserts
@@ -29,6 +29,7 @@ class FunctionRepository:
         Args:
             model_name: Name of the model.
             functions: List of functions to save.
+            user_id: Owner of the functions (None for legacy/unowned).
 
         """
         session: AsyncSession = await get_async_session("functions")
@@ -40,6 +41,7 @@ class FunctionRepository:
                     "function_name": function["functionName"],
                     "entrypoint": function["lowAddress"],
                     "tokens": " ".join(function["tokenList"]),
+                    "user_id": user_id,
                     "created_at": now,
                     "modified_at": now,
                 }
@@ -63,6 +65,32 @@ class FunctionRepository:
             raise
         finally:
             await close_async_session(session)
+
+    @staticmethod
+    async def get_owner_by_model(model_name: str) -> int | None:
+        """Return the owner (user_id) of a model's functions by model name.
+
+        Args:
+            model_name: Name of the model.
+
+        Returns:
+            The owning user_id, or None if no functions exist for the model
+            or they are unowned/legacy.
+
+        """
+        session: AsyncSession | None = None
+        try:
+            session = await get_async_session("functions")
+            result = await session.execute(
+                select(func.min(Function.user_id)).where(Function.model_name == model_name),
+            )
+            return result.scalar_one_or_none()
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to retrieve owner for model '{}'", model_name)
+            return None
+        finally:
+            if session is not None:
+                await close_async_session(session)
 
     @staticmethod
     async def get_functions(model_name: str) -> list[Function]:

@@ -286,8 +286,8 @@ function initConfigPage() {
             const label = document.getElementById('cpu-cores-val');
             if (label) label.textContent = value + ' cores';
         });
+        }
     }
-}
 
 // Initialize when DOM is ready using shared utility
 onDomReady(initConfigPage);

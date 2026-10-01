@@ -2,12 +2,12 @@
 set -e
 
 # Define variables for easier updates later
-GHIDRA_ZIP="ghidra_12.0.4_PUBLIC_20260303.zip"
-GHIDRA_URL="https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.0.4_build/${GHIDRA_ZIP}"
-GHIDRA_FOLDER="ghidra_12.0.4_PUBLIC"
+GHIDRA_ZIP="ghidra_12.1.4_PUBLIC_20260921.zip"
+GHIDRA_URL="https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.1.4_build/${GHIDRA_ZIP}"
+GHIDRA_FOLDER="ghidra_12.1.4_PUBLIC"
 TARGET_DIR="/opt/Ghidra"
 
-echo "--- Downloading Ghidra 12.0.4 ---"
+echo "--- Downloading Ghidra 12.1.4 ---"
 wget -q $GHIDRA_URL
 
 echo "--- Extracting and Moving to $TARGET_DIR ---"

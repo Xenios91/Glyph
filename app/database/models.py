@@ -37,6 +37,7 @@ class Model(Base):
     Attributes:
         id: Primary key
         model_name: Unique name identifier for the model
+        user_id: ID of the user who owns this model (nullable for legacy rows)
         model_data: Serialized model bytes (joblib format)
         label_encoder_data: Serialized label encoder bytes (joblib format)
         created_at: Timestamp when the model was created
@@ -48,6 +49,7 @@ class Model(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     model_name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     model_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     label_encoder_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -72,6 +74,7 @@ class Prediction(Base):
         id: Primary key
         task_name: Name of the prediction task
         model_name: Name of the model used for prediction
+        user_id: ID of the user who owns this prediction (nullable for legacy rows)
         functions_data: Serialized list of function predictions (joblib format)
         created_at: Timestamp when the prediction was created
         modified_at: Timestamp when the prediction was last modified
@@ -83,6 +86,7 @@ class Prediction(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     task_name: Mapped[str] = mapped_column(String(64), nullable=False)
     model_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     functions_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -107,6 +111,7 @@ class Function(Base):
     Attributes:
         id: Primary key
         model_name: Name of the model this function belongs to
+        user_id: ID of the user who owns this function (nullable for legacy rows)
         function_name: Name of the function
         entrypoint: Memory address/entry point of the function
         tokens: Tokenized function code as text
@@ -119,6 +124,7 @@ class Function(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     model_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     function_name: Mapped[str] = mapped_column(String(256), nullable=False)
     entrypoint: Mapped[str] = mapped_column(String(16), nullable=False)
     tokens: Mapped[str] = mapped_column(Text, nullable=False)
@@ -272,6 +278,11 @@ class User(Base):
         back_populates="user",
         cascade="save-update, merge, delete, delete-orphan",
     )
+    llm_config: Mapped["LLMUserConfig | None"] = relationship(
+        back_populates="user",
+        cascade="save-update, merge, delete, delete-orphan",
+        uselist=False,
+    )
 
 
 class APIKey(Base):
@@ -319,6 +330,63 @@ class APIKey(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="api_keys")
+
+
+class LLMUserConfig(Base):
+    """Per-user LLM endpoint configuration.
+
+    Stores an OpenAI-compatible LLM endpoint configuration for a single user.
+    Values not set for a user fall back to the global defaults in config.yml.
+
+    Attributes:
+        id: Primary key
+        user_id: Foreign key to User (unique)
+        enabled: Whether LLM analysis is enabled for this user
+        base_url: Base URL of the LLM endpoint
+        port: Optional port override
+        api_path: Path of the chat completions endpoint
+        model: Model identifier
+        api_key: API key (may be empty for local servers)
+        timeout_seconds: Request timeout in seconds
+        temperature: Sampling temperature
+        max_tokens: Optional max tokens limit
+        max_concurrent: Max concurrent requests
+        created_at: Timestamp when the config was created
+        modified_at: Timestamp when the config was last modified
+
+    """
+
+    __tablename__ = "llm_user_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True,
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    base_url: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    api_path: Mapped[str] = mapped_column(String(256), default="", nullable=False)
+    model: Mapped[str] = mapped_column(String(256), default="", nullable=False)
+    api_key: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    timeout_seconds: Mapped[float] = mapped_column(Float, default=900.0, nullable=False)
+    temperature: Mapped[float] = mapped_column(Float, default=0.1, nullable=False)
+    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_concurrent: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship(back_populates="llm_config")
 
 
 class SimilarityComputation(Base):
@@ -408,4 +476,108 @@ class SimilarityPair(Base):
         UniqueConstraint(
             "computation_id", "binary_a_id", "binary_b_id", name="uq_similarity_pair_computation_binaries",
         ),
+    )
+
+
+class LLMAnalysisResult(Base):
+    """Model representing a stored LLM analysis of a dangerous function finding.
+
+    One row per (target, dangerous function) — re-running the analysis
+    upserts the row so the latest result (and its timestamp) is kept.
+
+    Attributes:
+        id: Primary key
+        target_name: Stable name of the scanned target (the report's model_name)
+        user_id: ID of the user who owns this analysis (nullable for legacy rows)
+        function_name: Name of the dangerous function (e.g., "strcpy")
+        containing_function: Function that contains the dangerous call
+        entrypoint: Memory address of the containing function
+        status: Analysis status ("success" or "error")
+        analysis: LLM analysis text (empty when status is "error")
+        error: Error message (empty when status is "success")
+        model_name: LLM model that produced the analysis
+        elapsed_ms: Analysis duration in milliseconds
+        created_at: Timestamp when the result was first stored
+        modified_at: Timestamp when the result was last updated
+
+    """
+
+    __tablename__ = "llm_analysis_results"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    target_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    function_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    containing_function: Mapped[str] = mapped_column(String(256), nullable=False)
+    entrypoint: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    analysis: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    error: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    model_name: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    elapsed_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "target_name", "function_name", "containing_function", "entrypoint",
+            name="uq_llm_analysis_target_function",
+        ),
+    )
+
+
+class ScanReport(Base):
+    """Stored dangerous function scan report for a target.
+
+    Attributes:
+        id: Primary key.
+        target_name: Stable name of the scanned target (model, task, or binary name).
+        user_id: ID of the user who owns this report (nullable for legacy rows).
+        total_functions_scanned: Total number of functions analyzed.
+        total_found: Total number of dangerous function matches.
+        critical_count: Number of Critical severity matches.
+        high_count: Number of High severity matches.
+        medium_count: Number of Medium severity matches.
+        low_count: Number of Low severity matches.
+        results_json: JSON-serialized list of individual scan results.
+        created_at: Creation timestamp.
+        modified_at: Last modification timestamp.
+
+    """
+
+    __tablename__ = "scan_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    target_name: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    total_functions_scanned: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    critical_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    high_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    medium_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    low_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    results_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
     )

@@ -32,6 +32,7 @@ class DataHandler:
     bin_dictionary: dict[str, Any] | None = None
     data: pd.DataFrame | None = None
     status: str = "starting"
+    user_id: int | None = None
 
     def __init__(self, req_uuid: str, data: dict[str, Any], model_name: str) -> None:
         """Initialize the data handler.
@@ -272,16 +273,25 @@ class Prediction:
     model_name: str
     task_name: str
     predictions: list[dict[str, Any]]
+    user_id: int | None
 
-    def __init__(self, task_name: str, model_name: str, pred: list[dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        task_name: str,
+        model_name: str,
+        pred: list[dict[str, Any]],
+        user_id: int | None = None,
+    ) -> None:
         """Initialize a prediction result.
 
         Args:
             task_name: Name of the prediction task.
             model_name: Name of the model used.
             pred: List of prediction result dictionaries.
+            user_id: Owner of the prediction (None for legacy/unowned).
 
         """
         self.task_name = task_name
         self.model_name = model_name
         self.predictions = pred
+        self.user_id = user_id

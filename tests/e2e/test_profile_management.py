@@ -65,6 +65,7 @@ class TestProfilePage:
         expect(page.locator("#tab-profile")).to_be_visible()
         expect(page.locator("#tab-password")).to_be_visible()
         expect(page.locator("#tab-apikeys")).to_be_visible()
+        expect(page.locator("#tab-llm")).to_be_visible()
         expect(page.locator("#tab-accessibility")).to_be_visible()
 
     def test_profile_tab_is_active_by_default(self, page: Any, server: Any) -> None:
@@ -207,6 +208,44 @@ class TestAPIKeysTab:
 
         expect(page.locator("#create-api-key-btn")).to_be_visible()
         assert page.locator("#apiKeysList").count() == 1
+
+
+class TestLLMSettingsTab:
+    """Tests for the LLM settings tab."""
+
+    def test_llm_tab_switches_panel(self, page: Any, server: Any) -> None:
+        """Test that clicking the LLM tab shows the LLM settings panel."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/profile")
+        page.wait_for_load_state("networkidle")
+
+        # Use JS to switch tab (more reliable than click in headless)
+        page.evaluate("() => switchTab('tab-llm', 'panel-llm')")
+
+        # LLM tab should be selected
+        llm_tab = page.locator("#tab-llm")
+        expect(llm_tab).to_have_attribute("aria-selected", "true")
+
+        # LLM panel should be visible
+        llm_panel = page.locator("#panel-llm")
+        expect(llm_panel).to_have_attribute("aria-hidden", "false")
+
+    def test_llm_panel_shows_settings_fields(self, page: Any, server: Any) -> None:
+        """Test that the LLM panel shows all settings fields and buttons."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/profile")
+        page.wait_for_load_state("networkidle")
+
+        # Switch to LLM tab via JS
+        page.evaluate("() => switchTab('tab-llm', 'panel-llm')")
+
+        expect(page.locator("#llm-enabled")).to_be_visible()
+        expect(page.locator("#llm-base-url")).to_be_visible()
+        expect(page.locator("#llm-api-key")).to_be_visible()
+        expect(page.locator("#llm-test-btn")).to_be_visible()
+        expect(page.locator("#llm-save-btn")).to_be_visible()
 
 
 class TestAccessibilityTab:

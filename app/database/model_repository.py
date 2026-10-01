@@ -4,7 +4,7 @@ import io
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, exists, or_, select
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +21,7 @@ class ModelRepository:
     """
 
     @staticmethod
-    async def save(model_name: str, label_encoder: bytes, model: bytes) -> None:
+    async def save(model_name: str, label_encoder: bytes, model: bytes, user_id: int | None = None) -> None:
         """Save or update a model in the models database.
 
         Uses SQLAlchemy 2.0's on_conflict_do_update() for efficient upserts
@@ -31,6 +31,7 @@ class ModelRepository:
             model_name: Name of the model to save.
             label_encoder: Serialized label encoder bytes.
             model: Serialized model bytes.
+            user_id: Owner of the model (None for legacy/unowned).
 
         """
         session: AsyncSession = await get_async_session("models")
@@ -40,6 +41,7 @@ class ModelRepository:
                 model_name=model_name,
                 model_data=model,
                 label_encoder_data=label_encoder,
+                user_id=user_id,
                 created_at=now,
                 modified_at=now,
             )
@@ -79,6 +81,35 @@ class ModelRepository:
             models_set = set(result.scalars().all())
         except sa_exc.SQLAlchemyError:
             logger.exception("Failed to retrieve models list")
+        finally:
+            await close_async_session(session)
+        return models_set
+
+    @staticmethod
+    async def get_models_list_for_user(user_id: int) -> set[str]:
+        """Get model names the given user may access.
+
+        Includes the user's own models plus legacy/unowned models
+        (``user_id`` is NULL), matching the :func:`can_access` rule.
+
+        Args:
+            user_id: The current user's id (0 for anonymous).
+
+        Returns:
+            A set of model names.
+
+        """
+        models_set: set[str] = set()
+        session: AsyncSession = await get_async_session("models")
+        try:
+            if user_id == 0:
+                clause = Model.user_id.is_(None)
+            else:
+                clause = or_(Model.user_id == user_id, Model.user_id.is_(None))
+            result = await session.execute(select(Model.model_name).where(clause))
+            models_set = set(result.scalars().all())
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to retrieve models list for user {}", user_id)
         finally:
             await close_async_session(session)
         return models_set
@@ -137,6 +168,30 @@ class ModelRepository:
         finally:
             if session is not None:
                 await close_async_session(session)
+
+    @staticmethod
+    async def get_owner_by_model(model_name: str) -> int | None:
+        """Return the owner (user_id) of a model by name.
+
+        Args:
+            model_name: Name of the model.
+
+        Returns:
+            The owning user_id, or None if the model does not exist or is
+            unowned/legacy.
+
+        """
+        session: AsyncSession = await get_async_session("models")
+        try:
+            result = await session.execute(
+                select(Model.user_id).where(Model.model_name == model_name),
+            )
+            return result.scalar_one_or_none()
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to retrieve owner of model '{}'", model_name)
+            return None
+        finally:
+            await close_async_session(session)
 
     @staticmethod
     async def delete(model_name: str) -> None:

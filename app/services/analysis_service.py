@@ -268,12 +268,14 @@ class AnalysisService:
     async def run_ml_training(
         binary_id: int,
         model_name: str,
+        user_id: int | None = None,
     ) -> dict[str, Any]:
         """Execute ML training pipeline from database-stored functions.
 
         Args:
             binary_id: Binary id to train on.
             model_name: Name for the new model.
+            user_id: Owner of the model/functions (None for legacy/unowned).
 
         Returns:
             Dictionary with training results including filtered_functions count.
@@ -286,6 +288,7 @@ class AnalysisService:
             metadata={
                 "binary_id": binary_id,
                 "model_name": model_name,
+                "user_id": user_id,
             },
         )
         context.set("binary_id", binary_id)
@@ -316,7 +319,7 @@ class AnalysisService:
 
             functions = training_request.get_functions() or []
             if functions:
-                await FunctionRepository.save(model_name, functions)
+                await FunctionRepository.save(model_name, functions, user_id=user_id)
             logger.info(
                 "Functions saved for model '{}' ({} functions)",
                 model_name,
@@ -334,6 +337,7 @@ class AnalysisService:
         binary_id: int,
         model_name: str,
         task_name: str,
+        user_id: int | None = None,
     ) -> dict[str, Any]:
         """Execute ML prediction pipeline from database-stored functions.
 
@@ -341,6 +345,7 @@ class AnalysisService:
             binary_id: Binary id to predict on.
             model_name: Trained model name to use.
             task_name: Name for the prediction task.
+            user_id: Owner of the prediction (None for legacy/unowned).
 
         Returns:
             Dictionary with prediction results.
@@ -390,7 +395,7 @@ class AnalysisService:
                     updated_function = function.copy()
                     updated_function["prediction"] = predictions[ctr]
                     functions[ctr] = updated_function
-                await PredictionRepository.save(task_name, model_name, functions)
+                await PredictionRepository.save(task_name, model_name, functions, user_id=user_id)
             elif functions:
                 logger.warning(
                     "Mismatch between functions (%d) and predictions (%d) for task '%s'",
