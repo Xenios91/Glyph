@@ -1,10 +1,21 @@
 """Tests for the lifespan module."""
 
+import asyncio
 from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
 from app.core.lifespan import lifespan
+
+
+def _completed_task() -> asyncio.Task[None]:
+    """Create a real task so shutdown can cancel/gather it.
+
+    A plain Mock is not awaitable and would break asyncio.gather() in the
+    shutdown path. ensure_future uses loop.create_task internally, so it is
+    unaffected by the patched asyncio.create_task.
+    """
+    return asyncio.ensure_future(asyncio.sleep(0))
 
 
 class TestLifespan:
@@ -34,7 +45,7 @@ class TestLifespan:
         mock_get_settings.return_value = Mock()
         mock_init_async_databases.return_value = None
         mock_dispose_async_engines.return_value = None
-        mock_create_task.return_value = Mock()
+        mock_create_task.return_value = _completed_task()
 
         async with lifespan(mock_app):
             # Verify startup was called
@@ -109,7 +120,7 @@ class TestLifespan:
         mock_get_settings.return_value = Mock()
         mock_init_async_databases.return_value = None
         mock_dispose_async_engines.return_value = None
-        mock_create_task.return_value = Mock()
+        mock_create_task.return_value = _completed_task()
 
         # Use a flag to track if we entered the context
         entered = False
@@ -139,7 +150,7 @@ class TestLifespan:
         mock_get_settings.return_value = Mock()
         mock_init_async_databases.return_value = None
         mock_dispose_async_engines.return_value = None
-        mock_create_task.return_value = Mock()
+        mock_create_task.return_value = _completed_task()
 
         with pytest.raises(ValueError, match="Test exception"):
             async with lifespan(mock_app):
@@ -170,7 +181,7 @@ class TestLifespan:
         mock_get_settings.return_value = Mock()
         mock_init_async_databases.return_value = None
         mock_dispose_async_engines.return_value = None
-        mock_create_task.return_value = Mock()
+        mock_create_task.return_value = _completed_task()
 
         mock_event_watcher_instance = Mock()
         mock_event_watcher_class.return_value = mock_event_watcher_instance
@@ -202,7 +213,7 @@ class TestLifespan:
         mock_get_settings.return_value = Mock()
         mock_init_async_databases.return_value = None
         mock_dispose_async_engines.return_value = None
-        mock_create_task.return_value = Mock()
+        mock_create_task.return_value = _completed_task()
 
         mock_event_watcher_instance = Mock()
         mock_event_watcher_class.return_value = mock_event_watcher_instance
