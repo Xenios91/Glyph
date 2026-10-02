@@ -186,4 +186,4 @@ Reverse engineering is an important task performed by security researchers to id
 
 Utilizing machine learning and natural language processing techniques, Glyph allows you to upload an ELF binary (32 & 64 bit) for cross-architecture function fingerprinting. Upon analysis, a web-based function symbol table is created and presented to the user to aid in the analysis of binary executables and shared objects.
 
-![Main Page](https://i.imgur.com/Gb9OFNN.png)
+![Main Page](https://i.imgur.com/1xwYFCz.png)
