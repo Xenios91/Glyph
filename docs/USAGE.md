@@ -76,7 +76,7 @@ curl -X POST http://localhost:8000/auth/register \
   "email": "analyst@example.com",
   "full_name": "Security Analyst",
   "is_active": true,
-  "permissions": ["read"]
+  "created_at": "2025-01-01T00:00:00"
 }
 ```
 
@@ -132,9 +132,13 @@ curl -X POST http://localhost:8000/auth/api-keys \
 {
   "id": 1,
   "name": "my-analysis-key",
-  "key": "glyph_sk_abc123...",
-  "user_id": 1,
-  "created_at": "2025-01-01T00:00:00"
+  "key_prefix": "glp_abc1",
+  "permissions": ["read"],
+  "expires_at": null,
+  "is_active": true,
+  "last_used_at": null,
+  "created_at": "2025-01-01T00:00:00",
+  "secret": "glp_abc123..."
 }
 ```
 
@@ -142,9 +146,11 @@ curl -X POST http://localhost:8000/auth/api-keys \
 
 **Use an API Key:**
 
+API keys are sent in the `Authorization` header (the same header used for JWT tokens); the server falls back to an API-key lookup when the token is not a valid JWT:
+
 ```bash
-curl -H "X-API-Key: glyph_sk_abc123..." \
-  http://localhost:8000/api/v1/models/getModels
+curl -H "Authorization: Bearer glp_abc123..." \
+  http://localhost:8000/api/v1/predictions/getPredictionsList
 ```
 
 **List API Keys:**
@@ -244,7 +250,8 @@ The interactive API documentation (Swagger UI) is available at `http://localhost
 | `POST` | `/auth/refresh` | Refresh an access token |
 | `POST` | `/auth/change-password` | Change user password |
 | `GET` | `/auth/me` | Get current user profile |
-| `PUT` | `/auth/me` | Update user profile |
+| `POST` | `/auth/update-profile` | Update user profile |
+| `GET`/`POST` | `/auth/logout` | Log out (clears the session cookie) |
 | `POST` | `/auth/api-keys` | Create an API key |
 | `GET` | `/auth/api-keys` | List API keys |
 | `DELETE` | `/auth/api-keys/{id}` | Delete an API key |
