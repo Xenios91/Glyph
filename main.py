@@ -272,7 +272,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Glyph API",
         description="Binary analysis powered by machine learning",
-        version="0.1.0",
+        version="0.3.0",
         lifespan=lifespan,
         strict_content_type=True,
     )
