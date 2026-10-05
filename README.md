@@ -31,7 +31,6 @@ All capabilities are available through a modern web UI and a fully authenticated
 - Improved test coverage
 - Pydantic implementation
 - Anti-XSS protection
-- Anti-CSRF protection
 - User accounts
 
 ### LLM-Assisted Analysis
@@ -45,6 +44,15 @@ Glyph 0.3.0 adds optional LLM-assisted analysis to the dangerous functions scann
 Any server exposing the OpenAI chat completions API works — for example `https://api.openai.com`, or a local runtime such as Ollama or vLLM exposing `/v1/chat/completions`. The endpoint can be configured globally in the `llm` block of [`config.yml`](config.yml), or per user from the **Profile → LLM** tab (with a one-click endpoint connectivity test). Analyses are persisted per target and call site, so previously analyzed findings keep their status badges across sessions and can be re-analyzed or deleted at any time.
 
 > **Note:** Code snippets from your binaries are sent to the configured endpoint when LLM analysis runs. Use a local or trusted endpoint if that is a concern.
+
+**What the LLM can see.** Each analysis is a single chat completions request scoped to one finding. The request contains only:
+
+- The finding's metadata — dangerous function, containing function, entrypoint, category, severity, and CWE
+- The catalog description and recommended safe alternative from Glyph's built-in catalog
+- The decompiled lines containing the call (call-site context)
+- The full decompiled code of the containing function
+
+The LLM does not receive the rest of the binary, other findings, other users' data, or any access to Glyph's database, API, or filesystem — it only sees the prompt text and returns text. The endpoint connectivity test from the Profile page sends a minimal "ok" prompt and no binary data.
 
 See [docs/DANGEROUS_FUNCTIONS.md](docs/DANGEROUS_FUNCTIONS.md) for the full LLM configuration reference and API examples.
 
@@ -68,7 +76,7 @@ Glyph was also featured in **Black Hat Arsenal 2023** and **Defcon Demo Labs**.
 ## Requirements
 
 - Python version 3.11+
-- [Ghidra](https://ghidra-sre.org/) 10.x or later (required for binary analysis via PyGhidra)
+- [Ghidra](https://ghidra-sre.org/) 12.0 or later (required for binary analysis via PyGhidra)
 
 ## Getting Started
 
@@ -91,13 +99,13 @@ Glyph uses PyGhidra for binary decompilation and analysis. You must install Ghid
 
 ```bash
 # Linux/macOS
-export GHIDRA_INSTALL_DIR=/opt/ghidra/ghidra_11.0_PUBLIC
+export GHIDRA_INSTALL_DIR=/opt/ghidra/ghidra_12.0_PUBLIC
 
 # Windows (Command Prompt)
-set GHIDRA_INSTALL_DIR=C:\Ghidra\ghidra_11.0_PUBLIC
+set GHIDRA_INSTALL_DIR=C:\Ghidra\ghidra_12.0_PUBLIC
 
 # Windows (PowerShell)
-$env:GHIDRA_INSTALL_DIR="C:\Ghidra\ghidra_11.0_PUBLIC"
+$env:GHIDRA_INSTALL_DIR="C:\Ghidra\ghidra_12.0_PUBLIC"
 ```
 
 > **Note:** Replace the path above with your actual Ghidra installation directory. The directory should contain `support/`, `GhidraRun`, and other Ghidra runtime files.
@@ -114,6 +122,8 @@ source glyph_venv/bin/activate  # On Windows: glyph_venv\Scripts\activate
 ```bash
 pip install .
 ```
+
+> **Note:** PyGhidra (used for Ghidra decompilation) is not included in the base install. Install it separately, e.g. `pip install pyghidra`, before running analysis.
 
 ### 5. Configure the Application
 

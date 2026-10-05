@@ -46,11 +46,12 @@ class TaskService:
 
     @classmethod
     async def start_service(cls) -> None:
-        """Start the service loop to process tasks from the queue.
+        """Start the service loop that consumes queued task items.
 
-        Note: This service no longer calls .result() on futures. The EventWatcher
-        is responsible for monitoring futures and invoking callbacks when they complete.
-        This method simply manages the queue lifecycle.
+        For each dequeued item, restores the captured request context, logs the
+        job, and clears the context. This method does not execute the task itself;
+        the EventWatcher is responsible for monitoring futures and invoking
+        callbacks when they complete.
         """
         instance = cls()
         queue = instance.service_queue

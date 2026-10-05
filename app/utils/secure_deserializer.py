@@ -5,9 +5,10 @@ the data before deserialization to prevent CVE-2020-1434 and similar
 pickle-based attacks.
 
 Security measures:
-1. Whitelist of allowed classes
-2. Validation of pickle opcodes before execution
-3. Sandbox execution environment
+1. Whitelist of allowed classes (builtins, numpy, and scikit-learn types)
+2. Blocklist of explicitly dangerous builtins (eval, exec, __import__, ...)
+3. Restricted unpickler that validates every class via find_class()
+   before it is instantiated during deserialization
 """
 
 import io

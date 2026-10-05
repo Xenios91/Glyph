@@ -16,10 +16,10 @@ Most API endpoints require authentication via JWT Bearer token. Include the toke
 Authorization: Bearer <your_access_token>
 ```
 
-API keys are also supported. Include the key in the `X-API-Key` header:
+API keys are also supported. Pass the key in the `Authorization` header as a Bearer token (the server falls back to API key verification when the token is not a valid JWT):
 
 ```
-X-API-Key: <your_api_key>
+Authorization: Bearer <your_api_key>
 ```
 
 ### Authentication Endpoints
@@ -195,7 +195,7 @@ List the authenticated user's API keys (secrets are never returned). Returns a b
   {
     "id": 1,
     "name": "ci-pipeline",
-    "key_prefix": "glyph_k",
+    "key_prefix": "glp_ab12",
     "permissions": ["read"],
     "expires_at": null,
     "is_active": true,
@@ -230,13 +230,13 @@ Create a new API key. The full secret is returned **only once**, in this respons
 {
   "id": 1,
   "name": "ci-pipeline",
-  "key_prefix": "glyph_k",
+  "key_prefix": "glp_ab12",
   "permissions": ["read"],
   "expires_at": "2024-04-01T00:00:00+00:00",
   "is_active": true,
   "last_used_at": null,
   "created_at": "2024-01-01T00:00:00+00:00",
-  "secret": "glyph_kXXXX..."
+  "secret": "glp_XXXX..."
 }
 ```
 
@@ -462,9 +462,9 @@ Delete a binary and associated data.
 {
   "success": true,
   "data": {
-    "message": "Binary deleted successfully"
+    "message": "Binary 'sample_app.exe' deleted successfully"
   },
-  "message": "Binary deleted"
+  "message": "Binary deleted successfully"
 }
 ```
 
@@ -492,7 +492,9 @@ Upload multiple binary files in a single request. Each file is processed indepen
       {
         "name": "sample1.exe",
         "status": "success",
-        "binary_id": 1
+        "binary_id": 1,
+        "uuid": "550e8400-e29b-41d4-a716-446655440000",
+        "error": null
       },
       {
         "name": "sample2.exe",
@@ -584,7 +586,7 @@ Get decompiled code for a single function from a model.
 
 **Errors:**
 - `404` — Function not found
-- `403` — Access denied (model owned by another user)
+- `403` — Access denied (function owned by another user)
 
 ---
 
@@ -628,8 +630,8 @@ Get detailed prediction results for a specific function, comparing model and pre
 **Response:** `200 OK`
 
 **Errors:**
-- `404` — Function or prediction not found
-- `403` — Access denied (model or prediction owned by another user)
+- `404` — Prediction not found (the model function itself is optional; if it is missing the response still succeeds with a placeholder in place of the model tokens)
+- `403` — Access denied (prediction owned by another user)
 
 ---
 
@@ -996,13 +998,19 @@ Get details for a specific dangerous function entry.
 }
 ```
 
-If the function is not in the catalog, the response is an error with `error_code: "CATALOG_NOT_FOUND"`:
+If the function is not in the catalog, the response is a `200 OK` with the standard error body and code `CATALOG_NOT_FOUND` (no HTTP error status is raised):
 
 ```json
 {
   "success": false,
-  "error_code": "CATALOG_NOT_FOUND",
-  "error_message": "Function 'foo' not found in catalog"
+  "error": {
+    "code": "CATALOG_NOT_FOUND",
+    "message": "Function 'foo' not found in catalog"
+  },
+  "metadata": {
+    "timestamp": "2024-01-01T00:00:00+00:00",
+    "request_id": null
+  }
 }
 ```
 
@@ -1029,7 +1037,7 @@ List models and prediction tasks available for dangerous function scanning (scop
 
 #### POST `/scan`
 
-Scan a model, prediction task, or binary for dangerous functions. Exactly one of `modelName`, `taskName`, or `binaryId` must be provided. The report is persisted so it can be restored via `GET /scan-results`.
+Scan a model, prediction task, or binary for dangerous functions. At least one of `modelName`, `taskName`, or `binaryId` must be provided; if more than one is given, `modelName` takes precedence. The report is persisted so it can be restored via `GET /scan-results`.
 
 **Request Body:**
 ```json
@@ -1063,7 +1071,7 @@ Scan a model, prediction task, or binary for dangerous functions. Exactly one of
         "containing_function": "func_401000",
         "entrypoint": "0x401000",
         "category": "Buffer Overflow",
-        "severity": "high",
+        "severity": "High",
         "cwe": "CWE-120",
         "description": "Buffer overflow via unbounded string copy",
         "safe_alternative": "strncpy",
@@ -1072,14 +1080,17 @@ Scan a model, prediction task, or binary for dangerous functions. Exactly one of
       }
     ]
   },
-  "message": "Scan completed"
+  "message": "Scan complete: 12 dangerous functions found"
 }
 ```
+
+The `message` is `"Scan complete: N dangerous functions found"` when matches exist, or `"No functions found for '<target>'"` when the target has no functions.
 
 **Errors:**
 - `400` — None of `modelName`, `taskName`, or `binaryId` provided
 - `404` — Model, prediction task, or binary not found
 - `403` — Access denied (target owned by another user)
+- `500` — Prediction data could not be deserialized (corrupt or failed security validation)
 
 ---
 
@@ -1149,6 +1160,7 @@ Send scanner findings to the user-configured OpenAI-compatible chat completions 
 `results` is keyed by the zero-based index of each finding in `findings`. Per-finding failures (timeout, non-200 HTTP status, unexpected response format) are reported inside `results` with `status: "error"`; `error` is `""` on success. `saved` is `false` when persistence is disabled or fails (the analysis itself still succeeds).
 
 **Errors:**
+- `404` — `SCAN_NOT_FOUND` (no stored scan report for `target_name`; run a scan first)
 - `422` — Validation error (missing `target_name`, empty `findings`, or more than 100 findings)
 - `429` — Rate limit exceeded (default 10 per minute)
 - `503` — `LLM_NOT_CONFIGURED` (LLM feature disabled or base URL missing/malformed)

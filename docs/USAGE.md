@@ -30,6 +30,7 @@ This guide covers how to use Glyph for binary analysis, model training, and func
 - [Configuration File](#configuration-file)
 - [Environment Variables](#environment-variables)
 - [Troubleshooting](#troubleshooting)
+- [Running Tests](#running-tests)
 
 ---
 
@@ -212,7 +213,7 @@ After the training task completes, the `malware_detector` model can classify fun
 
 1. Upload an unknown binary with the **Generate Model** checkbox unchecked (select a previously trained model in the prediction configuration)
 2. Navigate to the **Create Prediction** page
-3. Select the uploaded binary and the **Model Name** of a previously trained model, then submit — this queues an `ml_prediction` task
+3. Select the uploaded binary and the **Model Name** of a previously trained model, enter a **Task Name** for the prediction task, then submit — this queues an `ml_prediction` task
 4. After processing, view the prediction results on the **Predictions** page
 
 Each function in the analyzed binary will be classified with a probability score. Functions exceeding the configured `prediction_probability_threshold` (default: 50%) will be highlighted.
@@ -234,7 +235,7 @@ Each function in the analyzed binary will be classified with a probability score
 1. Navigate to the **Config** page
 2. Adjust the following settings:
    - **Max File Size (MB)** — Maximum allowed upload size (1–2048 MB)
-   - **CPU Cores** — Number of CPU cores for processing (1–32)
+   - **CPU Cores** — Number of CPU cores for processing (1 up to the machine's core count)
 3. Click **Save** to persist changes
 
 ---
@@ -255,7 +256,7 @@ The interactive API documentation (Swagger UI) is available at `http://localhost
 | `POST` | `/auth/change-password` | Change user password |
 | `GET` | `/auth/me` | Get current user profile |
 | `POST` | `/auth/update-profile` | Update user profile |
-| `GET`/`POST` | `/auth/logout` | Log out (clears the session cookie) |
+| `GET`/`POST` | `/auth/logout` | Log out (clears the `access_token_cookie` and `refresh_token_cookie` cookies) |
 | `POST` | `/auth/api-keys` | Create an API key |
 | `GET` | `/auth/api-keys` | List API keys |
 | `DELETE` | `/auth/api-keys/{id}` | Delete an API key |
@@ -608,7 +609,7 @@ All fields are optional; only provided fields are updated. Changes are persisted
 | Field | Type | Description |
 |-------|------|-------------|
 | `max_file_size_mb` | int | Maximum upload file size in MB (1–2048) |
-| `cpu_cores` | int | Number of CPU cores for processing (1–32) |
+| `cpu_cores` | int | Number of CPU cores for processing (1 up to the machine's core count) |
 | `llm` | object | Optional per-user LLM endpoint configuration (`enabled`, `base_url`, `port`, `api_path`, `model`, `api_key`, `timeout_seconds`, `temperature`, `max_tokens`, `max_concurrent`) |
 
 ```bash
@@ -664,7 +665,7 @@ Upload → Validate → Decompile (Ghidra) → Tokenize → Filter → Extract F
 | **DecompileStep** | Uses Ghidra headless mode to decompile the binary |
 | **TokenizeStep** | Extracts code tokens from decompiled functions |
 | **FilterStep** | Normalizes addresses, function names, and variable names; removes comments |
-| **FeatureExtractStep** | Converts token sequences into ML features using TF-IDF |
+| **FeatureExtractStep** | Extracts token sequences from filtered functions and stores them in the context for the ML pipeline |
 | **TrainStep** | Trains a scikit-learn classifier on the extracted features and persists the model using joblib serialization |
 
 ### Prediction Pipeline
@@ -721,23 +722,32 @@ logging:
 
 ## Environment Variables
 
-All configuration settings can be overridden via environment variables using the `GLYPH_` prefix:
+Configuration is loaded from `config.yml` first. Environment variables with the `GLYPH_` prefix are consulted **only for keys that are absent from `config.yml`** — if the file already defines a key, the file value takes precedence (see `settings_customise_sources` in [`app/config/settings.py`](../app/config/settings.py)).
 
 | Environment Variable | Config Key | Description |
 |---------------------|------------|-------------|
-| `GLYPH_CPU_CORES` | `cpu_cores` | Override CPU cores |
-| `GLYPH_MAX_FILE_SIZE_MB` | `max_file_size_mb` | Override max file size |
-| `GLYPH_JWT_SECRET_KEY` | `jwt_secret_key` | Override JWT secret |
-| `GLYPH_ACCESS_TOKEN_EXPIRE_MINUTES` | `access_token_expire_minutes` | Override token expiry |
-| `GLYPH_USE_HTTPS` | `use_https` | Enable HTTPS mode |
-| `GLYPH_AUTH_ENABLED` | `auth_enabled` | Enable/disable auth |
+| `GLYPH_CPU_CORES` | `cpu_cores` | CPU cores (used only if not set in `config.yml`) |
+| `GLYPH_MAX_FILE_SIZE_MB` | `max_file_size_mb` | Max file size (used only if not set in `config.yml`) |
+| `GLYPH_JWT_SECRET_KEY` | `jwt_secret_key` | JWT secret (used only if not set in `config.yml`) |
+| `GLYPH_ACCESS_TOKEN_EXPIRE_MINUTES` | `access_token_expire_minutes` | Token expiry (used only if not set in `config.yml`) |
+| `GLYPH_USE_HTTPS` | `use_https` | Enable HTTPS mode (used only if not set in `config.yml`) |
+| `GLYPH_AUTH_ENABLED` | `auth_enabled` | Enable/disable auth (used only if not set in `config.yml`) |
 
-**Example:**
+A few more values are read directly from the environment, independent of `config.yml`:
+
+| Environment Variable | Description |
+|---------------------|-------------|
+| `GLYPH_DATA_DIR` | Data directory for the SQLite databases (default: `data`) |
+| `GLYPH_RATE_LIMIT_LOGIN_MAX` / `GLYPH_RATE_LIMIT_LOGIN_WINDOW` | Override the login rate limit |
+| `GLYPH_RATE_LIMIT_REGISTER_MAX` / `GLYPH_RATE_LIMIT_REGISTER_WINDOW` | Override the registration rate limit |
+| `GLYPH_RATE_LIMIT_PASSWORD_CHANGE_MAX` / `GLYPH_RATE_LIMIT_PASSWORD_CHANGE_WINDOW` | Override the password-change rate limit |
+| `GLYPH_RATE_LIMIT_REFRESH_MAX` / `GLYPH_RATE_LIMIT_REFRESH_WINDOW` | Override the token-refresh rate limit |
+
+**Example (setting values that are not defined in `config.yml`):**
 
 ```bash
-export GLYPH_JWT_SECRET_KEY="your-strong-random-secret-key"
-export GLYPH_CPU_CORES=4
-export GLYPH_MAX_FILE_SIZE_MB=1024
+export GLYPH_USE_HTTPS=true
+export GLYPH_AUTH_ENABLED=false
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -809,14 +819,16 @@ Common causes include Ghidra process failures, insufficient disk space, or the b
 
 **Warning:** `Using default JWT secret key`
 
-**Solution:** Set a strong JWT secret key in production:
+**Solution:** Set a strong JWT secret key in production. Because `config.yml` takes precedence over environment variables, the reliable fix is to set `jwt_secret_key` directly in `config.yml` (or remove the key from the file so the `GLYPH_JWT_SECRET_KEY` environment variable is used):
 
 ```bash
 # Generate a random secret
 python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
 
-# Set it in config.yml or via environment variable
-export GLYPH_JWT_SECRET_KEY="your-generated-secret-here"
+```yaml
+# config.yml
+jwt_secret_key: your-generated-secret-here
 ```
 
 ### Rate Limiting
