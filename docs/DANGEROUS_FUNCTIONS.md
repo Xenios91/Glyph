@@ -140,7 +140,7 @@ Scanner findings can be sent to a user-configured **OpenAI-compatible** chat com
 
 ### LLM Configuration
 
-The LLM endpoint is configured on the **Settings** page (or in the `llm` block of `config.yml`):
+The LLM endpoint is configured on the **Profile** page (LLM tab, with a one-click connectivity test) or globally in the `llm` block of `config.yml`. Per-user settings override the global defaults:
 
 | Field | Default | Description |
 |-------|---------|-------------|

@@ -102,10 +102,7 @@ class ModelRepository:
         models_set: set[str] = set()
         session: AsyncSession = await get_async_session("models")
         try:
-            if user_id == 0:
-                clause = Model.user_id.is_(None)
-            else:
-                clause = or_(Model.user_id == user_id, Model.user_id.is_(None))
+            clause = Model.user_id.is_(None) if user_id == 0 else or_(Model.user_id == user_id, Model.user_id.is_(None))
             result = await session.execute(select(Model.model_name).where(clause))
             models_set = set(result.scalars().all())
         except sa_exc.SQLAlchemyError:

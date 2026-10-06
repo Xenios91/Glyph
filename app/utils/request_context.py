@@ -105,10 +105,10 @@ _UNSET = _UnsetSentinel()
 
 
 def set_request_context(
-    request_id: str | None | _UnsetSentinel = _UNSET,
-    user_id: int | None | _UnsetSentinel = _UNSET,
-    username: str | None | _UnsetSentinel = _UNSET,
-    task_id: str | None | _UnsetSentinel = _UNSET,
+    request_id: str | _UnsetSentinel | None = _UNSET,
+    user_id: int | _UnsetSentinel | None = _UNSET,
+    username: str | _UnsetSentinel | None = _UNSET,
+    task_id: str | _UnsetSentinel | None = _UNSET,
     clear_unset: bool = False,
 ) -> None:
     """Set the current request context.

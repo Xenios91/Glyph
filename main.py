@@ -14,6 +14,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, cast
 from urllib.parse import quote
 
+from app._version import __version__
 from app.api.router import api_router
 from app.auth.endpoints import router as auth_router
 from app.core.lifespan import lifespan
@@ -272,7 +273,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Glyph API",
         description="Binary analysis powered by machine learning",
-        version="0.3.0",
+        version=__version__,
         lifespan=lifespan,
         strict_content_type=True,
     )
@@ -354,13 +355,14 @@ def create_app() -> FastAPI:
 
         """
         from app.database.session_handler import get_async_session
+        from sqlalchemy import text
 
         component_status: dict[str, str] = {}
 
         # Check database connectivity
         try:
             async with await get_async_session() as session:
-                await session.execute("SELECT 1")
+                await session.execute(text("SELECT 1"))
             component_status["database"] = "ok"
         except Exception as e:
             logger.warning("Database readiness check failed: {}", e)
@@ -497,7 +499,24 @@ async def general_exception_handler(request: Request, exc: Exception) -> HTMLRes
     )
 
 
-if __name__ == "__main__":
+def run() -> None:
+    """Console-script entrypoint that starts the Glyph ASGI server.
+
+    Invoked by the ``glyph`` console script declared in ``pyproject.toml``.
+    Host and port can be overridden with the ``GLYPH_HOST`` and ``GLYPH_PORT``
+    environment variables (defaults: ``0.0.0.0`` and ``8000``).
+
+    """
+    import os
+
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        "main:app",
+        host=os.environ.get("GLYPH_HOST", "0.0.0.0"),
+        port=int(os.environ.get("GLYPH_PORT", "8000")),
+    )
+
+
+if __name__ == "__main__":
+    run()

@@ -7,7 +7,8 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import OAuth2PasswordBearer
 from loguru import logger
-from sqlalchemy import exc as sa_exc, or_
+from sqlalchemy import exc as sa_exc
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt_handler import (

@@ -1,7 +1,8 @@
-import glob
 import logging
 import os
+import shutil
 import sys
+import tempfile
 from typing import Any
 from unittest import mock
 
@@ -20,50 +21,45 @@ os.environ.setdefault("GLYPH_RATE_LIMIT_REFRESH_WINDOW", "60")
 
 import pytest
 
-# In-memory database URL templates for testing.
-# Each database uses a unique URI so they remain separate in-memory databases.
-# When running under pytest-xdist, the worker ID is included in the URI to avoid
-# cross-worker conflicts with shared-cache SQLite databases.
-_IN_MEMORY_DATABASE_TEMPLATES: dict[str, str] = {
-    "models": "sqlite+aiosqlite:///file:mem_models{worker}?mode=memory&cache=shared",
-    "predictions": "sqlite+aiosqlite:///file:mem_predictions{worker}?mode=memory&cache=shared",
-    "functions": "sqlite+aiosqlite:///file:mem_functions{worker}?mode=memory&cache=shared",
-    "auth": "sqlite+aiosqlite:///file:mem_auth{worker}?mode=memory&cache=shared",
-    "binaries": "sqlite+aiosqlite:///file:mem_binaries{worker}?mode=memory&cache=shared",
-    "intelligence": "sqlite+aiosqlite:///file:mem_intelligence{worker}?mode=memory&cache=shared",
-}
+# File-based SQLite database URLs for testing.
+#
+# Each test session uses a private temporary directory so the databases are
+# isolated from the application's real ``data/`` directory and from each other.
+# The engines use NullPool, so a true in-memory database would be destroyed
+# when a connection closes; file-based databases in a temp dir are the robust
+# equivalent. When running under pytest-xdist, the worker ID is included in the
+# directory name so each worker process gets its own set of databases.
+_TEST_DB_DIR: str | None = None
 
 
-def _cleanup_sqlite_files() -> None:
-    """Remove SQLite shared-cache files created by in-memory database URIs.
-
-    SQLite's file:mem_*?mode=memory&cache=shared URIs with StaticPool create
-    physical files on disk named 'file:mem_*'. Clean them up after tests.
-    """
-    pattern = os.path.join(os.getcwd(), "file:mem_*")
-    for filepath in glob.glob(pattern):
-        try:
-            os.remove(filepath)
-        except OSError as exc:
-            logger.debug("Failed to clean up SQLite file %s: %s", filepath, exc)
-
-
-def pytest_unconfigure(config: Any) -> None:
-    """Clean up SQLite files after all tests complete."""
-    _cleanup_sqlite_files()
+def _test_db_dir() -> str:
+    """Return (and lazily create) the per-worker temporary test database directory."""
+    global _TEST_DB_DIR
+    if _TEST_DB_DIR is None:
+        worker_id = os.environ.get("PYTEST_XDIST_WORKER", "")
+        suffix = f"_{worker_id}" if worker_id else ""
+        _TEST_DB_DIR = tempfile.mkdtemp(prefix=f"glyph_test_db{suffix}_")
+    return _TEST_DB_DIR
 
 
 def _build_database_urls() -> dict[str, str]:
-    """Build worker-aware in-memory database URLs.
+    """Build per-worker file-based SQLite database URLs in a temp directory."""
+    base = _test_db_dir()
+    names = ("models", "predictions", "functions", "auth", "binaries", "intelligence")
+    return {name: f"sqlite+aiosqlite:///{base}/{name}.db" for name in names}
 
-    When running under pytest-xdist, each worker gets its own set of in-memory
-    databases to avoid cross-worker table conflicts with shared-cache SQLite.
-    The worker ID is read from the PYTEST_XDIST_WORKER environment variable,
-    which is set automatically by pytest-xdist for each worker process.
-    """
-    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "")
-    worker_suffix = f"_{worker_id}" if worker_id else ""
-    return {k: v.format(worker=worker_suffix) for k, v in _IN_MEMORY_DATABASE_TEMPLATES.items()}
+
+def _cleanup_sqlite_files() -> None:
+    """Remove the temporary test database directory after all tests complete."""
+    global _TEST_DB_DIR
+    if _TEST_DB_DIR is not None:
+        shutil.rmtree(_TEST_DB_DIR, ignore_errors=True)
+        _TEST_DB_DIR = None
+
+
+def pytest_unconfigure(config: Any) -> None:
+    """Clean up the temporary test database directory after all tests complete."""
+    _cleanup_sqlite_files()
 
 
 def pytest_configure(config: Any) -> None:

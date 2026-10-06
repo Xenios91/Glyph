@@ -691,8 +691,46 @@ Glyph is configured via [`config.yml`](../config.yml). The following settings ar
 | `jwt_algorithm` | string | `HS256` | JWT signing algorithm |
 | `access_token_expire_minutes` | int | `15` | Access token lifetime in minutes |
 | `refresh_token_expire_days` | int | `7` | Refresh token lifetime in days |
+| `upload_folder` | path | `./binaries` | Directory where uploaded binaries are stored |
 | `use_https` | bool | `false` | Enable HTTPS/TLS mode |
+| `trusted_proxies` | list | `[]` | Trusted proxy IPs/CIDRs for `X-Forwarded-For` |
 | `auth_enabled` | bool | `true` | Enable/disable authentication |
+| `oauth2_enabled` | bool | `false` | Enable the OAuth2 authorization-code flow |
+| `oauth2_session_secret` | string | *(random per start)* | Secret for OAuth2 session state |
+| `llm` | object | *(see below)* | LLM-assisted analysis settings (nested block) |
+
+### LLM Configuration
+
+The optional `llm` block configures the OpenAI-compatible endpoint used for LLM-assisted analysis of dangerous function findings. It is disabled by default; individual users can override these global defaults from the **Profile → LLM** tab.
+
+```yaml
+llm:
+  enabled: false
+  base_url: https://api.openai.com
+  port: null                    # explicit port; scheme default (80/443) when omitted
+  api_path: /v1/chat/completions
+  model: your-model
+  api_key: ""
+  timeout_seconds: 900.0        # 60–600+ per-request timeout
+  temperature: 0.1              # 0.0–2.0
+  max_tokens: null              # optional cap on generated tokens
+  max_concurrent: 5             # 1–20 parallel analysis requests
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `false` | Enable LLM-assisted analysis |
+| `base_url` | `https://your.model.url` | Base URL of the endpoint (scheme + host) |
+| `port` | *(scheme default)* | Explicit port; 443 for HTTPS and 80 for HTTP are omitted from the URL |
+| `api_path` | `/v1/chat/completions` | Path of the chat completions endpoint |
+| `model` | `your model here` | Model name sent in each request |
+| `api_key` | *(empty)* | Sent as `Authorization: Bearer <key>` |
+| `timeout_seconds` | `900.0` | Per-request timeout (seconds) |
+| `temperature` | `0.1` | Sampling temperature, 0.0–2.0 |
+| `max_tokens` | *(none)* | Maximum tokens to generate per completion |
+| `max_concurrent` | `5` | Maximum parallel analysis requests, 1–20 |
+
+Each `llm` field can also be overridden with a `GLYPH_LLM_`-prefixed environment variable (nested settings use `_` as the delimiter), e.g. `GLYPH_LLM_ENABLED=true` or `GLYPH_LLM_BASE_URL=https://api.openai.com`. As with all settings, a value present in `config.yml` takes precedence over the environment.
 
 ### Logging Configuration
 
@@ -732,6 +770,19 @@ Configuration is loaded from `config.yml` first. Environment variables with the 
 | `GLYPH_ACCESS_TOKEN_EXPIRE_MINUTES` | `access_token_expire_minutes` | Token expiry (used only if not set in `config.yml`) |
 | `GLYPH_USE_HTTPS` | `use_https` | Enable HTTPS mode (used only if not set in `config.yml`) |
 | `GLYPH_AUTH_ENABLED` | `auth_enabled` | Enable/disable auth (used only if not set in `config.yml`) |
+| `GLYPH_UPLOAD_FOLDER` | `upload_folder` | Binary storage directory |
+| `GLYPH_TRUSTED_PROXIES` | `trusted_proxies` | Trusted proxy IPs/CIDRs (comma-separated) |
+| `GLYPH_OAUTH2_ENABLED` | `oauth2_enabled` | Enable the OAuth2 flow |
+| `GLYPH_OAUTH2_SESSION_SECRET` | `oauth2_session_secret` | OAuth2 session secret |
+| `GLYPH_LLM_ENABLED` | `llm.enabled` | Enable LLM analysis (nested, `_`-delimited) |
+| `GLYPH_LLM_BASE_URL` | `llm.base_url` | LLM endpoint base URL |
+| `GLYPH_LLM_API_PATH` | `llm.api_path` | LLM chat completions path |
+| `GLYPH_LLM_MODEL` | `llm.model` | LLM model name |
+| `GLYPH_LLM_API_KEY` | `llm.api_key` | LLM API key |
+| `GLYPH_LLM_TIMEOUT_SECONDS` | `llm.timeout_seconds` | LLM per-request timeout |
+| `GLYPH_LLM_TEMPERATURE` | `llm.temperature` | LLM sampling temperature |
+| `GLYPH_LLM_MAX_TOKENS` | `llm.max_tokens` | LLM max generated tokens |
+| `GLYPH_LLM_MAX_CONCURRENT` | `llm.max_concurrent` | LLM max parallel requests |
 
 A few more values are read directly from the environment, independent of `config.yml`:
 
@@ -764,7 +815,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 **Solution:** Ensure the `GHIDRA_INSTALL_DIR` environment variable points to a valid Ghidra installation directory:
 
 ```bash
-export GHIDRA_INSTALL_DIR=/opt/ghidra/ghidra_11.0_PUBLIC
+export GHIDRA_INSTALL_DIR=/opt/ghidra/ghidra_12.0_PUBLIC
 ```
 
 The directory should contain `support/`, `GhidraRun`, and other Ghidra runtime files.

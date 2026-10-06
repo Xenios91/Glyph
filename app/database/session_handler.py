@@ -166,7 +166,7 @@ async def _backfill_owner_columns() -> None:
         b_rows = (
             await b_session.execute(select(Binary.binary_name, Binary.uploaded_by))
         ).all()
-        binary_owner: dict[str, int | None] = {name: uid for name, uid in b_rows}
+        binary_owner: dict[str, int | None] = dict(b_rows)
 
         # 1) Models from their binary.
         m_rows = (
@@ -184,7 +184,7 @@ async def _backfill_owner_columns() -> None:
 
         # Re-read model owners (now backfilled) for dependent tables.
         m_all = (await m_session.execute(select(Model.model_name, Model.user_id))).all()
-        model_owner: dict[str, int | None] = {name: uid for name, uid in m_all}
+        model_owner: dict[str, int | None] = dict(m_all)
 
         # 2) Functions from their model (or binary fallback).
         f_rows = (
@@ -218,7 +218,7 @@ async def _backfill_owner_columns() -> None:
 
         # Re-read prediction owners (now backfilled).
         p_all = (await p_session.execute(select(Prediction.task_name, Prediction.user_id))).all()
-        pred_owner: dict[str, int | None] = {name: uid for name, uid in p_all}
+        pred_owner: dict[str, int | None] = dict(p_all)
 
         # 4) Scan reports from target name (binary / model / prediction owner).
         s_rows = (
@@ -242,7 +242,7 @@ async def _backfill_owner_columns() -> None:
         s_all = (
             await i_session.execute(select(ScanReport.target_name, ScanReport.user_id))
         ).all()
-        report_owner: dict[str, int | None] = {name: uid for name, uid in s_all}
+        report_owner: dict[str, int | None] = dict(s_all)
 
         # 5) LLM results from their scan report (or target fallback).
         l_rows = (

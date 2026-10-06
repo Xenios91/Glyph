@@ -19,8 +19,9 @@ echo "--- Setting up Python Environment ---"
 # Creating the venv as requested
 python3 -m venv glyph_venv
 
-# Install requirements using the venv's pip to ensure isolation
-./glyph_venv/bin/pip install -r requirements.txt
+# Install the project (and its dependencies, including pyghidra) using the
+# venv's pip to ensure isolation
+./glyph_venv/bin/pip install -e .
 
 sudo apt update && sudo apt install libxtst6 -y
 

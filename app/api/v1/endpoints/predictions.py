@@ -7,14 +7,13 @@ Pure JSON API endpoints -- HTML responses are handled by web endpoints
 in app/web/endpoints/web.py.
 """
 
+import types
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from loguru import logger
 from markupsafe import escape
 from pydantic import BaseModel
-
-import types
 
 from app.api.types import FunctionName, ModelName, TaskName
 from app.auth.dependencies import assert_owned, can_access, get_current_active_user

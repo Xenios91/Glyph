@@ -24,14 +24,6 @@ All capabilities are available through a modern web UI and a fully authenticated
 - Health check endpoints (`/health` and `/ready`) for orchestrator integration
 - Security hardening: HSTS header, request body size limits, production JWT secret enforcement, and hardened refresh token cookies
 - PyGhidra integration to reduce setup requirements
-- FastAPI-based server
-- New UI theme
-- Extended configuration options
-- Bug fixes and improved Dockerization
-- Improved test coverage
-- Pydantic implementation
-- Anti-XSS protection
-- User accounts
 
 ### LLM-Assisted Analysis
 

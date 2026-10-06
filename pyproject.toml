@@ -12,7 +12,7 @@ keywords = ["binary-analysis", "malware", "reversing", "nlp", "machine-learning"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Information Technology",
-    "License :: OSI Approved :: MIT License",
+    "License :: Other Licensing",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -44,17 +44,16 @@ dependencies = [
     "bcrypt>=5.0.0",
     "aiosqlite>=0.22.1",
     "joserfc>=0.11.0",
-    "SQLAlchemy>=2.0.48,<2.2",
+    "SQLAlchemy[asyncio]>=2.0.48,<2.2",
     "email-validator>=2.3.0",
     "rich>=15.0.0",
-    "sentry-sdk>=2.63.0",
-    "starlette>=1.3.1",
     "httpx2>=2.13.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=9.1.1",
+    "pytest-asyncio>=1.0.0",
     "pytest-timeout>=2.1.0",
     "pytest-cov>=5.0.0",
     "hypothesis>=6.100.0",
@@ -66,24 +65,31 @@ dev = [
 test = [
     "playwright>=1.60.0",
     "pytest-playwright>=0.8.0",
+    "requests>=2.32.0",
+    "pytest-asyncio>=1.0.0",
+    "pytest-timeout>=2.1.0",
 ]
 
 [project.urls]
-Homepage = "https://github.com/glyph-ml/glyph"
-Repository = "https://github.com/glyph-ml/glyph"
-Documentation = "https://github.com/glyph-ml/glyph/docs"
-Issues = "https://github.com/glyph-ml/glyph/issues"
+Homepage = "https://github.com/Xenios91/Glyph"
+Repository = "https://github.com/Xenios91/Glyph"
+Documentation = "https://github.com/Xenios91/Glyph/tree/main/docs"
+Issues = "https://github.com/Xenios91/Glyph/issues"
 
 [project.scripts]
-glyph = "main:create_app"
+glyph = "main:run"
 
 [build-system]
 requires = ["setuptools>=75.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["app"]
 package-dir = {app = "app"}
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app", "app.*"]
 
 [tool.setuptools.dynamic]
 version = {attr = "app._version.__version__"}

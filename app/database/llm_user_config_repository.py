@@ -3,8 +3,8 @@
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import select
 from sqlalchemy import exc as sa_exc
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import LLMConfig, get_settings

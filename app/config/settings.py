@@ -98,7 +98,7 @@ class GlyphSettings(BaseSettings):
 
     llm: LLMConfig = Field(default_factory=LLMConfig)
 
-    model_config = {"env_prefix": "GLYPH_", "extra": "ignore"}
+    model_config = {"env_prefix": "GLYPH_", "extra": "ignore", "env_nested_delimiter": "_"}
 
     @classmethod
     def settings_customise_sources(

@@ -8,6 +8,40 @@ This document provides a comprehensive reference for the Glyph REST API.
 http://localhost:8000/api/v1
 ```
 
+## Health Checks
+
+These endpoints are served at the application root (not under `/api/v1`) and require no authentication. They are intended for orchestrators such as Kubernetes.
+
+### GET `/health`
+
+Liveness probe. Returns a static OK response as long as the process is running.
+
+**Response:** `200 OK`
+
+```json
+{
+  "status": "ok"
+}
+```
+
+### GET `/ready`
+
+Readiness probe. Verifies that application dependencies are reachable (currently: database connectivity) and reports per-component status.
+
+**Response:** `200 OK`
+
+```json
+{
+  "status": "ok",
+  "components": {
+    "database": "ok"
+  }
+}
+```
+
+- `status` is `"ok"` when every component is healthy, otherwise `"degraded"`.
+- A component that failed its check is reported as `"error: <reason>"` in `components`.
+
 ## Authentication
 
 Most API endpoints require authentication via JWT Bearer token. Include the token in the `Authorization` header:
