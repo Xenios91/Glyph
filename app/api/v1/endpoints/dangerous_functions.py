@@ -36,6 +36,7 @@ from app.services.dangerous_functions_catalog import (
     get_entry,
 )
 from app.services.llm_analysis_service import LLMNotConfiguredError, analyze_findings
+from app.utils.common import binary_function_to_dict
 from app.utils.responses import (
     ErrorResponse,
     SuccessResponse,
@@ -385,10 +386,10 @@ async def scan_dangerous_functions(
         functions_data = _functions_to_dicts(functions)
 
     elif body.binaryId is not None:
-        from app.database.sql_service import SQLUtil
+        from app.database.binary_repository import BinaryRepository
 
         # Load binary and check ownership
-        binary = await SQLUtil.get_binary(body.binaryId)
+        binary = await BinaryRepository.get(binary_id=body.binaryId)
         if binary is None:
             raise HTTPException(
                 status_code=404,
@@ -405,16 +406,8 @@ async def scan_dangerous_functions(
         report_owner_id = binary.uploaded_by
 
         # Load binary functions and convert to dict format
-        binary_functions = await SQLUtil.get_binary_functions(body.binaryId)
-        functions_data = [
-            {
-                "functionName": bf.function_name,
-                "lowAddress": bf.entrypoint,
-                "tokenList": bf.raw_code.split(),
-                "raw_code": bf.raw_code,
-            }
-            for bf in binary_functions
-        ]
+        binary_functions = await BinaryRepository.get_functions(binary_id=body.binaryId)
+        functions_data = [binary_function_to_dict(bf) for bf in binary_functions]
 
     elif body.taskName:
         target_name = body.taskName

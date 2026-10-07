@@ -57,9 +57,9 @@ async def home(
 async def home_stats(request: Request, current_user: Annotated[User, Depends(get_current_active_user)]) -> JSONResponse:
     """Returns homepage statistics for the current user.
     """
-    from app.database.sql_service import SQLUtil
+    from app.database.binary_repository import BinaryRepository
 
-    binaries = await SQLUtil.get_binaries_by_user(current_user.id)
+    binaries = await BinaryRepository.get_by_user(user_id=current_user.id)
     models = await ModelRepository.get_models_list_for_user(current_user.id)
     predictions = [
         p for p in await PredictionRepository.get_predictions_list() if can_access(p, current_user)

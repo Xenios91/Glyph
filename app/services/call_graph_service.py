@@ -154,9 +154,9 @@ class CallGraphService:
             CallGraph containing all nodes and edges.
 
         """
-        from app.database.sql_service import SQLUtil
+        from app.database.binary_repository import BinaryRepository
 
-        functions = await SQLUtil.get_binary_functions(binary_id)
+        functions = await BinaryRepository.get_functions(binary_id=binary_id)
 
         if not functions:
             logger.warning("No functions found for binary {}", binary_id)

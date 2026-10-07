@@ -430,7 +430,7 @@ class TestWebEndpoints:
         )
         assert response.status_code == 200
 
-    @patch("app.database.sql_service.SQLUtil")
+    @patch("app.database.binary_repository.BinaryRepository")
     @patch("app.web.endpoints.web.ModelRepository")
     @patch("app.web.endpoints.web.PredictionRepository")
     def test_home_stats(
@@ -441,7 +441,7 @@ class TestWebEndpoints:
         web_client: TestClient,
     ) -> None:
         """Test home stats endpoint."""
-        mock_sql.get_binaries_by_user = AsyncMock(return_value=[1, 2, 3])
+        mock_sql.get_by_user = AsyncMock(return_value=[1, 2, 3])
         mock_ml_repo.get_models_list_for_user = AsyncMock(return_value=["model1", "model2"])
         pred1 = Mock()
         pred1.user_id = None

@@ -6,11 +6,12 @@ with result persistence and caching.
 
 from dataclasses import dataclass, field
 from itertools import combinations
-from typing import Any
+from typing import Any, cast
 
 from loguru import logger
 
 from app.services.code_reuse_detector import FunctionDict
+from app.utils.common import binary_function_to_dict
 
 
 @dataclass
@@ -69,26 +70,20 @@ class BinarySimilarityService:
             BinaryFunctionEmbeddings with filtered functions, or None on error.
 
         """
-        from app.database.sql_service import SQLUtil
+        from app.database.binary_repository import BinaryRepository
         from app.processing.pipeline import PipelineContext
         from app.processing.steps import FilterStep, TokenizeStep
 
-        raw_functions = await SQLUtil.get_binary_functions(binary_id)
+        raw_functions = await BinaryRepository.get_functions(binary_id=binary_id)
         if not raw_functions:
             logger.warning("No functions found for binary {}", binary_id)
             return None
 
-        binary_name = await SQLUtil.get_binary_name(binary_id)
+        binary_name = await BinaryRepository.get_name(binary_id=binary_id)
 
         # Build function dicts from raw BinaryFunction records
         function_dicts: list[FunctionDict] = [
-            {
-                "functionName": bf.function_name,
-                "lowAddress": bf.entrypoint,
-                "tokenList": bf.raw_code.split(),
-                "raw_code": bf.raw_code,
-            }
-            for bf in raw_functions
+            cast(FunctionDict, binary_function_to_dict(bf)) for bf in raw_functions
         ]
 
         # Run tokenize and filter pipeline steps in-memory

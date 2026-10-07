@@ -20,7 +20,6 @@ from loguru import logger
 from app.config.settings import MAX_CPU_CORES
 from app.processing.pipeline import PipelineContext
 from app.services.request_handler import GhidraRequest
-from app.services.task_service import TaskService
 from app.utils.request_context import (
     CapturedContext,
     clear_request_context,
@@ -289,9 +288,6 @@ class TaskManager:
     def get_status(cls, job_uuid: str) -> str:
         """Get the status of a job by its UUID.
 
-        Checks the active tasks registry first, then falls back to the
-        service queue for backwards compatibility.
-
         Args:
             job_uuid: The UUID of the job.
 
@@ -300,40 +296,19 @@ class TaskManager:
 
         """
         with cls._lock:
-            if job_uuid in cls._active_tasks:
-                return cls._active_tasks[job_uuid]
-
-        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)  # type: ignore[attr-defined]
-        for task in queue_list:
-            queued_uuid: str = task[0].uuid
-            if job_uuid == queued_uuid:
-                status: str = task[0].status
-                with cls._lock:
-                    cls._active_tasks[job_uuid] = status
-                return status
-        return "UUID Not Found"
+            status = cls._active_tasks.get(job_uuid)
+        return status if status is not None else "UUID Not Found"
 
     @classmethod
     def get_all_status(cls) -> dict[str, str]:
-        """Get the status of all jobs.
-
-        Returns statuses from both the active tasks registry and the
-        service queue.  For backwards compatibility, queue entries are
-        keyed by model_name while registry entries are keyed by UUID.
+        """Get the status of all active jobs.
 
         Returns:
-            A dictionary mapping model names / UUIDs to their statuses.
+            A dictionary mapping task UUIDs to their statuses.
 
         """
         with cls._lock:
-            status_list: dict[str, str] = dict(cls._active_tasks)
-
-        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)  # type: ignore[attr-defined]
-        for task in queue_list:
-            status: str = task[0].status
-            model_name: str = task[0].model_name
-            status_list[model_name] = status
-        return status_list
+            return dict(cls._active_tasks)
 
     @classmethod
     def verify_task_owner(cls, job_uuid: str, user_id: int) -> bool:
@@ -358,9 +333,6 @@ class TaskManager:
     def set_status(cls, job_uuid: str, status: str, owner_id: int | None = None) -> bool:
         """Set the status of a job by its UUID.
 
-        Updates both the active tasks registry and the service queue
-        entry (if still queued).
-
         Args:
             job_uuid: The UUID of the job.
             status: The new status to set.
@@ -379,15 +351,6 @@ class TaskManager:
             if job_uuid in cls._active_tasks:
                 cls._active_tasks[job_uuid] = status
                 logger.debug("Updated task {} status to '{}'", job_uuid, status)
-                return True
-
-        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)  # type: ignore[attr-defined]
-        for task in queue_list:
-            queued_uuid: str = task[0].uuid
-            if job_uuid == queued_uuid:
-                task[0].status = status
-                with cls._lock:
-                    cls._active_tasks[job_uuid] = status
                 return True
         return False
 
@@ -460,8 +423,8 @@ class TaskManager:
         logger.debug("TaskManager state reset for testing")
 
 
-class Ghidra(TaskManager):
-    """Task manager for running Ghidra analysis on binaries.
+class GhidraPipelineRunner(TaskManager):
+    """Pipeline runner for Ghidra analysis on binaries.
 
     This class integrates with the pipeline framework to provide
     end-to-end binary analysis workflows.

@@ -23,7 +23,7 @@ from app.database.session_handler import (
     get_async_session,
     init_async_databases,
 )
-from app.database.sql_service import SQLUtil
+from app.database.similarity_repository import SimilarityRepository
 from app.services.binary_similarity_service import (
     BinarySimilarityService,
     SimilarityMatrixEntry,
@@ -415,18 +415,18 @@ class TestSimilarityAPISchemas:
 
 
 class TestSQLSimilarityCRUD:
-    """Tests for SQLUtil similarity model CRUD methods."""
+    """Tests for SimilarityRepository CRUD methods."""
 
     async def test_create_and_get_computation(self, intelligence_session: Any) -> None:
         """Create a computation and retrieve it."""
-        comp = await SQLUtil.create_similarity_computation(
+        comp = await SimilarityRepository.create(
             task_name="test_task",
             computed_by=1,
             binary_count=2,
         )
         assert comp.id > 0
 
-        fetched = await SQLUtil.get_similarity_computation(comp.id)
+        fetched = await SimilarityRepository.get(comp.id)
         assert fetched is not None
         assert fetched.task_name == "test_task"
         assert fetched.status == "pending"
@@ -435,28 +435,28 @@ class TestSQLSimilarityCRUD:
 
     async def test_list_computations_filters_by_user(self, intelligence_session: Any) -> None:
         """List computations should filter by computed_by user ID."""
-        await SQLUtil.create_similarity_computation(
+        await SimilarityRepository.create(
             task_name="task_user1",
             computed_by=1,
             binary_count=2,
         )
-        await SQLUtil.create_similarity_computation(
+        await SimilarityRepository.create(
             task_name="task_user2",
             computed_by=2,
             binary_count=3,
         )
 
-        results_user1 = await SQLUtil.list_similarity_computations(computed_by=1)
+        results_user1 = await SimilarityRepository.list_all(computed_by=1)
         assert len(results_user1) == 1
         assert results_user1[0].task_name == "task_user1"
 
-        results_user2 = await SQLUtil.list_similarity_computations(computed_by=2)
+        results_user2 = await SimilarityRepository.list_all(computed_by=2)
         assert len(results_user2) == 1
         assert results_user2[0].task_name == "task_user2"
 
     async def test_save_and_retrieve_pairs(self, intelligence_session: Any) -> None:
         """Save similarity pairs and verify they are returned with the computation."""
-        comp = await SQLUtil.create_similarity_computation(
+        comp = await SimilarityRepository.create(
             task_name="pair_test",
             computed_by=1,
             binary_count=2,
@@ -469,38 +469,38 @@ class TestSQLSimilarityCRUD:
             matched_function_count=3,
             total_function_comparisons=10,
         )
-        await SQLUtil.save_similarity_pairs(
+        await SimilarityRepository.save_pairs(
             computation_id=comp.id,
             pairs=[pair],
         )
 
-        fetched = await SQLUtil.get_similarity_computation(comp.id)
+        fetched = await SimilarityRepository.get(comp.id)
         assert fetched is not None
         assert len(fetched.pairs) == 1
         assert fetched.pairs[0].overall_similarity == 0.85
 
     async def test_update_status(self, intelligence_session: Any) -> None:
         """Update computation status and verify."""
-        comp = await SQLUtil.create_similarity_computation(
+        comp = await SimilarityRepository.create(
             task_name="status_test",
             computed_by=1,
             binary_count=2,
         )
 
-        await SQLUtil.update_similarity_computation_status(
+        await SimilarityRepository.update_status(
             computation_id=comp.id,
             status="completed",
             total_comparisons=5,
         )
 
-        fetched = await SQLUtil.get_similarity_computation(comp.id)
+        fetched = await SimilarityRepository.get(comp.id)
         assert fetched is not None
         assert fetched.status == "completed"
         assert fetched.total_comparisons == 5
 
     async def test_delete_computation_removes_pairs(self, intelligence_session: Any) -> None:
         """Deleting a computation should also delete its pairs."""
-        comp = await SQLUtil.create_similarity_computation(
+        comp = await SimilarityRepository.create(
             task_name="delete_test",
             computed_by=1,
             binary_count=2,
@@ -513,43 +513,43 @@ class TestSQLSimilarityCRUD:
             matched_function_count=1,
             total_function_comparisons=4,
         )
-        await SQLUtil.save_similarity_pairs(
+        await SimilarityRepository.save_pairs(
             computation_id=comp.id,
             pairs=[pair],
         )
 
-        await SQLUtil.delete_similarity_computation(comp.id)
+        await SimilarityRepository.delete(comp.id)
 
-        fetched = await SQLUtil.get_similarity_computation(comp.id)
+        fetched = await SimilarityRepository.get(comp.id)
         assert fetched is None
 
     async def test_list_computations_all(self, intelligence_session: Any) -> None:
         """List without user filter should return all computations."""
-        await SQLUtil.create_similarity_computation(
+        await SimilarityRepository.create(
             task_name="global1",
             computed_by=1,
             binary_count=2,
         )
-        await SQLUtil.create_similarity_computation(
+        await SimilarityRepository.create(
             task_name="global2",
             computed_by=2,
             binary_count=3,
         )
 
-        all_comps = await SQLUtil.list_similarity_computations()
+        all_comps = await SimilarityRepository.list_all()
         assert len(all_comps) == 2
 
     async def test_update_status_nonexistent_no_error(self, intelligence_session: Any) -> None:
         """Updating a nonexistent computation should not raise an exception."""
         # Should return silently without error
-        await SQLUtil.update_similarity_computation_status(
+        await SimilarityRepository.update_status(
             computation_id=9999,
             status="completed",
         )
 
     async def test_create_computation_sets_defaults(self, intelligence_session: Any) -> None:
         """New computation should have total_comparisons=0 and status=pending."""
-        comp = await SQLUtil.create_similarity_computation(
+        comp = await SimilarityRepository.create(
             task_name="defaults_test",
             computed_by=1,
             binary_count=4,
@@ -559,7 +559,7 @@ class TestSQLSimilarityCRUD:
 
     async def test_create_computation_custom_status(self, intelligence_session: Any) -> None:
         """Can create computation with custom initial status."""
-        comp = await SQLUtil.create_similarity_computation(
+        comp = await SimilarityRepository.create(
             task_name="custom_status",
             computed_by=1,
             binary_count=2,
@@ -569,7 +569,7 @@ class TestSQLSimilarityCRUD:
 
     async def test_save_multiple_pairs(self, intelligence_session: Any) -> None:
         """Can save multiple pairs in a single call."""
-        comp = await SQLUtil.create_similarity_computation(
+        comp = await SimilarityRepository.create(
             task_name="multi_pair",
             computed_by=1,
             binary_count=3,
@@ -598,29 +598,29 @@ class TestSQLSimilarityCRUD:
                 total_function_comparisons=6,
             ),
         ]
-        await SQLUtil.save_similarity_pairs(
+        await SimilarityRepository.save_pairs(
             computation_id=comp.id,
             pairs=pairs,
         )
 
-        fetched = await SQLUtil.get_similarity_computation(comp.id)
+        fetched = await SimilarityRepository.get(comp.id)
         assert fetched is not None
         assert len(fetched.pairs) == 3
 
     async def test_list_computations_ordered_by_created_at_desc(self, intelligence_session: Any) -> None:
         """Computations should be ordered newest first."""
-        await SQLUtil.create_similarity_computation(
+        await SimilarityRepository.create(
             task_name="first",
             computed_by=1,
             binary_count=2,
         )
-        await SQLUtil.create_similarity_computation(
+        await SimilarityRepository.create(
             task_name="second",
             computed_by=1,
             binary_count=2,
         )
 
-        results = await SQLUtil.list_similarity_computations(computed_by=1)
+        results = await SimilarityRepository.list_all(computed_by=1)
         assert len(results) == 2
         # Most recent first
         assert results[0].task_name == "second"

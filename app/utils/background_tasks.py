@@ -12,6 +12,10 @@ from app.processing.task_management import TaskManager
 # Global tracker to prevent garbage collection of fire-and-forget tasks
 _BACKGROUND_TASKS: set[asyncio.Task[None]] = set()
 
+# Delay before a finished task is removed from the TaskManager registry,
+# giving clients a grace period to poll the final status/result.
+TASK_REMOVAL_DELAY_SECONDS = 10
+
 
 def create_background_task(coro: Any) -> asyncio.Task[None]:
     """Create a background task that won't be garbage-collected.
@@ -36,5 +40,5 @@ async def remove_task_delayed(task_uuid: str) -> None:
         task_uuid: The task UUID to remove.
 
     """
-    await asyncio.sleep(10)
+    await asyncio.sleep(TASK_REMOVAL_DELAY_SECONDS)
     TaskManager.remove_task(task_uuid)

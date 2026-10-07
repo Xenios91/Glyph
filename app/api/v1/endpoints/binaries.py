@@ -2,7 +2,7 @@
 
 Provides endpoints for uploading binary files, initiating Ghidra analysis,
 and managing the binary processing pipeline. Delegates business logic to
-BinaryUploadService and BinaryAnalysisService.
+BinaryUploadService.
 """
 
 import uuid
@@ -16,7 +16,7 @@ from app.auth.dependencies import get_current_active_user
 from app.database.function_repository import FunctionRepository
 from app.database.models import User
 from app.exceptions import BinaryAccessError, BinaryNotFoundError, ValidationError
-from app.processing.task_management import Ghidra, TaskManager
+from app.processing.task_management import GhidraPipelineRunner, TaskManager
 from app.services.binary_upload_service import BinaryUploadService
 from app.services.prediction_service import PredictionService
 from app.services.request_handler import GhidraRequest
@@ -185,7 +185,7 @@ async def _run_pipeline_analysis(
             restore_request_context(captured_ctx, override_task_id=task_uuid)
 
         TaskManager.set_status(task_uuid, "processing")
-        result = await Ghidra.run_full_pipeline(ghidra_request, file_path)
+        result = await GhidraPipelineRunner.run_full_pipeline(ghidra_request, file_path)
 
         if result.error:
             TaskManager.set_status(task_uuid, "error")

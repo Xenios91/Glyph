@@ -1,10 +1,9 @@
 """Application lifespan management for Glyph.
 
 Handles startup and shutdown events including database initialization,
-task service startup, event watcher configuration, and graceful cleanup.
+event watcher configuration, and graceful cleanup.
 """
 
-import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -14,17 +13,6 @@ from loguru import logger
 from app.config.settings import get_settings
 from app.database.session_handler import dispose_async_engines, init_async_databases
 from app.processing.task_management import EventWatcher
-from app.services.task_service import TaskService
-
-
-def _task_done_callback(task: asyncio.Task[None]) -> None:
-    """Handle task completion, properly checking cancelled state before calling exception()."""
-    if task.cancelled():
-        logger.warning("Task service background task was cancelled")
-    elif task.exception() is not None:
-        logger.error("Task service background task failed: %s", task.exception())
-    else:
-        logger.warning("Task service background task completed")
 
 
 @asynccontextmanager
@@ -34,8 +22,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Handles startup sequence:
         1. Load and validate configuration
         2. Initialize async database connections
-        3. Start background task service
-        4. Start event watcher for task completion callbacks
+        3. Start event watcher for task completion callbacks
 
     On shutdown:
         1. Stop event watcher
@@ -67,14 +54,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.exception("Failed to initialize async databases")
         raise RuntimeError("Async database initialization failed.") from e
-
-    try:
-        task = asyncio.create_task(TaskService.start_service())
-        task.add_done_callback(_task_done_callback)
-        logger.info("Task service started as async background task")
-    except Exception as e:
-        logger.exception("Failed to start TaskService")
-        raise RuntimeError("Task service startup failed.") from e
 
     event_watcher = EventWatcher()
     try:

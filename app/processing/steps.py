@@ -24,6 +24,7 @@ from app.config.pipeline_configs import MLTask
 from app.config.settings import get_settings
 from app.database.model_repository import ModelRepository
 from app.processing.pipeline import PipelineContext, PipelineStep
+from app.utils.common import binary_function_to_dict
 
 _VARIABLE_PATTERNS = [
     r"^var\d+$",
@@ -540,7 +541,7 @@ class SaveRawFunctionsStep(PipelineStep):
             Updated context with save confirmation.
 
         """
-        from app.database.sql_service import SQLUtil
+        from app.database.binary_repository import BinaryRepository
 
         binary_id = context.get("binary_id")
         functions = context.get("functions")
@@ -568,7 +569,7 @@ class SaveRawFunctionsStep(PipelineStep):
             )
 
         if db_functions:
-            await SQLUtil.save_binary_functions(binary_id, db_functions)
+            await BinaryRepository.save_functions(binary_id=binary_id, functions=db_functions)
             logger.info("Saved {} raw functions for binary {}", len(db_functions), binary_id)
 
         context.set("functions_saved", len(db_functions))
@@ -605,7 +606,7 @@ class LoadBinaryFunctionsStep(PipelineStep):
             Updated context with loaded functions.
 
         """
-        from app.database.sql_service import SQLUtil
+        from app.database.binary_repository import BinaryRepository
 
         binary_id = context.get("binary_id")
         if binary_id is None:
@@ -613,7 +614,7 @@ class LoadBinaryFunctionsStep(PipelineStep):
             return context
 
         try:
-            binary_functions = await SQLUtil.get_binary_functions(binary_id)
+            binary_functions = await BinaryRepository.get_functions(binary_id=binary_id)
 
             if not binary_functions:
                 context.error = f"No functions found for binary {binary_id}"
@@ -621,18 +622,7 @@ class LoadBinaryFunctionsStep(PipelineStep):
 
             # Convert BinaryFunction ORM objects to the dict format
             # expected by TokenizeStep (matching Ghidra output structure)
-            functions: list[dict[str, Any]] = []
-            for bf in binary_functions:
-                # Split raw_code back into token-like list for TokenizeStep
-                # The TokenizeStep reads func.get("tokenList", [])
-                functions.append(
-                    {
-                        "functionName": bf.function_name,
-                        "lowAddress": bf.entrypoint,
-                        "tokenList": bf.raw_code.split(),  # Space-separated tokens
-                        "raw_code": bf.raw_code,
-                    },
-                )
+            functions: list[dict[str, Any]] = [binary_function_to_dict(bf) for bf in binary_functions]
 
             context.set("functions", functions)
             logger.info("Loaded {} functions for binary {}", len(functions), binary_id)

@@ -8,6 +8,8 @@ from typing import Any, TypedDict
 
 from loguru import logger
 
+from app.utils.common import binary_function_to_dict
+
 
 class FunctionDict(TypedDict, total=False):
     """Typed dict representing a decompiled function.
@@ -140,27 +142,19 @@ async def compare_binaries(
         or None if the target binary has no functions.
 
     """
-    from app.database.sql_service import SQLUtil
+    from app.database.binary_repository import BinaryRepository
     from app.processing.pipeline import PipelineContext
     from app.processing.steps import FilterStep, TokenizeStep
 
     # Load target binary functions
-    target_functions = await SQLUtil.get_binary_functions(target_binary_id)
+    target_functions = await BinaryRepository.get_functions(binary_id=target_binary_id)
     if not target_functions:
         return None
 
-    target_name = await SQLUtil.get_binary_name(target_binary_id)
+    target_name = await BinaryRepository.get_name(binary_id=target_binary_id)
 
     # Tokenize and filter target functions in-memory
-    target_dicts: list[dict[str, Any]] = [
-        {
-            "functionName": bf.function_name,
-            "lowAddress": bf.entrypoint,
-            "tokenList": bf.raw_code.split(),
-            "raw_code": bf.raw_code,
-        }
-        for bf in target_functions
-    ]
+    target_dicts: list[dict[str, Any]] = [binary_function_to_dict(bf) for bf in target_functions]
 
     target_context = PipelineContext(
         uuid=f"reuse_target_{target_binary_id}",

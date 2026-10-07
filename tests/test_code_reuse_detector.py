@@ -168,22 +168,22 @@ class TestCompareBinaries:
     @pytest.mark.asyncio
     async def test_compare_binaries_no_target_functions(self, mock_source_functions: list[dict[str, object]]) -> None:
         """Test that compare_binaries returns None when target has no functions."""
-        with mock.patch("app.database.sql_service.SQLUtil") as mock_sql:
-            mock_sql.get_binary_functions = mock.AsyncMock(return_value=[])
+        with mock.patch("app.database.binary_repository.BinaryRepository") as mock_sql:
+            mock_sql.get_functions = mock.AsyncMock(return_value=[])
 
             result = await compare_binaries(mock_source_functions, target_binary_id=1)
 
             assert result is None
-            mock_sql.get_binary_functions.assert_called_once_with(1)
+            mock_sql.get_functions.assert_called_once_with(binary_id=1)
 
     @pytest.mark.asyncio
     async def test_compare_binaries_tokenization_error(self, mock_source_functions: list[dict[str, object]]) -> None:
         """Test that compare_binaries returns None when tokenization fails."""
         mock_bf = self._create_mock_binary_function("tgt_func", 0x1000, "int tgt_func() { return 1; }")
 
-        with mock.patch("app.database.sql_service.SQLUtil") as mock_sql:
-            mock_sql.get_binary_functions = mock.AsyncMock(return_value=[mock_bf])
-            mock_sql.get_binary_name = mock.AsyncMock(return_value="target.bin")
+        with mock.patch("app.database.binary_repository.BinaryRepository") as mock_sql:
+            mock_sql.get_functions = mock.AsyncMock(return_value=[mock_bf])
+            mock_sql.get_name = mock.AsyncMock(return_value="target.bin")
 
             with mock.patch("app.processing.steps.TokenizeStep") as MockTokenize:
                 mock_tokenize = MockTokenize.return_value
@@ -198,9 +198,9 @@ class TestCompareBinaries:
         """Test that compare_binaries returns None when filtering fails."""
         mock_bf = self._create_mock_binary_function("tgt_func", 0x1000, "int tgt_func() { return 1; }")
 
-        with mock.patch("app.database.sql_service.SQLUtil") as mock_sql:
-            mock_sql.get_binary_functions = mock.AsyncMock(return_value=[mock_bf])
-            mock_sql.get_binary_name = mock.AsyncMock(return_value="target.bin")
+        with mock.patch("app.database.binary_repository.BinaryRepository") as mock_sql:
+            mock_sql.get_functions = mock.AsyncMock(return_value=[mock_bf])
+            mock_sql.get_name = mock.AsyncMock(return_value="target.bin")
 
             mock_tokenized_ctx = mock.MagicMock(error=None)
             mock_tokenized_ctx.get.return_value = []
@@ -222,9 +222,9 @@ class TestCompareBinaries:
         """Test comparison when no functions match threshold."""
         mock_bf = self._create_mock_binary_function("tgt_func", 0x1000, "float completely_different() { }")
 
-        with mock.patch("app.database.sql_service.SQLUtil") as mock_sql:
-            mock_sql.get_binary_functions = mock.AsyncMock(return_value=[mock_bf])
-            mock_sql.get_binary_name = mock.AsyncMock(return_value="target.bin")
+        with mock.patch("app.database.binary_repository.BinaryRepository") as mock_sql:
+            mock_sql.get_functions = mock.AsyncMock(return_value=[mock_bf])
+            mock_sql.get_name = mock.AsyncMock(return_value="target.bin")
 
             mock_ctx = mock.MagicMock(error=None)
             mock_ctx.get.return_value = [
@@ -256,9 +256,9 @@ class TestCompareBinaries:
         """Test comparison when functions match above threshold."""
         mock_bf = self._create_mock_binary_function("tgt_main", 0x1000, "int tgt_main() { return 0; }")
 
-        with mock.patch("app.database.sql_service.SQLUtil") as mock_sql:
-            mock_sql.get_binary_functions = mock.AsyncMock(return_value=[mock_bf])
-            mock_sql.get_binary_name = mock.AsyncMock(return_value="target.bin")
+        with mock.patch("app.database.binary_repository.BinaryRepository") as mock_sql:
+            mock_sql.get_functions = mock.AsyncMock(return_value=[mock_bf])
+            mock_sql.get_name = mock.AsyncMock(return_value="target.bin")
 
             mock_ctx = mock.MagicMock(error=None)
             mock_ctx.get.return_value = [
@@ -297,9 +297,9 @@ class TestCompareBinaries:
 
         mock_bf = self._create_mock_binary_function("tgt_func", 0x1000, "int tgt_func() { }")
 
-        with mock.patch("app.database.sql_service.SQLUtil") as mock_sql:
-            mock_sql.get_binary_functions = mock.AsyncMock(return_value=[mock_bf])
-            mock_sql.get_binary_name = mock.AsyncMock(return_value="target.bin")
+        with mock.patch("app.database.binary_repository.BinaryRepository") as mock_sql:
+            mock_sql.get_functions = mock.AsyncMock(return_value=[mock_bf])
+            mock_sql.get_name = mock.AsyncMock(return_value="target.bin")
 
             mock_ctx = mock.MagicMock(error=None)
             mock_ctx.get.return_value = [
@@ -343,9 +343,9 @@ class TestCompareBinaries:
         mock_bf1 = self._create_mock_binary_function("tgt_a", 0x1000, "int tgt_a() { }")
         mock_bf2 = self._create_mock_binary_function("tgt_b", 0x2000, "void tgt_b() { }")
 
-        with mock.patch("app.database.sql_service.SQLUtil") as mock_sql:
-            mock_sql.get_binary_functions = mock.AsyncMock(return_value=[mock_bf1, mock_bf2])
-            mock_sql.get_binary_name = mock.AsyncMock(return_value="target.bin")
+        with mock.patch("app.database.binary_repository.BinaryRepository") as mock_sql:
+            mock_sql.get_functions = mock.AsyncMock(return_value=[mock_bf1, mock_bf2])
+            mock_sql.get_name = mock.AsyncMock(return_value="target.bin")
 
             mock_ctx = mock.MagicMock(error=None)
             mock_ctx.get.return_value = [
@@ -388,9 +388,9 @@ class TestCompareBinaries:
         mock_bf1 = self._create_mock_binary_function("tgt_similar", 0x1000, "int similar() { return 0; }")
         mock_bf2 = self._create_mock_binary_function("tgt_different", 0x2000, "float different() { }")
 
-        with mock.patch("app.database.sql_service.SQLUtil") as mock_sql:
-            mock_sql.get_binary_functions = mock.AsyncMock(return_value=[mock_bf1, mock_bf2])
-            mock_sql.get_binary_name = mock.AsyncMock(return_value="target.bin")
+        with mock.patch("app.database.binary_repository.BinaryRepository") as mock_sql:
+            mock_sql.get_functions = mock.AsyncMock(return_value=[mock_bf1, mock_bf2])
+            mock_sql.get_name = mock.AsyncMock(return_value="target.bin")
 
             mock_ctx = mock.MagicMock(error=None)
             mock_ctx.get.return_value = [
@@ -435,9 +435,9 @@ class TestCompareBinaries:
 
         mock_bf = self._create_mock_binary_function("tgt_func", 0x1000, "int tgt_func() { }")
 
-        with mock.patch("app.database.sql_service.SQLUtil") as mock_sql:
-            mock_sql.get_binary_functions = mock.AsyncMock(return_value=[mock_bf])
-            mock_sql.get_binary_name = mock.AsyncMock(return_value="target.bin")
+        with mock.patch("app.database.binary_repository.BinaryRepository") as mock_sql:
+            mock_sql.get_functions = mock.AsyncMock(return_value=[mock_bf])
+            mock_sql.get_name = mock.AsyncMock(return_value="target.bin")
 
             mock_ctx = mock.MagicMock(error=None)
             mock_ctx.get.return_value = [
@@ -487,9 +487,9 @@ class TestCompareBinaries:
         mock_bf1 = self._create_mock_binary_function("tgt_a", 0x1000, "int tgt_a() { }")
         mock_bf2 = self._create_mock_binary_function("tgt_b", 0x2000, "int tgt_b() { }")
 
-        with mock.patch("app.database.sql_service.SQLUtil") as mock_sql:
-            mock_sql.get_binary_functions = mock.AsyncMock(return_value=[mock_bf1, mock_bf2])
-            mock_sql.get_binary_name = mock.AsyncMock(return_value="target.bin")
+        with mock.patch("app.database.binary_repository.BinaryRepository") as mock_sql:
+            mock_sql.get_functions = mock.AsyncMock(return_value=[mock_bf1, mock_bf2])
+            mock_sql.get_name = mock.AsyncMock(return_value="target.bin")
 
             mock_ctx = mock.MagicMock(error=None)
             mock_ctx.get.return_value = [

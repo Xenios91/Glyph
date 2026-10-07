@@ -679,12 +679,12 @@ class TestSaveRawFunctionsStep:
         assert result.error is None
         assert result.get("functions_saved") == 0
 
-    @patch("app.database.sql_service.SQLUtil")
+    @patch("app.database.binary_repository.BinaryRepository")
     async def test_execute_success(self, mock_sql: Any) -> None:
         """Test successful save of raw functions."""
         from unittest.mock import AsyncMock
 
-        mock_sql.save_binary_functions = AsyncMock()
+        mock_sql.save_functions = AsyncMock()
 
         step = SaveRawFunctionsStep()
         context = PipelineContext(
@@ -701,14 +701,14 @@ class TestSaveRawFunctionsStep:
         result = await step.execute(context)
         assert result.error is None
         assert result.get("functions_saved") == 2
-        mock_sql.save_binary_functions.assert_called_once()
+        mock_sql.save_functions.assert_called_once()
 
     async def test_execute_skips_functions_without_raw_code(self):
         """Test that functions without raw_code are skipped."""
-        with patch("app.database.sql_service.SQLUtil") as mock_sql:
+        with patch("app.database.binary_repository.BinaryRepository") as mock_sql:
             from unittest.mock import AsyncMock
 
-            mock_sql.save_binary_functions = AsyncMock()
+            mock_sql.save_functions = AsyncMock()
 
             step = SaveRawFunctionsStep()
             context = PipelineContext(
@@ -747,7 +747,7 @@ class TestLoadBinaryFunctionsStep:
         assert result.error is not None
         assert "binary_id" in result.error
 
-    @patch("app.database.sql_service.SQLUtil")
+    @patch("app.database.binary_repository.BinaryRepository")
     async def test_execute_success(self, mock_sql: Any) -> None:
         """Test successful load of binary functions."""
         from unittest.mock import AsyncMock, MagicMock
@@ -758,7 +758,7 @@ class TestLoadBinaryFunctionsStep:
         mock_bf.entrypoint = "0x401000"
         mock_bf.raw_code = "int main() {}"
 
-        mock_sql.get_binary_functions = AsyncMock(return_value=[mock_bf])
+        mock_sql.get_functions = AsyncMock(return_value=[mock_bf])
 
         step = LoadBinaryFunctionsStep()
         context = PipelineContext(
@@ -772,12 +772,12 @@ class TestLoadBinaryFunctionsStep:
         assert len(functions) == 1
         assert functions[0]["functionName"] == "main"
 
-    @patch("app.database.sql_service.SQLUtil")
+    @patch("app.database.binary_repository.BinaryRepository")
     async def test_execute_no_functions_found(self, mock_sql: Any) -> None:
         """Test load when no functions exist for binary."""
         from unittest.mock import AsyncMock
 
-        mock_sql.get_binary_functions = AsyncMock(return_value=[])
+        mock_sql.get_functions = AsyncMock(return_value=[])
 
         step = LoadBinaryFunctionsStep()
         context = PipelineContext(
@@ -789,12 +789,12 @@ class TestLoadBinaryFunctionsStep:
         assert result.error is not None
         assert "No functions found" in result.error
 
-    @patch("app.database.sql_service.SQLUtil")
+    @patch("app.database.binary_repository.BinaryRepository")
     async def test_execute_load_fails(self, mock_sql: Any) -> None:
         """Test load when database query fails."""
         from unittest.mock import AsyncMock
 
-        mock_sql.get_binary_functions = AsyncMock(side_effect=Exception("DB error"))
+        mock_sql.get_functions = AsyncMock(side_effect=Exception("DB error"))
 
         step = LoadBinaryFunctionsStep()
         context = PipelineContext(

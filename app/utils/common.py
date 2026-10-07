@@ -1,7 +1,35 @@
 """Utility functions for code formatting and other utilities."""
 
 import re
-from typing import Any
+from typing import Any, Protocol
+
+
+class _FunctionLike(Protocol):
+    """Structural type for objects with the BinaryFunction fields we need."""
+
+    function_name: str
+    entrypoint: str
+    raw_code: str
+
+
+def binary_function_to_dict(bf: _FunctionLike) -> dict[str, Any]:
+    """Convert a ``BinaryFunction`` ORM object to the dict format expected by
+    the pipeline steps and analysis services.
+
+    Args:
+        bf: The BinaryFunction record to convert.
+
+    Returns:
+        Dictionary with keys ``functionName``, ``lowAddress``, ``tokenList``,
+        and ``raw_code``.
+
+    """
+    return {
+        "functionName": bf.function_name,
+        "lowAddress": bf.entrypoint,
+        "tokenList": bf.raw_code.split(),
+        "raw_code": bf.raw_code,
+    }
 
 
 def format_code(code: str) -> str:

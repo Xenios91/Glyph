@@ -7,8 +7,6 @@ from typing import Any
 import pytest
 from app.processing.task_management import EventWatcher, TaskManager
 from app.services.request_handler import TrainingRequest
-from app.services.task_service import TaskService
-from app.utils.request_context import CapturedContext
 from loguru import logger
 
 
@@ -29,7 +27,6 @@ def reset_singletons() -> None:
     """Reset all singleton state before each test for proper test isolation."""
     TaskManager._reset_for_testing()
     EventWatcher._reset_for_testing()
-    TaskService._reset_for_testing()
 
 
 @pytest.fixture
@@ -51,12 +48,6 @@ def sample_training_request() -> TrainingRequest:
     )
 
 
-@pytest.fixture
-def sample_captured_context() -> CapturedContext:
-    """Provide a CapturedContext for testing queue operations."""
-    return CapturedContext(request_id="test-request-id", user_id=1, username="testuser", task_id=None)
-
-
 def test_get_uuid(task_manager: TaskManager) -> None:
     """Test UUID generation produces valid format."""
     uuid = task_manager.get_uuid()
@@ -65,14 +56,9 @@ def test_get_uuid(task_manager: TaskManager) -> None:
     assert isinstance(uuid, str)
 
 
-def test_get_status(
-    task_manager: TaskManager,
-    sample_training_request: TrainingRequest,
-    sample_captured_context: CapturedContext,
-) -> None:
-    """Test task status retrieval from queue."""
-    # Insert directly into the underlying deque (what TaskManager.get_status reads)
-    TaskService().service_queue._queue.append((sample_training_request, sample_captured_context))
+def test_get_status(task_manager: TaskManager) -> None:
+    """Test task status retrieval from the active tasks registry."""
+    task_manager.register_task("1234", "starting")
 
     status = task_manager.get_status("1234")
 
@@ -86,13 +72,9 @@ def test_get_status_not_found(task_manager: TaskManager) -> None:
     assert status == "UUID Not Found"
 
 
-def test_set_status(
-    task_manager: TaskManager,
-    sample_training_request: TrainingRequest,
-    sample_captured_context: CapturedContext,
-) -> None:
+def test_set_status(task_manager: TaskManager) -> None:
     """Test updating task status."""
-    TaskService().service_queue._queue.append((sample_training_request, sample_captured_context))
+    task_manager.register_task("1234", "starting")
 
     result = task_manager.set_status("1234", "complete")
 
@@ -108,18 +90,14 @@ def test_set_status_not_found(task_manager: TaskManager) -> None:
     assert result is False
 
 
-def test_get_all_status(
-    task_manager: TaskManager,
-    sample_training_request: TrainingRequest,
-    sample_captured_context: CapturedContext,
-) -> None:
+def test_get_all_status(task_manager: TaskManager) -> None:
     """Test retrieving status for all tasks."""
-    TaskService().service_queue._queue.append((sample_training_request, sample_captured_context))
+    task_manager.register_task("1234", "starting")
 
     all_status = task_manager.get_all_status()
 
-    assert "test_model" in all_status
-    assert all_status["test_model"] == "starting"
+    assert "1234" in all_status
+    assert all_status["1234"] == "starting"
 
 
 @pytest.fixture

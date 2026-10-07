@@ -93,9 +93,7 @@ Glyph is an architecture-independent binary analysis tool that uses NLP techniqu
 ### Services Layer (`app/services/`)
 
 - **`request_handler.py`** - Business logic for processing requests (`DataHandler`, `TrainingRequest`, `PredictionRequest`, `GhidraRequest`, `Prediction`)
-- **`task_service.py`** - Singleton background task queue management (async queue with request-context capture/restore)
 - **`binary_upload_service.py`** - Binary file validation, storage, and metadata operations
-- **`analysis_service.py`** - Binary analysis workflow orchestration
 - **`prediction_service.py`** - Prediction result persistence, retrieval, and deletion
 - **`binary_similarity_service.py`** - Binary similarity computation with result persistence and caching
 - **`code_reuse_detector.py`** - Code reuse detection via token-level analysis (Jaccard similarity + LCS ratio)
@@ -129,7 +127,6 @@ Glyph is an architecture-independent binary analysis tool that uses NLP techniqu
 - **`llm_user_config_repository.py`** - Repository for `LLMUserConfig` operations
 - **`scan_report_repository.py`** - Repository for `ScanReport` operations
 - **`similarity_repository.py`** - Repository for `SimilarityComputation`/`SimilarityPair` operations
-- **`sql_service.py`** - SQL query service layer (`SQLUtil`)
 
 ### Processing Layer (`app/processing/`)
 

@@ -47,6 +47,9 @@ dependencies = [
     "SQLAlchemy[asyncio]>=2.0.48,<2.2",
     "email-validator>=2.3.0",
     "rich>=15.0.0",
+    # httpx2 (pydantic/httpx2) is the intentional HTTP client here, not a typo of
+    # httpx: it is the next-generation client maintained by the Pydantic org and
+    # pairs with httpcore2.
     "httpx2>=2.13.0",
 ]
 

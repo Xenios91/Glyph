@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
+# httpx2 (pydantic/httpx2) is the intentional HTTP client for this project, not a
+# typo of httpx: it is the next-generation client maintained by the Pydantic org.
 import httpx2 as httpx
 from loguru import logger
 
