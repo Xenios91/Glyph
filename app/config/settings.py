@@ -1,7 +1,6 @@
 """Configuration module for Glyph application settings."""
 
 import os
-import secrets
 from pathlib import Path
 
 from loguru import logger
@@ -53,10 +52,10 @@ class LLMConfig(BaseModel):
     """OpenAI-compatible endpoint configuration for LLM-assisted analysis."""
 
     enabled: bool = False
-    base_url: str = "https://your.model.url"
+    base_url: str = "http://localhost:11434"
     port: int | None = None
     api_path: str = "/v1/chat/completions"
-    model: str = "your model here"
+    model: str = "llama3"
     api_key: str = ""
     timeout_seconds: float = Field(default=900.0, ge=60)
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
@@ -83,9 +82,6 @@ class GlyphSettings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=15)
     refresh_token_expire_days: int = Field(default=7)
-
-    oauth2_enabled: bool = Field(default=False)
-    oauth2_session_secret: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
 
     use_https: bool = Field(default=False, description="Whether the application is deployed behind HTTPS/TLS")
     trusted_proxies: list[str] = Field(
@@ -121,6 +117,68 @@ class GlyphSettings(BaseSettings):
 
 _settings: GlyphSettings | None = None
 
+_DEFAULT_JWT_SECRET = "change-me-in-production"
+_MIN_JWT_SECRET_LEN = 32
+
+
+def _validate_production_settings(settings: GlyphSettings) -> None:
+    """Validate security-critical settings for the current environment.
+
+    Args:
+        settings: The settings instance to validate.
+
+    Raises:
+        RuntimeError: If a security-critical setting is unsafe for production.
+
+    """
+    env = os.environ.get("GLYPH_ENV", os.environ.get("ENV", "development"))
+    is_production = env == "production"
+
+    # Treat an empty/whitespace-only secret as unset so the production guard
+    # triggers instead of silently signing tokens with an empty key.
+    if not settings.jwt_secret_key.strip():
+        settings.jwt_secret_key = _DEFAULT_JWT_SECRET
+
+    if settings.jwt_secret_key == _DEFAULT_JWT_SECRET:
+        if is_production:
+            logger.critical(
+                "JWT secret key is using default value in production! "
+                "This is a critical security risk. Refusing to start.",
+            )
+            raise RuntimeError(
+                "JWT secret key must be changed from default value in production. "
+                "Set GLYPH_JWT_SECRET_KEY environment variable or update config.yml.",
+            )
+        else:
+            logger.warning(
+                "Using default JWT secret key. "
+                "Set GLYPH_JWT_SECRET_KEY environment variable or "
+                "jwt_secret_key in config.yml for production use. "
+                "Tokens will be invalidated on application restart.",
+            )
+    elif is_production and len(settings.jwt_secret_key) < _MIN_JWT_SECRET_LEN:
+        logger.critical(
+            "JWT secret key is shorter than the recommended minimum in production! "
+            "This is a security risk. Refusing to start.",
+        )
+        raise RuntimeError(
+            f"JWT secret key must be at least {_MIN_JWT_SECRET_LEN} characters in production. "
+            "Set a stronger GLYPH_JWT_SECRET_KEY environment variable or update config.yml.",
+        )
+
+    if not settings.use_https:
+        if is_production:
+            logger.critical(
+                "use_https is False in production! "
+                "Cookies will be sent over unencrypted HTTP. "
+                "Set GLYPH_USE_HTTPS=true or use_https in config.yml.",
+            )
+        else:
+            logger.warning(
+                "use_https is False — cookies will be sent over unencrypted HTTP. "
+                "Enable use_https in production.",
+            )
+
 
 def get_settings() -> GlyphSettings:
     """Get or create the settings singleton instance.
@@ -129,46 +187,14 @@ def get_settings() -> GlyphSettings:
         GlyphSettings: The application settings instance.
 
     Raises:
-        RuntimeError: If settings fail to load.
+        RuntimeError: If settings fail to load or are unsafe for production.
 
     """
     global _settings
     if _settings is None:
         try:
             _settings = GlyphSettings()
-            _DEFAULT_JWT_SECRET = "change-me-in-production"
-            if _settings.jwt_secret_key == _DEFAULT_JWT_SECRET:
-                env = os.environ.get("GLYPH_ENV", os.environ.get("ENV", "development"))
-                if env == "production":
-                    logger.critical(
-                        "JWT secret key is using default value in production! "
-                        "This is a critical security risk. Refusing to start.",
-                    )
-                    raise RuntimeError(
-                        "JWT secret key must be changed from default value in production. "
-                        "Set GLYPH_JWT_SECRET_KEY environment variable or update config.yml.",
-                    )
-                else:
-                    logger.warning(
-                        "Using default JWT secret key. "
-                        "Set GLYPH_JWT_SECRET_KEY environment variable or "
-                        "jwt_secret_key in config.yml for production use. "
-                        "Tokens will be invalidated on application restart.",
-                    )
-
-            if not _settings.use_https:
-                env = os.environ.get("GLYPH_ENV", os.environ.get("ENV", "development"))
-                if env == "production":
-                    logger.critical(
-                        "use_https is False in production! "
-                        "Cookies will be sent over unencrypted HTTP. "
-                        "Set GLYPH_USE_HTTPS=true or use_https in config.yml.",
-                    )
-                else:
-                    logger.warning(
-                        "use_https is False — cookies will be sent over unencrypted HTTP. "
-                        "Enable use_https in production.",
-                    )
+            _validate_production_settings(_settings)
         except RuntimeError:
             raise
         except Exception as e:
@@ -177,12 +203,16 @@ def get_settings() -> GlyphSettings:
 
 
 def reload_settings() -> GlyphSettings:
-    """Reload settings from config file.
+    """Reload settings from config file and re-validate security settings.
 
     Returns:
         GlyphSettings: Fresh settings instance.
 
+    Raises:
+        RuntimeError: If the reloaded settings are unsafe for production.
+
     """
     global _settings
     _settings = GlyphSettings()
+    _validate_production_settings(_settings)
     return _settings

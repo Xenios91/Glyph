@@ -441,7 +441,7 @@ async def scan_dangerous_functions(
                 detail="Failed to load prediction data: security validation failed",
             )
         except Exception:
-            logger.exception("Failed to deserialize prediction data for task '%s'", target_name)
+            logger.exception("Failed to deserialize prediction data for task '{}'", target_name)
             raise HTTPException(
                 status_code=500,
                 detail="Failed to load prediction data",

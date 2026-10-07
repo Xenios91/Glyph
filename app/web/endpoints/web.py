@@ -35,7 +35,7 @@ from app.database.repository import UserRepository
 from app.processing.task_management import TaskManager
 from app.templates import templates
 from app.utils.common import build_prediction_details_response, format_code
-from app.utils.helpers import ACCEPT_TYPE
+from app.api.types import ACCEPT_TYPE
 
 router = APIRouter()
 

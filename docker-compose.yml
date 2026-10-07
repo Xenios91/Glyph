@@ -23,7 +23,6 @@ services:
     volumes:
       - ./binaries:/app/binaries
       - ./logs:/app/logs
-      - ./models:/app/models
       - ./data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

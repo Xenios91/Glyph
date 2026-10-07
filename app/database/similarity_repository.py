@@ -51,7 +51,7 @@ class SimilarityRepository:
             return comp
         except sa_exc.SQLAlchemyError:
             await session.rollback()
-            logger.exception("Failed to create similarity computation '%s'", task_name)
+            logger.exception("Failed to create similarity computation '{}'", task_name)
             raise
         finally:
             await close_async_session(session)

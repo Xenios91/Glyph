@@ -17,7 +17,7 @@ from typing import Any
 
 from loguru import logger
 
-from app.config.settings import MAX_CPU_CORES
+from app.config.settings import get_settings
 from app.processing.pipeline import PipelineContext
 from app.services.request_handler import GhidraRequest
 from app.utils.request_context import (
@@ -25,6 +25,15 @@ from app.utils.request_context import (
     clear_request_context,
     restore_request_context,
 )
+
+
+def _pool_size() -> int:
+    """Return the configured number of worker processes for the task pool.
+
+    Reads ``cpu_cores`` from application settings so that changes made through
+    the configuration endpoint take effect the next time the pool is created.
+    """
+    return get_settings().cpu_cores
 
 
 class EventWatcher:
@@ -113,7 +122,7 @@ class EventWatcher:
             try:
                 old.stop_watching()
             except Exception as e:
-                logger.debug("Error during EventWatcher stop_watching in reset: %s", e)
+                logger.debug("Error during EventWatcher stop_watching in reset: {}", e)
         cls._instance = None
         logger.debug("EventWatcher state reset for testing")
 
@@ -196,7 +205,7 @@ class TaskManager:
         """Initialize the process pool executor for subclasses."""
         super().__init_subclass__(**kwargs)
         if cls.exec_pool is None:
-            cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
+            cls.exec_pool = ProcessPoolExecutor(max_workers=_pool_size())
             atexit.register(cls._shutdown_executor)
             if threading.current_thread() is threading.main_thread():
                 signal.signal(signal.SIGTERM, cls._signal_handler)
@@ -219,7 +228,7 @@ class TaskManager:
 
         """
         if cls.exec_pool is None or cls._executor_shutdown:
-            cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
+            cls.exec_pool = ProcessPoolExecutor(max_workers=_pool_size())
             cls._executor_shutdown = False
         return cls.exec_pool
 
@@ -413,7 +422,7 @@ class TaskManager:
         # Re-create executor if it was shut down (common under xdist).
         if cls._executor_shutdown or cls.exec_pool is None:
             try:
-                cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
+                cls.exec_pool = ProcessPoolExecutor(max_workers=_pool_size())
             except OSError:
                 # ProcessPoolExecutor may fail to start in constrained environments;
                 # fall back to a minimal executor to keep tests green.

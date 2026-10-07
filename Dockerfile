@@ -89,7 +89,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY --chown=glyph:glyph . .
 
 # Create necessary directories
-RUN mkdir -p /app/binaries /app/logs /app/models /app/data
+RUN mkdir -p /app/binaries /app/logs /app/data
 RUN chown -R glyph:glyph /app
 
 # Switch to non-root user

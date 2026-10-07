@@ -518,7 +518,7 @@ class TestTrainStep_Errors:
         assert "model_name" in result.error
 
     @patch("app.processing.steps.ModelRepository")
-    @patch("app.config.pipeline_configs.MLTask")
+    @patch("app.config.ml_pipeline.MLTask")
     async def test_execute_training_fails(self, mock_ml_task: Any, mock_persistence: Any) -> None:
         """Test training when model.fit raises an exception."""
         from unittest.mock import AsyncMock

@@ -28,15 +28,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved cookie security with path scoping and strict SameSite for refresh tokens
 - Enhanced JWT secret validation with production enforcement
 - Ruff workflow for linting checks
+- Moved custom middleware classes (`CSPMiddleware`, `RequestSizeMiddleware`, `CachedStaticFiles`) from `main.py` to `app/core/middleware.py`
+- Renamed `app/config/pipeline_configs.py` to `app/config/ml_pipeline.py` to distinguish it from `app/processing/pipeline_configs.py`
+- Renamed the `UUID` type alias to `TaskUUID` in `app/api/types.py`
+- Consolidated the `ACCEPT_TYPE` constant into `app/api/types.py`
+- ProcessPoolExecutor worker count is now derived from `settings.cpu_cores`
+- Relaxed Content-Security-Policy is now applied to `/redoc` and `/openapi.json`, matching the documented behavior
 
 ### Fixed
 - "Clear LLM Results" button on the dangerous functions page now updates dynamically: it becomes enabled as soon as LLM analysis results exist for the findings currently on screen (e.g., right after a scan's findings are analyzed), instead of only re-evaluating when the target is selected
+- Docker image build failed because `README.md` and `license.md` were excluded by `.dockerignore` while still required by the build
+- Loguru log calls that used `%s`/`%d` placeholders silently dropped their arguments (Loguru uses `{}`-style formatting)
+- An empty or whitespace-only JWT secret is now treated as unset
+
+### Removed
+- Unused `oauth2_enabled` and `oauth2_session_secret` settings
+- Unused `models/` directory from the Docker image and docker-compose volume
+- `app/utils/helpers.py` (its single constant was consolidated into `app/api/types.py`)
+- The `"UUID Not Found"` sentinel from the SSE terminal-status set (now handled explicitly)
 
 ### Security
 - Added HSTS header with `max-age=31536000; includeSubDomains; preload`
 - Request body size limiting based on `max_file_size_mb` configuration
 - Refresh token cookie scoped to `/auth/refresh` path with `SameSite=strict`
 - Application refuses to start in production with default JWT secret
+- Production security checks are re-run when configuration is reloaded at runtime
+
+## [0.2.0] - 2026-07-07
+
+### Added
+- Dangerous function detection and scanning with decompiled usage context
+- Dashboard improvements and bug fixes across web endpoints
+- Usage documentation (docs/USAGE.md) and danger function documentation
+- Unit test coverage for new functionality
+
+### Changed
+- Reworked request handling and web endpoints for improved maintainability
+- Updated logging configuration and utilities
+- Added type stubs for PyGhidra and Ghidra/Java interop
+
+### Fixed
+- Various bug fixes across services, endpoints, and utilities
 
 ## [0.1.0] - 2024-01-01
 
@@ -64,4 +96,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive unit test suite
 
 [0.3.0]: https://github.com/Xenios91/Glyph/releases/tag/v0.3.0
+[0.2.0]: https://github.com/Xenios91/Glyph/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Xenios91/Glyph/releases/tag/v0.1.0

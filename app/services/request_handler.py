@@ -120,7 +120,7 @@ class DataHandler:
             self._convert_tokens(unique_functions)
             self.data = pd.DataFrame(unique_functions)
         except Exception as load_exception:
-            logger.exception("Failed to process %s data", error_label)
+            logger.exception("Failed to process {} data", error_label)
             exc = ValueError("invalid dataset")
             exc.add_note(f"Error processing {error_label} data for UUID: {self.uuid}")
             raise exc from load_exception

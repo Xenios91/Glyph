@@ -88,7 +88,7 @@ async def delete_models(
             await PredictionService.delete_predictions_for_model(name)
             deleted.append(name)
         except Exception as exc:
-            logger.warning("Failed to delete model '%s': %s", name, exc)
+            logger.warning("Failed to delete model '{}': {}", name, exc)
             failed.append(name)
 
     data = {"deleted": deleted, "failed": failed}

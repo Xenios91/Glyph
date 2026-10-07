@@ -292,7 +292,7 @@ async def logout(request: Request, current_user: Annotated[User, Depends(get_cur
     ip_address = request.client.host if request.client else None
     log_logout(user_id=current_user.id, username=current_user.username, ip_address=ip_address)
 
-    from app.utils.helpers import ACCEPT_TYPE
+    from app.api.types import ACCEPT_TYPE
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:

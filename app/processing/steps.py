@@ -20,7 +20,7 @@ from numpy import int64
 from numpy.typing import NDArray
 from sklearn.pipeline import Pipeline as SklearnPipeline
 
-from app.config.pipeline_configs import MLTask
+from app.config.ml_pipeline import MLTask
 from app.config.settings import get_settings
 from app.database.model_repository import ModelRepository
 from app.processing.pipeline import PipelineContext, PipelineStep

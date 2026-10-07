@@ -298,7 +298,7 @@ async def delete_predictions(
             await PredictionService.delete_prediction(name)
             deleted.append(name)
         except Exception as exc:
-            logger.warning("Failed to delete prediction '%s': %s", name, exc)
+            logger.warning("Failed to delete prediction '{}': {}", name, exc)
             failed.append(name)
 
     data = {"deleted": deleted, "failed": failed}
