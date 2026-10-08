@@ -15,7 +15,7 @@ from app.api.router import api_router
 from app.api.types import ACCEPT_TYPE
 from app.auth.endpoints import router as auth_router
 from app.core.lifespan import lifespan
-from app.core.middleware import CSPMiddleware, CachedStaticFiles, RequestSizeMiddleware
+from app.core.middleware import CachedStaticFiles, CSPMiddleware, RequestSizeMiddleware
 from app.core.rate_limiter import limiter
 from app.templates import templates
 from app.utils.logging_config import setup_logging_from_config

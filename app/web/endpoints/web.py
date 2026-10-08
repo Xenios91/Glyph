@@ -15,6 +15,7 @@ from sqlalchemy import exc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app._version as _version
+from app.api.types import ACCEPT_TYPE
 from app.auth.dependencies import (
     assert_owned,
     can_access,
@@ -35,7 +36,6 @@ from app.database.repository import UserRepository
 from app.processing.task_management import TaskManager
 from app.templates import templates
 from app.utils.common import build_prediction_details_response, format_code
-from app.api.types import ACCEPT_TYPE
 
 router = APIRouter()
 

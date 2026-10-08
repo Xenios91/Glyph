@@ -71,8 +71,8 @@ class TestWebEndpoints:
         assert response.status_code == 200
         assert "LLM Analysis Settings" in response.text
         assert "sk-test-secret-key" not in response.text
-        assert 'value="https://your.model.url"' in response.text
-        assert 'value="your model here"' in response.text
+        assert 'value="http://localhost:11434"' in response.text
+        assert 'value="llama3"' in response.text
         mock_resolve.assert_awaited_once_with(1)
 
     @patch("app.web.endpoints.web.resolve_user_llm_config", new_callable=AsyncMock)

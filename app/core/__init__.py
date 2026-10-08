@@ -7,16 +7,16 @@ This module provides core functionality including:
 """
 
 from app.core.lifespan import lifespan
-from app.core.middleware import CSPMiddleware, CachedStaticFiles, RequestBodyTooLarge, RequestSizeMiddleware
+from app.core.middleware import CachedStaticFiles, CSPMiddleware, RequestBodyTooLarge, RequestSizeMiddleware
 from app.core.rate_limiter import LOGIN_LIMIT, PASSWORD_CHANGE_LIMIT, REFRESH_LIMIT, REGISTER_LIMIT, limiter
 
 __all__ = [
-    "CSPMiddleware",
-    "CachedStaticFiles",
     "LOGIN_LIMIT",
     "PASSWORD_CHANGE_LIMIT",
     "REFRESH_LIMIT",
     "REGISTER_LIMIT",
+    "CSPMiddleware",
+    "CachedStaticFiles",
     "RequestBodyTooLarge",
     "RequestSizeMiddleware",
     "lifespan",
