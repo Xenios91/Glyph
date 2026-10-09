@@ -312,6 +312,29 @@
     transition: background 0.15s ease;
 }
 
+/* Sortable column headers */
+.scan-results-table th[data-sort] {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.scan-results-table th[data-sort]:hover {
+    color: var(--cyan-bright);
+}
+
+.scan-results-table th[aria-sort="ascending"]::after {
+    content: " \25B2";
+    font-size: 0.7em;
+    color: var(--cyan-bright);
+}
+
+.scan-results-table th[aria-sort="descending"]::after {
+    content: " \25BC";
+    font-size: 0.7em;
+    color: var(--cyan-bright);
+}
+
 .scan-results-table tbody tr:hover {
     background: rgba(168, 236, 236, 0.05);
 }

@@ -56,6 +56,15 @@ let scanInProgress = false;
 // Per-row LLM results keyed by row index:
 // {status, analysis, error, model, source: 'stored'|'fresh', modifiedAt?, elapsedMs?}
 let llmResults = {};
+// Current display order: original indices into lastScanData.results in the
+// order the rows are rendered. LLM state is keyed by the original index, so
+// rows must keep their original data-index even after sorting.
+let displayOrder = [];
+// Active column sort: {key: string|null, direction: 'asc'|'desc'}
+let sortState = { key: null, direction: 'asc' };
+// Pagination instance for the results table, kept so sorting can refresh
+// its cached row list after the table body is re-rendered.
+let scanPagination = null;
 // Row indices whose LLM analysis is currently in flight (spinner shown in the LLM cell)
 let llmPendingIndices = new Set();
 // Row index currently open in the LLM modal
@@ -228,6 +237,145 @@ function setupEventListeners() {
         backBtn.addEventListener('click', () => {
             window.location.href = '/';
         });
+    }
+
+    // Column sorting: clicking a sortable table header sorts the results
+    // table by that column (toggles direction on repeat clicks).
+    document.querySelectorAll('.scan-results-table th[data-sort]').forEach((th) => {
+        th.addEventListener('click', () => {
+            toggleSort(th.getAttribute('data-sort'));
+        });
+    });
+}
+
+// ── Column Sorting ────────────────────────────────────────────
+
+/**
+ * Numeric sort order for severity levels (Critical first), mirroring the
+ * backend catalog order so the table can be sorted by severity rank.
+ * @param {string} severity - Severity label.
+ * @returns {number}
+ */
+function severityRank(severity) {
+    const rank = { critical: 0, high: 1, medium: 2, low: 3 };
+    return rank[String(severity || '').toLowerCase()] ?? 99;
+}
+
+/**
+ * LLM status rank used when sorting by the LLM column:
+ * analyzed (success) rows sort before errors, errors before pending,
+ * pending before unanalyzed placeholders.
+ * @param {number} originalIndex - Original finding index.
+ * @returns {number}
+ */
+function llmRank(originalIndex) {
+    const entry = llmResults[originalIndex];
+    if (entry) {
+        return entry.status === 'success' ? 0 : 1;
+    }
+    if (llmPendingIndices.has(originalIndex)) return 2;
+    return 3;
+}
+
+/**
+ * Extract the sort key value for a finding.
+ * @param {string} key - Column key from the header's data-sort attribute.
+ * @param {Object} finding - Scan result object.
+ * @param {number} originalIndex - Original finding index.
+ * @returns {string|number}
+ */
+function getSortValue(key, finding, originalIndex) {
+    switch (key) {
+        case 'function_name':
+            return String(finding.function_name || '').toLowerCase();
+        case 'containing_function':
+            return String(finding.containing_function || '').toLowerCase();
+        case 'severity':
+            return severityRank(finding.severity);
+        case 'llm':
+            return llmRank(originalIndex);
+        default:
+            return String(finding[key] || '').toLowerCase();
+    }
+}
+
+/**
+ * Toggle the sort on a column. Clicking the currently sorted column flips
+ * its direction; clicking a different column sorts ascending.
+ * @param {string} key - Column key from the header's data-sort attribute.
+ */
+function toggleSort(key) {
+    if (!lastScanData || !Array.isArray(lastScanData.results)) return;
+
+    if (sortState.key === key) {
+        sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortState = { key, direction: 'asc' };
+    }
+
+    applySort();
+}
+
+/**
+ * Sort the displayed rows according to sortState and re-render the table
+ * body. Rows keep their original data-index so LLM badges stay attached to
+ * the right finding.
+ */
+function applySort() {
+    if (!lastScanData || !Array.isArray(lastScanData.results)) return;
+    const results = lastScanData.results;
+
+    const indices = results.map((_, i) => i);
+    if (sortState.key) {
+        const dir = sortState.direction === 'asc' ? 1 : -1;
+        indices.sort((a, b) => {
+            const va = getSortValue(sortState.key, results[a], a);
+            const vb = getSortValue(sortState.key, results[b], b);
+            if (va < vb) return -1 * dir;
+            if (va > vb) return 1 * dir;
+            return a - b; // stable tie-break by original position
+        });
+    }
+    displayOrder = indices;
+
+    updateSortIndicators();
+    renderResultsTable();
+}
+
+/**
+ * Update the aria-sort attribute and indicator on the table headers.
+ */
+function updateSortIndicators() {
+    document.querySelectorAll('.scan-results-table th[data-sort]').forEach((th) => {
+        if (th.getAttribute('data-sort') === sortState.key) {
+            th.setAttribute('aria-sort', sortState.direction === 'asc' ? 'ascending' : 'descending');
+        } else {
+            th.setAttribute('aria-sort', 'none');
+        }
+    });
+}
+
+/**
+ * Render the results table body using the current display order.
+ */
+function renderResultsTable() {
+    if (!scanResultsBody) return;
+    scanResultsBody.innerHTML = '';
+    displayOrder.forEach((originalIndex) => {
+        const row = createResultRow(lastScanData.results[originalIndex], originalIndex);
+        scanResultsBody.appendChild(row);
+    });
+    renderLlmBadges();
+
+    // The table body was re-rendered, so the pagination instance's cached
+    // row list is stale: re-read the rows and re-apply the current page.
+    if (scanPagination) {
+        const table = document.querySelector('.scan-results-table');
+        const tbody = table ? table.querySelector('tbody') : null;
+        if (tbody) {
+            scanPagination.rows = Array.from(tbody.querySelectorAll('tr'));
+            scanPagination._applyClientPagination();
+        }
     }
 }
 
@@ -447,11 +595,13 @@ function displayResults(data, targetName) {
 
     const results = data.results || [];
 
-    // New scan: reset LLM state (stored results are re-fetched below)
+    // New scan: reset LLM and sort state (stored results are re-fetched below)
     lastScanData = data;
     llmResults = {};
     llmPendingIndices.clear();
     llmModalOpenIndex = null;
+    sortState = { key: null, direction: 'asc' };
+    displayOrder = results.map((_, i) => i);
 
     // A scan has now been performed (or a stored report restored) for this
     // target, so the Scan button must be disabled until the target changes
@@ -472,17 +622,9 @@ function displayResults(data, targetName) {
     scanResultsContainer.style.display = '';
     noResultsMessage.style.display = 'none';
 
-    // Build results table
-    if (scanResultsBody) {
-        scanResultsBody.innerHTML = '';
-        results.forEach((result, index) => {
-            const row = createResultRow(result, index);
-            scanResultsBody.appendChild(row);
-        });
-    }
-
-    // Refresh LLM badges (placeholders first; stored results fill in asynchronously)
-    renderLlmBadges();
+    // Build results table (in the current display order; unsorted after a new scan)
+    updateSortIndicators();
+    renderResultsTable();
     updateLlmButtonState();
 
     // Pre-populate badges from stored LLM results for this target (non-blocking)
@@ -492,14 +634,14 @@ function displayResults(data, targetName) {
     const paginationEl = document.getElementById('scan-results-pagination');
     if (paginationEl) {
         paginationEl.style.display = '';
-        const pagination = new Pagination({
+        scanPagination = new Pagination({
             tableSelector: '.scan-results-table',
             paginationSelector: '#scan-results-pagination',
             defaultPageSize: 10,
             pageSizes: [10, 25, 50, 100],
             storageKey: 'glyph_scan_results_page_size'
         });
-        pagination.init();
+        scanPagination.init();
     }
 }
 

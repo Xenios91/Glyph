@@ -660,3 +660,290 @@ class TestLlmMarkdownPreview:
 
         # The renderer must not have thrown any page-level error.
         assert page_errors == []
+
+
+def _display_sort_fixture(page: Any) -> None:
+    """Render a deterministic set of scan results for sorting tests.
+
+    The findings are deliberately out of alphabetical order and mixed by
+    severity so each sortable column produces an observable re-ordering.
+    """
+    page.evaluate(
+        """() => {
+            targetTypeSelect.value = 'model';
+            targetSelect.value = 'sort-target';
+            displayResults(
+                {
+                    model_name: 'sort-target',
+                    critical_count: 1,
+                    high_count: 1,
+                    medium_count: 1,
+                    low_count: 1,
+                    total_found: 4,
+                    total_functions_scanned: 100,
+                    results: [
+                        {
+                            function_name: 'system',
+                            containing_function: 'run_command',
+                            entrypoint: '0x403000',
+                            severity: 'Critical',
+                        },
+                        {
+                            function_name: 'strcpy',
+                            containing_function: 'main',
+                            entrypoint: '0x401000',
+                            severity: 'Low',
+                        },
+                        {
+                            function_name: 'gets',
+                            containing_function: 'read_input',
+                            entrypoint: '0x402000',
+                            severity: 'High',
+                        },
+                        {
+                            function_name: 'sprintf',
+                            containing_function: 'format_msg',
+                            entrypoint: '0x404000',
+                            severity: 'Medium',
+                        },
+                    ],
+                },
+                'sort-target'
+            );
+        }"""
+    )
+    page.wait_for_selector("#scan-results-body tr[data-index='0']")
+
+
+def _visible_row_function_names(page: Any) -> list:
+    """Return the dangerous-function names of the currently visible rows."""
+    return page.evaluate(
+        """() => Array.from(
+            document.querySelectorAll('#scan-results-body tr')
+        )
+            .filter((row) => row.style.display !== 'none')
+            .map((row) => row.cells[0].textContent.trim())"""
+    )
+
+
+class TestColumnSorting:
+    """Tests for sorting the scan results table by column header."""
+
+    def test_sort_headers_are_present_and_unsorted_initially(self, page: Any, server: Any) -> None:
+        """Every results column header is sortable and starts unsorted."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        _display_sort_fixture(page)
+
+        expected_keys = ["function_name", "containing_function", "severity", "llm"]
+        for key in expected_keys:
+            header = page.locator(f'.scan-results-table th[data-sort="{key}"]')
+            expect(header).to_have_count(1)
+            expect(header).to_have_attribute("aria-sort", "none")
+
+    def test_sort_by_function_name_toggles_direction(self, page: Any, server: Any) -> None:
+        """Clicking the 'Dangerous Function' header sorts ascending, and a
+        second click reverses the order."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        _display_sort_fixture(page)
+
+        header = page.locator('.scan-results-table th[data-sort="function_name"]')
+
+        # First click: ascending alphabetical order.
+        header.click()
+        expect(header).to_have_attribute("aria-sort", "ascending")
+        assert _visible_row_function_names(page) == ["gets", "sprintf", "strcpy", "system"]
+
+        # Second click on the same header: descending order.
+        header.click()
+        expect(header).to_have_attribute("aria-sort", "descending")
+        assert _visible_row_function_names(page) == ["system", "strcpy", "sprintf", "gets"]
+
+    def test_sort_by_severity_uses_severity_rank(self, page: Any, server: Any) -> None:
+        """Sorting by severity orders findings by severity rank (Critical
+        first), not by the alphabetical label."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        _display_sort_fixture(page)
+
+        header = page.locator('.scan-results-table th[data-sort="severity"]')
+        header.click()
+
+        # Ascending severity rank: Critical, High, Medium, Low.
+        assert _visible_row_function_names(page) == ["system", "gets", "sprintf", "strcpy"]
+
+        # Descending: Low, Medium, High, Critical.
+        header.click()
+        assert _visible_row_function_names(page) == ["strcpy", "sprintf", "gets", "system"]
+
+    def test_sort_by_containing_function(self, page: Any, server: Any) -> None:
+        """Sorting by the 'Containing Function' header orders rows by the
+        containing function name."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        _display_sort_fixture(page)
+
+        header = page.locator('.scan-results-table th[data-sort="containing_function"]')
+        header.click()
+
+        assert _visible_row_function_names(page) == [
+            "sprintf",      # format_msg
+            "strcpy",       # main
+            "gets",         # read_input
+            "system",       # run_command
+        ]
+
+    def test_sorting_keeps_llm_badges_attached_to_findings(self, page: Any, server: Any) -> None:
+        """LLM badges are keyed by the original finding index, so sorting
+        must not move a badge to a different row."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        _display_sort_fixture(page)
+
+        # Give the first finding (original index 0, 'system') an LLM result.
+        page.evaluate(
+            """() => {
+                llmResults[0] = {
+                    status: 'success',
+                    analysis: 'simulated analysis',
+                    error: '',
+                    model: 'simulated-model',
+                    source: 'fresh',
+                };
+                renderLlmBadges();
+            }"""
+        )
+        expect(page.locator("#scan-results-body tr[data-index='0'] .llm-badge-success")).to_be_visible()
+
+        # Sort by containing function: 'system' (run_command) moves to the
+        # second visible row, but its badge must travel with it.
+        page.locator('.scan-results-table th[data-sort="containing_function"]').click()
+
+        expect(page.locator("#scan-results-body tr[data-index='0'] .llm-badge-success")).to_be_visible()
+        expect(page.locator("#scan-results-body .llm-badge-success")).to_have_count(1)
+        # The badge sits in the row that still shows 'system'.
+        badge_row = page.locator("#scan-results-body tr:has(.llm-badge-success)")
+        expect(badge_row.locator("td").first).to_have_text("system")
+
+    def test_sorting_resets_when_new_results_displayed(self, page: Any, server: Any) -> None:
+        """Displaying a new scan result resets the table to its original
+        order and clears the sort indicators."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        _display_sort_fixture(page)
+
+        # Sort ascending by function name, then display a different report.
+        page.locator('.scan-results-table th[data-sort="function_name"]').click()
+        expect(page.locator('.scan-results-table th[data-sort="function_name"]')).to_have_attribute(
+            "aria-sort", "ascending"
+        )
+
+        page.evaluate(
+            """() => {
+                displayResults(
+                    {
+                        model_name: 'sort-target-2',
+                        critical_count: 1,
+                        high_count: 0,
+                        medium_count: 0,
+                        low_count: 0,
+                        total_found: 2,
+                        total_functions_scanned: 50,
+                        results: [
+                            {
+                                function_name: 'gets',
+                                containing_function: 'a',
+                                entrypoint: '0x1000',
+                                severity: 'Critical',
+                            },
+                            {
+                                function_name: 'strcpy',
+                                containing_function: 'b',
+                                entrypoint: '0x2000',
+                                severity: 'High',
+                            },
+                        ],
+                    },
+                    'sort-target-2'
+                );
+            }"""
+        )
+
+        # The new report shows in its original (unsorted) order and no header
+        # carries a sort indicator.
+        assert _visible_row_function_names(page) == ["gets", "strcpy"]
+        for key in ["function_name", "containing_function", "severity", "llm"]:
+            expect(page.locator(f'.scan-results-table th[data-sort="{key}"]')).to_have_attribute(
+                "aria-sort", "none"
+            )
+
+    def test_sorting_works_with_pagination(self, page: Any, server: Any) -> None:
+        """Sorting re-orders the full result set while pagination continues
+        to page through the sorted rows."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        # Twelve findings named f10..f12 and f1..f9 in non-sorted order so
+        # the default page size (10) splits the sorted list across two pages.
+        page.evaluate(
+            """() => {
+                targetTypeSelect.value = 'model';
+                targetSelect.value = 'sort-pag-target';
+                const names = ['f10', 'f2', 'f11', 'f1', 'f12', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9'];
+                displayResults(
+                    {
+                        model_name: 'sort-pag-target',
+                        critical_count: 0,
+                        high_count: 0,
+                        medium_count: 0,
+                        low_count: names.length,
+                        total_found: names.length,
+                        total_functions_scanned: 200,
+                        results: names.map((name, i) => ({
+                            function_name: name,
+                            containing_function: 'containing_' + name,
+                            entrypoint: '0x' + (0x1000 + i),
+                            severity: 'Low',
+                        })),
+                    },
+                    'sort-pag-target'
+                );
+            }"""
+        )
+        page.wait_for_selector("#scan-results-body tr[data-index='0']")
+
+        # Sort ascending by function name (string sort: f1, f10, f11, ...).
+        page.locator('.scan-results-table th[data-sort="function_name"]').click()
+
+        # Page 1 shows the first ten sorted names.
+        assert _visible_row_function_names(page) == [
+            "f1", "f10", "f11", "f12", "f2", "f3", "f4", "f5", "f6", "f7",
+        ]
+        expect(page.locator("#scan-results-pagination .pagination-info")).to_contain_text(
+            "Showing 1–10 of 12"
+        )
+
+        # Page 2 shows the remaining sorted names.
+        page.locator("#scan-results-pagination #_scan_results_pagination_next-page").click()
+        assert _visible_row_function_names(page) == ["f8", "f9"]
