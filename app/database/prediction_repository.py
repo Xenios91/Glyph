@@ -97,6 +97,40 @@ class PredictionRepository:
             await close_async_session(session)
 
     @staticmethod
+    async def get_task_names_for_user(user_id: int) -> list[str]:
+        """Get distinct prediction task names the given user may access.
+
+        Mirrors the ownership rule used by ``can_access``: unowned rows
+        (``user_id IS NULL``) are visible to everyone, while owned rows are
+        visible only to their owner. The anonymous user (auth disabled,
+        id 0) sees only unowned rows.
+
+        This is a single query selecting only ``task_name`` and, unlike
+        :meth:`get_predictions_list`, does not load or deserialize the
+        ``functions_data`` BLOBs.
+
+        Args:
+            user_id: The current user's id (0 for anonymous).
+
+        Returns:
+            A list of distinct task names the user may access.
+
+        """
+        session: AsyncSession = await get_async_session("predictions")
+        try:
+            if user_id == 0:
+                where = Prediction.user_id.is_(None)
+            else:
+                where = or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+            result = await session.execute(select(Prediction.task_name).where(where).distinct())
+            return list(result.scalars().all())
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to retrieve prediction task names for user {}", user_id)
+            raise
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
     async def get(task_name: str, model_name: str) -> PredictionResult | None:
         """Retrieve and deserialize a Prediction object from the database.
 

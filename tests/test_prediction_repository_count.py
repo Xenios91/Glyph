@@ -77,3 +77,43 @@ class TestCountForUser:
         """An empty table yields a count of zero."""
         assert await PredictionRepository.count_for_user(1) == 0
         assert await PredictionRepository.count_for_user(0) == 0
+
+
+class TestGetTaskNamesForUser:
+    """Ownership-scoped retrieval of prediction task names (no BLOB load)."""
+
+    async def test_returns_own_and_unowned_task_names(self, fresh_predictions_table: Any) -> None:
+        """A user sees their own tasks plus unowned (legacy) tasks."""
+        await _insert_prediction("task_a", "model_a", user_id=1)
+        await _insert_prediction("task_b", "model_a", user_id=1)
+        await _insert_prediction("task_c", "model_a", user_id=None)
+        await _insert_prediction("task_d", "model_a", user_id=2)
+
+        assert sorted(await PredictionRepository.get_task_names_for_user(1)) == [
+            "task_a",
+            "task_b",
+            "task_c",
+        ]
+
+    async def test_excludes_tasks_owned_by_other_users(self, fresh_predictions_table: Any) -> None:
+        """Tasks owned by another user are not returned."""
+        await _insert_prediction("task_a", "model_a", user_id=2)
+        await _insert_prediction("task_b", "model_a", user_id=3)
+
+        assert await PredictionRepository.get_task_names_for_user(1) == []
+
+    async def test_anonymous_user_sees_only_unowned(self, fresh_predictions_table: Any) -> None:
+        """The anonymous user (id 0) sees only unowned tasks."""
+        await _insert_prediction("task_a", "model_a", user_id=1)
+        await _insert_prediction("task_b", "model_a", user_id=None)
+        await _insert_prediction("task_c", "model_a", user_id=None)
+
+        assert sorted(await PredictionRepository.get_task_names_for_user(0)) == [
+            "task_b",
+            "task_c",
+        ]
+
+    async def test_returns_empty_list_when_no_rows(self, fresh_predictions_table: Any) -> None:
+        """An empty table yields an empty list."""
+        assert await PredictionRepository.get_task_names_for_user(1) == []
+        assert await PredictionRepository.get_task_names_for_user(0) == []

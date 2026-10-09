@@ -134,10 +134,7 @@ class TestGetAvailableModels:
             patch("app.api.v1.endpoints.dangerous_functions.PredictionRepository") as mock_pred,
         ):
             mock_ml.get_models_list_for_user = AsyncMock(return_value=["model_a", "model_b"])
-            mock_prediction = Mock()
-            mock_prediction.task_name = "task_1"
-            mock_prediction.user_id = None
-            mock_pred.get_predictions_list = AsyncMock(return_value=[mock_prediction])
+            mock_pred.get_task_names_for_user = AsyncMock(return_value=["task_1"])
 
             response = dangerous_functions_client.get("/dangerous-functions/available-models")
             assert response.status_code == 200
@@ -156,7 +153,7 @@ class TestGetAvailableModels:
             patch("app.api.v1.endpoints.dangerous_functions.PredictionRepository") as mock_pred,
         ):
             mock_ml.get_models_list_for_user = AsyncMock(return_value=[])
-            mock_pred.get_predictions_list = AsyncMock(return_value=[])
+            mock_pred.get_task_names_for_user = AsyncMock(return_value=[])
 
             response = dangerous_functions_client.get("/dangerous-functions/available-models")
             assert response.status_code == 200

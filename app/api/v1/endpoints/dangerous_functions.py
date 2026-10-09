@@ -324,11 +324,9 @@ async def get_available_models(
     """
     # Scope to targets the current user may access (own + legacy/unowned).
     models = await ModelRepository.get_models_list_for_user(current_user.id)
-    predictions = [
-        p for p in await PredictionRepository.get_predictions_list() if can_access(p, current_user)
-    ]
-
-    task_names: list[str] = sorted({p.task_name for p in predictions}) if predictions else []
+    # Fetch only the task names the user may access; this avoids loading and
+    # deserializing every prediction's functions_data BLOB.
+    task_names: list[str] = sorted(await PredictionRepository.get_task_names_for_user(current_user.id))
 
     return create_success_response(
         data={
