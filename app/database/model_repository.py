@@ -1,6 +1,6 @@
 """Repository for Model entity database operations."""
 
-import io
+import asyncio
 from typing import Any
 
 from loguru import logger
@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Model, get_utc_now
 from app.database.session_handler import close_async_session, get_async_session
-from app.utils.secure_deserializer import secure_load
+from app.utils.secure_deserializer import secure_load_bytes
 
 
 class ModelRepository:
@@ -228,8 +228,13 @@ class ModelRepository:
         if model_row is None:
             raise ValueError(f"Model '{model_name}' not found")
 
-        model = secure_load(io.BytesIO(model_row.model_data))  # type: ignore[attr-defined]
-        label_encoder = secure_load(io.BytesIO(model_row.label_encoder_data))  # type: ignore[attr-defined]
+        # Decompress + deserialize off the event loop: large models make
+        # gzip decompression CPU-heavy. secure_load_bytes also transparently
+        # handles legacy uncompressed rows.
+        model, label_encoder = await asyncio.gather(
+            asyncio.to_thread(secure_load_bytes, model_row.model_data),  # type: ignore[attr-defined]
+            asyncio.to_thread(secure_load_bytes, model_row.label_encoder_data),  # type: ignore[attr-defined]
+        )
 
         logger.info("Model '{}' loaded successfully", model_name)
         return model, label_encoder

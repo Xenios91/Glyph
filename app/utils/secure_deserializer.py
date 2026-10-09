@@ -11,6 +11,7 @@ Security measures:
    before it is instantiated during deserialization
 """
 
+import gzip
 import io
 from typing import Any, cast
 
@@ -206,3 +207,65 @@ def secure_load(file_like: io.BytesIO, allowed_classes: set[str] | None = None) 
     except Exception as e:
         logger.exception("Unexpected error during deserialization")
         raise SecureDeserializationError(f"Deserialization failed: {e}") from e
+
+
+# Gzip magic bytes. A raw joblib/pickle stream can never start with this
+# sequence (pickle protocol 2+ starts with 0x80 and protocol 0 with ASCII
+# opcodes), so it is a safe marker for compressed payloads.
+_GZIP_MAGIC = b"\x1f\x8b"
+
+
+def secure_dump(obj: Any, compress: int = 3) -> bytes:
+    """Serialize an object to joblib bytes and gzip-compress the result.
+
+    Large sklearn pipelines (TF-IDF + Naive Bayes over big vocabularies) can
+    exceed 2 GiB when serialized, which Python's sqlite3 module refuses to
+    bind as a BLOB ("BLOB longer than INT_MAX bytes"). gzip compresses these
+    highly structured pickles by roughly an order of magnitude, keeping the
+    stored payload well under the limit.
+
+    The returned bytes start with the gzip magic (\\x1f\\x8b); use
+    :func:`secure_load_bytes` to read them back.
+
+    Args:
+        obj: Object to serialize (typically a fitted sklearn pipeline or
+            LabelEncoder).
+        compress: gzip compression level (1-9). Higher is smaller but slower.
+
+    Returns:
+        gzip-compressed joblib bytes.
+
+    """
+    import joblib
+
+    buffer = io.BytesIO()
+    joblib.dump(obj, buffer)
+    return gzip.compress(buffer.getvalue(), compress)
+
+
+def secure_load_bytes(data: bytes, allowed_classes: set[str] | None = None) -> Any:
+    """Deserialize bytes produced by :func:`secure_dump` (or legacy raw joblib).
+
+    Transparently detects the gzip magic and decompresses before handing the
+    bytes to :func:`secure_load`, so both compressed payloads and legacy
+    uncompressed rows deserialize correctly.
+
+    Args:
+        data: Raw bytes from the database (compressed or legacy).
+        allowed_classes: Optional set of allowed class names (fully qualified).
+
+    Returns:
+        The deserialized object.
+
+    Raises:
+        SecureDeserializationError: If the data contains disallowed classes or
+            is not a valid (de)compressed joblib payload.
+
+    """
+    if data[:2] == _GZIP_MAGIC:
+        try:
+            data = gzip.decompress(data)
+        except (OSError, EOFError) as e:
+            raise SecureDeserializationError(f"Failed to decompress payload: {e}") from e
+
+    return secure_load(io.BytesIO(data), allowed_classes)

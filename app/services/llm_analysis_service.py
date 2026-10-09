@@ -45,7 +45,6 @@ SYSTEM_PROMPT = (
     "controls visible in the code? Explain what you see. "
     "2) Risk assessment: state your confidence and whether you agree or disagree with "
     "the catalog severity, with justification. "
-    "3) Remediation: give concrete, actionable fixes for this specific call site. "
     "If the provided code is insufficient to judge, say so explicitly instead of guessing."
 )
 

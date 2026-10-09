@@ -61,15 +61,13 @@ async def home_stats(request: Request, current_user: Annotated[User, Depends(get
 
     binaries = await BinaryRepository.get_by_user(user_id=current_user.id)
     models = await ModelRepository.get_models_list_for_user(current_user.id)
-    predictions = [
-        p for p in await PredictionRepository.get_predictions_list() if can_access(p, current_user)
-    ]
+    predictions = await PredictionRepository.count_for_user(current_user.id)
 
     return JSONResponse(
         content={
             "binaries": len(binaries),
             "models": len(models),
-            "predictions": len(predictions) if predictions else 0,
+            "predictions": predictions,
         },
     )
 

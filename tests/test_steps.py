@@ -342,12 +342,12 @@ class TestTrainStep:
 
         assert result.error is not None
 
-    @patch("app.processing.steps.joblib.dump")
+    @patch("app.processing.steps.secure_dump")
     @patch("asyncio.to_thread")
     @patch("app.processing.steps.ModelRepository")
     @patch("app.processing.steps.MLTask")
     async def test_execute_success(
-        self, mock_ml_task: Any, mock_persistence: Any, mock_to_thread: Any, mock_joblib_dump: Any
+        self, mock_ml_task: Any, mock_persistence: Any, mock_to_thread: Any, mock_secure_dump: Any
     ) -> None:
         """Test successful training."""
         from unittest.mock import AsyncMock
@@ -358,8 +358,8 @@ class TestTrainStep:
             return func(*args, **kwargs)
         mock_to_thread.side_effect = _fake_to_thread
 
-        # joblib.dump also tries to pickle the mock pipeline, so patch it to be a no-op.
-        mock_joblib_dump.return_value = None
+        # secure_dump serializes the mock pipeline, so patch it to return a stub payload.
+        mock_secure_dump.return_value = b""
 
         mock_pipeline = MagicMock()
         mock_ml_task.get_multi_class_pipeline.return_value = mock_pipeline  # pyright: ignore[reportUnknownMemberType]

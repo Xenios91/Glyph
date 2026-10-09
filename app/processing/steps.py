@@ -8,13 +8,11 @@ Python 3.11+
 """
 
 import asyncio
-import io
 import os
 import re
 import sys
 from typing import Any, cast
 
-import joblib
 from loguru import logger
 from numpy import int64
 from numpy.typing import NDArray
@@ -25,6 +23,7 @@ from app.config.settings import get_settings
 from app.database.model_repository import ModelRepository
 from app.processing.pipeline import PipelineContext, PipelineStep
 from app.utils.common import binary_function_to_dict
+from app.utils.secure_deserializer import secure_dump
 
 _VARIABLE_PATTERNS = [
     r"^var\d+$",
@@ -405,14 +404,17 @@ class TrainStep(PipelineStep):
 
             await asyncio.to_thread(ml_pipeline.fit, tokens, y)
 
-            # Serialize to bytes before saving to database
-            encoder_buffer = io.BytesIO()
-            joblib.dump(label_encoder, encoder_buffer)
-            model_buffer = io.BytesIO()
-            joblib.dump(ml_pipeline, model_buffer)
+            # Serialize to bytes before saving to database. Serialize and
+            # compress off the event loop: large TF-IDF vocabularies make this
+            # CPU-heavy, and the compressed payload stays under SQLite's
+            # 2 GiB BLOB limit.
+            encoder_bytes, model_bytes = await asyncio.gather(
+                asyncio.to_thread(secure_dump, label_encoder),
+                asyncio.to_thread(secure_dump, ml_pipeline),
+            )
 
             await ModelRepository.save(  # type: ignore[attr-defined]
-                model_name, encoder_buffer.getvalue(), model_buffer.getvalue(), user_id=user_id,
+                model_name, encoder_bytes, model_bytes, user_id=user_id,
             )
 
             context.set("label_encoder", label_encoder)

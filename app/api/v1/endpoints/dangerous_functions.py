@@ -5,9 +5,9 @@ functions and retrieving scan results with severity, CWE references,
 and usage context.
 """
 
+import asyncio
 import json
 import types
-from io import BytesIO
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -43,7 +43,7 @@ from app.utils.responses import (
     create_error_response,
     create_success_response,
 )
-from app.utils.secure_deserializer import SecureDeserializationError, secure_load
+from app.utils.secure_deserializer import SecureDeserializationError, secure_load_bytes
 
 router = APIRouter()
 
@@ -134,9 +134,9 @@ class LLMAnalysisRequest(BaseModel):
 
     """
 
-    target_name: str = Field(min_length=1, max_length=128)
+    target_name: str = Field(min_length=1, max_length=256)
     save: bool = True
-    findings: list[ScanResultDict] = Field(min_length=1, max_length=100)
+    findings: list[ScanResultDict] = Field(min_length=1, max_length=1000)
 
 
 class CatalogEntryDict(BaseModel):
@@ -425,9 +425,10 @@ async def scan_dangerous_functions(
         assert_owned(prediction, current_user, "prediction")
         report_owner_id = prediction.user_id
 
-        # Deserialize prediction functions
+        # Deserialize prediction functions (off the event loop; handles both
+        # compressed and legacy uncompressed payloads).
         try:
-            raw_data = secure_load(BytesIO(prediction.functions_data))  # type: ignore[attr-defined]
+            raw_data = await asyncio.to_thread(secure_load_bytes, prediction.functions_data)  # type: ignore[attr-defined]
             if isinstance(raw_data, list):
                 functions_data = raw_data
             else:
@@ -581,7 +582,7 @@ async def delete_scan_results(
 )
 async def delete_llm_results(
     request: Request,
-    target_name: Annotated[str, Query(min_length=1, max_length=128, description="Name of the scanned target")],
+    target_name: Annotated[str, Query(min_length=1, max_length=256, description="Name of the scanned target")],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[str]:
     """Delete the stored LLM analysis results for a target.
@@ -732,7 +733,7 @@ async def analyze_dangerous_functions(
 )
 async def get_llm_results(
     request: Request,
-    target_name: Annotated[str, Query(min_length=1, max_length=128, description="Name of the scanned target")],
+    target_name: Annotated[str, Query(min_length=1, max_length=256, description="Name of the scanned target")],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[dict[str, Any]]:
     """Get the stored LLM analysis results for a scanned target.

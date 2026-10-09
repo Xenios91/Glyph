@@ -1,11 +1,10 @@
 """Repository for Prediction entity database operations."""
 
-from io import BytesIO
+import asyncio
 from typing import Any
 
-import joblib
 from loguru import logger
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import Prediction, get_utc_now
 from app.database.session_handler import close_async_session, get_async_session
 from app.services.request_handler import Prediction as PredictionResult
-from app.utils.secure_deserializer import SecureDeserializationError, secure_load
+from app.utils.secure_deserializer import SecureDeserializationError, secure_dump, secure_load_bytes
 
 
 class PredictionRepository:
@@ -37,7 +36,7 @@ class PredictionRepository:
             predictions = result.scalars().all()
             for pred in predictions:
                 try:
-                    raw_preds = secure_load(BytesIO(pred.functions_data))
+                    raw_preds = await asyncio.to_thread(secure_load_bytes, pred.functions_data)
                     if not isinstance(raw_preds, list):
                         logger.warning(
                             "Prediction data for '{}' is not a list, skipping",
@@ -64,6 +63,40 @@ class PredictionRepository:
         return prediction_results
 
     @staticmethod
+    async def count_for_user(user_id: int) -> int:
+        """Count the predictions the given user may access.
+
+        Mirrors the ownership rule used by ``can_access``: unowned rows
+        (``user_id IS NULL``) are visible to everyone, while owned rows are
+        visible only to their owner. The anonymous user (auth disabled,
+        id 0) sees only unowned rows.
+
+        This is a single ``COUNT(*)`` query and, unlike
+        :meth:`get_predictions_list`, does not load or deserialize the
+        ``functions_data`` BLOBs.
+
+        Args:
+            user_id: The current user's id (0 for anonymous).
+
+        Returns:
+            Number of predictions the user may access.
+
+        """
+        session: AsyncSession = await get_async_session("predictions")
+        try:
+            if user_id == 0:
+                where = Prediction.user_id.is_(None)
+            else:
+                where = or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+            result = await session.execute(select(func.count()).select_from(Prediction).where(where))
+            return result.scalar_one()
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to count predictions for user {}", user_id)
+            raise
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
     async def get(task_name: str, model_name: str) -> PredictionResult | None:
         """Retrieve and deserialize a Prediction object from the database.
 
@@ -88,7 +121,7 @@ class PredictionRepository:
                 return None
 
             try:
-                raw_prediction_data = secure_load(BytesIO(row.functions_data))
+                raw_prediction_data = await asyncio.to_thread(secure_load_bytes, row.functions_data)
                 if not isinstance(raw_prediction_data, list):
                     logger.warning(
                         "Prediction data for task '{}' is not a list, expected list got {}",
@@ -127,9 +160,9 @@ class PredictionRepository:
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
-            functions_buffer = BytesIO()
-            joblib.dump(functions, functions_buffer)
-            functions_serialized = functions_buffer.getvalue()
+            # Serialize + compress off the event loop so the payload stays
+            # under SQLite's 2 GiB BLOB limit for large function sets.
+            functions_serialized = await asyncio.to_thread(secure_dump, functions)
 
             now = get_utc_now()
             ins = sqlite_insert(Prediction).values(
@@ -183,7 +216,7 @@ class PredictionRepository:
                 return {}
 
             try:
-                raw_predictions = secure_load(BytesIO(row.functions_data))
+                raw_predictions = await asyncio.to_thread(secure_load_bytes, row.functions_data)
                 if not isinstance(raw_predictions, list):
                     logger.warning(
                         "Predictions data is not a list, expected list got {}",

@@ -1154,9 +1154,9 @@ Send scanner findings to the user-configured OpenAI-compatible chat completions 
 }
 ```
 
-- `target_name` (required, 1-128 chars): Stable name of the scanned target, typically the scan's `model_name`.
+- `target_name` (required, 1-256 chars): Stable name of the scanned target, typically the scan's `model_name`.
 - `save` (optional, default `true`): Persist results to the database.
-- `findings` (required, 1-100 items): Scanner findings in the same shape as the scan response `results` array.
+- `findings` (required, 1-1000 items): Scanner findings in the same shape as the scan response `results` array.
 
 **Response:** `200 OK`
 
@@ -1195,7 +1195,7 @@ Send scanner findings to the user-configured OpenAI-compatible chat completions 
 
 **Errors:**
 - `404` — `SCAN_NOT_FOUND` (no stored scan report for `target_name`; run a scan first)
-- `422` — Validation error (missing `target_name`, empty `findings`, or more than 100 findings)
+- `422` — Validation error (missing `target_name`, empty `findings`, or more than 1000 findings)
 - `429` — Rate limit exceeded (default 10 per minute)
 - `503` — `LLM_NOT_CONFIGURED` (LLM feature disabled or base URL missing/malformed)
 
@@ -1206,7 +1206,7 @@ Send scanner findings to the user-configured OpenAI-compatible chat completions 
 Retrieve stored LLM analysis results for a scanned target.
 
 **Query Parameters:**
-- `target_name` (required, 1-128 chars): Name of the scanned target.
+- `target_name` (required, 1-256 chars): Name of the scanned target.
 
 **Response:** `200 OK`
 
@@ -1246,7 +1246,7 @@ An empty `results` list (`count: 0`) is a valid response when nothing has been s
 Delete the stored LLM analysis results for a target. The stored scan report is **not** affected.
 
 **Query Parameters:**
-- `target_name` (required, 1-128 chars): Name of the scanned target.
+- `target_name` (required, 1-256 chars): Name of the scanned target.
 
 **Response:** `200 OK`
 

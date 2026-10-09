@@ -505,7 +505,7 @@ class LLMAnalysisResult(Base):
     __tablename__ = "llm_analysis_results"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    target_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    target_name: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
     user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     function_name: Mapped[str] = mapped_column(String(256), nullable=False)
     containing_function: Mapped[str] = mapped_column(String(256), nullable=False)

@@ -702,14 +702,88 @@ class TestLLMAnalysisEndpoint:
         assert response.status_code == 422
 
     def test_llm_analysis_too_many_findings(self, dangerous_functions_client: Any) -> None:
-        """Test 422 when more than 100 findings are supplied."""
+        """Test 422 when more than 1000 findings are supplied."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
-        findings = [self._make_finding(f"fn{i}", entrypoint=f"0x{i:06x}") for i in range(101)]
+        findings = [self._make_finding(f"fn{i}", entrypoint=f"0x{i:06x}") for i in range(1001)]
         response = dangerous_functions_client.post(
             "/dangerous-functions/llm-analysis",
             json={"target_name": "test_model", "findings": findings},
         )
         assert response.status_code == 422
+
+    def test_llm_analysis_accepts_more_than_100_findings(self, dangerous_functions_client: Any) -> None:
+        """Regression: a real scan can produce more than 100 findings.
+
+        The frontend sends every finding from the scan report, so a target with
+        >100 dangerous-function matches must not be rejected with a 422.
+        """
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        analyses = [
+            FindingAnalysis(status="success", analysis="ok", model="test-model", elapsed_ms=1)
+            for _ in range(150)
+        ]
+
+        with (
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.resolve_user_llm_config",
+                new=AsyncMock(return_value=self._make_llm()),
+            ),
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.analyze_findings",
+                new=AsyncMock(return_value=analyses),
+            ),
+            patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo,
+            patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_scan_repo,
+        ):
+            mock_repo.upsert_many = AsyncMock()
+            mock_scan_repo.get_report = AsyncMock(return_value=self._make_report())
+
+            findings = [self._make_finding(f"fn{i}", entrypoint=f"0x{i:06x}") for i in range(150)]
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/llm-analysis",
+                json={"target_name": "test_model", "findings": findings},
+            )
+
+        assert response.status_code == 200
+        payload = response.json()["data"]
+        assert payload["total"] == 150
+        assert payload["succeeded"] == 150
+        assert payload["saved"] is True
+
+    def test_llm_analysis_accepts_long_target_name(self, dangerous_functions_client: Any) -> None:
+        """Regression: binary names up to 256 chars must be accepted as target_name.
+
+        The scan report stores the target name verbatim (up to 256 chars for
+        binaries), and the frontend sends it back unchanged.
+        """
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        analyses = [FindingAnalysis(status="success", analysis="ok", model="test-model", elapsed_ms=1)]
+        long_name = "b" * 200
+
+        with (
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.resolve_user_llm_config",
+                new=AsyncMock(return_value=self._make_llm()),
+            ),
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.analyze_findings",
+                new=AsyncMock(return_value=analyses),
+            ),
+            patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo,
+            patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_scan_repo,
+        ):
+            mock_repo.upsert_many = AsyncMock()
+            mock_scan_repo.get_report = AsyncMock(return_value=self._make_report())
+
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/llm-analysis",
+                json={"target_name": long_name, "save": False, "findings": [self._make_finding("strcpy")]},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["target_name"] == long_name
 
     def test_llm_analysis_rate_limited(self, dangerous_functions_client: Any) -> None:
         """Test that more than 10 requests per minute are rejected with 429."""
