@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consolidated the `ACCEPT_TYPE` constant into `app/api/types.py`
 - ProcessPoolExecutor worker count is now derived from `settings.cpu_cores`
 - Relaxed Content-Security-Policy is now applied to `/redoc` and `/openapi.json`, matching the documented behavior
+- Training and prediction requests no longer build a pandas DataFrame; only the function list is retained, skipping a pointless DataFrame build on every training/prediction task
+- `close_async_session` docstring now describes it as the standard session-closing helper used across repositories, instead of labeling it legacy
 
 ### Fixed
 - "Clear LLM Results" button on the dangerous functions page now updates dynamically: it becomes enabled as soon as LLM analysis results exist for the findings currently on screen (e.g., right after a scan's findings are analyzed), instead of only re-evaluating when the target is selected
@@ -43,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - Unused `oauth2_enabled` and `oauth2_session_secret` settings
+- Unreachable legacy pipeline chain: `_run_pipeline_analysis` handler, `GhidraPipelineRunner`, `GhidraRequest`, and the `TRAINING_PIPELINE` / `PREDICTION_PIPELINE` compositions (the live flows use the `*_FROM_DB_PIPELINE` variants)
+- Unreferenced `SimilarityComputationNotFoundError` and `SimilarityComputationAccessError` exceptions
+- Test-only `BinarySimilarityService.get_similarity_color` helper (the frontend has its own JS implementation)
+- Dead `DataHandler.bin_dictionary` state, unused `RequestContext` property setters, and unused `get_task_id` helper
 - Unused `models/` directory from the Docker image and docker-compose volume
 - `app/utils/helpers.py` (its single constant was consolidated into `app/api/types.py`)
 - The `"UUID Not Found"` sentinel from the SSE terminal-status set (now handled explicitly)

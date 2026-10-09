@@ -13,13 +13,10 @@ from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
 from app.auth.dependencies import get_current_active_user
-from app.database.function_repository import FunctionRepository
 from app.database.models import User
 from app.exceptions import BinaryAccessError, BinaryNotFoundError, ValidationError
-from app.processing.task_management import GhidraPipelineRunner, TaskManager
+from app.processing.task_management import TaskManager
 from app.services.binary_upload_service import BinaryUploadService
-from app.services.prediction_service import PredictionService
-from app.services.request_handler import GhidraRequest
 from app.utils.background_tasks import create_background_task, remove_task_delayed
 from app.utils.request_context import (
     CapturedContext,
@@ -156,101 +153,6 @@ async def _run_upload_pipeline(
     except Exception:
         TaskManager.set_status(task_uuid, "error")
         logger.exception("Upload pipeline task failed")
-        raise
-    finally:
-        create_background_task(remove_task_delayed(task_uuid))
-        clear_request_context()
-
-
-async def _run_pipeline_analysis(
-    ghidra_request: GhidraRequest,
-    file_path: str,
-    captured_ctx: CapturedContext | None = None,
-) -> None:
-    """Execute the full analysis pipeline for a binary file.
-
-    Legacy handler kept for backward compatibility with existing
-    training / prediction workflows that still pass full GhidraRequest
-    objects.
-
-    Args:
-        ghidra_request: The Ghidra analysis request containing metadata.
-        file_path: Path to the binary file on disk.
-        captured_ctx: Captured request context for logging propagation.
-
-    """
-    task_uuid = ghidra_request.uuid
-    try:
-        if captured_ctx is not None:
-            restore_request_context(captured_ctx, override_task_id=task_uuid)
-
-        TaskManager.set_status(task_uuid, "processing")
-        result = await GhidraPipelineRunner.run_full_pipeline(ghidra_request, file_path)
-
-        if result.error:
-            TaskManager.set_status(task_uuid, "error")
-            logger.opt(exception=result.exc_info).error("Pipeline execution failed: {}", result.error)
-        else:
-            logger.info("Pipeline execution completed")
-
-            if ghidra_request.is_training:
-                filtered_functions = result.get("filtered_functions")
-                if filtered_functions:
-                    from app.services.request_handler import TrainingRequest
-
-                    training_data = {
-                        "binaryName": ghidra_request.file_name,
-                        "functionsMap": {
-                            "functions": filtered_functions,
-                            "erroredFunctions": result.get("errored_functions", []),
-                        },
-                    }
-                    training_request = TrainingRequest(
-                        req_uuid=task_uuid,
-                        model_name=ghidra_request.model_name,
-                        data=training_data,
-                    )
-                    functions = training_request.get_functions() or []
-                    if functions:
-                        await FunctionRepository.save(ghidra_request.model_name, functions)
-                    logger.debug("Functions saved for model {}", ghidra_request.model_name)
-            else:
-                predictions = result.get("predictions")
-                filtered_functions = result.get("filtered_functions")
-                logger.debug(
-                    "Prediction results: {} predictions, {} functions, task '{}'",
-                    len(predictions) if predictions else 0,
-                    len(filtered_functions) if filtered_functions else 0,
-                    ghidra_request.name,
-                )
-                if predictions and filtered_functions:
-                    from app.services.request_handler import PredictionRequest
-
-                    prediction_data = {
-                        "binaryName": ghidra_request.file_name,
-                        "taskName": ghidra_request.name,
-                        "functionsMap": {
-                            "functions": filtered_functions,
-                            "erroredFunctions": result.get("errored_functions", []),
-                        },
-                    }
-                    try:
-                        prediction_request = PredictionRequest(
-                            req_uuid=task_uuid,
-                            model_name=ghidra_request.model_name,
-                            data=prediction_data,
-                        )
-                        await PredictionService.save_prediction_functions(prediction_request, predictions)
-                        logger.debug("Predictions saved for task {}", ghidra_request.name)
-                    except Exception:
-                        logger.exception("Failed to create PredictionRequest")
-                        raise
-
-            TaskManager.set_status(task_uuid, "completed")
-
-    except Exception:
-        TaskManager.set_status(task_uuid, "error")
-        logger.exception("Pipeline task failed")
         raise
     finally:
         create_background_task(remove_task_delayed(task_uuid))

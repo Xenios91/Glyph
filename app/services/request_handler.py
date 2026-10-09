@@ -1,12 +1,7 @@
 """Request handler module for processing training and prediction requests."""
 
 import json
-from pathlib import Path
 from typing import Any, cast
-from uuid import uuid4
-
-import pandas as pd
-from loguru import logger
 
 
 class DataHandler:
@@ -20,18 +15,12 @@ class DataHandler:
         uuid: Unique identifier for this request.
         model_name: Name of the ML model to use.
         json_dict: Raw request data dictionary.
-        bin_dictionary: Optional binary metadata dictionary.
-        data: Processed DataFrame ready for ML operations.
-        status: Current processing status.
 
     """
 
     uuid: str
     model_name: str
     json_dict: dict[str, Any]
-    bin_dictionary: dict[str, Any] | None = None
-    data: pd.DataFrame | None = None
-    status: str = "starting"
     user_id: int | None = None
 
     def __init__(self, req_uuid: str, data: dict[str, Any], model_name: str) -> None:
@@ -46,7 +35,6 @@ class DataHandler:
         self.uuid = req_uuid
         self.model_name = model_name
         self.json_dict = data
-        self.status = "starting"
         self._clean_dict()
 
     def _clean_dict(self) -> None:
@@ -65,24 +53,7 @@ class DataHandler:
                 seen.add(func_key)
                 unique_functions.append(func)
         self.json_dict["functionsMap"]["functions"] = unique_functions
-
-    @staticmethod
-    def _deduplicate_functions(functions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Deduplicate functions based on JSON serialization.
-
-        Serializes each function to a JSON string (with sorted keys) to use
-        as a deduplication key, then deserializes back. This ensures that
-        functions with identical content are treated as duplicates regardless
-        of key ordering.
-
-        Args:
-            functions: List of function dictionaries to deduplicate.
-
-        Returns:
-            Deduplicated list of function dictionaries.
-
-        """
-        return [json.loads(t) for t in {json.dumps(d, sort_keys=True) for d in functions}]
+        self._convert_tokens(unique_functions)
 
     @staticmethod
     def _convert_tokens(functions: list[dict[str, Any]]) -> None:
@@ -100,31 +71,6 @@ class DataHandler:
             tokens = " ".join(cast(list[str], token_list))
             function["tokens"] = tokens
 
-    def _load_data(self, error_label: str) -> None:
-        """Load and process function data into a DataFrame.
-
-        Shared implementation used by TrainingRequest and PredictionRequest.
-        Subclasses call this from their own _load_data() with an appropriate
-        error label for logging.
-
-        Args:
-            error_label: Label used in error messages (e.g., "training", "prediction").
-
-        Raises:
-            ValueError: If the data is invalid or processing fails.
-
-        """
-        try:
-            functions_temp = list(self.get_functions())
-            unique_functions = self._deduplicate_functions(functions_temp)
-            self._convert_tokens(unique_functions)
-            self.data = pd.DataFrame(unique_functions)
-        except Exception as load_exception:
-            logger.exception("Failed to process {} data", error_label)
-            exc = ValueError("invalid dataset")
-            exc.add_note(f"Error processing {error_label} data for UUID: {self.uuid}")
-            raise exc from load_exception
-
     def get_functions(self) -> list[dict[str, Any]]:
         """Get the list of functions from the request data.
 
@@ -138,9 +84,8 @@ class DataHandler:
 class TrainingRequest(DataHandler):
     """Handler for ML model training requests.
 
-    Processes binary function data into a DataFrame suitable for
-    training a classification model. Each function's token list is
-    converted to a space-separated string.
+    Processes binary function data for training a classification model.
+    Each function's token list is converted to a space-separated string.
     """
 
     bin_name: str
@@ -153,33 +98,17 @@ class TrainingRequest(DataHandler):
             model_name: Name of the ML model to train.
             data: Raw request data containing binaryName and functionsMap.
 
-        Raises:
-            ValueError: If the training data is invalid.
-
         """
         super().__init__(req_uuid, data, model_name)
-        self._load_data()
-
-    def _load_data(self, error_label: str = "training") -> None:
-        """Load and process training data.
-
-        Extracts the binary name and delegates to the shared base
-        implementation for function deduplication and token conversion.
-
-        Raises:
-            ValueError: If the training data is invalid.
-
-        """
         self.bin_name = self.json_dict["binaryName"]
-        super()._load_data(error_label="training")
 
 
 class PredictionRequest(DataHandler):
     """Handler for ML model prediction requests.
 
-    Processes function data into a DataFrame suitable for running
-    predictions against an existing trained model. Each function's
-    token list is converted to a space-separated string.
+    Processes function data for running predictions against an existing
+    trained model. Each function's token list is converted to a
+    space-separated string.
 
     Attributes:
         task_name: Unique name for this prediction task.
@@ -197,67 +126,13 @@ class PredictionRequest(DataHandler):
             data: Raw request data containing taskName and functionsMap.
 
         Raises:
-            ValueError: If taskName is missing or prediction data is invalid.
+            ValueError: If taskName is missing.
 
         """
         super().__init__(req_uuid, data, model_name)
         self.task_name = cast(str, data.get("taskName") or data.get("task_name", ""))
         if not self.task_name:
             raise ValueError("Data must contain 'taskName' or 'task_name' key")
-        self._load_data()
-
-    def _load_data(self, error_label: str = "prediction") -> None:
-        """Load and process prediction data.
-
-        Delegates to base class shared implementation.
-
-        Raises:
-            ValueError: If the prediction data is invalid.
-
-        """
-        super()._load_data(error_label="prediction")
-
-
-class GhidraRequest:
-    """Request handler for Ghidra binary analysis tasks.
-
-    Encapsulates the metadata needed to run Ghidra decompilation
-    and subsequent ML training or prediction on a binary file.
-
-    Attributes:
-        file_name: Path to the binary file.
-        is_training: Whether this is a training or prediction task.
-        model_name: Name of the ML model.
-        name: Human-readable task name.
-        ml_class_type: Machine learning classification type.
-        uuid: Unique identifier for this request.
-
-    """
-
-    file_name: str
-    is_training: bool
-    model_name: str
-    name: str
-    ml_class_type: str
-    uuid: str
-
-    def __init__(self, filename: str, is_training: bool, model_name: str, name: str, ml_class_type: str) -> None:
-        """Initialize a Ghidra analysis request.
-
-        Args:
-            filename: Path to the binary file to analyze.
-            is_training: True for training, False for prediction.
-            model_name: Name of the ML model.
-            name: Human-readable task name.
-            ml_class_type: Machine learning classification type.
-
-        """
-        self.file_name = Path(filename).as_posix()
-        self.is_training = is_training
-        self.model_name = model_name
-        self.name = name
-        self.ml_class_type = ml_class_type
-        self.uuid = str(uuid4())
 
 
 class Prediction:

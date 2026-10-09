@@ -4,7 +4,6 @@ from typing import Any
 
 from app.services.request_handler import (
     DataHandler,
-    GhidraRequest,
     Prediction,
     PredictionRequest,
     TrainingRequest,
@@ -28,7 +27,6 @@ class TestDataHandler:
         handler = DataHandler("test-uuid", test_data, "test-model")
         assert handler.uuid == "test-uuid"
         assert handler.model_name == "test-model"
-        assert handler.status == "starting"
 
     def test_clean_dict_removes_duplicates(self) -> None:
         """Test duplicate functions are removed during initialization."""
@@ -78,8 +76,7 @@ class TestTrainingRequest:
 
         request = TrainingRequest("test-uuid", "test-model", test_data)
         assert request.bin_name == "test_binary"
-        assert request.data is not None
-        assert len(request.data) == 2  # pyright: ignore[reportArgumentType]
+        assert len(request.get_functions()) == 2
 
     def test_training_request_load_data_with_duplicates(self) -> None:
         """Test duplicate functions are removed during data loading."""
@@ -95,8 +92,9 @@ class TestTrainingRequest:
         }
 
         request = TrainingRequest("test-uuid", "test-model", duplicate_data)
-        assert len(request.data) == 2  # pyright: ignore[reportArgumentType]
-        assert "tokens" in request.data.columns  # pyright: ignore[reportOptionalMemberAccess]
+        functions = request.get_functions()
+        assert len(functions) == 2
+        assert "tokens" in functions[0]
 
 
 class TestPredictionRequest:
@@ -116,8 +114,7 @@ class TestPredictionRequest:
 
         request = PredictionRequest("test-uuid", "test-model", test_data)
         assert request.task_name == "test_task"
-        assert request.data is not None
-        assert len(request.data) == 2  # pyright: ignore[reportArgumentType]
+        assert len(request.get_functions()) == 2
 
     def test_prediction_request_load_data_with_duplicates(self) -> None:
         """Test duplicate functions are removed during data loading."""
@@ -133,31 +130,9 @@ class TestPredictionRequest:
         }
 
         request = PredictionRequest("test-uuid", "test-model", duplicate_data)
-        assert len(request.data) == 2  # pyright: ignore[reportArgumentType]
-        assert "tokens" in request.data.columns  # pyright: ignore[reportOptionalMemberAccess]
-
-
-class TestGhidraRequest:
-    """Tests for GhidraRequest initialization."""
-
-    def test_ghidra_request_init(self) -> None:
-        """Test GhidraRequest initializes with correct attributes and generates UUID."""
-        request = GhidraRequest(
-            filename="test_file.txt",
-            is_training=True,
-            model_name="test-model",
-            name="test_name",
-            ml_class_type="test_class",
-        )
-        # Path.as_posix() returns the path as-is without adding workspace directory
-        assert request.file_name == "test_file.txt"
-        assert request.is_training is True
-        assert request.model_name == "test-model"
-        assert request.name == "test_name"
-        assert request.ml_class_type == "test_class"
-        assert request.uuid is not None
-        assert isinstance(request.uuid, str)
-        assert len(request.uuid) > 0
+        functions = request.get_functions()
+        assert len(functions) == 2
+        assert "tokens" in functions[0]
 
 
 class TestPrediction:

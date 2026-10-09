@@ -49,20 +49,3 @@ class PredictionNotFoundError(Exception):
         self.task_name = task_name
         self.model_name = model_name
         super().__init__(f"Prediction for task '{task_name}' and model '{model_name}' not found")
-
-
-class SimilarityComputationNotFoundError(Exception):
-    """Raised when a similarity computation is not found."""
-
-    def __init__(self, computation_id: int) -> None:
-        self.computation_id = computation_id
-        super().__init__(f"Similarity computation with id {computation_id} not found")
-
-
-class SimilarityComputationAccessError(Exception):
-    """Raised when user tries to access another user's similarity computation."""
-
-    def __init__(self, computation_id: int, user_id: int) -> None:
-        self.computation_id = computation_id
-        self.user_id = user_id
-        super().__init__(f"User {user_id} does not have access to similarity computation {computation_id}")

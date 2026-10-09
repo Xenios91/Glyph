@@ -200,33 +200,3 @@ class BinarySimilarityService:
             len(valid_ids),
         )
         return entries
-
-    @staticmethod
-    def get_similarity_color(score: float) -> str:
-        """Get a color string for a similarity score.
-
-        Uses a white -> yellow -> red gradient for visualization.
-
-        Args:
-            score: Similarity score between 0.0 and 1.0.
-
-        Returns:
-            Hex color string.
-
-        """
-        clamped = max(0.0, min(1.0, score))
-
-        if clamped < 0.5:
-            # White to yellow
-            t = clamped * 2  # 0 to 1
-            r = 255
-            g = int(255 * (1 - t) + 255 * t)
-            b = int(255 * (1 - t))
-        else:
-            # Yellow to red
-            t = (clamped - 0.5) * 2  # 0 to 1
-            r = 255
-            g = int(255 * (1 - t))
-            b = 0
-
-        return f"#{r:02x}{g:02x}{b:02x}"

@@ -176,56 +176,6 @@ async def seeded_binaries(binaries_session: Any) -> list[int]:
 
 
 # ---------------------------------------------------------------------------
-# Tests – BinarySimilarityService.get_similarity_color()
-# ---------------------------------------------------------------------------
-
-
-class TestGetSimilarityColor:
-    """Tests for the similarity color gradient helper."""
-
-    def test_score_zero_returns_white(self) -> None:
-        """Score 0.0 should produce white (#ffffff)."""
-        color = BinarySimilarityService.get_similarity_color(0.0)
-        assert color == "#ffffff"
-
-    def test_score_one_returns_red(self) -> None:
-        """Score 1.0 should produce red (#ff0000)."""
-        color = BinarySimilarityService.get_similarity_color(1.0)
-        assert color == "#ff0000"
-
-    def test_score_half_returns_yellow(self) -> None:
-        """Score 0.5 should produce yellow (#ffff00)."""
-        color = BinarySimilarityService.get_similarity_color(0.5)
-        assert color == "#ffff00"
-
-    def test_score_quarter_returns_intermediate(self) -> None:
-        """Score 0.25 should be between white and yellow."""
-        color = BinarySimilarityService.get_similarity_color(0.25)
-        # t = 0.5 -> r=255, g=255, b=127 -> #ffff7f
-        assert color == "#ffff7f"
-
-    def test_score_three_quarters_returns_intermediate(self) -> None:
-        """Score 0.75 should be between yellow and red."""
-        color = BinarySimilarityService.get_similarity_color(0.75)
-        # t = 0.5 -> r=255, g=127, b=0 -> #ff7f00
-        assert color == "#ff7f00"
-
-    def test_negative_score_clamped_to_zero(self) -> None:
-        """Negative scores should be clamped to 0.0."""
-        assert BinarySimilarityService.get_similarity_color(-0.5) == "#ffffff"
-
-    def test_score_above_one_clamped(self) -> None:
-        """Scores above 1.0 should be clamped to 1.0."""
-        assert BinarySimilarityService.get_similarity_color(1.5) == "#ff0000"
-
-    def test_returns_hex_format(self) -> None:
-        """Color must be a 7-character hex string."""
-        color = BinarySimilarityService.get_similarity_color(0.33)
-        assert color.startswith("#")
-        assert len(color) == 7
-
-
-# ---------------------------------------------------------------------------
 # Tests – BinarySimilarityService._prepare_binary_functions()
 # ---------------------------------------------------------------------------
 

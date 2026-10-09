@@ -11,14 +11,6 @@ UPLOAD_PIPELINE
     raw function output to the BinaryFunction table. Used when a new
     binary is uploaded.
 
-TRAINING_PIPELINE
-    Full ML training workflow: validate, decompile, tokenize, filter,
-    extract features, and train the classification model.
-
-PREDICTION_PIPELINE
-    Full ML prediction workflow: validate, decompile, tokenize, filter,
-    extract features, and run predictions against a trained model.
-
 ML_PREDICTION_ONLY_PIPELINE
     Lightweight prediction workflow that skips validation and
     decompilation. Expects functions to already be loaded in the
@@ -55,32 +47,6 @@ UPLOAD_PIPELINE = ProcessingPipeline(
         ValidationStep(),
         DecompileStep(),
         SaveRawFunctionsStep(),
-    ],
-)
-
-# ML training — full pipeline from binary to trained model
-TRAINING_PIPELINE = ProcessingPipeline(
-    "ML Training Pipeline",
-    [
-        ValidationStep(),
-        DecompileStep(),
-        TokenizeStep(),
-        FilterStep(),
-        FeatureExtractStep(),
-        TrainStep(),
-    ],
-)
-
-# ML prediction — full pipeline from binary to predictions
-PREDICTION_PIPELINE = ProcessingPipeline(
-    "ML Prediction Pipeline",
-    [
-        ValidationStep(),
-        DecompileStep(),
-        TokenizeStep(),
-        FilterStep(),
-        FeatureExtractStep(),
-        PredictStep(),
     ],
 )
 
@@ -122,8 +88,6 @@ PREDICTION_FROM_DB_PIPELINE = ProcessingPipeline(
 __all__ = [
     "ML_PREDICTION_ONLY_PIPELINE",
     "PREDICTION_FROM_DB_PIPELINE",
-    "PREDICTION_PIPELINE",
     "TRAINING_FROM_DB_PIPELINE",
-    "TRAINING_PIPELINE",
     "UPLOAD_PIPELINE",
 ]

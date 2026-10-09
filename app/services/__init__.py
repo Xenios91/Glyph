@@ -3,7 +3,7 @@
 Contains business logic services that orchestrate the processing pipeline.
 
 Components:
-    request_handler: Request data processing (TrainingRequest, PredictionRequest, GhidraRequest).
+    request_handler: Request data processing (TrainingRequest, PredictionRequest).
     binary_upload_service: Binary upload and Ghidra analysis orchestration.
     prediction_service: ML prediction persistence and retrieval.
     code_reuse_detector: In-memory code reuse similarity computation.

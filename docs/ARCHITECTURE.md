@@ -92,7 +92,7 @@ Glyph is an architecture-independent binary analysis tool that uses NLP techniqu
 
 ### Services Layer (`app/services/`)
 
-- **`request_handler.py`** - Business logic for processing requests (`DataHandler`, `TrainingRequest`, `PredictionRequest`, `GhidraRequest`, `Prediction`)
+- **`request_handler.py`** - Business logic for processing requests (`DataHandler`, `TrainingRequest`, `PredictionRequest`, `Prediction`)
 - **`binary_upload_service.py`** - Binary file validation, storage, and metadata operations
 - **`prediction_service.py`** - Prediction result persistence, retrieval, and deletion
 - **`binary_similarity_service.py`** - Binary similarity computation with result persistence and caching
@@ -141,8 +141,8 @@ Glyph is an architecture-independent binary analysis tool that uses NLP techniqu
   - `PredictStep` - Model prediction with probability-threshold filtering
   - `SaveRawFunctionsStep` - Persists raw decompiled functions to the `binary_functions` table
   - `LoadBinaryFunctionsStep` - Loads previously stored functions from the database
-- **`pipeline_configs.py`** - Predefined pipeline compositions: `UPLOAD_PIPELINE`, `TRAINING_PIPELINE`, `PREDICTION_PIPELINE`, `ML_PREDICTION_ONLY_PIPELINE`, `TRAINING_FROM_DB_PIPELINE`, `PREDICTION_FROM_DB_PIPELINE`
-- **`task_management.py`** - Task execution management: `TaskManager` (singleton with process pool executor), `EventWatcher` (future completion callbacks), and `Ghidra` task manager
+- **`pipeline_configs.py`** - Predefined pipeline compositions: `UPLOAD_PIPELINE`, `ML_PREDICTION_ONLY_PIPELINE`, `TRAINING_FROM_DB_PIPELINE`, `PREDICTION_FROM_DB_PIPELINE`
+- **`task_management.py`** - Task execution management: `TaskManager` (singleton with process pool executor) and `EventWatcher` (future completion callbacks)
 - **`ghidra_processor.py`** - Ghidra decompilation integration via PyGhidra (Java interop)
 
 ### Utilities (`app/utils/`)

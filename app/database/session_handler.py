@@ -149,9 +149,9 @@ async def _backfill_owner_columns() -> None:
     unowned by the ownership dependencies.
 
     Backfill rules (by name match):
-    - ``models``: model_name == Binary.binary_name -> Binary.uploaded_by
+    - ``models``: model_name == Binary.name -> Binary.uploaded_by
     - ``functions``: model_name -> owning Model.user_id (or Binary fallback)
-    - ``predictions``: task_name == Binary.binary_name -> Binary.uploaded_by
+    - ``predictions``: task_name == Binary.name -> Binary.uploaded_by
     - ``scan_reports`` / ``llm_analysis_results``: target_name -> owner of the
       matching Binary / Model / Prediction / ScanReport row.
     """
@@ -164,7 +164,7 @@ async def _backfill_owner_columns() -> None:
     ):
         # Binary owner map (shared across all backfills).
         b_rows = (
-            await b_session.execute(select(Binary.binary_name, Binary.uploaded_by))
+            await b_session.execute(select(Binary.name, Binary.uploaded_by))
         ).all()
         binary_owner: dict[str, int | None] = dict(b_rows)
 
@@ -356,7 +356,12 @@ async def async_session(database: str = "auth") -> AsyncIterator[AsyncSession]:
 
 
 async def close_async_session(session: AsyncSession) -> None:
-    """Close an async database session (legacy, prefer async_session context manager)."""
+    """Close an async database session.
+
+    Standard helper for repositories that acquire a session via
+    :func:`get_async_session` and manage its lifecycle explicitly. Prefer
+    the :func:`async_session` context manager for new code.
+    """
     await session.close()
 
 

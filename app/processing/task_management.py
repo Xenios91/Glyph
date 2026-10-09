@@ -18,8 +18,6 @@ from typing import Any
 from loguru import logger
 
 from app.config.settings import get_settings
-from app.processing.pipeline import PipelineContext
-from app.services.request_handler import GhidraRequest
 from app.utils.request_context import (
     CapturedContext,
     clear_request_context,
@@ -430,46 +428,3 @@ class TaskManager:
             cls._executor_shutdown = False
             atexit.register(cls._shutdown_executor)
         logger.debug("TaskManager state reset for testing")
-
-
-class GhidraPipelineRunner(TaskManager):
-    """Pipeline runner for Ghidra analysis on binaries.
-
-    This class integrates with the pipeline framework to provide
-    end-to-end binary analysis workflows.
-    """
-
-    @classmethod
-    async def run_full_pipeline(
-        cls,
-        ghidra_request: GhidraRequest,
-        file_path: str,
-    ) -> PipelineContext:
-        """Run the full analysis pipeline for a binary.
-
-        This method provides an end-to-end pipeline interface that combines
-        Ghidra analysis with ML training or prediction.
-
-        Args:
-            ghidra_request: The Ghidra request containing analysis parameters.
-            file_path: Path to the binary file.
-
-        Returns:
-            The pipeline context with analysis results.
-
-        """
-        from app.processing.pipeline_configs import PREDICTION_PIPELINE, TRAINING_PIPELINE
-
-        context = PipelineContext(
-            uuid=ghidra_request.uuid,
-            binary_path=file_path,
-            pipeline_type="ml_training" if ghidra_request.is_training else "ml_prediction",
-            metadata={
-                "model_name": ghidra_request.model_name,
-                "name": ghidra_request.name,
-                "ml_class_type": ghidra_request.ml_class_type,
-            },
-        )
-
-        pipeline = TRAINING_PIPELINE if ghidra_request.is_training else PREDICTION_PIPELINE
-        return await pipeline.execute(context)
