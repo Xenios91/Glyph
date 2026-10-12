@@ -421,7 +421,7 @@ class TestLlmPendingSpinners:
     """Tests for the per-row LLM loading spinners shown while analysis runs."""
 
     def test_llm_spinner_shown_while_analysis_pending(self, page: Any, server: Any) -> None:
-        """Each LLM cell shows a spinner badge while its finding's analysis
+        """Each LLM cell shows a spinner while its finding's analysis
         is in flight, and the spinner is replaced once the result arrives."""
         register_and_login(page)
 
@@ -478,14 +478,14 @@ class TestLlmPendingSpinners:
             }"""
         )
 
-        # The pending row shows the spinner badge, the finished row its result.
-        pending_badge = page.locator("#scan-results-body tr[data-index='0'] .llm-badge-pending")
-        expect(pending_badge).to_be_visible()
-        expect(pending_badge.locator(".llm-spinner")).to_be_visible()
-        expect(page.locator("#scan-results-body tr[data-index='1'] .llm-badge-success")).to_be_visible()
+        # The pending row shows the spinner, the finished row its result button.
+        pending_cell = page.locator("#scan-results-body tr[data-index='0'] .llm-verdict-pending")
+        expect(pending_cell).to_be_visible()
+        expect(pending_cell.locator(".llm-spinner")).to_be_visible()
+        expect(page.locator("#scan-results-body tr[data-index='1'] .llm-verdict-success")).to_be_visible()
 
         # When the pending result arrives, the spinner is replaced by the
-        # result badge.
+        # result button.
         page.evaluate(
             """() => {
                 llmResults[0] = {
@@ -500,8 +500,8 @@ class TestLlmPendingSpinners:
             }"""
         )
 
-        expect(page.locator("#scan-results-body .llm-badge-pending")).to_have_count(0)
-        expect(page.locator("#scan-results-body tr[data-index='0'] .llm-badge-success")).to_be_visible()
+        expect(page.locator("#scan-results-body .llm-verdict-pending")).to_have_count(0)
+        expect(page.locator("#scan-results-body tr[data-index='0'] .llm-verdict-success")).to_be_visible()
 
 
 class TestLlmMarkdownPreview:
@@ -806,9 +806,9 @@ class TestColumnSorting:
             "system",       # run_command
         ]
 
-    def test_sorting_keeps_llm_badges_attached_to_findings(self, page: Any, server: Any) -> None:
-        """LLM badges are keyed by the original finding index, so sorting
-        must not move a badge to a different row."""
+    def test_sorting_keeps_llm_buttons_attached_to_findings(self, page: Any, server: Any) -> None:
+        """LLM verdict buttons are keyed by the original finding index, so
+        sorting must not move a button to a different row."""
         register_and_login(page)
 
         page.goto(f"{BASE_URL}/getDangerousFunctions")
@@ -829,17 +829,17 @@ class TestColumnSorting:
                 renderLlmBadges();
             }"""
         )
-        expect(page.locator("#scan-results-body tr[data-index='0'] .llm-badge-success")).to_be_visible()
+        expect(page.locator("#scan-results-body tr[data-index='0'] .llm-verdict-success")).to_be_visible()
 
         # Sort by containing function: 'system' (run_command) moves to the
-        # second visible row, but its badge must travel with it.
+        # second visible row, but its button must travel with it.
         page.locator('.scan-results-table th[data-sort="containing_function"]').click()
 
-        expect(page.locator("#scan-results-body tr[data-index='0'] .llm-badge-success")).to_be_visible()
-        expect(page.locator("#scan-results-body .llm-badge-success")).to_have_count(1)
-        # The badge sits in the row that still shows 'system'.
-        badge_row = page.locator("#scan-results-body tr:has(.llm-badge-success)")
-        expect(badge_row.locator("td").first).to_have_text("system")
+        expect(page.locator("#scan-results-body tr[data-index='0'] .llm-verdict-success")).to_be_visible()
+        expect(page.locator("#scan-results-body .llm-verdict-success")).to_have_count(1)
+        # The button sits in the row that still shows 'system'.
+        button_row = page.locator("#scan-results-body tr:has(.llm-verdict-success)")
+        expect(button_row.locator("td").first).to_have_text("system")
 
     def test_sorting_resets_when_new_results_displayed(self, page: Any, server: Any) -> None:
         """Displaying a new scan result resets the table to its original
