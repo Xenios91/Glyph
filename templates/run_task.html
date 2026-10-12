@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/run_task.css') }}">
+<link rel="stylesheet" href="{{ static_url(request, 'css/run_task.css') }}">
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
@@ -105,5 +105,5 @@
 {% endblock content %}
 
 {% block scripts %}
-<script src="{{ url_for('static', path='js/run_task.js') }}" defer></script>
+<script src="{{ static_url(request, 'js/run_task.js') }}" defer></script>
 {% endblock scripts %}

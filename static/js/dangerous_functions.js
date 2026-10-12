@@ -1181,6 +1181,110 @@ function renderLlmBadges() {
 }
 
 /**
+ * Error thrown when the LLM analysis request fails before the result stream
+ * begins. `code` is 'LLM_NOT_CONFIGURED' for 503 responses.
+ */
+class LlmAnalysisRequestError extends Error {
+    constructor(message, code = 'REQUEST_FAILED') {
+        super(message);
+        this.name = 'LlmAnalysisRequestError';
+        this.code = code;
+    }
+}
+
+/**
+ * POST findings to the LLM analysis endpoint and consume the Server-Sent
+ * Events response, invoking onResult(index, entry) as each finding's analysis
+ * completes and onDone(summary) when the stream ends.
+ *
+ * @param {object} scanData - The scan data (provides model_name).
+ * @param {Array} findings - Findings to send.
+ * @param {function} onResult - Called per finding with (index, entry).
+ * @param {function} onDone - Called once with the summary object.
+ * @throws {LlmAnalysisRequestError} On 503 (LLM not configured) or other
+ *   non-2xx responses before streaming starts.
+ */
+async function streamLlmAnalysis(scanData, findings, onResult, onDone) {
+    const response = await fetch('/api/v1/dangerous-functions/llm-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            target_name: scanData.model_name,
+            save: true,
+            findings: findings,
+        }),
+    });
+
+    if (response.status === 503) {
+        throw new LlmAnalysisRequestError('LLM analysis is not configured or disabled.', 'LLM_NOT_CONFIGURED');
+    }
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const message =
+            (errorData.detail && errorData.detail.error && errorData.detail.error.message) ||
+            `LLM analysis failed (${response.status})`;
+        throw new LlmAnalysisRequestError(message);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('text/event-stream')) {
+        // Fallback: the server answered with a plain JSON body (older API).
+        const result = await response.json();
+        const data = result.data || {};
+        const resultsMap = data.results || {};
+        findings.forEach((_, index) => {
+            const entry = resultsMap[String(index)];
+            if (entry) onResult(index, entry);
+        });
+        onDone(data);
+        return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE events are separated by a blank line
+        let separator;
+        while ((separator = buffer.indexOf('\n\n')) !== -1) {
+            const rawEvent = buffer.slice(0, separator);
+            buffer = buffer.slice(separator + 2);
+
+            let eventType = 'message';
+            const dataLines = [];
+            for (const line of rawEvent.split('\n')) {
+                if (line.startsWith('event:')) {
+                    eventType = line.slice(6).trim();
+                } else if (line.startsWith('data:')) {
+                    dataLines.push(line.slice(5).trim());
+                }
+            }
+            if (dataLines.length === 0) continue;
+
+            let data;
+            try {
+                data = JSON.parse(dataLines.join('\n'));
+            } catch (parseError) {
+                console.error('Failed to parse LLM stream event:', parseError);
+                continue;
+            }
+
+            if (eventType === 'result') {
+                onResult(data.index, data);
+            } else if (eventType === 'done') {
+                onDone(data);
+            }
+        }
+    }
+}
+
+/**
  * Send all findings from the last scan to the LLM analysis endpoint.
  * When no scan has been run yet for the currently selected target, a scan is
  * performed first so the user can go straight from target selection to LLM
@@ -1230,68 +1334,57 @@ async function runLLMAnalysis() {
     renderLlmBadges();
 
     try {
-        const response = await fetch('/api/v1/dangerous-functions/llm-analysis', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                target_name: scanData.model_name,
-                save: true,
-                findings: findings,
-            }),
-        });
+        // Results arrive one at a time over the SSE stream; each badge is
+        // rendered as soon as its finding's analysis completes.
+        await streamLlmAnalysis(
+            scanData,
+            findings,
+            (index, entry) => {
+                if (scanData !== lastScanData) return; // a newer scan replaced these results
+                llmResults[index] = {
+                    status: entry.status,
+                    analysis: entry.analysis || '',
+                    error: entry.error || '',
+                    model: entry.model || '',
+                    source: 'fresh',
+                    elapsedMs: entry.elapsed_ms,
+                };
+                llmPendingIndices.delete(index);
+                renderLlmBadges();
+                // A result just became available, so the "Clear LLM Results"
+                // button must reflect that immediately (not only at stream end).
+                updateClearLlmButtonState();
+            },
+            (summary) => {
+                if (scanData !== lastScanData) return; // a newer scan replaced these results
 
-        if (response.status === 503) {
+                // Fresh LLM results were just saved for the current target, so
+                // the "Clear LLM Results" button must become enabled dynamically.
+                updateClearLlmButtonState();
+
+                if (typeof Toast !== 'undefined') {
+                    const succeeded = summary.succeeded ?? 0;
+                    const total = summary.total ?? findings.length;
+                    if (succeeded > 0) {
+                        Toast.success(`LLM analysis complete: ${succeeded}/${total} succeeded`);
+                    }
+                    if (summary.failed > 0) {
+                        Toast.error(`${summary.failed} finding(s) failed LLM analysis - click "AI !" to view details.`);
+                    }
+                }
+            }
+        );
+    } catch (error) {
+        console.error('LLM analysis failed:', error);
+        if (error instanceof LlmAnalysisRequestError && error.code === 'LLM_NOT_CONFIGURED') {
             showErrorBanner(
                 'LLM analysis is not configured or disabled. Enable it in Settings (LLM Analysis), then try again.'
             );
-            return;
+        } else if (error instanceof LlmAnalysisRequestError) {
+            showErrorBanner(error.message);
+        } else {
+            showErrorBanner('LLM analysis request failed. Please try again.');
         }
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            const message =
-                (errorData.detail && errorData.detail.error && errorData.detail.error.message) ||
-                `LLM analysis failed (${response.status})`;
-            showErrorBanner(message);
-            return;
-        }
-
-        const result = await response.json();
-        if (scanData !== lastScanData) return; // a newer scan replaced these results
-
-        const data = result.data || {};
-        const resultsMap = data.results || {};
-        findings.forEach((_, index) => {
-            const entry = resultsMap[String(index)];
-            if (!entry) return;
-            llmResults[index] = {
-                status: entry.status,
-                analysis: entry.analysis || '',
-                error: entry.error || '',
-                model: entry.model || data.model || '',
-                source: 'fresh',
-                elapsedMs: entry.elapsed_ms,
-            };
-        });
-
-        renderLlmBadges();
-        // Fresh LLM results were just saved for the current target, so the
-        // "Clear LLM Results" button must become enabled dynamically.
-        updateClearLlmButtonState();
-
-        if (typeof Toast !== 'undefined') {
-            const succeeded = data.succeeded ?? 0;
-            const total = data.total ?? findings.length;
-            if (succeeded > 0) {
-                Toast.success(`LLM analysis complete: ${succeeded}/${total} succeeded`);
-            }
-            if (data.failed > 0) {
-                Toast.error(`${data.failed} finding(s) failed LLM analysis - click "AI !" to view details.`);
-            }
-        }
-    } catch (error) {
-        console.error('LLM analysis failed:', error);
-        showErrorBanner('LLM analysis request failed. Please try again.');
     } finally {
         llmPendingIndices.clear();
         setLlmLoading(false);
@@ -1314,58 +1407,43 @@ async function retryLlmFinding(index) {
     renderLlmBadges();
 
     try {
-        const response = await fetch('/api/v1/dangerous-functions/llm-analysis', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                target_name: scanData.model_name,
-                save: true,
-                findings: [finding],
-            }),
-        });
+        await streamLlmAnalysis(
+            scanData,
+            [finding],
+            (streamIndex, entry) => {
+                if (scanData !== lastScanData) return; // a newer scan replaced these results
+                llmResults[index] = {
+                    status: entry.status,
+                    analysis: entry.analysis || '',
+                    error: entry.error || '',
+                    model: entry.model || '',
+                    source: 'fresh',
+                    elapsedMs: entry.elapsed_ms,
+                };
+                llmPendingIndices.delete(index);
+                renderLlmBadges();
+                updateClearLlmButtonState();
 
-        if (response.status === 503) {
+                // Refresh the modal if it is still open on this row
+                if (llmModalOpenIndex === index) {
+                    openLlmModal(index);
+                }
+            },
+            () => {
+                // Stream finished; nothing further to do for a single retry.
+            }
+        );
+    } catch (error) {
+        console.error('LLM retry failed:', error);
+        if (error instanceof LlmAnalysisRequestError && error.code === 'LLM_NOT_CONFIGURED') {
             showErrorBanner(
                 'LLM analysis is not configured or disabled. Enable it in Settings (LLM Analysis), then try again.'
             );
-            return;
+        } else if (error instanceof LlmAnalysisRequestError) {
+            showErrorBanner(error.message);
+        } else {
+            showErrorBanner('LLM analysis request failed. Please try again.');
         }
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            const message =
-                (errorData.detail && errorData.detail.error && errorData.detail.error.message) ||
-                `LLM analysis failed (${response.status})`;
-            showErrorBanner(message);
-            return;
-        }
-
-        const result = await response.json();
-        if (scanData !== lastScanData) return; // a newer scan replaced these results
-
-        const data = result.data || {};
-        const entry = (data.results || {})['0'];
-        if (!entry) return;
-
-        llmResults[index] = {
-            status: entry.status,
-            analysis: entry.analysis || '',
-            error: entry.error || '',
-            model: entry.model || data.model || '',
-            source: 'fresh',
-            elapsedMs: entry.elapsed_ms,
-        };
-
-        renderLlmBadges();
-        updateClearLlmButtonState();
-
-        // Refresh the modal if it is still open on this row
-        if (llmModalOpenIndex === index) {
-            openLlmModal(index);
-        }
-    } catch (error) {
-        console.error('LLM retry failed:', error);
-        showErrorBanner('LLM analysis request failed. Please try again.');
     } finally {
         llmPendingIndices.delete(index);
         setLlmLoading(false);

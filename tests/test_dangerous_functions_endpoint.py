@@ -1,5 +1,7 @@
 """Tests for dangerous functions API v1 endpoints."""
 
+import json
+from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -508,8 +510,37 @@ class TestLLMAnalysisEndpoint:
         report.user_id = None
         return report
 
+    @staticmethod
+    def _stream_items(analyses: list[FindingAnalysis]) -> Any:
+        """Build an async iterator of (index, analysis) pairs, as stream_findings yields."""
+
+        async def _gen() -> AsyncIterator[tuple[int, FindingAnalysis]]:
+            for index, analysis in enumerate(analyses):
+                yield index, analysis
+
+        return _gen()
+
+    @staticmethod
+    def _parse_sse_events(body: str) -> list[tuple[str, dict[str, Any]]]:
+        """Parse an SSE body into (event_type, data) tuples."""
+        events: list[tuple[str, dict[str, Any]]] = []
+        for raw_event in body.split("\n\n"):
+            raw_event = raw_event.strip()
+            if not raw_event:
+                continue
+            event_type = "message"
+            data_lines: list[str] = []
+            for line in raw_event.split("\n"):
+                if line.startswith("event:"):
+                    event_type = line[len("event:") :].strip()
+                elif line.startswith("data:"):
+                    data_lines.append(line[len("data:") :].strip())
+            if data_lines:
+                events.append((event_type, json.loads("\n".join(data_lines))))
+        return events
+
     def test_llm_analysis_success(self, dangerous_functions_client: Any) -> None:
-        """Test successful analysis with results persisted by default."""
+        """Test successful analysis streamed back as SSE events and persisted by default."""
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         analyses = [
@@ -524,14 +555,14 @@ class TestLLMAnalysisEndpoint:
                 new=AsyncMock(return_value=self._make_llm()),
             ),
             patch(
-                "app.api.v1.endpoints.dangerous_functions.analyze_findings",
-                new=AsyncMock(return_value=analyses),
+                "app.api.v1.endpoints.dangerous_functions.stream_findings",
+                new=Mock(return_value=self._stream_items(analyses)),
             ) as mock_analyze,
             patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo,
             patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_scan_repo,
         ):
             mock_scan_repo.get_report = AsyncMock(return_value=self._make_report())
-            mock_repo.upsert_many = AsyncMock()
+            mock_repo.upsert_one = AsyncMock()
 
             response = dangerous_functions_client.post(
                 "/dangerous-functions/llm-analysis",
@@ -539,48 +570,60 @@ class TestLLMAnalysisEndpoint:
             )
 
         assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        payload = data["data"]
-        assert payload["target_name"] == "test_model"
-        assert payload["model"] == "test-model"
-        assert payload["total"] == 2
-        assert payload["succeeded"] == 1
-        assert payload["failed"] == 1
-        assert payload["saved"] is True
-        assert set(payload["results"].keys()) == {"0", "1"}
-        assert payload["results"]["0"] == {
+        assert "text/event-stream" in response.headers["content-type"]
+
+        events = self._parse_sse_events(response.text)
+        result_events = [data for event_type, data in events if event_type == "result"]
+        done_events = [data for event_type, data in events if event_type == "done"]
+        assert len(result_events) == 2
+        assert len(done_events) == 1
+
+        # Each result event carries the finding's zero-based index and payload.
+        by_index = {data["index"]: data for data in result_events}
+        assert set(by_index.keys()) == {0, 1}
+        assert by_index[0] == {
+            "index": 0,
             "status": "success",
             "analysis": "Low risk.",
             "error": "",
             "model": "test-model",
             "elapsed_ms": 12,
         }
-        assert payload["results"]["1"]["status"] == "error"
-        assert payload["results"]["1"]["error"] == "Request timed out"
-        assert data["message"] == "LLM analysis complete: 1/2 succeeded"
+        assert by_index[1]["status"] == "error"
+        assert by_index[1]["error"] == "Request timed out"
+
+        # The done event carries the summary counts.
+        assert done_events[0] == {
+            "target_name": "test_model",
+            "total": 2,
+            "succeeded": 1,
+            "failed": 1,
+            "saved": True,
+        }
 
         # The service received the findings as dumped dicts, in order.
-        passed_findings = mock_analyze.await_args_list[0].args[1]
+        passed_findings = mock_analyze.call_args_list[0].args[1]
         assert passed_findings[0]["function_name"] == "strcpy"
         assert passed_findings[1]["entrypoint"] == "0x402000"
 
-        # One upserted row per finding, error row included.
-        assert mock_repo.upsert_many.await_count == 1
-        target_name, rows = mock_repo.upsert_many.await_args_list[0].args
-        assert target_name == "test_model"
-        assert len(rows) == 2
-        assert all(isinstance(row, LLMAnalysisResult) for row in rows)
-        assert rows[0].function_name == "strcpy"
-        assert rows[0].containing_function == "main"
-        assert rows[0].entrypoint == "0x401000"
-        assert rows[0].status == "success"
-        assert rows[0].analysis == "Low risk."
-        assert rows[0].model_name == "test-model"
-        assert rows[1].function_name == "system"
-        assert rows[1].status == "error"
-        assert rows[1].analysis == ""
-        assert rows[1].error == "Request timed out"
+        # One upserted row per finding (persisted as each result completes),
+        # error row included.
+        assert mock_repo.upsert_one.await_count == 2
+        first_target, first_row = mock_repo.upsert_one.await_args_list[0].args
+        assert first_target == "test_model"
+        assert isinstance(first_row, LLMAnalysisResult)
+        assert first_row.function_name == "strcpy"
+        assert first_row.containing_function == "main"
+        assert first_row.entrypoint == "0x401000"
+        assert first_row.status == "success"
+        assert first_row.analysis == "Low risk."
+        assert first_row.model_name == "test-model"
+        second_target, second_row = mock_repo.upsert_one.await_args_list[1].args
+        assert second_target == "test_model"
+        assert second_row.function_name == "system"
+        assert second_row.status == "error"
+        assert second_row.analysis == ""
+        assert second_row.error == "Request timed out"
 
     def test_llm_analysis_save_false(self, dangerous_functions_client: Any) -> None:
         """Test that save=false skips persistence."""
@@ -594,13 +637,13 @@ class TestLLMAnalysisEndpoint:
                 new=AsyncMock(return_value=self._make_llm()),
             ),
             patch(
-                "app.api.v1.endpoints.dangerous_functions.analyze_findings",
-                new=AsyncMock(return_value=analyses),
+                "app.api.v1.endpoints.dangerous_functions.stream_findings",
+                new=Mock(return_value=self._stream_items(analyses)),
             ),
             patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo,
             patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_scan_repo,
         ):
-            mock_repo.upsert_many = AsyncMock()
+            mock_repo.upsert_one = AsyncMock()
             mock_scan_repo.get_report = AsyncMock(return_value=self._make_report())
 
             response = dangerous_functions_client.post(
@@ -609,9 +652,10 @@ class TestLLMAnalysisEndpoint:
             )
 
         assert response.status_code == 200
-        payload = response.json()["data"]
-        assert payload["saved"] is False
-        mock_repo.upsert_many.assert_not_awaited()
+        done_events = [data for event_type, data in self._parse_sse_events(response.text) if event_type == "done"]
+        assert len(done_events) == 1
+        assert done_events[0]["saved"] is False
+        mock_repo.upsert_one.assert_not_awaited()
 
     def test_llm_analysis_upsert_failure(self, dangerous_functions_client: Any) -> None:
         """Test that a persistence failure reports saved=false but the request still succeeds."""
@@ -625,13 +669,13 @@ class TestLLMAnalysisEndpoint:
                 new=AsyncMock(return_value=self._make_llm()),
             ),
             patch(
-                "app.api.v1.endpoints.dangerous_functions.analyze_findings",
-                new=AsyncMock(return_value=analyses),
+                "app.api.v1.endpoints.dangerous_functions.stream_findings",
+                new=Mock(return_value=self._stream_items(analyses)),
             ),
             patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo,
             patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_scan_repo,
         ):
-            mock_repo.upsert_many = AsyncMock(side_effect=SQLAlchemyError("boom"))
+            mock_repo.upsert_one = AsyncMock(side_effect=SQLAlchemyError("boom"))
             mock_scan_repo.get_report = AsyncMock(return_value=self._make_report())
 
             response = dangerous_functions_client.post(
@@ -640,9 +684,10 @@ class TestLLMAnalysisEndpoint:
             )
 
         assert response.status_code == 200
-        payload = response.json()["data"]
-        assert payload["saved"] is False
-        assert payload["succeeded"] == 1
+        done_events = [data for event_type, data in self._parse_sse_events(response.text) if event_type == "done"]
+        assert len(done_events) == 1
+        assert done_events[0]["saved"] is False
+        assert done_events[0]["succeeded"] == 1
 
     def test_llm_analysis_not_configured(self, dangerous_functions_client: Any) -> None:
         """Test 503 when the LLM endpoint is disabled (real service fail-fast path)."""
@@ -717,8 +762,7 @@ class TestLLMAnalysisEndpoint:
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         analyses = [
-            FindingAnalysis(status="success", analysis="ok", model="test-model", elapsed_ms=1)
-            for _ in range(150)
+            FindingAnalysis(status="success", analysis="ok", model="test-model", elapsed_ms=1) for _ in range(150)
         ]
 
         with (
@@ -727,13 +771,13 @@ class TestLLMAnalysisEndpoint:
                 new=AsyncMock(return_value=self._make_llm()),
             ),
             patch(
-                "app.api.v1.endpoints.dangerous_functions.analyze_findings",
-                new=AsyncMock(return_value=analyses),
+                "app.api.v1.endpoints.dangerous_functions.stream_findings",
+                new=Mock(return_value=self._stream_items(analyses)),
             ),
             patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo,
             patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_scan_repo,
         ):
-            mock_repo.upsert_many = AsyncMock()
+            mock_repo.upsert_one = AsyncMock()
             mock_scan_repo.get_report = AsyncMock(return_value=self._make_report())
 
             findings = [self._make_finding(f"fn{i}", entrypoint=f"0x{i:06x}") for i in range(150)]
@@ -743,10 +787,11 @@ class TestLLMAnalysisEndpoint:
             )
 
         assert response.status_code == 200
-        payload = response.json()["data"]
-        assert payload["total"] == 150
-        assert payload["succeeded"] == 150
-        assert payload["saved"] is True
+        done_events = [data for event_type, data in self._parse_sse_events(response.text) if event_type == "done"]
+        assert len(done_events) == 1
+        assert done_events[0]["total"] == 150
+        assert done_events[0]["succeeded"] == 150
+        assert done_events[0]["saved"] is True
 
     def test_llm_analysis_accepts_long_target_name(self, dangerous_functions_client: Any) -> None:
         """Regression: binary names up to 256 chars must be accepted as target_name.
@@ -765,13 +810,13 @@ class TestLLMAnalysisEndpoint:
                 new=AsyncMock(return_value=self._make_llm()),
             ),
             patch(
-                "app.api.v1.endpoints.dangerous_functions.analyze_findings",
-                new=AsyncMock(return_value=analyses),
+                "app.api.v1.endpoints.dangerous_functions.stream_findings",
+                new=Mock(return_value=self._stream_items(analyses)),
             ),
             patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo,
             patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_scan_repo,
         ):
-            mock_repo.upsert_many = AsyncMock()
+            mock_repo.upsert_one = AsyncMock()
             mock_scan_repo.get_report = AsyncMock(return_value=self._make_report())
 
             response = dangerous_functions_client.post(
@@ -780,7 +825,9 @@ class TestLLMAnalysisEndpoint:
             )
 
         assert response.status_code == 200
-        assert response.json()["data"]["target_name"] == long_name
+        done_events = [data for event_type, data in self._parse_sse_events(response.text) if event_type == "done"]
+        assert len(done_events) == 1
+        assert done_events[0]["target_name"] == long_name
 
     def test_llm_analysis_rate_limited(self, dangerous_functions_client: Any) -> None:
         """Test that more than 10 requests per minute are rejected with 429."""
@@ -795,19 +842,21 @@ class TestLLMAnalysisEndpoint:
                 new=AsyncMock(return_value=self._make_llm()),
             ),
             patch(
-                "app.api.v1.endpoints.dangerous_functions.analyze_findings",
-                new=AsyncMock(return_value=analyses),
+                "app.api.v1.endpoints.dangerous_functions.stream_findings",
+                new=Mock(return_value=self._stream_items(analyses)),
             ),
             patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_scan_repo,
         ):
             mock_scan_repo.get_report = AsyncMock(return_value=self._make_report())
             for _ in range(10):
                 response = dangerous_functions_client.post(
-                    "/dangerous-functions/llm-analysis", json=body,
+                    "/dangerous-functions/llm-analysis",
+                    json=body,
                 )
                 assert response.status_code == 200
             response = dangerous_functions_client.post(
-                "/dangerous-functions/llm-analysis", json=body,
+                "/dangerous-functions/llm-analysis",
+                json=body,
             )
             assert response.status_code == 429
 
@@ -991,9 +1040,7 @@ class TestGetScanResultsEndpoint:
 
         with patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo:
             mock_repo.get_report = AsyncMock(return_value=self._make_row())
-            response = dangerous_functions_client.get(
-                "/dangerous-functions/scan-results?target_name=test_model"
-            )
+            response = dangerous_functions_client.get("/dangerous-functions/scan-results?target_name=test_model")
 
         assert response.status_code == 200
         data = response.json()
@@ -1014,9 +1061,7 @@ class TestGetScanResultsEndpoint:
 
         with patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_repo:
             mock_repo.get_report = AsyncMock(return_value=None)
-            response = dangerous_functions_client.get(
-                "/dangerous-functions/scan-results?target_name=test_model"
-            )
+            response = dangerous_functions_client.get("/dangerous-functions/scan-results?target_name=test_model")
 
         assert response.status_code == 200
         body = response.json()
@@ -1031,9 +1076,7 @@ class TestGetScanResultsEndpoint:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
         set_dependency_override(dangerous_functions_client, get_current_active_user, raise_unauthenticated)
-        response = dangerous_functions_client.get(
-            "/dangerous-functions/scan-results?target_name=test_model"
-        )
+        response = dangerous_functions_client.get("/dangerous-functions/scan-results?target_name=test_model")
         assert response.status_code == 401
 
     def test_get_scan_results_missing_target_name(self, dangerous_functions_client: Any) -> None:

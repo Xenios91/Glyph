@@ -6,6 +6,7 @@ chat completions endpoint and reports the results back to the caller.
 
 import asyncio
 import time
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.parse import urlsplit
@@ -328,3 +329,50 @@ async def analyze_findings(
             return await analyze_finding(llm, finding)
 
     return list(await asyncio.gather(*(_bounded(finding) for finding in findings)))
+
+
+async def stream_findings(
+    llm: LLMConfig,
+    findings: list[dict[str, Any]],
+) -> AsyncGenerator[tuple[int, FindingAnalysis]]:
+    """Analyze findings, yielding each result as soon as it completes.
+
+    Unlike :func:`analyze_findings` (which waits for the whole batch and
+    returns results in input order), this coroutine yields ``(index,
+    analysis)`` pairs in *completion* order so callers can forward results
+    incrementally. In-flight requests are still bounded by
+    ``llm.max_concurrent``.
+
+    Args:
+        llm: The LLM configuration to send the requests with.
+        findings: List of scanner finding mappings (see build_prompt).
+
+    Yields:
+        Tuples of (zero-based index of the finding, its FindingAnalysis).
+        Individual failures are reported in the corresponding result, never
+        raised.
+
+    Raises:
+        LLMNotConfiguredError: If the endpoint URL cannot be built from config.
+
+    """
+    build_endpoint_url(llm)  # fail fast before scheduling any requests
+
+    if not findings:
+        return
+
+    semaphore = asyncio.Semaphore(llm.max_concurrent)
+
+    async def _bounded(index: int, finding: dict[str, Any]) -> tuple[int, FindingAnalysis]:
+        async with semaphore:
+            return index, await analyze_finding(llm, finding)
+
+    tasks = [asyncio.create_task(_bounded(index, finding)) for index, finding in enumerate(findings)]
+    try:
+        for done in asyncio.as_completed(tasks):
+            yield await done
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)

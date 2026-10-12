@@ -8,9 +8,11 @@ and usage context.
 import asyncio
 import json
 import types
+from collections.abc import AsyncIterator
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -35,7 +37,11 @@ from app.services.dangerous_functions_catalog import (
     get_entries_by_category,
     get_entry,
 )
-from app.services.llm_analysis_service import LLMNotConfiguredError, analyze_findings
+from app.services.llm_analysis_service import (
+    LLMNotConfiguredError,
+    build_endpoint_url,
+    stream_findings,
+)
 from app.utils.common import binary_function_to_dict
 from app.utils.responses import (
     ErrorResponse,
@@ -610,7 +616,10 @@ async def delete_llm_results(
     summary="Analyze scan findings with the configured LLM endpoint",
     description=(
         "Send scanner findings to the user-configured OpenAI-compatible chat completions "
-        "endpoint for analysis. Results are persisted to the database by default."
+        "endpoint for analysis. Results are streamed back as a Server-Sent Events "
+        "(text/event-stream) body: one `result` event per finding, emitted as soon "
+        "as that finding's analysis completes, followed by a final `done` event "
+        "with summary counts. Results are persisted to the database by default."
     ),
 )
 @limiter.limit(LLM_ANALYSIS_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
@@ -618,14 +627,18 @@ async def analyze_dangerous_functions(
     request: Request,
     body: LLMAnalysisRequest,
     current_user: Annotated[User, Depends(get_current_active_user)],
-) -> SuccessResponse[dict[str, Any]]:
+) -> StreamingResponse:
     """Send scan findings to the configured LLM endpoint for analysis.
 
     The client supplies findings it already obtained from a scan; no re-scan
-    is performed. One result per finding is returned, keyed by the finding's
-    zero-based index. When save is true (the default), results are upserted
-    to the database; a persistence failure is reported via saved=false but
-    does not fail the request.
+    is performed. The response is a Server-Sent Events stream: each finding
+    produces a `result` event (keyed by the finding's zero-based index) as
+    soon as its analysis completes, so clients can render results
+    incrementally instead of waiting for the whole batch. A final `done`
+    event carries the summary counts. When save is true (the default), each
+    result is upserted to the database as it completes; a persistence
+    failure is reported via saved=false in the `done` event but does not
+    fail the request.
 
     Args:
         request: FastAPI request object (used for rate limiting).
@@ -633,7 +646,7 @@ async def analyze_dangerous_functions(
         current_user: Authenticated user.
 
     Returns:
-        Success response with per-finding results and summary counts.
+        StreamingResponse with the SSE event stream.
 
     Raises:
         HTTPException: 503 LLM_NOT_CONFIGURED when the LLM endpoint is
@@ -656,7 +669,10 @@ async def analyze_dangerous_functions(
 
     llm = await resolve_user_llm_config(current_user.id)
     try:
-        analyses = await analyze_findings(llm, [f.model_dump() for f in body.findings])
+        # Fail fast before the response (and its headers) is created, so a
+        # disabled LLM is reported as a proper 503 instead of a broken stream.
+        build_endpoint_url(llm)
+        stream = stream_findings(llm, [f.model_dump() for f in body.findings])
     except LLMNotConfiguredError as exc:
         logger.warning("LLM analysis rejected: {}", exc)
         raise HTTPException(
@@ -667,60 +683,78 @@ async def analyze_dangerous_functions(
             ).model_dump(),
         ) from exc
 
-    results: dict[str, dict[str, Any]] = {
-        str(index): {
-            "status": analysis.status,
-            "analysis": analysis.analysis,
-            "error": analysis.error,
-            "model": analysis.model,
-            "elapsed_ms": analysis.elapsed_ms,
-        }
-        for index, analysis in enumerate(analyses)
-    }
+    user_id = report_owner_id
+    save = body.save
+    target_name = body.target_name
+    findings = body.findings
 
-    total = len(analyses)
-    succeeded = sum(1 for analysis in analyses if analysis.status == "success")
-    failed = total - succeeded
-
-    saved = False
-    if body.save:
-        rows = [
-            LLMAnalysisResult(
-                target_name=body.target_name,
-                function_name=finding.function_name,
-                containing_function=finding.containing_function,
-                entrypoint=finding.entrypoint,
-                status=analysis.status,
-                analysis=analysis.analysis,
-                error=analysis.error,
-                model_name=analysis.model,
-                elapsed_ms=analysis.elapsed_ms,
-            )
-            for finding, analysis in zip(body.findings, analyses, strict=True)
-        ]
+    async def event_stream() -> AsyncIterator[str]:
+        total = len(findings)
+        succeeded = 0
+        failed = 0
+        saved = False
         try:
-            await LLMResultRepository.upsert_many(body.target_name, rows, user_id=report_owner_id)
-            saved = True
-        except Exception:
-            saved = False
-            logger.exception("Failed to save LLM analysis results for target '{}'", body.target_name)
+            # Iterate the analysis stream so each result is forwarded the
+            # moment its underlying LLM request completes.
+            async for index, analysis in stream:
+                if await request.is_disconnected():
+                    logger.info("LLM analysis stream aborted: client disconnected (target '{}')", target_name)
+                    return
+                if analysis.status == "success":
+                    succeeded += 1
+                else:
+                    failed += 1
 
-    model_name = next(
-        (analysis.model for analysis in analyses if analysis.status == "success" and analysis.model),
-        llm.model,
-    )
+                if save:
+                    try:
+                        await LLMResultRepository.upsert_one(
+                            target_name,
+                            LLMAnalysisResult(
+                                function_name=findings[index].function_name,
+                                containing_function=findings[index].containing_function,
+                                entrypoint=findings[index].entrypoint,
+                                status=analysis.status,
+                                analysis=analysis.analysis,
+                                error=analysis.error,
+                                model_name=analysis.model,
+                                elapsed_ms=analysis.elapsed_ms,
+                            ),
+                            user_id=user_id,
+                        )
+                        saved = True
+                    except Exception:
+                        logger.exception("Failed to save LLM analysis result for target '{}'", target_name)
 
-    return create_success_response(
-        data={
-            "target_name": body.target_name,
-            "model": model_name,
-            "total": total,
-            "succeeded": succeeded,
-            "failed": failed,
-            "saved": saved,
-            "results": results,
+                event = {
+                    "index": index,
+                    "status": analysis.status,
+                    "analysis": analysis.analysis,
+                    "error": analysis.error,
+                    "model": analysis.model,
+                    "elapsed_ms": analysis.elapsed_ms,
+                }
+                yield f"event: result\ndata: {json.dumps(event)}\n\n"
+        except asyncio.CancelledError:
+            # Client disconnected: stop the stream without emitting `done`.
+            return
+        finally:
+            # Close the analysis stream so any in-flight LLM requests are
+            # cancelled when the stream ends early (client disconnect).
+            await stream.aclose()
+
+        yield (
+            "event: done\n"
+            f"data: {json.dumps({'target_name': target_name, 'total': total, 'succeeded': succeeded, 'failed': failed, 'saved': saved})}\n\n"
+        )
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
         },
-        message=f"LLM analysis complete: {succeeded}/{total} succeeded",
     )
 
 

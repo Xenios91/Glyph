@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/config_style.css') }}">
+<link rel="stylesheet" href="{{ static_url(request, 'css/config_style.css') }}">
 {% endblock head %}
 {% block content %}
 {% set max_file_size = current_max_file_size | default(512) %}
@@ -114,5 +114,5 @@
 {% endblock content %}
 
 {% block scripts %}
-<script src="{{ url_for('static', path='js/config.js') }}" defer></script>
+<script src="{{ static_url(request, 'js/config.js') }}" defer></script>
 {% endblock scripts %}

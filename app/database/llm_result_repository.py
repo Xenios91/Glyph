@@ -93,6 +93,55 @@ class LLMResultRepository:
             await close_async_session(session)
 
     @staticmethod
+    async def upsert_one(target_name: str, result: LLMAnalysisResult, user_id: int | None = None) -> None:
+        """Insert or update a single stored LLM analysis result.
+
+        Mirrors the row-matching behaviour of :meth:`upsert_many` for one
+        finding, so results can be persisted as soon as each individual
+        analysis completes (e.g., while a batch is still in flight).
+
+        Args:
+            target_name: Stable name of the scanned target (the report's model_name).
+            result: LLMAnalysisResult instance to persist (its target_name
+                is ignored and taken from the argument instead).
+            user_id: Owner of the result (None for legacy/unowned).
+
+        """
+        session: AsyncSession = await get_async_session("intelligence")
+        try:
+            row = (
+                await session.execute(
+                    select(LLMAnalysisResult).where(
+                        LLMAnalysisResult.target_name == target_name,
+                        LLMAnalysisResult.function_name == result.function_name,
+                        LLMAnalysisResult.containing_function == result.containing_function,
+                        LLMAnalysisResult.entrypoint == result.entrypoint,
+                    ),
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                row = LLMAnalysisResult(
+                    target_name=target_name,
+                    user_id=user_id,
+                    function_name=result.function_name,
+                    containing_function=result.containing_function,
+                    entrypoint=result.entrypoint,
+                )
+                session.add(row)
+            row.status = result.status
+            row.analysis = result.analysis
+            row.error = result.error
+            row.model_name = result.model_name
+            row.elapsed_ms = result.elapsed_ms
+            await session.commit()
+        except sa_exc.SQLAlchemyError:
+            await session.rollback()
+            logger.exception("Failed to upsert LLM analysis result for target '{}'", target_name)
+            raise
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
     async def get_for_target(target_name: str, user_id: int | None = None) -> list[LLMAnalysisResult]:
         """Retrieve all stored LLM analysis results for a target.
 

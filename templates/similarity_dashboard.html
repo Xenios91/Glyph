@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/similarity_dashboard.css') }}">
+<link rel="stylesheet" href="{{ static_url(request, 'css/similarity_dashboard.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -117,5 +117,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', path='js/similarity_dashboard.js') }}"></script>
+<script src="{{ static_url(request, 'js/similarity_dashboard.js') }}"></script>
 {% endblock %}
