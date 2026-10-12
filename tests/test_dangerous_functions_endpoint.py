@@ -588,6 +588,9 @@ class TestLLMAnalysisEndpoint:
             "error": "",
             "model": "test-model",
             "elapsed_ms": 12,
+            "is_vulnerability": None,
+            "confidence": "",
+            "verdict": "",
         }
         assert by_index[1]["status"] == "error"
         assert by_index[1]["error"] == "Request timed out"
@@ -911,6 +914,9 @@ class TestLLMResultsEndpoint:
             "error": "",
             "model_name": "test-model",
             "elapsed_ms": 42,
+            "is_vulnerability": None,
+            "confidence": "",
+            "verdict": "",
             "modified_at": "2026-01-02T00:00:00+00:00",
         }
 

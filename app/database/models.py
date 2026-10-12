@@ -497,6 +497,12 @@ class LLMAnalysisResult(Base):
         error: Error message (empty when status is "success")
         model_name: LLM model that produced the analysis
         elapsed_ms: Analysis duration in milliseconds
+        is_vulnerability: Verdict parsed from the analysis (True/False/None when
+            the model did not emit a parseable verdict line)
+        confidence: Model confidence in the verdict ("low", "medium", "high",
+            or empty when no verdict was parsed)
+        verdict: Raw verdict label ("VULNERABLE", "NOT_VULNERABLE",
+            "UNCERTAIN", or empty)
         created_at: Timestamp when the result was first stored
         modified_at: Timestamp when the result was last updated
 
@@ -515,6 +521,9 @@ class LLMAnalysisResult(Base):
     error: Mapped[str] = mapped_column(Text, nullable=False, default="")
     model_name: Mapped[str] = mapped_column(String(128), nullable=False, default="")
     elapsed_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_vulnerability: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=None)
+    confidence: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    verdict: Mapped[str] = mapped_column(String(32), nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=get_utc_now,

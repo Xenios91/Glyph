@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- LLM analysis now returns a structured verdict: the model is asked to end its answer with a `VERDICT: VULNERABLE|NOT_VULNERABLE|UNCERTAIN (confidence: <low|medium|high>)` line, which is parsed into `is_vulnerability`, `confidence`, and `verdict` fields on `FindingAnalysis`
+- `llm_analysis_results` table stores the parsed verdict (`is_vulnerability`, `confidence`, `verdict` columns) with an idempotent startup migration for pre-existing databases
+- Dangerous functions table LLM badges are now verdict-aware: vulnerable findings show a warning badge, safe findings a green check, and the LLM column sorts vulnerable findings first
+- The LLM analysis modal shows a verdict pill (e.g. "Vulnerable (high confidence)") next to the function name when a verdict was parsed
+
 ## [0.3.0] - 2026-10-02
 
 ### Added

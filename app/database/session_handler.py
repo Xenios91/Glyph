@@ -140,6 +140,37 @@ async def _ensure_owner_columns(engine: AsyncEngine) -> None:
             logger.info(f"Added {column_name} column to {table_name} table")
 
 
+# (table_name, column_name, sql_type) triples for the LLM verdict columns added
+# after the initial llm_analysis_results schema.
+_LLM_VERDICT_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("llm_analysis_results", "is_vulnerability", "BOOLEAN"),
+    ("llm_analysis_results", "confidence", "VARCHAR(16) DEFAULT ''"),
+    ("llm_analysis_results", "verdict", "VARCHAR(32) DEFAULT ''"),
+)
+
+
+async def _ensure_llm_verdict_columns(engine: AsyncEngine) -> None:
+    """Add the LLM verdict columns to pre-existing llm_analysis_results tables.
+
+    ``create_all`` never alters existing tables, so deployments that already
+    have the table (from before the verdict feature) get the new columns here
+    with a raw ``ALTER TABLE`` guarded by a column-existence check.
+    """
+    async with engine.begin() as conn:
+        if conn.dialect.name != "sqlite":
+            return
+        for table_name, column_name, column_type in _LLM_VERDICT_COLUMNS:
+            rows = (await conn.execute(text(f"PRAGMA table_info({table_name})"))).fetchall()
+            if not rows:
+                # Table does not exist yet; create_all will build it with the column.
+                continue
+            existing_cols = {row[1] for row in rows}
+            if column_name in existing_cols:
+                continue
+            await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))
+            logger.info(f"Added {column_name} column to {table_name} table")
+
+
 async def _backfill_owner_columns() -> None:
     """Backfill ``user_id`` on legacy rows from the owning binary where possible.
 
@@ -320,6 +351,8 @@ async def init_async_databases() -> None:
     # (idempotent) and backfill ownership on legacy rows where possible.
     for name in async_engines:
         await _ensure_owner_columns(async_engines[name])
+        # LLM verdict columns added after the initial llm_analysis_results schema.
+        await _ensure_llm_verdict_columns(async_engines[name])
     try:
         await _backfill_owner_columns()
     except Exception as e:  # pragma: no cover - defensive: never block startup

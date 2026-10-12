@@ -5,6 +5,7 @@ chat completions endpoint and reports the results back to the caller.
 """
 
 import asyncio
+import re
 import time
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
@@ -46,7 +47,9 @@ SYSTEM_PROMPT = (
     "controls visible in the code? Explain what you see. "
     "2) Risk assessment: state your confidence and whether you agree or disagree with "
     "the catalog severity, with justification. "
-    "If the provided code is insufficient to judge, say so explicitly instead of guessing."
+    "If the provided code is insufficient to judge, say so explicitly instead of guessing. "
+    "Your final line must be exactly in the form: "
+    "VERDICT: VULNERABLE|NOT_VULNERABLE|UNCERTAIN (confidence: <low|medium|high>)"
 )
 
 
@@ -59,6 +62,48 @@ class FindingAnalysis:
     error: str = ""
     model: str = ""
     elapsed_ms: int = 0
+    is_vulnerability: bool | None = None
+    confidence: str = ""
+    verdict: str = ""
+
+
+# Regex for the final verdict line the model is asked to emit.
+_VERDICT_RE = re.compile(
+    r"VERDICT:\s*(VULNERABLE|NOT_VULNERABLE|UNCERTAIN)\s*\(\s*confidence:\s*(low|medium|high)\s*\)",
+    re.IGNORECASE,
+)
+
+
+def parse_verdict(analysis: str) -> tuple[bool | None, str, str]:
+    """Extract the (is_vulnerability, confidence, verdict) triple from an analysis.
+
+    The model is instructed to end its answer with a line of the form
+    ``VERDICT: VULNERABLE|NOT_VULNERABLE|UNCERTAIN (confidence: <low|medium|high>)``.
+    This helper locates that line (case-insensitively) and maps it to structured
+    fields. When the line is absent or malformed, a neutral result is returned so
+    callers can fall back to the raw analysis text.
+
+    Args:
+        analysis: The raw LLM analysis text.
+
+    Returns:
+        A tuple of (is_vulnerability, confidence, verdict) where ``is_vulnerability``
+        is True for VULNERABLE, False for NOT_VULNERABLE, and None for UNCERTAIN or
+        when no verdict line is present.
+
+    """
+    if not analysis:
+        return (None, "", "")
+    match = _VERDICT_RE.search(analysis)
+    if not match:
+        return (None, "", "")
+    verdict = match.group(1).upper()
+    confidence = match.group(2).lower()
+    if verdict == "VULNERABLE":
+        return (True, confidence, verdict)
+    if verdict == "NOT_VULNERABLE":
+        return (False, confidence, verdict)
+    return (None, confidence, verdict)
 
 
 def build_endpoint_url(llm: LLMConfig) -> str:
@@ -288,15 +333,25 @@ async def analyze_finding(llm: LLMConfig, finding: dict[str, Any]) -> FindingAna
         return FindingAnalysis(status="error", error="Endpoint returned empty content")
 
     model = str(body.get("model") or llm.model)
+    is_vulnerability, confidence, verdict = parse_verdict(content)
     logger.info(
-        "LLM analysis succeeded: url={} function={} status={} model={} elapsed_ms={}",
+        "LLM analysis succeeded: url={} function={} status={} model={} elapsed_ms={} verdict={}",
         url,
         function_name,
         response.status_code,
         model,
         elapsed_ms,
+        verdict or "none",
     )
-    return FindingAnalysis(status="success", analysis=content, model=model, elapsed_ms=elapsed_ms)
+    return FindingAnalysis(
+        status="success",
+        analysis=content,
+        model=model,
+        elapsed_ms=elapsed_ms,
+        is_vulnerability=is_vulnerability,
+        confidence=confidence,
+        verdict=verdict,
+    )
 
 
 async def analyze_findings(

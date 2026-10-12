@@ -83,6 +83,9 @@ class LLMResultRepository:
                 row.error = result.error
                 row.model_name = result.model_name
                 row.elapsed_ms = result.elapsed_ms
+                row.is_vulnerability = result.is_vulnerability
+                row.confidence = result.confidence
+                row.verdict = result.verdict
             await session.commit()
             logger.info("Upserted {} LLM analysis result(s) for target '{}'", len(results), target_name)
         except sa_exc.SQLAlchemyError:
@@ -133,6 +136,9 @@ class LLMResultRepository:
             row.error = result.error
             row.model_name = result.model_name
             row.elapsed_ms = result.elapsed_ms
+            row.is_vulnerability = result.is_vulnerability
+            row.confidence = result.confidence
+            row.verdict = result.verdict
             await session.commit()
         except sa_exc.SQLAlchemyError:
             await session.rollback()

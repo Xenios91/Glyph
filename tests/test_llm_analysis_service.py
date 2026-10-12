@@ -267,6 +267,76 @@ OK_BODY: dict[str, Any] = {
 }
 
 
+class TestParseVerdict:
+    """Tests for parse_verdict."""
+
+    def test_vulnerable_high(self) -> None:
+        """Test a VULNERABLE verdict with high confidence."""
+        is_vuln, confidence, verdict = service.parse_verdict(
+            "## Analysis\nLooks risky.\nVERDICT: VULNERABLE (confidence: high)"
+        )
+        assert is_vuln is True
+        assert confidence == "high"
+        assert verdict == "VULNERABLE"
+
+    def test_not_vulnerable_medium(self) -> None:
+        """Test a NOT_VULNERABLE verdict with medium confidence."""
+        is_vuln, confidence, verdict = service.parse_verdict(
+            "## Analysis\nSafe use.\nVERDICT: NOT_VULNERABLE (confidence: medium)"
+        )
+        assert is_vuln is False
+        assert confidence == "medium"
+        assert verdict == "NOT_VULNERABLE"
+
+    def test_uncertain_low(self) -> None:
+        """Test an UNCERTAIN verdict with low confidence."""
+        is_vuln, confidence, verdict = service.parse_verdict(
+            "## Analysis\nNot sure.\nVERDICT: UNCERTAIN (confidence: low)"
+        )
+        assert is_vuln is None
+        assert confidence == "low"
+        assert verdict == "UNCERTAIN"
+
+    def test_case_insensitive(self) -> None:
+        """Test that the verdict line is matched case-insensitively."""
+        is_vuln, confidence, verdict = service.parse_verdict(
+            "verdict: vulnerable (confidence: HIGH)"
+        )
+        assert is_vuln is True
+        assert confidence == "high"
+        assert verdict == "VULNERABLE"
+
+    def test_no_verdict_line(self) -> None:
+        """Test that text without a verdict line yields no verdict."""
+        is_vuln, confidence, verdict = service.parse_verdict("## Analysis\nLooks risky.")
+        assert is_vuln is None
+        assert confidence == ""
+        assert verdict == ""
+
+    def test_empty_text(self) -> None:
+        """Test that empty text yields no verdict."""
+        is_vuln, confidence, verdict = service.parse_verdict("")
+        assert is_vuln is None
+        assert confidence == ""
+        assert verdict == ""
+
+    def test_malformed_verdict(self) -> None:
+        """Test that a malformed verdict line is ignored."""
+        is_vuln, confidence, verdict = service.parse_verdict("VERDICT: MAYBE (confidence: ??)")
+        assert is_vuln is None
+        assert confidence == ""
+        assert verdict == ""
+
+    def test_verdict_at_start(self) -> None:
+        """Test a verdict line at the very start of the content."""
+        is_vuln, confidence, verdict = service.parse_verdict(
+            "VERDICT: VULNERABLE (confidence: high)\n## Analysis"
+        )
+        assert is_vuln is True
+        assert confidence == "high"
+        assert verdict == "VULNERABLE"
+
+
 class TestBuildPrompt:
     """Tests for build_prompt."""
 
@@ -386,6 +456,52 @@ class TestAnalyzeFinding:
 
         assert result.status == "success"
         assert result.model == "test-model"
+
+    async def test_verdict_parsed_into_result(self, monkeypatch: Any) -> None:
+        """Test that a parseable verdict line populates the result fields."""
+        body = {
+            "model": "test-model-echo",
+            "choices": [
+                {
+                    "message": {
+                        "content": "## Analysis\nRisky.\nVERDICT: VULNERABLE (confidence: high)"
+                    }
+                }
+            ],
+        }
+        client = FakeClient(response=FakeResponse(200, body))
+        _patch_client(monkeypatch, client)
+
+        result = await service.analyze_finding(_make_llm(api_key="sk-abc"), self._finding())
+
+        assert result.status == "success"
+        assert result.is_vulnerability is True
+        assert result.confidence == "high"
+        assert result.verdict == "VULNERABLE"
+
+    async def test_no_verdict_line_yields_none(self, monkeypatch: Any) -> None:
+        """Test that a successful analysis without a verdict line has no verdict."""
+        client = FakeClient(response=FakeResponse(200, OK_BODY))
+        _patch_client(monkeypatch, client)
+
+        result = await service.analyze_finding(_make_llm(api_key="sk-abc"), self._finding())
+
+        assert result.status == "success"
+        assert result.is_vulnerability is None
+        assert result.confidence == ""
+        assert result.verdict == ""
+
+    async def test_error_result_has_no_verdict(self, monkeypatch: Any) -> None:
+        """Test that an error result carries no verdict fields."""
+        client = FakeClient(exc=httpx.TimeoutException("timed out"))
+        _patch_client(monkeypatch, client)
+
+        result = await service.analyze_finding(_make_llm(api_key="sk-abc"), self._finding())
+
+        assert result.status == "error"
+        assert result.is_vulnerability is None
+        assert result.confidence == ""
+        assert result.verdict == ""
 
     async def test_timeout(self, monkeypatch: Any) -> None:
         """Test that a timeout produces an error result, not an exception."""

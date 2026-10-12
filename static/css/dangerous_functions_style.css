@@ -659,6 +659,48 @@
 /* LLM badge column */
 .llm-cell {
     text-align: center;
+    white-space: nowrap;
+}
+
+/* Inline verdict button (finding + confidence) shown next to the LLM badge
+   in the table cell. It is the clickable control that opens the LLM modal. */
+.llm-verdict-text {
+    display: inline-block;
+    font-family: var(--font-code);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+    line-height: 1.4;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.llm-verdict-text-vulnerable {
+    background: rgba(212, 200, 122, 0.12);
+    color: var(--yellow);
+    border: 1px solid var(--yellow-dim);
+}
+
+.llm-verdict-text-vulnerable:hover {
+    background: rgba(212, 200, 122, 0.22);
+    border-color: var(--yellow);
+    box-shadow: 0 0 8px rgba(212, 200, 122, 0.3);
+}
+
+.llm-verdict-text-safe {
+    background: rgba(110, 201, 122, 0.12);
+    color: var(--green);
+    border: 1px solid var(--green-dim);
+}
+
+.llm-verdict-text-safe:hover {
+    background: rgba(110, 201, 122, 0.22);
+    border-color: var(--green);
+    box-shadow: 0 0 8px rgba(110, 201, 122, 0.3);
 }
 
 .llm-badge {
@@ -676,6 +718,12 @@
 .llm-badge-placeholder {
     color: var(--text-dim);
     border: 1px solid transparent;
+}
+
+/* Badge rendered as a plain (non-interactive) indicator when the verdict
+   button beside it is the clickable control. */
+.llm-badge-static {
+    cursor: default;
 }
 
 /* LLM badge shown while a finding's analysis is in flight */
@@ -730,6 +778,65 @@
     background: rgba(201, 84, 106, 0.22);
     border-color: var(--red);
     box-shadow: 0 0 8px rgba(201, 84, 106, 0.3);
+}
+
+/* Verdict-based LLM badges: the model judged the finding vulnerable or safe. */
+.llm-badge-vulnerable,
+.llm-badge-safe {
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.llm-badge-vulnerable {
+    background: rgba(212, 200, 122, 0.12);
+    color: var(--yellow);
+    border: 1px solid var(--yellow-dim);
+}
+
+.llm-badge-vulnerable:hover {
+    background: rgba(212, 200, 122, 0.22);
+    border-color: var(--yellow);
+    box-shadow: 0 0 8px rgba(212, 200, 122, 0.3);
+}
+
+.llm-badge-safe {
+    background: rgba(110, 201, 122, 0.12);
+    color: var(--green);
+    border: 1px solid var(--green-dim);
+}
+
+.llm-badge-safe:hover {
+    background: rgba(110, 201, 122, 0.22);
+    border-color: var(--green);
+    box-shadow: 0 0 8px rgba(110, 201, 122, 0.3);
+}
+
+/* Verdict pill shown in the LLM modal header when a verdict was parsed. */
+/* The pill sits in a flex column (.summary-item), so it stretches to the
+   grid track width; let long text wrap instead of overflowing the box,
+   otherwise the background/border won't cover the full label. */
+.llm-verdict-pill {
+    display: inline-block;
+    font-family: var(--font-code);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.55rem;
+    border-radius: 2px;
+    line-height: 1.4;
+    vertical-align: middle;
+}
+
+.llm-verdict-vulnerable {
+    background: rgba(212, 200, 122, 0.12);
+    color: var(--yellow);
+    border: 1px solid var(--yellow-dim);
+}
+
+.llm-verdict-safe {
+    background: rgba(110, 201, 122, 0.12);
+    color: var(--green);
+    border: 1px solid var(--green-dim);
 }
 
 /* LLM modal sections */

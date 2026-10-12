@@ -718,6 +718,9 @@ async def analyze_dangerous_functions(
                                 error=analysis.error,
                                 model_name=analysis.model,
                                 elapsed_ms=analysis.elapsed_ms,
+                                is_vulnerability=analysis.is_vulnerability,
+                                confidence=analysis.confidence,
+                                verdict=analysis.verdict or "",
                             ),
                             user_id=user_id,
                         )
@@ -732,6 +735,9 @@ async def analyze_dangerous_functions(
                     "error": analysis.error,
                     "model": analysis.model,
                     "elapsed_ms": analysis.elapsed_ms,
+                    "is_vulnerability": analysis.is_vulnerability,
+                    "confidence": analysis.confidence,
+                    "verdict": analysis.verdict,
                 }
                 yield f"event: result\ndata: {json.dumps(event)}\n\n"
         except asyncio.CancelledError:
@@ -792,6 +798,9 @@ async def get_llm_results(
             "error": row.error,
             "model_name": row.model_name,
             "elapsed_ms": row.elapsed_ms,
+            "is_vulnerability": row.is_vulnerability,
+            "confidence": row.confidence or "",
+            "verdict": row.verdict or "",
             "modified_at": row.modified_at.isoformat(),
         }
         for row in rows

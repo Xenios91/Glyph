@@ -262,19 +262,26 @@ function severityRank(severity) {
 }
 
 /**
- * LLM status rank used when sorting by the LLM column:
- * analyzed (success) rows sort before errors, errors before pending,
- * pending before unanalyzed placeholders.
+ * LLM status rank used when sorting by the LLM column.
+ *
+ * Findings the LLM judged vulnerable sort first, then safe findings, then
+ * analyzed findings without a parseable verdict, then errors, then pending
+ * (in-flight) findings, then unanalyzed placeholders.
  * @param {number} originalIndex - Original finding index.
  * @returns {number}
  */
 function llmRank(originalIndex) {
     const entry = llmResults[originalIndex];
     if (entry) {
-        return entry.status === 'success' ? 0 : 1;
+        if (entry.status === 'success') {
+            if (entry.is_vulnerability === true) return 0;   // vulnerable
+            if (entry.is_vulnerability === false) return 1;  // not vulnerable
+            return 2;                                       // analyzed, no verdict
+        }
+        return 3; // error
     }
-    if (llmPendingIndices.has(originalIndex)) return 2;
-    return 3;
+    if (llmPendingIndices.has(originalIndex)) return 4;
+    return 5;
 }
 
 /**
@@ -927,7 +934,7 @@ function createResultRow(result, index) {
         <td>${escapeHtml(result.function_name)}</td>
         <td>${escapeHtml(result.containing_function)}</td>
         <td><span class="severity-badge ${severityClass}">${escapeHtml(result.severity)}</span></td>
-        <td class="llm-cell"><span class="llm-badge llm-badge-placeholder">&ndash;</span></td>
+        <td class="llm-cell"><span class="llm-verdict-text llm-verdict-placeholder">&ndash;</span></td>
     `;
 
     // Make entire row clickable
@@ -1115,6 +1122,9 @@ async function loadStoredLlmResults(targetName) {
                 source: 'stored',
                 modifiedAt: entry.modified_at,
                 elapsedMs: entry.elapsed_ms,
+                is_vulnerability: entry.is_vulnerability ?? null,
+                confidence: entry.confidence || '',
+                verdict: entry.verdict || '',
             };
         });
 
@@ -1131,7 +1141,7 @@ async function loadStoredLlmResults(targetName) {
 }
 
 /**
- * Render the LLM badge in each results row based on llmResults.
+ * Render the LLM verdict button in each results row based on llmResults.
  */
 function renderLlmBadges() {
     if (!scanResultsBody) return;
@@ -1147,10 +1157,10 @@ function renderLlmBadges() {
                 // Analysis for this finding is in flight: show a spinner so
                 // the user can see the row is being processed.
                 cell.innerHTML =
-                    '<span class="llm-badge llm-badge-pending" role="status" aria-label="LLM analysis in progress">' +
+                    '<span class="llm-verdict-text llm-verdict-pending" role="status" aria-label="LLM analysis in progress">' +
                     '<span class="llm-spinner" aria-hidden="true"></span>Analyzing&hellip;</span>';
             } else {
-                cell.innerHTML = '<span class="llm-badge llm-badge-placeholder">&ndash;</span>';
+                cell.innerHTML = '<span class="llm-verdict-text llm-verdict-placeholder">&ndash;</span>';
             }
             return;
         }
@@ -1159,24 +1169,47 @@ function renderLlmBadges() {
         const finding =
             lastScanData && Array.isArray(lastScanData.results) ? lastScanData.results[index] : null;
         const findingName = finding && finding.function_name ? finding.function_name : '';
-        const badge = document.createElement('button');
-        badge.type = 'button';
-        badge.className = `llm-badge ${isSuccess ? 'llm-badge-success' : 'llm-badge-error'}`;
-        badge.textContent = isSuccess ? 'AI \u2713' : 'AI !';
-        badge.title =
+
+        // The LLM cell shows a single button summarizing the verdict
+        // (finding + confidence) or the analysis status. Clicking it opens the
+        // LLM analysis modal.
+        let btnClass;
+        let btnText;
+        if (!isSuccess) {
+            btnClass = 'llm-verdict-error';
+            btnText = 'Error';
+        } else if (entry.is_vulnerability === true) {
+            btnClass = 'llm-verdict-vulnerable';
+            btnText = entry.confidence ? `Vulnerable (${entry.confidence})` : 'Vulnerable';
+        } else if (entry.is_vulnerability === false) {
+            btnClass = 'llm-verdict-safe';
+            btnText = entry.confidence ? `Safe (${entry.confidence})` : 'Safe';
+        } else if (entry.verdict === 'UNCERTAIN') {
+            btnClass = 'llm-verdict-uncertain';
+            btnText = entry.confidence ? `Uncertain (${entry.confidence})` : 'Uncertain';
+        } else {
+            btnClass = 'llm-verdict-success';
+            btnText = 'Analyzed';
+        }
+
+        const verdict = document.createElement('button');
+        verdict.type = 'button';
+        verdict.className = `llm-verdict-text ${btnClass}`;
+        verdict.textContent = btnText;
+        verdict.title =
             entry.source === 'stored'
                 ? `Stored ${formatUtcTimestamp(entry.modifiedAt)}`
                 : 'New - just analyzed';
-        badge.setAttribute('aria-label', isSuccess
-            ? `View LLM analysis for ${findingName}`
+        verdict.setAttribute('aria-label', isSuccess
+            ? `View LLM analysis for ${findingName}: ${btnText}`
             : `View LLM analysis error for ${findingName}`);
-        badge.addEventListener('click', (e) => {
+        verdict.addEventListener('click', (e) => {
             e.stopPropagation();
             openLlmModal(index);
         });
 
         cell.innerHTML = '';
-        cell.appendChild(badge);
+        cell.appendChild(verdict);
     });
 }
 
@@ -1348,6 +1381,9 @@ async function runLLMAnalysis() {
                     model: entry.model || '',
                     source: 'fresh',
                     elapsedMs: entry.elapsed_ms,
+                    is_vulnerability: entry.is_vulnerability ?? null,
+                    confidence: entry.confidence || '',
+                    verdict: entry.verdict || '',
                 };
                 llmPendingIndices.delete(index);
                 renderLlmBadges();
@@ -1369,7 +1405,7 @@ async function runLLMAnalysis() {
                         Toast.success(`LLM analysis complete: ${succeeded}/${total} succeeded`);
                     }
                     if (summary.failed > 0) {
-                        Toast.error(`${summary.failed} finding(s) failed LLM analysis - click "AI !" to view details.`);
+                        Toast.error(`${summary.failed} finding(s) failed LLM analysis - click "Error" to view details.`);
                     }
                 }
             }
@@ -1419,6 +1455,9 @@ async function retryLlmFinding(index) {
                     model: entry.model || '',
                     source: 'fresh',
                     elapsedMs: entry.elapsed_ms,
+                    is_vulnerability: entry.is_vulnerability ?? null,
+                    confidence: entry.confidence || '',
+                    verdict: entry.verdict || '',
                 };
                 llmPendingIndices.delete(index);
                 renderLlmBadges();
@@ -1469,6 +1508,7 @@ function openLlmModal(index) {
     const elSource = document.getElementById('llm-modal-source');
     const elModel = document.getElementById('llm-modal-model');
     const elElapsed = document.getElementById('llm-modal-elapsed');
+    const elVerdict = document.getElementById('llm-modal-verdict');
     const errorSection = document.getElementById('llm-modal-error-section');
     const elErrorMessage = document.getElementById('llm-modal-error-message');
     const analysisSection = document.getElementById('llm-modal-analysis-section');
@@ -1484,6 +1524,20 @@ function openLlmModal(index) {
     }
     if (elModel) elModel.textContent = entry.model || 'unknown';
     if (elElapsed) elElapsed.textContent = entry.elapsedMs != null ? `${entry.elapsedMs} ms` : 'N/A';
+
+    // Verdict pill: shown only when the LLM emitted a parseable verdict.
+    if (elVerdict) {
+        if (entry.status === 'success' && entry.is_vulnerability !== null && entry.is_vulnerability !== undefined) {
+            const confidenceLabel = entry.confidence ? ` (${entry.confidence} confidence)` : '';
+            elVerdict.textContent = entry.is_vulnerability ? `Vulnerable${confidenceLabel}` : `Not vulnerable${confidenceLabel}`;
+            elVerdict.className = `llm-verdict-pill ${entry.is_vulnerability ? 'llm-verdict-vulnerable' : 'llm-verdict-safe'}`;
+            elVerdict.style.display = '';
+        } else {
+            elVerdict.textContent = '';
+            elVerdict.className = 'llm-verdict-pill';
+            elVerdict.style.display = 'none';
+        }
+    }
 
     const isSuccess = entry.status === 'success';
     if (errorSection) errorSection.style.display = isSuccess ? 'none' : '';

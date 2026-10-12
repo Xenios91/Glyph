@@ -60,6 +60,9 @@ def _make_result(
     error: str = "",
     model_name: str = "gpt-4o-mini",
     elapsed_ms: int = 1234,
+    is_vulnerability: bool | None = None,
+    confidence: str = "",
+    verdict: str = "",
 ) -> LLMAnalysisResult:
     """Build an LLMAnalysisResult instance without persisting it."""
     return LLMAnalysisResult(
@@ -71,6 +74,9 @@ def _make_result(
         error=error,
         model_name=model_name,
         elapsed_ms=elapsed_ms,
+        is_vulnerability=is_vulnerability,
+        confidence=confidence,
+        verdict=verdict,
     )
 
 
@@ -111,6 +117,52 @@ class TestUpsertMany:
         assert strcpy.model_name == "gpt-4o-mini"
         assert strcpy.elapsed_ms == 1234
         assert by_name["system"].containing_function == "main"
+
+    async def test_inserts_verdict_fields(self, fresh_intelligence_tables: Any) -> None:
+        """Verdict fields are persisted on insert and round-trip through the ORM."""
+        await LLMResultRepository.upsert_many(
+            "target_a",
+            [
+                _make_result(
+                    is_vulnerability=True,
+                    confidence="high",
+                    verdict="VULNERABLE",
+                ),
+                _make_result(
+                    function_name="system",
+                    is_vulnerability=False,
+                    confidence="medium",
+                    verdict="NOT_VULNERABLE",
+                ),
+            ],
+        )
+
+        rows = await LLMResultRepository.get_for_target("target_a")
+        by_name = {row.function_name: row for row in rows}
+        assert by_name["strcpy"].is_vulnerability is True
+        assert by_name["strcpy"].confidence == "high"
+        assert by_name["strcpy"].verdict == "VULNERABLE"
+        assert by_name["system"].is_vulnerability is False
+        assert by_name["system"].confidence == "medium"
+        assert by_name["system"].verdict == "NOT_VULNERABLE"
+
+    async def test_updates_verdict_fields_on_upsert(self, fresh_intelligence_tables: Any) -> None:
+        """Re-running the analysis overwrites the verdict fields."""
+        await LLMResultRepository.upsert_many(
+            "target_a",
+            [_make_result(is_vulnerability=True, confidence="high", verdict="VULNERABLE")],
+        )
+        await asyncio.sleep(0.01)
+        await LLMResultRepository.upsert_many(
+            "target_a",
+            [_make_result(is_vulnerability=False, confidence="low", verdict="NOT_VULNERABLE")],
+        )
+
+        rows = await LLMResultRepository.get_for_target("target_a")
+        assert len(rows) == 1
+        assert rows[0].is_vulnerability is False
+        assert rows[0].confidence == "low"
+        assert rows[0].verdict == "NOT_VULNERABLE"
 
     async def test_updates_existing_row_and_advances_modified_at(self, fresh_intelligence_tables: Any) -> None:
         """Re-running the analysis overwrites the row and advances modified_at."""
