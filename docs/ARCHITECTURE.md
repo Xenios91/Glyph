@@ -149,7 +149,6 @@ Glyph is an architecture-independent binary analysis tool that uses NLP techniqu
 
 - **`background_tasks.py`** - Fire-and-forget background asyncio task helpers (GC protection, delayed cleanup)
 - **`common.py`** - Code formatting and response building utilities
-- **`helpers.py`** - Common constants and helper values
 - **`logging_config.py`** - Loguru logging setup
 - **`logging_utils.py`** - Logging decorators and utilities
 - **`request_context.py`** - Async-safe request context capture/restore for background tasks
@@ -301,7 +300,7 @@ Six per-purpose SQLite databases (under `data/`, overridable via `GLYPH_DATA_DIR
 
 1. **Repository Pattern** - Abstracts database operations (UserRepository, APIKeyRepository, BinaryRepository, FunctionRepository, ModelRepository, PredictionRepository, and intelligence repositories)
 2. **Pipeline Pattern** - Pluggable, sequential processing steps via the `PipelineStep` interface, composed into named pipelines in `pipeline_configs.py`
-3. **Singleton Pattern** - Settings (`get_settings`), `TaskManager`, `TaskService`
+3. **Singleton Pattern** - Settings (`get_settings`), `TaskManager`
 4. **Factory Pattern** - Response creation utilities and the ML pipeline factory (`MLTask`)
 5. **Middleware Composition** - Layered ASGI middleware (GZip, request size limit, correlation ID, CSP, CORS) registered in the app factory (`main.py`)
 6. **Dependency Injection** - FastAPI dependencies for authentication and database sessions

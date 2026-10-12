@@ -3,7 +3,7 @@
 Covers validation failures, ownership checks, and edge cases
 that are not exercised by the existing endpoint tests.
 
-Note: The binaries module imports TaskManager and GhidraPipelineRunner from heavy
+Note: The binaries module imports TaskManager and BinaryUploadService from heavy
 processing modules at module level. Those imports are mocked via patch
 in each test class that needs the full router.
 """

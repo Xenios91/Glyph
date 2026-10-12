@@ -2,25 +2,19 @@
 
 Provides SQLAlchemy ORM models, session management, and repository pattern
 for database operations.
+
+Submodules:
+- models: SQLAlchemy ORM models
+- session_handler: Async engine/session management
+- repository: User and API key repositories, password hashing
+- binary_repository: Binary upload metadata operations
+- function_repository: Model function persistence
+- model_repository: Trained model persistence
+- prediction_repository: Prediction result persistence
+- similarity_repository: Similarity computation persistence
+- scan_report_repository: Dangerous function scan report persistence
+- llm_result_repository: LLM analysis result persistence
+- llm_user_config_repository: Per-user LLM configuration
+
+Import from the submodules directly (e.g. ``app.database.models``).
 """
-
-from app.database.models import Base, Binary, BinaryFunction, Function, Model, Prediction
-from app.database.repository import APIKeyRepository, PasswordHasherService, UserRepository
-from app.database.session_handler import dispose_async_engines, init_async_databases
-
-__all__ = [
-    "APIKeyRepository",
-    # Models
-    "Base",
-    "Binary",
-    "BinaryFunction",
-    "Function",
-    "Model",
-    "PasswordHasherService",
-    "Prediction",
-    # Repositories
-    "UserRepository",
-    "dispose_async_engines",
-    # Session management
-    "init_async_databases",
-]

@@ -39,8 +39,12 @@ def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
     ini value in pytest-timeout, so tag every e2e item with a generous
     timeout and the signal-based method, which reliably interrupts hung
     Playwright calls (the thread method can leave the event loop wedged).
+
+    Every item is also tagged with the registered ``e2e`` marker so the
+    suite can be selected or deselected via ``-m`` (e.g. ``-m "not e2e"``).
     """
     for item in items:
+        item.add_marker(pytest.mark.e2e)
         item.add_marker(pytest.mark.timeout(E2E_TIMEOUT_SECONDS, method="signal"))
 
 

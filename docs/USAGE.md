@@ -695,8 +695,6 @@ Glyph is configured via [`config.yml`](../config.yml). The following settings ar
 | `use_https` | bool | `false` | Enable HTTPS/TLS mode |
 | `trusted_proxies` | list | `[]` | Trusted proxy IPs/CIDRs for `X-Forwarded-For` |
 | `auth_enabled` | bool | `true` | Enable/disable authentication |
-| `oauth2_enabled` | bool | `false` | Enable the OAuth2 authorization-code flow |
-| `oauth2_session_secret` | string | *(random per start)* | Secret for OAuth2 session state |
 | `llm` | object | *(see below)* | LLM-assisted analysis settings (nested block) |
 
 ### LLM Configuration
@@ -772,8 +770,6 @@ Configuration is loaded from `config.yml` first. Environment variables with the 
 | `GLYPH_AUTH_ENABLED` | `auth_enabled` | Enable/disable auth (used only if not set in `config.yml`) |
 | `GLYPH_UPLOAD_FOLDER` | `upload_folder` | Binary storage directory |
 | `GLYPH_TRUSTED_PROXIES` | `trusted_proxies` | Trusted proxy IPs/CIDRs (comma-separated) |
-| `GLYPH_OAUTH2_ENABLED` | `oauth2_enabled` | Enable the OAuth2 flow |
-| `GLYPH_OAUTH2_SESSION_SECRET` | `oauth2_session_secret` | OAuth2 session secret |
 | `GLYPH_LLM_ENABLED` | `llm.enabled` | Enable LLM analysis (nested, `_`-delimited) |
 | `GLYPH_LLM_BASE_URL` | `llm.base_url` | LLM endpoint base URL |
 | `GLYPH_LLM_API_PATH` | `llm.api_path` | LLM chat completions path |
