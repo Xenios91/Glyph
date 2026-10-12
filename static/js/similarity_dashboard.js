@@ -325,6 +325,26 @@
     // ============================================================
 
     function initSavedComputations() {
+        // Set up event delegation once to avoid accumulating listeners on re-render
+        var container = document.getElementById('saved-list');
+        if (container) {
+            container.addEventListener('click', function (e) {
+                var target = e.target;
+
+                if (target.classList.contains('btn-load')) {
+                    e.stopPropagation();
+                    var id = parseInt(target.getAttribute('data-id'), 10);
+                    loadComputationResults(id);
+                }
+
+                if (target.classList.contains('btn-delete')) {
+                    e.stopPropagation();
+                    var id = parseInt(target.getAttribute('data-id'), 10);
+                    deleteComputation(id);
+                }
+            });
+        }
+
         loadSavedComputations();
     }
 
@@ -396,23 +416,6 @@
 
             container.appendChild(item);
         });
-
-        // Event delegation for action buttons
-        container.addEventListener('click', function (e) {
-            var target = e.target;
-
-            if (target.classList.contains('btn-load')) {
-                e.stopPropagation();
-                var id = parseInt(target.getAttribute('data-id'), 10);
-                loadComputationResults(id);
-            }
-
-            if (target.classList.contains('btn-delete')) {
-                e.stopPropagation();
-                var id = parseInt(target.getAttribute('data-id'), 10);
-                deleteComputation(id);
-            }
-        });
     }
 
     /**
@@ -461,6 +464,20 @@
     async function deleteComputation(computationId) {
         if (!confirm('Are you sure you want to delete this computation?')) return;
 
+        // Remove the item from the DOM immediately so the UI updates
+        // without waiting for the re-fetch to complete.
+        var item = document.querySelector(
+            '.saved-computation-item .btn-delete[data-id="' + computationId + '"]'
+        );
+        var listItem = item ? item.closest('.saved-computation-item') : null;
+        if (listItem) {
+            listItem.remove();
+            if (!document.querySelector('.saved-computation-item')) {
+                hideElement('saved-list');
+                showElement('no-saved');
+            }
+        }
+
         try {
             var response = await authenticatedFetch('/api/v1/tasks/similarity-computations/' + computationId, {
                 method: 'DELETE'
@@ -469,19 +486,22 @@
 
             if (data.success) {
                 showToast('Computation deleted.', 'success');
-                await loadSavedComputations();
-
                 if (currentComputationId === computationId) {
                     hideElement('results-panel');
                     currentComputationId = null;
                     currentMatrix = [];
                 }
+                // Re-sync with the server state (also restores the empty
+                // state if other computations still exist).
+                await loadSavedComputations();
             } else {
                 throw new Error(data.message || 'Failed to delete');
             }
         } catch (err) {
             console.error('Failed to delete computation:', err);
             showToast(err.message || 'Failed to delete computation', 'error');
+            // The delete failed on the server; reload to restore the list.
+            await loadSavedComputations();
         }
     }
 
