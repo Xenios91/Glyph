@@ -102,21 +102,6 @@ def reset_rate_limiters() -> Any:
     limiter.reset()
 
 
-@pytest.fixture(autouse=True)
-def reset_login_failure_tracker() -> Any:
-    """Reset the login failure tracker before and after each test.
-
-    All TestClient requests share the host "testclient", so failures recorded
-    per IP would otherwise accumulate across tests in the same worker and
-    trigger false brute-force blockouts (429) in unrelated tests.
-    """
-    from app.auth import security_logger
-
-    security_logger.reset_login_failure_tracker()
-    yield
-    security_logger.reset_login_failure_tracker()
-
-
 def set_dependency_override(client: Any, dependency: Any, override: Any) -> None:
     """Set a dependency override on the test client's app.
 
