@@ -7,8 +7,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import event, func, or_, select, text, update
-from sqlalchemy import exc as sa_exc
+from sqlalchemy import event
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool

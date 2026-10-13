@@ -49,10 +49,6 @@ dependencies = [
     # Pinned transitives to keep vulnerability scanners happy:
     "anyio>=4.14.2",  # via starlette; CVE-2026-63374 (TLS cert spoofing), CVE-2026-64847, CVE-2026-63349
     "cryptography>=50.0.0",  # via joserfc; PYSEC-2026-3552 / CVE-2026-69247 (PKCS#7 Bleichenbacher oracle)
-    # httpx2 (pydantic/httpx2) is the intentional HTTP client here, not a typo of
-    # httpx: it is the next-generation client maintained by the Pydantic org and
-    # pairs with httpcore2.
-    "httpx2>=2.13.0",
 ]
 
 [project.optional-dependencies]
