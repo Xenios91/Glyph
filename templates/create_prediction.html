@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/create_prediction.css') }}">
+<link rel="stylesheet" href="{{ static_url(request, 'css/create_prediction.css') }}">
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
@@ -65,5 +65,5 @@
 {% endblock content %}
 
 {% block scripts %}
-<script src="{{ url_for('static', path='js/create_prediction.js') }}" defer></script>
+<script src="{{ static_url(request, 'js/create_prediction.js') }}" defer></script>
 {% endblock scripts %}

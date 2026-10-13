@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/predictions_style.css') }}">
+<link rel="stylesheet" href="{{ static_url(request, 'css/predictions_style.css') }}">
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
@@ -35,7 +35,7 @@
                     </td>
                     <td>{{ prediction.task_name | e }}</td>
                     <td>{{ prediction.model_name | e }}</td>
-                    <td>{{ prediction.predictions | length }}</td>
+                    <td>{{ prediction.function_count }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -55,5 +55,5 @@
 {% endblock content %}
 
 {% block scripts %}
-<script src="{{ url_for('static', path='js/predictions.js') }}" defer></script>
+<script src="{{ static_url(request, 'js/predictions.js') }}" defer></script>
 {% endblock scripts %}

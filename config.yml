@@ -1,5 +1,13 @@
 cpu_cores: 4
 jwt_secret_key: change-me-in-production
+llm:
+  api_path: /v1/chat/completions
+  base_url: https://api.openai.com
+  enabled: false
+  max_concurrent: 5
+  model: your-model
+  temperature: 0.1
+  timeout_seconds: 120
 logging:
   console:
     colorize: true

@@ -15,14 +15,18 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, StringConstraints
 
-from app.api.types import UUID as UUIDType
+from app.api.types import TaskUUID as UUIDType
 from app.auth.dependencies import get_current_active_user
 from app.database.models import User
 from app.processing.task_management import TaskManager
 from app.utils.responses import SuccessResponse, create_error_response, create_success_response
 
 # Terminal task states that stop SSE streaming
-_TERMINAL_STATUSES: set[str] = {"completed", "error", "failed", "cancelled", "UUID Not Found"}
+_TERMINAL_STATUSES: set[str] = {"completed", "error", "failed", "cancelled"}
+
+# Returned by TaskManager.get_status() when the task is no longer registered.
+# Treated as terminal (stream stops) but reported to the client as "not_found".
+_TASK_NOT_FOUND = "UUID Not Found"
 
 # Default polling interval and timeout for SSE
 _DEFAULT_POLL_INTERVAL: float = 2.0
@@ -143,6 +147,8 @@ async def _stream_task_status(
         if status != last_status:
             if status == "completed":
                 event_type = "completed"
+            elif status == _TASK_NOT_FOUND:
+                event_type = "not_found"
             elif status in _TERMINAL_STATUSES:
                 event_type = status
             else:
@@ -157,7 +163,7 @@ async def _stream_task_status(
             yield f"data: {json.dumps(payload)}\n\n"
             last_status = status
 
-        if status in _TERMINAL_STATUSES:
+        if status in _TERMINAL_STATUSES or status == _TASK_NOT_FOUND:
             break
 
         await asyncio.sleep(poll_interval)

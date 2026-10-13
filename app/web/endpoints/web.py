@@ -5,6 +5,7 @@ for model management, predictions, configuration, binary upload, and
 user authentication.
 """
 
+import types
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -14,19 +15,28 @@ from sqlalchemy import exc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app._version as _version
-from app.auth.dependencies import get_current_active_user, get_db, get_jwt_handler, get_optional_user
+from app.api.types import ACCEPT_TYPE
+from app.auth.dependencies import (
+    assert_owned,
+    can_access,
+    get_current_active_user,
+    get_db,
+    get_jwt_handler,
+    get_optional_user,
+)
 from app.auth.jwt_handler import JWTHandler
 from app.config.settings import MAX_CPU_CORES, get_settings
 from app.core.rate_limiter import LOGIN_LIMIT, REGISTER_LIMIT, limiter
 from app.database.function_repository import FunctionRepository
+from app.database.llm_user_config_repository import resolve_user_llm_config
 from app.database.model_repository import ModelRepository
 from app.database.models import User
 from app.database.prediction_repository import PredictionRepository
 from app.database.repository import UserRepository
 from app.processing.task_management import TaskManager
+from app.services.prediction_service import PredictionService
 from app.templates import templates
 from app.utils.common import build_prediction_details_response, format_code
-from app.utils.helpers import ACCEPT_TYPE
 
 router = APIRouter()
 
@@ -48,17 +58,17 @@ async def home(
 async def home_stats(request: Request, current_user: Annotated[User, Depends(get_current_active_user)]) -> JSONResponse:
     """Returns homepage statistics for the current user.
     """
-    from app.database.sql_service import SQLUtil
+    from app.database.binary_repository import BinaryRepository
 
-    binaries = await SQLUtil.get_binaries_by_user(current_user.id)
-    models = await ModelRepository.get_models_list()
-    predictions = await PredictionRepository.get_predictions_list()
+    binaries = await BinaryRepository.get_by_user(user_id=current_user.id)
+    models = await ModelRepository.get_models_list_for_user(current_user.id)
+    predictions = await PredictionRepository.count_for_user(current_user.id)
 
     return JSONResponse(
         content={
             "binaries": len(binaries),
             "models": len(models),
-            "predictions": len(predictions) if predictions else 0,
+            "predictions": predictions,
         },
     )
 
@@ -102,11 +112,11 @@ async def get_list_models(
 ) -> dict[str, list[str]] | HTMLResponse:
     """Handles a GET request to obtain all models available
     """
-    models: list[str] = list(await ModelRepository.get_models_list())
+    models: list[str] = sorted(await ModelRepository.get_models_list_for_user(current_user.id))
     accept = request.headers.get("Accept", "")
 
     if ACCEPT_TYPE not in accept:
-        return {"models": list(models)}
+        return {"models": models}
 
     models_status: dict[str, str] = TaskManager.get_all_status()
     for model in models:
@@ -130,6 +140,8 @@ async def get_symbols(
         raise HTTPException(status_code=400, detail="model_name must be a non-empty string")
 
     functions = await FunctionRepository.get_functions(model_name)
+    # Scope to rows the current user may access (own + legacy/unowned).
+    functions = [f for f in functions if can_access(f, current_user)]
 
     accept = request.headers.get("Accept", "")
 
@@ -180,6 +192,8 @@ async def get_function(
     if function_info is None:
         raise HTTPException(status_code=404, detail="Function not found")
 
+    assert_owned(function_info, current_user, "function")
+
     tokens = format_code(getattr(function_info, "tokens", ""))
 
     accept = request.headers.get("Accept", "")
@@ -209,12 +223,14 @@ async def get_list_predictions(
     request: Request, current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> dict[str, list[dict[str, Any]]] | HTMLResponse:
     """Obtain all predictions available"""
-    predictions = await PredictionRepository.get_predictions_list()
+    # Lightweight metadata-only query (no BLOB deserialization), scoped to the
+    # rows the current user may access (own + legacy/unowned).
+    predictions = await PredictionRepository.get_predictions_metadata_for_user(current_user.id)
 
     accept = request.headers.get("Accept", "")
 
     if ACCEPT_TYPE not in accept:
-        return {"predictions": [p.__dict__ for p in predictions]}
+        return {"predictions": predictions}
 
     return templates.TemplateResponse(
         request, "get_predictions.html", {"title": "Predictions List", "predictions": predictions, "user": current_user},
@@ -236,15 +252,21 @@ async def get_prediction_details(
 
     try:
         model_info = await FunctionRepository.get(model_name, func_name)
-        prediction_data = await PredictionRepository.get_prediction_function(task_name, model_name, func_name)
+        prediction_data, prediction_tokens = await PredictionService.get_prediction_function_details(
+            task_name, model_name, func_name,
+        )
 
         if not model_info:
             raise HTTPException(status_code=404, detail="Function not found in model")
         if not prediction_data:
             raise HTTPException(status_code=404, detail="Prediction not found")
 
+        # Ownership: both the model function and the prediction must be accessible.
+        assert_owned(model_info, current_user, "function")
+        pred_owner_id = await PredictionRepository.get_owner(task_name, model_name)
+        assert_owned(types.SimpleNamespace(user_id=pred_owner_id), current_user, "prediction")
+
         model_tokens = format_code(getattr(model_info, "tokens", ""))
-        prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
     except HTTPException:
         raise
@@ -283,6 +305,8 @@ async def get_prediction(
 
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
+
+    assert_owned(prediction, current_user, "prediction")
 
     accept = request.headers.get("Accept", "")
 
@@ -480,6 +504,7 @@ async def profile_page(
 ) -> HTMLResponse:
     """Loads the user profile page
     """
+    llm = await resolve_user_llm_config(current_user.id)
     return templates.TemplateResponse(
         request,
         "profile.html",
@@ -491,6 +516,15 @@ async def profile_page(
                 "full_name": current_user.full_name,
                 "created_at": current_user.created_at,
             },
+            "llm_enabled": llm.enabled,
+            "llm_base_url": llm.base_url,
+            "llm_port": llm.port,
+            "llm_api_path": llm.api_path,
+            "llm_model": llm.model,
+            "llm_api_key_set": bool(llm.api_key),
+            "llm_timeout_seconds": f"{llm.timeout_seconds:g}",
+            "llm_temperature": f"{llm.temperature:g}",
+            "llm_max_concurrent": llm.max_concurrent,
         },
     )
 
@@ -534,7 +568,7 @@ async def run_task_page(
 ) -> HTMLResponse:
     """Loads the task execution page for a given binary.
     """
-    models: list[str] = list(await ModelRepository.get_models_list())
+    models: list[str] = sorted(await ModelRepository.get_models_list_for_user(current_user.id))
     return templates.TemplateResponse(
         request,
         "run_task.html",

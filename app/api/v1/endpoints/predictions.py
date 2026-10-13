@@ -7,6 +7,7 @@ Pure JSON API endpoints -- HTML responses are handled by web endpoints
 in app/web/endpoints/web.py.
 """
 
+import types
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
@@ -15,7 +16,7 @@ from markupsafe import escape
 from pydantic import BaseModel
 
 from app.api.types import FunctionName, ModelName, TaskName
-from app.auth.dependencies import get_current_active_user
+from app.auth.dependencies import assert_owned, get_current_active_user
 from app.database.function_repository import FunctionRepository
 from app.database.models import User
 from app.database.prediction_repository import PredictionRepository
@@ -175,6 +176,7 @@ async def predict_tokens(
         )
 
     prediction_request = PredictionRequest(uuid, model_name, data)
+    prediction_request.user_id = current_user.id
     captured_ctx = capture_request_context()
     background_tasks.add_task(_run_prediction_task, prediction_request, captured_ctx)
 
@@ -195,14 +197,18 @@ async def get_predictions_list(
         Success response with a paginated list of prediction tasks.
 
     """
-    all_predictions, total = await PredictionService.get_predictions_list(offset=0, limit=10000)
+    # Lightweight metadata-only query (no BLOB deserialization), scoped to the
+    # rows the current user may access (own + legacy/unowned).
+    all_predictions, total = await PredictionService.get_predictions_list(
+        user_id=current_user.id, offset=0, limit=10000,
+    )
     offset = (page - 1) * page_size
     page_predictions = all_predictions[offset : offset + page_size]
 
     items: list[dict[str, Any]] = [
         {
-            "task_name": prediction.task_name,
-            "model_name": prediction.model_name,
+            "task_name": prediction["task_name"],
+            "model_name": prediction["model_name"],
         }
         for prediction in page_predictions
     ]
@@ -234,6 +240,8 @@ async def get_prediction(
             ).model_dump(),
         )
 
+    assert_owned(prediction, current_user, "prediction")
+
     return create_success_response(
         data={
             "prediction": {
@@ -256,6 +264,8 @@ async def delete_prediction(
     current_user: Annotated[User, Depends(get_current_active_user)], task_name: Annotated[TaskName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete a single prediction task by task name."""
+    owner = await PredictionRepository.get_owner_by_task(task_name)
+    assert_owned(types.SimpleNamespace(user_id=owner), current_user, "prediction")
     await PredictionService.delete_prediction(task_name)
 
     return create_success_response(data={}, message="Prediction deleted successfully")
@@ -284,10 +294,12 @@ async def delete_predictions(
     failed: list[str] = []
     for name in names:
         try:
+            owner = await PredictionRepository.get_owner_by_task(name)
+            assert_owned(types.SimpleNamespace(user_id=owner), current_user, "prediction")
             await PredictionService.delete_prediction(name)
             deleted.append(name)
         except Exception as exc:
-            logger.warning("Failed to delete prediction '%s': %s", name, exc)
+            logger.warning("Failed to delete prediction '{}': {}", name, exc)
             failed.append(name)
 
     data = {"deleted": deleted, "failed": failed}
@@ -316,7 +328,6 @@ async def get_prediction_details(
     """Get detailed prediction results for a specific function."""
     try:
         model_info = await FunctionRepository.get(model_name, function_name)
-        prediction_data = await PredictionRepository.get_prediction_function(task_name, model_name, function_name)
 
         if model_info is None:
             raise HTTPException(
@@ -326,8 +337,16 @@ async def get_prediction_details(
                 ).model_dump(),
             )
 
+        # Ownership: both the model and the prediction must be accessible.
+        assert_owned(model_info, current_user, "model")
+        owner = await PredictionRepository.get_owner_by_task(task_name)
+        assert_owned(types.SimpleNamespace(user_id=owner), current_user, "prediction")
+
+        _prediction_data, prediction_tokens = await PredictionService.get_prediction_function_details(
+            task_name, model_name, function_name,
+        )
+
         model_tokens = format_code(model_info.tokens)
-        prediction_tokens = format_code(prediction_data.get("tokens", "") if prediction_data else "")
 
     except (TypeError, IndexError, KeyError, AttributeError):
         logger.exception(

@@ -1,7 +1,8 @@
-import glob
 import logging
 import os
+import shutil
 import sys
+import tempfile
 from typing import Any
 from unittest import mock
 
@@ -20,50 +21,45 @@ os.environ.setdefault("GLYPH_RATE_LIMIT_REFRESH_WINDOW", "60")
 
 import pytest
 
-# In-memory database URL templates for testing.
-# Each database uses a unique URI so they remain separate in-memory databases.
-# When running under pytest-xdist, the worker ID is included in the URI to avoid
-# cross-worker conflicts with shared-cache SQLite databases.
-_IN_MEMORY_DATABASE_TEMPLATES: dict[str, str] = {
-    "models": "sqlite+aiosqlite:///file:mem_models{worker}?mode=memory&cache=shared",
-    "predictions": "sqlite+aiosqlite:///file:mem_predictions{worker}?mode=memory&cache=shared",
-    "functions": "sqlite+aiosqlite:///file:mem_functions{worker}?mode=memory&cache=shared",
-    "auth": "sqlite+aiosqlite:///file:mem_auth{worker}?mode=memory&cache=shared",
-    "binaries": "sqlite+aiosqlite:///file:mem_binaries{worker}?mode=memory&cache=shared",
-    "intelligence": "sqlite+aiosqlite:///file:mem_intelligence{worker}?mode=memory&cache=shared",
-}
+# File-based SQLite database URLs for testing.
+#
+# Each test session uses a private temporary directory so the databases are
+# isolated from the application's real ``data/`` directory and from each other.
+# The engines use NullPool, so a true in-memory database would be destroyed
+# when a connection closes; file-based databases in a temp dir are the robust
+# equivalent. When running under pytest-xdist, the worker ID is included in the
+# directory name so each worker process gets its own set of databases.
+_TEST_DB_DIR: str | None = None
 
 
-def _cleanup_sqlite_files() -> None:
-    """Remove SQLite shared-cache files created by in-memory database URIs.
-
-    SQLite's file:mem_*?mode=memory&cache=shared URIs with StaticPool create
-    physical files on disk named 'file:mem_*'. Clean them up after tests.
-    """
-    pattern = os.path.join(os.getcwd(), "file:mem_*")
-    for filepath in glob.glob(pattern):
-        try:
-            os.remove(filepath)
-        except OSError as exc:
-            logger.debug("Failed to clean up SQLite file %s: %s", filepath, exc)
-
-
-def pytest_unconfigure(config: Any) -> None:
-    """Clean up SQLite files after all tests complete."""
-    _cleanup_sqlite_files()
+def _test_db_dir() -> str:
+    """Return (and lazily create) the per-worker temporary test database directory."""
+    global _TEST_DB_DIR
+    if _TEST_DB_DIR is None:
+        worker_id = os.environ.get("PYTEST_XDIST_WORKER", "")
+        suffix = f"_{worker_id}" if worker_id else ""
+        _TEST_DB_DIR = tempfile.mkdtemp(prefix=f"glyph_test_db{suffix}_")
+    return _TEST_DB_DIR
 
 
 def _build_database_urls() -> dict[str, str]:
-    """Build worker-aware in-memory database URLs.
+    """Build per-worker file-based SQLite database URLs in a temp directory."""
+    base = _test_db_dir()
+    names = ("models", "predictions", "functions", "auth", "binaries", "intelligence")
+    return {name: f"sqlite+aiosqlite:///{base}/{name}.db" for name in names}
 
-    When running under pytest-xdist, each worker gets its own set of in-memory
-    databases to avoid cross-worker table conflicts with shared-cache SQLite.
-    The worker ID is read from the PYTEST_XDIST_WORKER environment variable,
-    which is set automatically by pytest-xdist for each worker process.
-    """
-    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "")
-    worker_suffix = f"_{worker_id}" if worker_id else ""
-    return {k: v.format(worker=worker_suffix) for k, v in _IN_MEMORY_DATABASE_TEMPLATES.items()}
+
+def _cleanup_sqlite_files() -> None:
+    """Remove the temporary test database directory after all tests complete."""
+    global _TEST_DB_DIR
+    if _TEST_DB_DIR is not None:
+        shutil.rmtree(_TEST_DB_DIR, ignore_errors=True)
+        _TEST_DB_DIR = None
+
+
+def pytest_unconfigure(config: Any) -> None:
+    """Clean up the temporary test database directory after all tests complete."""
+    _cleanup_sqlite_files()
 
 
 def pytest_configure(config: Any) -> None:
@@ -90,45 +86,20 @@ def pytest_configure(config: Any) -> None:
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiters() -> Any:
-    """Reset rate limiter storage before and after each test to prevent false rate limiting.
+    """Reset rate limiter state before and after each test to prevent false rate limiting.
 
-    slowapi uses an in-memory storage backend by default. We reset it both before
-    and after each test to ensure each test starts with a clean slate. Storage is
-    always recreated (rather than conditionally cleared) because slowapi may
-    initialize it lazily during request processing.
+    slowapi wraps its storage object in a ``limits`` RateLimiter (``limiter._limiter``)
+    that keeps a reference to the original storage, so replacing ``limiter._storage``
+    alone does not clear the live state. ``limiter.reset()`` instead invokes
+    ``storage.reset()`` on the storage object the active RateLimiter actually uses
+    (the default MemoryStorage backend supports reset).
     """
     from app.core.rate_limiter import limiter
-    from limits.storage import MemoryStorage
 
-    def _create_storage():
-        try:
-            return MemoryStorage()
-        except RuntimeError:
-            # If thread creation fails (e.g., under heavy load or ulimit constraints),
-            # return the existing storage to avoid breaking the test.
-            return limiter._storage
-
-    # Always replace with fresh storage to clear all rate limit state.
-    # This handles both pre-initialized and lazily-initialized storage.
-    limiter._storage = _create_storage()  # pyright: ignore[reportPrivateUsage]
+    limiter.reset()
     yield
     # Reset again after the test to ensure clean state for the next test.
-    limiter._storage = _create_storage()  # pyright: ignore[reportPrivateUsage]
-
-
-@pytest.fixture(autouse=True)
-def reset_task_service() -> Any:
-    """Reset the TaskService singleton before and after each test.
-
-    The singleton holds a shared asyncio queue; without a reset, items and
-    task_done() bookkeeping leak across tests and can raise
-    "task_done() called too many times" under parallel execution.
-    """
-    from app.services.task_service import TaskService
-
-    TaskService._reset_for_testing()
-    yield
-    TaskService._reset_for_testing()
+    limiter.reset()
 
 
 @pytest.fixture(autouse=True)
@@ -219,10 +190,16 @@ def create_app_client(
         A TestClient instance wrapping the configured app.
 
     """
+    from app.core.rate_limiter import limiter
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+    from slowapi import _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
 
     app = FastAPI()
+
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
     if mount_static:
         _mount_static_files(app)

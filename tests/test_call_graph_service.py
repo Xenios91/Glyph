@@ -241,7 +241,7 @@ class TestGenerateCallGraph:
     async def test_generate_empty_when_no_functions(self) -> None:
         """Test generates empty graph when no functions exist."""
         with patch(
-            "app.database.sql_service.SQLUtil.get_binary_functions",
+            "app.database.binary_repository.BinaryRepository.get_functions",
             new_callable=AsyncMock,
             return_value=[],
         ):
@@ -256,7 +256,7 @@ class TestGenerateCallGraph:
         """Test generates graph with single function having no calls."""
         func = _make_mock_function("main", raw_code="{ return 0; }")
         with patch(
-            "app.database.sql_service.SQLUtil.get_binary_functions",
+            "app.database.binary_repository.BinaryRepository.get_functions",
             new_callable=AsyncMock,
             return_value=[func],
         ):
@@ -271,7 +271,7 @@ class TestGenerateCallGraph:
         main_func = _make_mock_function("main", raw_code="{ helper(); }")
         helper_func = _make_mock_function("helper", raw_code="{ }")
         with patch(
-            "app.database.sql_service.SQLUtil.get_binary_functions",
+            "app.database.binary_repository.BinaryRepository.get_functions",
             new_callable=AsyncMock,
             return_value=[main_func, helper_func],
         ):
@@ -289,7 +289,7 @@ class TestGenerateCallGraph:
         main_func = _make_mock_function("main", raw_code="{ helper(); helper(); helper(); }")
         helper_func = _make_mock_function("helper", raw_code="{ }")
         with patch(
-            "app.database.sql_service.SQLUtil.get_binary_functions",
+            "app.database.binary_repository.BinaryRepository.get_functions",
             new_callable=AsyncMock,
             return_value=[main_func, helper_func],
         ):
@@ -303,7 +303,7 @@ class TestGenerateCallGraph:
         main_func = _make_mock_function("main", raw_code="{ printf(); helper(); }")
         helper_func = _make_mock_function("helper", raw_code="{ }")
         with patch(
-            "app.database.sql_service.SQLUtil.get_binary_functions",
+            "app.database.binary_repository.BinaryRepository.get_functions",
             new_callable=AsyncMock,
             return_value=[main_func, helper_func],
         ):
@@ -321,7 +321,7 @@ class TestGenerateCallGraph:
         )
         helper_func = _make_mock_function("helper", raw_code="{ }")
         with patch(
-            "app.database.sql_service.SQLUtil.get_binary_functions",
+            "app.database.binary_repository.BinaryRepository.get_functions",
             new_callable=AsyncMock,
             return_value=[main_func, helper_func],
         ):
@@ -341,7 +341,7 @@ class TestGenerateCallGraph:
             _make_mock_function("log", raw_code="{ }"),
         ]
         with patch(
-            "app.database.sql_service.SQLUtil.get_binary_functions",
+            "app.database.binary_repository.BinaryRepository.get_functions",
             new_callable=AsyncMock,
             return_value=funcs,
         ):
@@ -370,7 +370,7 @@ class TestGenerateCallGraph:
         """Test handles functions with None raw_code gracefully."""
         func = _make_mock_function("main", raw_code=None)
         with patch(
-            "app.database.sql_service.SQLUtil.get_binary_functions",
+            "app.database.binary_repository.BinaryRepository.get_functions",
             new_callable=AsyncMock,
             return_value=[func],
         ):
@@ -386,7 +386,7 @@ class TestGenerateCallGraph:
             raw_code="{ if (n<=1) return 1; return n * factorial(n-1); }",
         )
         with patch(
-            "app.database.sql_service.SQLUtil.get_binary_functions",
+            "app.database.binary_repository.BinaryRepository.get_functions",
             new_callable=AsyncMock,
             return_value=[func],
         ):
@@ -401,7 +401,7 @@ class TestGenerateCallGraph:
         """Test handles empty string raw_code."""
         func = _make_mock_function("main", raw_code="")
         with patch(
-            "app.database.sql_service.SQLUtil.get_binary_functions",
+            "app.database.binary_repository.BinaryRepository.get_functions",
             new_callable=AsyncMock,
             return_value=[func],
         ):
@@ -414,7 +414,7 @@ class TestGenerateCallGraph:
         """Test that node entrypoints come from function data."""
         func = _make_mock_function("main", entrypoint="0xdeadbeef", raw_code="{ }")
         with patch(
-            "app.database.sql_service.SQLUtil.get_binary_functions",
+            "app.database.binary_repository.BinaryRepository.get_functions",
             new_callable=AsyncMock,
             return_value=[func],
         ):

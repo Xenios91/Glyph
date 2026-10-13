@@ -1,19 +1,19 @@
 """Repository for Prediction entity database operations."""
 
-from io import BytesIO
+import asyncio
 from typing import Any
 
-import joblib
 from loguru import logger
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import ColumnElement
 
 from app.database.models import Prediction, get_utc_now
 from app.database.session_handler import close_async_session, get_async_session
 from app.services.request_handler import Prediction as PredictionResult
-from app.utils.secure_deserializer import SecureDeserializationError, secure_load
+from app.utils.secure_deserializer import SecureDeserializationError, secure_dump, secure_load_bytes
 
 
 class PredictionRepository:
@@ -37,7 +37,7 @@ class PredictionRepository:
             predictions = result.scalars().all()
             for pred in predictions:
                 try:
-                    raw_preds = secure_load(BytesIO(pred.functions_data))
+                    raw_preds = await asyncio.to_thread(secure_load_bytes, pred.functions_data)
                     if not isinstance(raw_preds, list):
                         logger.warning(
                             "Prediction data for '{}' is not a list, skipping",
@@ -50,6 +50,7 @@ class PredictionRepository:
                             task_name=pred.task_name,
                             model_name=pred.model_name,
                             pred=preds,
+                            user_id=pred.user_id,
                         ),
                     )
                 except SecureDeserializationError:
@@ -61,6 +62,127 @@ class PredictionRepository:
         finally:
             await close_async_session(session)
         return prediction_results
+
+    @staticmethod
+    async def count_for_user(user_id: int) -> int:
+        """Count the predictions the given user may access.
+
+        Mirrors the ownership rule used by ``can_access``: unowned rows
+        (``user_id IS NULL``) are visible to everyone, while owned rows are
+        visible only to their owner. The anonymous user (auth disabled,
+        id 0) sees only unowned rows.
+
+        This is a single ``COUNT(*)`` query and, unlike
+        :meth:`get_predictions_list`, does not load or deserialize the
+        ``functions_data`` BLOBs.
+
+        Args:
+            user_id: The current user's id (0 for anonymous).
+
+        Returns:
+            Number of predictions the user may access.
+
+        """
+        session: AsyncSession = await get_async_session("predictions")
+        try:
+            if user_id == 0:
+                where = Prediction.user_id.is_(None)
+            else:
+                where = or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+            result = await session.execute(select(func.count()).select_from(Prediction).where(where))
+            return result.scalar_one()
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to count predictions for user {}", user_id)
+            raise
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
+    async def get_task_names_for_user(user_id: int) -> list[str]:
+        """Get distinct prediction task names the given user may access.
+
+        Mirrors the ownership rule used by ``can_access``: unowned rows
+        (``user_id IS NULL``) are visible to everyone, while owned rows are
+        visible only to their owner. The anonymous user (auth disabled,
+        id 0) sees only unowned rows.
+
+        This is a single query selecting only ``task_name`` and, unlike
+        :meth:`get_predictions_list`, does not load or deserialize the
+        ``functions_data`` BLOBs.
+
+        Args:
+            user_id: The current user's id (0 for anonymous).
+
+        Returns:
+            A list of distinct task names the user may access.
+
+        """
+        session: AsyncSession = await get_async_session("predictions")
+        try:
+            if user_id == 0:
+                where = Prediction.user_id.is_(None)
+            else:
+                where = or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+            result = await session.execute(select(Prediction.task_name).where(where).distinct())
+            return list(result.scalars().all())
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to retrieve prediction task names for user {}", user_id)
+            raise
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
+    async def get_predictions_metadata_for_user(user_id: int) -> list[dict[str, Any]]:
+        """Get lightweight prediction metadata (no BLOB deserialization).
+
+        Selects only the plain columns ``task_name``, ``model_name``,
+        ``function_count`` and ``user_id`` for the rows the given user may
+        access. Mirrors the ownership rule used by ``can_access``: unowned
+        rows (``user_id IS NULL``) are visible to everyone, owned rows only
+        to their owner, and the anonymous user (auth disabled, id 0) sees
+        only unowned rows.
+
+        Unlike :meth:`get_predictions_list`, this never loads or
+        deserializes the ``functions_data`` BLOBs, so it stays fast and
+        memory-light even for predictions with large function sets.
+
+        Args:
+            user_id: The current user's id (0 for anonymous).
+
+        Returns:
+            A list of dicts with keys ``task_name``, ``model_name``,
+            ``function_count`` and ``user_id``, ordered by task name.
+
+        """
+        session: AsyncSession = await get_async_session("predictions")
+        try:
+            where: ColumnElement[bool] = (
+                Prediction.user_id.is_(None)
+                if user_id == 0
+                else or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+            )
+            result = await session.execute(
+                select(
+                    Prediction.task_name,
+                    Prediction.model_name,
+                    Prediction.function_count,
+                    Prediction.user_id,
+                ).where(where).order_by(Prediction.task_name)
+            )
+            return [
+                {
+                    "task_name": row.task_name,
+                    "model_name": row.model_name,
+                    "function_count": row.function_count or 0,
+                    "user_id": row.user_id,
+                }
+                for row in result.all()
+            ]
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to retrieve prediction metadata for user {}", user_id)
+            raise
+        finally:
+            await close_async_session(session)
 
     @staticmethod
     async def get(task_name: str, model_name: str) -> PredictionResult | None:
@@ -87,7 +209,7 @@ class PredictionRepository:
                 return None
 
             try:
-                raw_prediction_data = secure_load(BytesIO(row.functions_data))
+                raw_prediction_data = await asyncio.to_thread(secure_load_bytes, row.functions_data)
                 if not isinstance(raw_prediction_data, list):
                     logger.warning(
                         "Prediction data for task '{}' is not a list, expected list got {}",
@@ -103,7 +225,7 @@ class PredictionRepository:
                 logger.exception("Failed to deserialize prediction for task '{}'", task_name)
                 return None
 
-            return PredictionResult(task_name=task_name, model_name=model_name, pred=prediction_data)
+            return PredictionResult(task_name=task_name, model_name=model_name, pred=prediction_data, user_id=row.user_id)
         except sa_exc.SQLAlchemyError:
             logger.exception("Failed to retrieve predictions for task '{}'", task_name)
             return None
@@ -111,7 +233,7 @@ class PredictionRepository:
             await close_async_session(session)
 
     @staticmethod
-    async def save(name: str, model_name: str, functions: list[Any]) -> None:
+    async def save(name: str, model_name: str, functions: list[Any], user_id: int | None = None) -> None:
         """Save or update predictions in the database.
 
         Uses SQLAlchemy 2.0's on_conflict_do_update() for efficient upserts
@@ -121,19 +243,22 @@ class PredictionRepository:
             name: Name of the task.
             model_name: Name of the model used.
             functions: List of function predictions to save.
+            user_id: Owner of the prediction (None for legacy/unowned).
 
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
-            functions_buffer = BytesIO()
-            joblib.dump(functions, functions_buffer)
-            functions_serialized = functions_buffer.getvalue()
+            # Serialize + compress off the event loop so the payload stays
+            # under SQLite's 2 GiB BLOB limit for large function sets.
+            functions_serialized = await asyncio.to_thread(secure_dump, functions)
 
             now = get_utc_now()
             ins = sqlite_insert(Prediction).values(
                 task_name=name,
                 model_name=model_name,
                 functions_data=functions_serialized,
+                function_count=len(functions),
+                user_id=user_id,
                 created_at=now,
                 modified_at=now,
             )
@@ -141,6 +266,7 @@ class PredictionRepository:
                 index_elements=[Prediction.task_name, Prediction.model_name],
                 set_={
                     Prediction.functions_data: ins.excluded.functions_data,
+                    Prediction.function_count: ins.excluded.function_count,
                     Prediction.modified_at: ins.excluded.modified_at,
                 },
             )
@@ -180,7 +306,7 @@ class PredictionRepository:
                 return {}
 
             try:
-                raw_predictions = secure_load(BytesIO(row.functions_data))
+                raw_predictions = await asyncio.to_thread(secure_load_bytes, row.functions_data)
                 if not isinstance(raw_predictions, list):
                     logger.warning(
                         "Predictions data is not a list, expected list got {}",
@@ -261,6 +387,58 @@ class PredictionRepository:
             await session.rollback()
             logger.exception("Failed to delete predictions for model '{}'", model_name)
             raise
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
+    async def get_owner_by_task(task_name: str) -> int | None:
+        """Return the owner (user_id) of a prediction by task name only.
+
+        Args:
+            task_name: Name of the task.
+
+        Returns:
+            The owning user_id, or None if the prediction does not exist
+            or is unowned/legacy.
+
+        """
+        session: AsyncSession = await get_async_session("predictions")
+        try:
+            result = await session.execute(
+                select(Prediction.user_id).where(Prediction.task_name == task_name),
+            )
+            return result.scalars().first()
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to retrieve owner of prediction for task '{}'", task_name)
+            return None
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
+    async def get_owner(task_name: str, model_name: str) -> int | None:
+        """Return the owner (user_id) of a prediction without deserializing it.
+
+        Args:
+            task_name: Name of the task.
+            model_name: Name of the model.
+
+        Returns:
+            The owning user_id, or None if the prediction does not exist
+            or is unowned/legacy.
+
+        """
+        session: AsyncSession = await get_async_session("predictions")
+        try:
+            result = await session.execute(
+                select(Prediction.user_id).where(
+                    Prediction.task_name == task_name,
+                    Prediction.model_name == model_name,
+                ),
+            )
+            return result.scalar_one_or_none()
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to retrieve owner of prediction for task '{}'", task_name)
+            return None
         finally:
             await close_async_session(session)
 

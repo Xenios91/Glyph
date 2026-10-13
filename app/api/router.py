@@ -30,9 +30,9 @@ api_v1_router.include_router(
     prefix="/call-graph",
     tags=["call-graph"],
 )
+api_v1_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 
 api_router = APIRouter()
-api_v1_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 
 api_router.include_router(api_v1_router)
 

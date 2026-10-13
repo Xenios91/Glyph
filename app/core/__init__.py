@@ -3,16 +3,8 @@
 This module provides core functionality including:
 - lifespan: Application lifespan events
 - rate_limiter: Rate limiting configuration (slowapi)
+- middleware: Custom ASGI middleware (CSP, request size, cached static files)
+- correlation_bridge: Correlation ID bridge for asgi-correlation-id
+
+Import from the submodules directly (e.g. ``app.core.lifespan``).
 """
-
-from app.core.lifespan import lifespan
-from app.core.rate_limiter import LOGIN_LIMIT, PASSWORD_CHANGE_LIMIT, REFRESH_LIMIT, REGISTER_LIMIT, limiter
-
-__all__ = [
-    "LOGIN_LIMIT",
-    "PASSWORD_CHANGE_LIMIT",
-    "REFRESH_LIMIT",
-    "REGISTER_LIMIT",
-    "lifespan",
-    "limiter",
-]

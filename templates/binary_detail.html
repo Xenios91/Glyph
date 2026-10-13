@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/binary_library.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', path='css/call_graph.css') }}">
+<link rel="stylesheet" href="{{ static_url(request, 'css/binary_library.css') }}">
+<link rel="stylesheet" href="{{ static_url(request, 'css/call_graph.css') }}">
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
@@ -48,7 +48,6 @@
                             <tr>
                                 <th scope="col">Function Name</th>
                                 <th scope="col">Entrypoint</th>
-                                <th scope="col">Lines</th>
                             </tr>
                         </thead>
                         <tbody id="functions-tbody">
@@ -138,6 +137,6 @@
 {% endblock content %}
 
 {% block scripts %}
-<script src="{{ url_for('static', path='js/call_graph.js') }}" defer></script>
-<script src="{{ url_for('static', path='js/binary_detail.js') }}" defer></script>
+<script src="{{ static_url(request, 'js/call_graph.js') }}" defer></script>
+<script src="{{ static_url(request, 'js/binary_detail.js') }}" defer></script>
 {% endblock scripts %}

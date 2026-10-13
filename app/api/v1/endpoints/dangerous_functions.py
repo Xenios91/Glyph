@@ -5,18 +5,27 @@ functions and retrieving scan results with severity, CWE references,
 and usage context.
 """
 
-from io import BytesIO
+import asyncio
+import json
+import types
+from collections.abc import AsyncIterator
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from app.auth.dependencies import get_current_active_user
+from app.auth.dependencies import assert_owned, can_access, get_current_active_user
+from app.core.rate_limiter import LLM_ANALYSIS_LIMIT, limiter
+from app.database.binary_repository import BinaryRepository
 from app.database.function_repository import FunctionRepository
+from app.database.llm_result_repository import LLMResultRepository
+from app.database.llm_user_config_repository import resolve_user_llm_config
 from app.database.model_repository import ModelRepository
-from app.database.models import User
+from app.database.models import LLMAnalysisResult, User
 from app.database.prediction_repository import PredictionRepository
+from app.database.scan_report_repository import ScanReportRepository
 from app.services.dangerous_function_scanner import (
     ScanReport,
     ScanResult,
@@ -28,13 +37,19 @@ from app.services.dangerous_functions_catalog import (
     get_entries_by_category,
     get_entry,
 )
+from app.services.llm_analysis_service import (
+    LLMNotConfiguredError,
+    build_endpoint_url,
+    stream_findings,
+)
+from app.utils.common import binary_function_to_dict
 from app.utils.responses import (
     ErrorResponse,
     SuccessResponse,
     create_error_response,
     create_success_response,
 )
-from app.utils.secure_deserializer import SecureDeserializationError, secure_load
+from app.utils.secure_deserializer import SecureDeserializationError, secure_load_bytes
 
 router = APIRouter()
 
@@ -113,6 +128,21 @@ class ScanReportResponse(BaseModel):
     medium_count: int
     low_count: int
     results: list[ScanResultDict] = []
+
+
+class LLMAnalysisRequest(BaseModel):
+    """Request schema for triggering LLM analysis of scan findings.
+
+    Attributes:
+        target_name: Stable name of the scanned target the findings belong to.
+        save: Whether to persist the results to the database (default true).
+        findings: Scanner findings to analyze, as obtained from a prior scan.
+
+    """
+
+    target_name: str = Field(min_length=1, max_length=256)
+    save: bool = True
+    findings: list[ScanResultDict] = Field(min_length=1, max_length=1000)
 
 
 class CatalogEntryDict(BaseModel):
@@ -298,10 +328,11 @@ async def get_available_models(
         Success response with lists of model names and prediction task names.
 
     """
-    models = await ModelRepository.get_models_list()
-    predictions = await PredictionRepository.get_predictions_list()
-
-    task_names: list[str] = [p.task_name for p in predictions] if predictions else []
+    # Scope to targets the current user may access (own + legacy/unowned).
+    models = await ModelRepository.get_models_list_for_user(current_user.id)
+    # Fetch only the task names the user may access; this avoids loading and
+    # deserializing every prediction's functions_data BLOB.
+    task_names: list[str] = sorted(await PredictionRepository.get_task_names_for_user(current_user.id))
 
     return create_success_response(
         data={
@@ -339,26 +370,30 @@ async def scan_dangerous_functions(
     """
     target_name: str | None = None
     functions_data: list[dict[str, Any]] = []
+    report_owner_id: int | None = None
 
     if body.modelName:
         target_name = body.modelName
-        # Check model exists
-        exists = await ModelRepository.exists(target_name)
-        if not exists:
+        # Check model exists and is accessible by the current user
+        model_row = await ModelRepository.get(target_name)
+        if model_row is None:
             raise HTTPException(
                 status_code=404,
                 detail=f"Model '{target_name}' not found",
             )
+        assert_owned(model_row, current_user, "model")
+        report_owner_id = model_row.user_id
 
-        # Get functions for this model
+        # Get functions for this model (scoped to accessible rows)
         functions = await FunctionRepository.get_functions(target_name)
+        functions = [f for f in functions if can_access(f, current_user)]
         functions_data = _functions_to_dicts(functions)
 
     elif body.binaryId is not None:
-        from app.database.sql_service import SQLUtil
+        from app.database.binary_repository import BinaryRepository
 
         # Load binary and check ownership
-        binary = await SQLUtil.get_binary(body.binaryId)
+        binary = await BinaryRepository.get(binary_id=body.binaryId)
         if binary is None:
             raise HTTPException(
                 status_code=404,
@@ -372,18 +407,11 @@ async def scan_dangerous_functions(
             )
 
         target_name = binary.name
+        report_owner_id = binary.uploaded_by
 
         # Load binary functions and convert to dict format
-        binary_functions = await SQLUtil.get_binary_functions(body.binaryId)
-        functions_data = [
-            {
-                "functionName": bf.function_name,
-                "lowAddress": bf.entrypoint,
-                "tokenList": bf.raw_code.split(),
-                "raw_code": bf.raw_code,
-            }
-            for bf in binary_functions
-        ]
+        binary_functions = await BinaryRepository.get_functions(binary_id=body.binaryId)
+        functions_data = [binary_function_to_dict(bf) for bf in binary_functions]
 
     elif body.taskName:
         target_name = body.taskName
@@ -397,9 +425,14 @@ async def scan_dangerous_functions(
             )
         prediction = matching[0]
 
-        # Deserialize prediction functions
+        # Enforce prediction ownership before exposing any prediction data.
+        assert_owned(prediction, current_user, "prediction")
+        report_owner_id = prediction.user_id
+
+        # Deserialize prediction functions (off the event loop; handles both
+        # compressed and legacy uncompressed payloads).
         try:
-            raw_data = secure_load(BytesIO(prediction.functions_data))  # type: ignore[attr-defined]
+            raw_data = await asyncio.to_thread(secure_load_bytes, prediction.functions_data)  # type: ignore[attr-defined]
             if isinstance(raw_data, list):
                 functions_data = raw_data
             else:
@@ -413,7 +446,7 @@ async def scan_dangerous_functions(
                 detail="Failed to load prediction data: security validation failed",
             )
         except Exception:
-            logger.exception("Failed to deserialize prediction data for task '%s'", target_name)
+            logger.exception("Failed to deserialize prediction data for task '{}'", target_name)
             raise HTTPException(
                 status_code=500,
                 detail="Failed to load prediction data",
@@ -425,25 +458,355 @@ async def scan_dangerous_functions(
             detail="One of 'modelName', 'taskName', or 'binaryId' must be provided",
         )
 
-    if not functions_data:
+    # Perform scan (empty function lists produce an empty report)
+    report = generate_report(target_name or "unknown", functions_data)
+    report_dict = _scan_report_to_dict(report).model_dump()
+
+    # Persist the report so it can be restored when the target is re-selected.
+    # A persistence failure must not fail the scan itself.
+    try:
+        await ScanReportRepository.save_report(report_dict, user_id=report_owner_id)
+    except Exception:
+        logger.exception("Failed to persist scan report for target '{}'", target_name)
+
+    message = (
+        f"No functions found for '{target_name}'"
+        if not functions_data
+        else f"Scan complete: {report.total_found} dangerous functions found"
+    )
+    return create_success_response(data=report_dict, message=message)
+
+
+@router.get(
+    "/scan-results",
+    summary="Retrieve the last stored scan report for a target",
+    description=(
+        "Return the most recent dangerous function scan report previously persisted "
+        "for the given target name. The data payload is null when the target has "
+        "never been scanned."
+    ),
+)
+async def get_scan_results(
+    request: Request,
+    target_name: Annotated[str, Query(min_length=1, max_length=256, description="Name of the scanned target")],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[Any]:
+    """Get the last stored scan report for a target.
+
+    Args:
+        request: FastAPI request object.
+        target_name: Stable name of the scanned target.
+        current_user: Authenticated user.
+
+    Returns:
+        Success response with the stored scan report, or a null data payload
+        when nothing has been saved yet for the target.
+
+    """
+    row = await ScanReportRepository.get_report(target_name, current_user.id)
+    if row is None:
         return create_success_response(
-            data=ScanReportResponse(
-                model_name=target_name or "unknown",
-                total_functions_scanned=0,
-                total_found=0,
-                critical_count=0,
-                high_count=0,
-                medium_count=0,
-                low_count=0,
-                results=[],
-            ).model_dump(),
-            message=f"No functions found for '{target_name}'",
+            data=None,
+            message=f"No stored scan results for '{target_name}'",
         )
 
-    # Perform scan
-    report = generate_report(target_name or "unknown", functions_data)
+    try:
+        results = json.loads(row.results_json) if row.results_json else []
+    except (json.JSONDecodeError, TypeError):
+        logger.exception("Failed to decode stored scan results for target '{}'", target_name)
+        results = []
 
     return create_success_response(
-        data=_scan_report_to_dict(report).model_dump(),
-        message=f"Scan complete: {report.total_found} dangerous functions found",
+        data={
+            "model_name": row.target_name,
+            "total_functions_scanned": row.total_functions_scanned,
+            "total_found": row.total_found,
+            "critical_count": row.critical_count,
+            "high_count": row.high_count,
+            "medium_count": row.medium_count,
+            "low_count": row.low_count,
+            "results": results,
+            "modified_at": row.modified_at.isoformat(),
+        },
+        message=f"Stored scan results retrieved for '{target_name}'",
+    )
+
+
+@router.delete(
+    "/scan-results",
+    summary="Delete the stored scan report and LLM results for a target",
+    description=(
+        "Remove the persisted dangerous function scan report and the stored "
+        "LLM analysis results for the given target name. Use DELETE "
+        "/llm-results to remove only the LLM results while keeping the scan "
+        "report."
+    ),
+)
+async def delete_scan_results(
+    request: Request,
+    target_name: Annotated[str, Query(min_length=1, max_length=256, description="Name of the scanned target")],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[str]:
+    """Delete the stored scan report and LLM results for a target.
+
+    The persisted scan report is removed together with any stored LLM
+    analysis results for the target, so a "Delete" clears both the scan and
+    the LLM results. To remove only the LLM results while keeping the scan
+    report, use DELETE /llm-results.
+
+    Args:
+        request: FastAPI request object.
+        target_name: Stable name of the scanned target.
+        current_user: Authenticated user.
+
+    Returns:
+        Success response confirming deletion (or that nothing was stored).
+
+    """
+    report_deleted = await ScanReportRepository.delete_for_target(target_name, current_user.id)
+    llm_deleted = await LLMResultRepository.delete_for_target(target_name, current_user.id)
+
+    if not report_deleted and not llm_deleted:
+        return create_success_response(data="not_found", message=f"No stored scan results for '{target_name}'")
+
+    return create_success_response(
+        data="deleted",
+        message=f"Stored scan results and LLM results deleted for '{target_name}'",
+    )
+
+
+@router.delete(
+    "/llm-results",
+    summary="Delete the stored LLM analysis results for a target",
+    description=(
+        "Remove the persisted LLM analysis results for the given target name. "
+        "The stored scan report is not affected; use DELETE /scan-results "
+        "to remove that."
+    ),
+)
+async def delete_llm_results(
+    request: Request,
+    target_name: Annotated[str, Query(min_length=1, max_length=256, description="Name of the scanned target")],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[str]:
+    """Delete the stored LLM analysis results for a target.
+
+    Only the persisted LLM analysis rows are removed; the stored scan
+    report for the target is kept (delete it via DELETE /scan-results).
+
+    Args:
+        request: FastAPI request object.
+        target_name: Stable name of the scanned target.
+        current_user: Authenticated user.
+
+    Returns:
+        Success response confirming deletion (or that nothing was stored).
+
+    """
+    deleted = await LLMResultRepository.delete_for_target(target_name, current_user.id)
+
+    if not deleted:
+        return create_success_response(data="not_found", message=f"No stored LLM results for '{target_name}'")
+
+    return create_success_response(data="deleted", message=f"Stored LLM results deleted for '{target_name}'")
+
+
+@router.post(
+    "/llm-analysis",
+    summary="Analyze scan findings with the configured LLM endpoint",
+    description=(
+        "Send scanner findings to the user-configured OpenAI-compatible chat completions "
+        "endpoint for analysis. Results are streamed back as a Server-Sent Events "
+        "(text/event-stream) body: one `result` event per finding, emitted as soon "
+        "as that finding's analysis completes, followed by a final `done` event "
+        "with summary counts. Results are persisted to the database by default."
+    ),
+)
+@limiter.limit(LLM_ANALYSIS_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
+async def analyze_dangerous_functions(
+    request: Request,
+    body: LLMAnalysisRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> StreamingResponse:
+    """Send scan findings to the configured LLM endpoint for analysis.
+
+    The client supplies findings it already obtained from a scan; no re-scan
+    is performed. The response is a Server-Sent Events stream: each finding
+    produces a `result` event (keyed by the finding's zero-based index) as
+    soon as its analysis completes, so clients can render results
+    incrementally instead of waiting for the whole batch. A final `done`
+    event carries the summary counts. When save is true (the default), each
+    result is upserted to the database as it completes; a persistence
+    failure is reported via saved=false in the `done` event but does not
+    fail the request.
+
+    Args:
+        request: FastAPI request object (used for rate limiting).
+        body: Analysis request with target name, save flag, and findings.
+        current_user: Authenticated user.
+
+    Returns:
+        StreamingResponse with the SSE event stream.
+
+    Raises:
+        HTTPException: 503 LLM_NOT_CONFIGURED when the LLM endpoint is
+            disabled or cannot be built from the current configuration.
+
+    """
+    # Integrity + authorization: the target must have a stored scan report that
+    # the current user may access. This guarantees the findings were produced by
+    # a real scan of a target the user owns (rather than an arbitrary name).
+    report = await ScanReportRepository.get_report(body.target_name, current_user.id)
+    if report is None:
+        raise HTTPException(
+            status_code=404,
+            detail=create_error_response(
+                error_code="SCAN_NOT_FOUND",
+                error_message=f"No scan results found for target '{body.target_name}'. Run a scan first.",
+            ).model_dump(),
+        )
+    report_owner_id = report.user_id
+
+    llm = await resolve_user_llm_config(current_user.id)
+    try:
+        # Fail fast before the response (and its headers) is created, so a
+        # disabled LLM is reported as a proper 503 instead of a broken stream.
+        build_endpoint_url(llm)
+        stream = stream_findings(llm, [f.model_dump() for f in body.findings])
+    except LLMNotConfiguredError as exc:
+        logger.warning("LLM analysis rejected: {}", exc)
+        raise HTTPException(
+            status_code=503,
+            detail=create_error_response(
+                error_code="LLM_NOT_CONFIGURED",
+                error_message=str(exc),
+            ).model_dump(),
+        ) from exc
+
+    user_id = report_owner_id
+    save = body.save
+    target_name = body.target_name
+    findings = body.findings
+
+    async def event_stream() -> AsyncIterator[str]:
+        total = len(findings)
+        succeeded = 0
+        failed = 0
+        saved = False
+        try:
+            # Iterate the analysis stream so each result is forwarded the
+            # moment its underlying LLM request completes.
+            async for index, analysis in stream:
+                if await request.is_disconnected():
+                    logger.info("LLM analysis stream aborted: client disconnected (target '{}')", target_name)
+                    return
+                if analysis.status == "success":
+                    succeeded += 1
+                else:
+                    failed += 1
+
+                if save:
+                    try:
+                        await LLMResultRepository.upsert_one(
+                            target_name,
+                            LLMAnalysisResult(
+                                function_name=findings[index].function_name,
+                                containing_function=findings[index].containing_function,
+                                entrypoint=findings[index].entrypoint,
+                                status=analysis.status,
+                                analysis=analysis.analysis,
+                                error=analysis.error,
+                                model_name=analysis.model,
+                                elapsed_ms=analysis.elapsed_ms,
+                                is_vulnerability=analysis.is_vulnerability,
+                                confidence=analysis.confidence,
+                                verdict=analysis.verdict or "",
+                            ),
+                            user_id=user_id,
+                        )
+                        saved = True
+                    except Exception:
+                        logger.exception("Failed to save LLM analysis result for target '{}'", target_name)
+
+                event = {
+                    "index": index,
+                    "status": analysis.status,
+                    "analysis": analysis.analysis,
+                    "error": analysis.error,
+                    "model": analysis.model,
+                    "elapsed_ms": analysis.elapsed_ms,
+                    "is_vulnerability": analysis.is_vulnerability,
+                    "confidence": analysis.confidence,
+                    "verdict": analysis.verdict,
+                }
+                yield f"event: result\ndata: {json.dumps(event)}\n\n"
+        except asyncio.CancelledError:
+            # Client disconnected: stop the stream without emitting `done`.
+            return
+        finally:
+            # Close the analysis stream so any in-flight LLM requests are
+            # cancelled when the stream ends early (client disconnect).
+            await stream.aclose()
+
+        yield (
+            "event: done\n"
+            f"data: {json.dumps({'target_name': target_name, 'total': total, 'succeeded': succeeded, 'failed': failed, 'saved': saved})}\n\n"
+        )
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@router.get(
+    "/llm-results",
+    summary="Retrieve stored LLM analysis results for a target",
+    description="Return the persisted LLM analysis results previously saved for a scanned target.",
+)
+async def get_llm_results(
+    request: Request,
+    target_name: Annotated[str, Query(min_length=1, max_length=256, description="Name of the scanned target")],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[dict[str, Any]]:
+    """Get the stored LLM analysis results for a scanned target.
+
+    Args:
+        request: FastAPI request object.
+        target_name: Stable name of the scanned target.
+        current_user: Authenticated user.
+
+    Returns:
+        Success response with the stored results (an empty list is a valid
+        success when nothing has been saved yet).
+
+    """
+    rows = await LLMResultRepository.get_for_target(target_name, current_user.id)
+
+    results = [
+        {
+            "function_name": row.function_name,
+            "containing_function": row.containing_function,
+            "entrypoint": row.entrypoint,
+            "status": row.status,
+            "analysis": row.analysis,
+            "error": row.error,
+            "model_name": row.model_name,
+            "elapsed_ms": row.elapsed_ms,
+            "is_vulnerability": row.is_vulnerability,
+            "confidence": row.confidence or "",
+            "verdict": row.verdict or "",
+            "modified_at": row.modified_at.isoformat(),
+        }
+        for row in rows
+    ]
+
+    return create_success_response(
+        data={"target_name": target_name, "count": len(results), "results": results},
+        message=f"LLM results retrieved for '{target_name}'",
     )

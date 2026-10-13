@@ -6,7 +6,7 @@ We actively monitor and provide security patches for the following versions of *
 
 | Version | Supported          |
 | ------- | ------------------ |
-| **x.1.x** | :white_check_mark: |
+| **0.3.x** | :white_check_mark: |
 | < 0.1.0   | :x:                |
 
 ---

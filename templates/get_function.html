@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/models_style.css') }}">
+<link rel="stylesheet" href="{{ static_url(request, 'css/models_style.css') }}">
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
@@ -27,5 +27,5 @@
 {% endblock content %}
 
 {% block scripts %}
-<script src="{{ url_for('static', path='js/functions.js') }}" defer></script>
+<script src="{{ static_url(request, 'js/functions.js') }}" defer></script>
 {% endblock scripts %}

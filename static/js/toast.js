@@ -55,10 +55,19 @@ const ToastManager = {
         this.container.appendChild(toast);
         this.toasts.push(toast);
 
-        // Auto-dismiss after duration
+        // Auto-dismiss after duration, pausable while the pointer hovers
         if (duration > 0) {
-            setTimeout(() => this.remove(toast), duration);
+            let timer = setTimeout(() => this.remove(toast), duration);
+            toast.addEventListener('mouseenter', () => clearTimeout(timer));
+            toast.addEventListener('mouseleave', () => {
+                if (toast.parentNode) {
+                    timer = setTimeout(() => this.remove(toast), duration);
+                }
+            });
         }
+
+        // Dismiss on click anywhere on the toast
+        toast.addEventListener('click', () => this.remove(toast));
 
         return toast;
     },
@@ -105,6 +114,9 @@ const ToastManager = {
      */
     remove(toast) {
         if (!toast || !this.container) return;
+        // Guard against double-invocation (e.g. close-button click bubbling
+        // to the toast click handler) stacking duplicate removal listeners
+        if (toast.classList.contains('toast-hiding')) return;
 
         toast.classList.add('toast-hiding');
 

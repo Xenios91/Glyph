@@ -299,3 +299,25 @@ class BinaryRepository:
             raise
         finally:
             await close_async_session(session)
+
+    @staticmethod
+    async def get_owner_by_name(name: str) -> int | None:
+        """Return the owner (uploaded_by) of a binary by its name.
+
+        Args:
+            name: The binary name.
+
+        Returns:
+            The owning user_id (uploaded_by), or None if no binary with that
+            name exists.
+
+        """
+        session: AsyncSession = await get_async_session("binaries")
+        try:
+            result = await session.execute(select(Binary.uploaded_by).where(Binary.name == name))
+            return result.scalars().first()
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to get owner for binary '{}'", name)
+            return None
+        finally:
+            await close_async_session(session)

@@ -4,6 +4,7 @@ import logging
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
+from app.config.settings import LLMConfig
 from fastapi.testclient import TestClient
 
 logger = logging.getLogger(__name__)
@@ -37,8 +38,10 @@ class TestWebEndpoints:
         assert "text/html" in response.headers.get("content-type", "")
 
     @patch("app.web.endpoints.web.get_settings")
-    def test_config_endpoint(self, mock_get_settings: Any, web_client: TestClient) -> None:
-        """Test config endpoint."""
+    def test_config_endpoint(
+        self, mock_get_settings: Any, web_client: TestClient,
+    ) -> None:
+        """Test config endpoint renders system settings (LLM lives on the profile page)."""
         mock_settings = Mock()
         mock_settings.cpu_cores = 4
         mock_settings.max_file_size_mb = 100
@@ -50,6 +53,42 @@ class TestWebEndpoints:
         )
 
         assert response.status_code == 200
+        assert "SYSTEM CONFIGURATION" in response.text
+        assert "llm-base-url" not in response.text
+
+    @patch("app.web.endpoints.web.resolve_user_llm_config", new_callable=AsyncMock)
+    def test_profile_endpoint_renders_llm_settings(
+        self, mock_resolve: Any, web_client: TestClient,
+    ) -> None:
+        """Test profile page renders LLM settings without leaking the API key."""
+        mock_resolve.return_value = LLMConfig(api_key="sk-test-secret-key")
+
+        response = web_client.get(
+            "/profile",
+            headers={"Accept": "text/html"},
+        )
+
+        assert response.status_code == 200
+        assert "LLM Analysis Settings" in response.text
+        assert "sk-test-secret-key" not in response.text
+        assert 'value="http://localhost:11434"' in response.text
+        assert 'value="llama3"' in response.text
+        mock_resolve.assert_awaited_once_with(1)
+
+    @patch("app.web.endpoints.web.resolve_user_llm_config", new_callable=AsyncMock)
+    def test_profile_endpoint_llm_no_key_stored(
+        self, mock_resolve: Any, web_client: TestClient,
+    ) -> None:
+        """Test profile page shows the no-key hint when no LLM API key is stored."""
+        mock_resolve.return_value = LLMConfig()
+
+        response = web_client.get(
+            "/profile",
+            headers={"Accept": "text/html"},
+        )
+
+        assert response.status_code == 200
+        assert "local servers" in response.text
 
     def test_error_endpoint_default(self, web_client: TestClient) -> None:
         """Test error endpoint with default message."""
@@ -75,7 +114,7 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.TaskManager")
     def test_get_models_json_response(self, mock_task_manager: Any, mock_ml_repo: Any, web_client: TestClient) -> None:
         """Test get models endpoint returns JSON for API clients."""
-        mock_ml_repo.get_models_list = AsyncMock(return_value={"model1", "model2"})
+        mock_ml_repo.get_models_list_for_user = AsyncMock(return_value=["model1", "model2"])
         mock_task_manager.get_all_status.return_value = {}
 
         response = web_client.get(
@@ -92,7 +131,7 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.TaskManager")
     def test_get_models_html_response(self, mock_task_manager: Any, mock_ml_repo: Any, web_client: TestClient) -> None:
         """Test get models endpoint returns HTML for browsers."""
-        mock_ml_repo.get_models_list = AsyncMock(return_value={"model1", "model2"})
+        mock_ml_repo.get_models_list_for_user = AsyncMock(return_value=["model1", "model2"])
         mock_task_manager.get_all_status.return_value = {}
 
         response = web_client.get(
@@ -105,7 +144,7 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.PredictionRepository")
     def test_get_predictions_json_response(self, mock_pred_repo: Any, web_client: TestClient) -> None:
         """Test get predictions endpoint returns JSON for API clients."""
-        mock_pred_repo.get_predictions_list = AsyncMock(return_value=[])
+        mock_pred_repo.get_predictions_metadata_for_user = AsyncMock(return_value=[])
 
         response = web_client.get(
             "/getPredictions",
@@ -119,7 +158,7 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.PredictionRepository")
     def test_get_predictions_html_response(self, mock_pred_repo: Any, web_client: TestClient) -> None:
         """Test get predictions endpoint returns HTML for browsers."""
-        mock_pred_repo.get_predictions_list = AsyncMock(return_value=[])
+        mock_pred_repo.get_predictions_metadata_for_user = AsyncMock(return_value=[])
 
         response = web_client.get(
             "/getPredictions",
@@ -128,10 +167,11 @@ class TestWebEndpoints:
 
         assert response.status_code == 200
 
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
     def test_get_prediction_details_json_success(
-        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient,
+        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, web_client: TestClient,
     ) -> None:
         """Test get prediction details returns JSON on success."""
         mock_func_repo.get = AsyncMock(
@@ -142,7 +182,8 @@ class TestWebEndpoints:
                 "tokens": "test tokens",
             },
         )
-        mock_pred_repo.get_prediction_function = AsyncMock(
+        mock_pred_repo.get_owner = AsyncMock(return_value=None)
+        mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
             },
@@ -163,14 +204,15 @@ class TestWebEndpoints:
         assert "task_name" in data
         assert "model_name" in data
 
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
     def test_get_prediction_details_function_not_found(
-        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient,
+        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, web_client: TestClient,
     ) -> None:
         """Test get prediction details returns 404 when function not found."""
         mock_func_repo.get = AsyncMock(return_value=None)
-        mock_pred_repo.get_prediction_function = AsyncMock(
+        mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
             },
@@ -188,16 +230,17 @@ class TestWebEndpoints:
 
         assert response.status_code == 404
 
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
     def test_get_prediction_details_prediction_not_found(
-        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient,
+        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, web_client: TestClient,
     ) -> None:
         """Test get prediction details returns 404 when prediction not found."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
-        mock_pred_repo.get_prediction_function = AsyncMock(return_value=None)
+        mock_service_pred_repo.get_prediction_function = AsyncMock(return_value=None)
 
         response = web_client.get(
             "/getPredictionDetails",
@@ -218,6 +261,7 @@ class TestWebEndpoints:
         mock_prediction.task_name = "test_task"
         mock_prediction.model_name = "test_model"
         mock_prediction.predictions = []
+        mock_prediction.user_id = None
         mock_pred_repo.get = AsyncMock(return_value=mock_prediction)
 
         response = web_client.get(
@@ -238,6 +282,7 @@ class TestWebEndpoints:
         mock_prediction.task_name = "test_task"
         mock_prediction.model_name = "test_model"
         mock_prediction.predictions = []
+        mock_prediction.user_id = None
         mock_pred_repo.get = AsyncMock(return_value=mock_prediction)
 
         response = web_client.get(
@@ -261,16 +306,19 @@ class TestWebEndpoints:
 
         assert response.status_code == 404
 
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
     def test_get_prediction_details_html_response(
-        self, mock_func_repo: Any, mock_pred_repo: Any, web_client: TestClient,
+        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, web_client: TestClient,
     ) -> None:
         """Test get prediction details returns HTML for browsers."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
+        mock_model_info.user_id = None
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
-        mock_pred_repo.get_prediction_function = AsyncMock(
+        mock_pred_repo.get_owner = AsyncMock(return_value=None)
+        mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
             },
@@ -314,8 +362,10 @@ class TestWebEndpoints:
         )
         assert response.status_code == 200
 
-    def test_profile_page(self, web_client: TestClient) -> None:
+    @patch("app.web.endpoints.web.resolve_user_llm_config", new_callable=AsyncMock)
+    def test_profile_page(self, mock_resolve: Any, web_client: TestClient) -> None:
         """Test profile page loads."""
+        mock_resolve.return_value = LLMConfig()
         response = web_client.get(
             "/profile",
             headers={"Accept": "text/html"},
@@ -341,7 +391,7 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.ModelRepository")
     def test_run_task_page(self, mock_ml_repo: Any, web_client: TestClient) -> None:
         """Test run task page loads."""
-        mock_ml_repo.get_models_list = AsyncMock(return_value=["model1"])
+        mock_ml_repo.get_models_list_for_user = AsyncMock(return_value=["model1"])
         response = web_client.get(
             "/run-task",
             params={"binary_id": 1, "binary_name": "test.bin"},
@@ -384,7 +434,7 @@ class TestWebEndpoints:
         )
         assert response.status_code == 200
 
-    @patch("app.database.sql_service.SQLUtil")
+    @patch("app.database.binary_repository.BinaryRepository")
     @patch("app.web.endpoints.web.ModelRepository")
     @patch("app.web.endpoints.web.PredictionRepository")
     def test_home_stats(
@@ -395,9 +445,9 @@ class TestWebEndpoints:
         web_client: TestClient,
     ) -> None:
         """Test home stats endpoint."""
-        mock_sql.get_binaries_by_user = AsyncMock(return_value=[1, 2, 3])
-        mock_ml_repo.get_models_list = AsyncMock(return_value={"model1", "model2"})
-        mock_pred_repo.get_predictions_list = AsyncMock(return_value=[Mock(), Mock()])
+        mock_sql.get_by_user = AsyncMock(return_value=[1, 2, 3])
+        mock_ml_repo.get_models_list_for_user = AsyncMock(return_value=["model1", "model2"])
+        mock_pred_repo.count_for_user = AsyncMock(return_value=2)
 
         response = web_client.get("/stats")
         assert response.status_code == 200
@@ -405,6 +455,7 @@ class TestWebEndpoints:
         assert data["binaries"] == 3
         assert data["models"] == 2
         assert data["predictions"] == 2
+        mock_pred_repo.count_for_user.assert_awaited_once_with(1)
 
     # Tests for login/register pages (need separate client without auth override)
     def test_login_page_shows_login_form(self) -> None:

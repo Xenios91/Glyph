@@ -58,33 +58,17 @@ class RequestContext:
     def request_id(self) -> str | None:
         return _request_id_var.get()
 
-    @request_id.setter
-    def request_id(self, value: str | None) -> None:
-        _request_id_var.set(value)
-
     @property
     def user_id(self) -> int | None:
         return _user_id_var.get()
-
-    @user_id.setter
-    def user_id(self, value: int | None) -> None:
-        _user_id_var.set(value)
 
     @property
     def username(self) -> str | None:
         return _username_var.get()
 
-    @username.setter
-    def username(self, value: str | None) -> None:
-        _username_var.set(value)
-
     @property
     def task_id(self) -> str | None:
         return _task_id_var.get()
-
-    @task_id.setter
-    def task_id(self, value: str | None) -> None:
-        _task_id_var.set(value)
 
 
 def get_request_context() -> RequestContext:
@@ -105,10 +89,10 @@ _UNSET = _UnsetSentinel()
 
 
 def set_request_context(
-    request_id: str | None | _UnsetSentinel = _UNSET,
-    user_id: int | None | _UnsetSentinel = _UNSET,
-    username: str | None | _UnsetSentinel = _UNSET,
-    task_id: str | None | _UnsetSentinel = _UNSET,
+    request_id: str | _UnsetSentinel | None = _UNSET,
+    user_id: int | _UnsetSentinel | None = _UNSET,
+    username: str | _UnsetSentinel | None = _UNSET,
+    task_id: str | _UnsetSentinel | None = _UNSET,
     clear_unset: bool = False,
 ) -> None:
     """Set the current request context.
@@ -155,7 +139,3 @@ def get_user_id() -> int | None:
 
 def get_username() -> str | None:
     return _username_var.get()
-
-
-def get_task_id() -> str | None:
-    return _task_id_var.get()

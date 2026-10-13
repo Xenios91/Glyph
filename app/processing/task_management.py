@@ -17,15 +17,21 @@ from typing import Any
 
 from loguru import logger
 
-from app.config.settings import MAX_CPU_CORES
-from app.processing.pipeline import PipelineContext
-from app.services.request_handler import GhidraRequest
-from app.services.task_service import TaskService
+from app.config.settings import get_settings
 from app.utils.request_context import (
     CapturedContext,
     clear_request_context,
     restore_request_context,
 )
+
+
+def _pool_size() -> int:
+    """Return the configured number of worker processes for the task pool.
+
+    Reads ``cpu_cores`` from application settings so that changes made through
+    the configuration endpoint take effect the next time the pool is created.
+    """
+    return get_settings().cpu_cores
 
 
 class EventWatcher:
@@ -114,7 +120,7 @@ class EventWatcher:
             try:
                 old.stop_watching()
             except Exception as e:
-                logger.debug("Error during EventWatcher stop_watching in reset: %s", e)
+                logger.debug("Error during EventWatcher stop_watching in reset: {}", e)
         cls._instance = None
         logger.debug("EventWatcher state reset for testing")
 
@@ -197,7 +203,7 @@ class TaskManager:
         """Initialize the process pool executor for subclasses."""
         super().__init_subclass__(**kwargs)
         if cls.exec_pool is None:
-            cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
+            cls.exec_pool = ProcessPoolExecutor(max_workers=_pool_size())
             atexit.register(cls._shutdown_executor)
             if threading.current_thread() is threading.main_thread():
                 signal.signal(signal.SIGTERM, cls._signal_handler)
@@ -220,7 +226,7 @@ class TaskManager:
 
         """
         if cls.exec_pool is None or cls._executor_shutdown:
-            cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
+            cls.exec_pool = ProcessPoolExecutor(max_workers=_pool_size())
             cls._executor_shutdown = False
         return cls.exec_pool
 
@@ -289,9 +295,6 @@ class TaskManager:
     def get_status(cls, job_uuid: str) -> str:
         """Get the status of a job by its UUID.
 
-        Checks the active tasks registry first, then falls back to the
-        service queue for backwards compatibility.
-
         Args:
             job_uuid: The UUID of the job.
 
@@ -300,40 +303,19 @@ class TaskManager:
 
         """
         with cls._lock:
-            if job_uuid in cls._active_tasks:
-                return cls._active_tasks[job_uuid]
-
-        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)  # type: ignore[attr-defined]
-        for task in queue_list:
-            queued_uuid: str = task[0].uuid
-            if job_uuid == queued_uuid:
-                status: str = task[0].status
-                with cls._lock:
-                    cls._active_tasks[job_uuid] = status
-                return status
-        return "UUID Not Found"
+            status = cls._active_tasks.get(job_uuid)
+        return status if status is not None else "UUID Not Found"
 
     @classmethod
     def get_all_status(cls) -> dict[str, str]:
-        """Get the status of all jobs.
-
-        Returns statuses from both the active tasks registry and the
-        service queue.  For backwards compatibility, queue entries are
-        keyed by model_name while registry entries are keyed by UUID.
+        """Get the status of all active jobs.
 
         Returns:
-            A dictionary mapping model names / UUIDs to their statuses.
+            A dictionary mapping task UUIDs to their statuses.
 
         """
         with cls._lock:
-            status_list: dict[str, str] = dict(cls._active_tasks)
-
-        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)  # type: ignore[attr-defined]
-        for task in queue_list:
-            status: str = task[0].status
-            model_name: str = task[0].model_name
-            status_list[model_name] = status
-        return status_list
+            return dict(cls._active_tasks)
 
     @classmethod
     def verify_task_owner(cls, job_uuid: str, user_id: int) -> bool:
@@ -358,9 +340,6 @@ class TaskManager:
     def set_status(cls, job_uuid: str, status: str, owner_id: int | None = None) -> bool:
         """Set the status of a job by its UUID.
 
-        Updates both the active tasks registry and the service queue
-        entry (if still queued).
-
         Args:
             job_uuid: The UUID of the job.
             status: The new status to set.
@@ -379,15 +358,6 @@ class TaskManager:
             if job_uuid in cls._active_tasks:
                 cls._active_tasks[job_uuid] = status
                 logger.debug("Updated task {} status to '{}'", job_uuid, status)
-                return True
-
-        queue_list: list[tuple[Any, Any]] = list(TaskService().service_queue._queue)  # type: ignore[attr-defined]
-        for task in queue_list:
-            queued_uuid: str = task[0].uuid
-            if job_uuid == queued_uuid:
-                task[0].status = status
-                with cls._lock:
-                    cls._active_tasks[job_uuid] = status
                 return True
         return False
 
@@ -450,7 +420,7 @@ class TaskManager:
         # Re-create executor if it was shut down (common under xdist).
         if cls._executor_shutdown or cls.exec_pool is None:
             try:
-                cls.exec_pool = ProcessPoolExecutor(max_workers=MAX_CPU_CORES)
+                cls.exec_pool = ProcessPoolExecutor(max_workers=_pool_size())
             except OSError:
                 # ProcessPoolExecutor may fail to start in constrained environments;
                 # fall back to a minimal executor to keep tests green.
@@ -458,46 +428,3 @@ class TaskManager:
             cls._executor_shutdown = False
             atexit.register(cls._shutdown_executor)
         logger.debug("TaskManager state reset for testing")
-
-
-class Ghidra(TaskManager):
-    """Task manager for running Ghidra analysis on binaries.
-
-    This class integrates with the pipeline framework to provide
-    end-to-end binary analysis workflows.
-    """
-
-    @classmethod
-    async def run_full_pipeline(
-        cls,
-        ghidra_request: GhidraRequest,
-        file_path: str,
-    ) -> PipelineContext:
-        """Run the full analysis pipeline for a binary.
-
-        This method provides an end-to-end pipeline interface that combines
-        Ghidra analysis with ML training or prediction.
-
-        Args:
-            ghidra_request: The Ghidra request containing analysis parameters.
-            file_path: Path to the binary file.
-
-        Returns:
-            The pipeline context with analysis results.
-
-        """
-        from app.processing.pipeline_configs import PREDICTION_PIPELINE, TRAINING_PIPELINE
-
-        context = PipelineContext(
-            uuid=ghidra_request.uuid,
-            binary_path=file_path,
-            pipeline_type="ml_training" if ghidra_request.is_training else "ml_prediction",
-            metadata={
-                "model_name": ghidra_request.model_name,
-                "name": ghidra_request.name,
-                "ml_class_type": ghidra_request.ml_class_type,
-            },
-        )
-
-        pipeline = TRAINING_PIPELINE if ghidra_request.is_training else PREDICTION_PIPELINE
-        return await pipeline.execute(context)

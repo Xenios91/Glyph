@@ -88,11 +88,11 @@ async def get_call_graph(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[CallGraphResponse]:
     """Generate and return the call graph for a binary."""
-    from app.database.sql_service import SQLUtil
+    from app.database.binary_repository import BinaryRepository
     from app.services.call_graph_service import CallGraphService
 
     # Verify binary exists and user has access
-    binary = await SQLUtil.get_binary(binary_id)
+    binary = await BinaryRepository.get(binary_id=binary_id)
     if binary is None:
         raise HTTPException(
             status_code=404,
@@ -185,11 +185,11 @@ async def get_function_callers(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[FunctionCallersResponse]:
     """Get all callers for a specific function."""
-    from app.database.sql_service import SQLUtil
+    from app.database.binary_repository import BinaryRepository
     from app.services.call_graph_service import CallGraphService
 
     # Verify binary exists and user has access
-    binary = await SQLUtil.get_binary(binary_id)
+    binary = await BinaryRepository.get(binary_id=binary_id)
     if binary is None:
         raise HTTPException(
             status_code=404,
@@ -259,11 +259,11 @@ async def get_function_callees(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[FunctionCalleesResponse]:
     """Get all callees for a specific function."""
-    from app.database.sql_service import SQLUtil
+    from app.database.binary_repository import BinaryRepository
     from app.services.call_graph_service import CallGraphService
 
     # Verify binary exists and user has access
-    binary = await SQLUtil.get_binary(binary_id)
+    binary = await BinaryRepository.get(binary_id=binary_id)
     if binary is None:
         raise HTTPException(
             status_code=404,

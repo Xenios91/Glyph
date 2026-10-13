@@ -1,6 +1,6 @@
 """Unit tests for helper utilities."""
 
-from app.utils.helpers import ACCEPT_TYPE
+from app.api.types import ACCEPT_TYPE
 
 
 class TestHelpers:

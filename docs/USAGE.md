@@ -21,6 +21,7 @@ This guide covers how to use Glyph for binary analysis, model training, and func
 - [API Reference](#api-reference)
   - [Authentication Endpoints](#authentication-endpoints)
   - [Binary Upload](#binary-upload-api)
+  - [Task Execution](#task-execution-api)
   - [Model Management](#model-management-api)
   - [Predictions](#predictions-api)
   - [Task Status](#task-status-api)
@@ -29,6 +30,7 @@ This guide covers how to use Glyph for binary analysis, model training, and func
 - [Configuration File](#configuration-file)
 - [Environment Variables](#environment-variables)
 - [Troubleshooting](#troubleshooting)
+- [Running Tests](#running-tests)
 
 ---
 
@@ -36,8 +38,8 @@ This guide covers how to use Glyph for binary analysis, model training, and func
 
 Glyph is an architecture-independent binary analysis tool that uses Natural Language Processing (NLP) techniques for **cross-architecture function fingerprinting**. The core workflow involves two phases:
 
-1. **Training** — Upload one or more binaries from known sources to train an ML model that learns function signatures.
-2. **Prediction** — Upload an unknown binary and use the trained model to identify and classify its functions.
+1. **Training** — Upload one or more binaries from known sources, then run an ML training task to teach a model function signatures.
+2. **Prediction** — Upload an unknown binary and run an ML prediction task with a trained model to classify its functions.
 
 The application supports both a **Web UI** and a **REST API** for all operations. All endpoints require authentication via JWT tokens or API keys.
 
@@ -76,7 +78,7 @@ curl -X POST http://localhost:8000/auth/register \
   "email": "analyst@example.com",
   "full_name": "Security Analyst",
   "is_active": true,
-  "permissions": ["read"]
+  "created_at": "2025-01-01T00:00:00"
 }
 ```
 
@@ -132,9 +134,13 @@ curl -X POST http://localhost:8000/auth/api-keys \
 {
   "id": 1,
   "name": "my-analysis-key",
-  "key": "glyph_sk_abc123...",
-  "user_id": 1,
-  "created_at": "2025-01-01T00:00:00"
+  "key_prefix": "glp_abc1",
+  "permissions": ["read"],
+  "expires_at": null,
+  "is_active": true,
+  "last_used_at": null,
+  "created_at": "2025-01-01T00:00:00",
+  "secret": "glp_abc123..."
 }
 ```
 
@@ -142,9 +148,11 @@ curl -X POST http://localhost:8000/auth/api-keys \
 
 **Use an API Key:**
 
+API keys are sent in the `Authorization` header (the same header used for JWT tokens); the server falls back to an API-key lookup when the token is not a valid JWT:
+
 ```bash
-curl -H "X-API-Key: glyph_sk_abc123..." \
-  http://localhost:8000/api/v1/models/getModels
+curl -H "Authorization: Bearer glp_abc123..." \
+  http://localhost:8000/api/v1/predictions/getPredictionsList
 ```
 
 **List API Keys:**
@@ -168,41 +176,44 @@ curl -X DELETE http://localhost:8000/auth/api-keys/1 \
 ### Uploading a Binary
 
 1. Navigate to the **Upload** page from the main dashboard
-2. Fill in the form fields:
-   - **Binary File** — Select an ELF binary file (32-bit or 64-bit)
-   - **Model Name** — The name of the ML model to associate with this binary
-   - **ML Class Type** — The classification label for this binary (e.g., "malware", "legitimate", "rootkit")
-   - **Name** — A human-readable name for this analysis task
-   - **Training Data** — Toggle whether this binary is for training (`true`) or prediction (`false`)
-3. Click **Upload** to submit the binary for analysis
+2. Choose the mode with the **Generate Model** checkbox:
+   - **Checked (training mode)** — Shows **Model Configuration**:
+     - **Name** — The name of the ML model to associate with this binary
+     - **ML Class Type** — The classification label for this binary (e.g., "malware", "legitimate", "rootkit")
+   - **Unchecked (prediction mode)** — Shows **Prediction Configuration**:
+     - **Name** — A human-readable name for this analysis task
+     - **Select Model** — A previously trained model to run predictions with
+     - **ML Class Type** — The classification label for this binary
+3. Select or drag-and-drop an ELF binary file (32-bit or 64-bit)
+4. Submit the form to upload the binary
 
-The upload initiates a background task. You can monitor its status from the dashboard.
+The upload initiates a background task that validates, decompiles (Ghidra), and stores the raw functions of the binary. You can monitor its status from the dashboard.
 
 ### Training a Model
 
-Training requires uploading one or more binaries with the `training_data` flag set to `true`:
+Training is a two-step process: upload the binary, then run an ML training task on it:
 
-1. Upload binaries from known sources (e.g., confirmed malware samples, legitimate binaries)
-2. Each binary should be tagged with the same **Model Name** and appropriate **ML Class Type**
-3. After all binaries are processed, the model is automatically trained
+1. Upload binaries from known sources (e.g., confirmed malware samples, legitimate binaries) with the **Generate Model** checkbox checked
+2. Navigate to the **Create Model** page
+3. Select the uploaded binary, enter the **Model Name** and **ML Class Type**, and submit — this queues an `ml_training` task
 4. Check the **Models** page to see trained models and their associated functions
 
 **Example Training Workflow:**
 
-| Binary | Model Name | ML Class Type | Training Data |
-|--------|-----------|---------------|---------------|
-| `malware_sample1.elf` | `malware_detector` | `malware` | `true` |
-| `malware_sample2.elf` | `malware_detector` | `malware` | `true` |
-| `legit_binary1.elf` | `malware_detector` | `legitimate` | `true` |
-| `legit_binary2.elf` | `malware_detector` | `legitimate` | `true` |
+| Binary | Model Name | ML Class Type |
+|--------|-----------|---------------|
+| `malware_sample1.elf` | `malware_detector` | `malware` |
+| `malware_sample2.elf` | `malware_detector` | `malware` |
+| `legit_binary1.elf` | `malware_detector` | `legitimate` |
+| `legit_binary2.elf` | `malware_detector` | `legitimate` |
 
-After processing, the `malware_detector` model can classify functions in unknown binaries as either `malware` or `legitimate`.
+After the training task completes, the `malware_detector` model can classify functions in unknown binaries as either `malware` or `legitimate`.
 
 ### Making Predictions
 
-1. Upload an unknown binary with `training_data` set to `false`
-2. Specify the **Model Name** of a previously trained model
-3. Provide a unique **Task Name** for the prediction job
+1. Upload an unknown binary with the **Generate Model** checkbox unchecked (select a previously trained model in the prediction configuration)
+2. Navigate to the **Create Prediction** page
+3. Select the uploaded binary and the **Model Name** of a previously trained model, enter a **Task Name** for the prediction task, then submit — this queues an `ml_prediction` task
 4. After processing, view the prediction results on the **Predictions** page
 
 Each function in the analyzed binary will be classified with a probability score. Functions exceeding the configured `prediction_probability_threshold` (default: 50%) will be highlighted.
@@ -224,7 +235,7 @@ Each function in the analyzed binary will be classified with a probability score
 1. Navigate to the **Config** page
 2. Adjust the following settings:
    - **Max File Size (MB)** — Maximum allowed upload size (1–2048 MB)
-   - **CPU Cores** — Number of CPU cores for processing (1–32)
+   - **CPU Cores** — Number of CPU cores for processing (1 up to the machine's core count)
 3. Click **Save** to persist changes
 
 ---
@@ -244,7 +255,8 @@ The interactive API documentation (Swagger UI) is available at `http://localhost
 | `POST` | `/auth/refresh` | Refresh an access token |
 | `POST` | `/auth/change-password` | Change user password |
 | `GET` | `/auth/me` | Get current user profile |
-| `PUT` | `/auth/me` | Update user profile |
+| `POST` | `/auth/update-profile` | Update user profile |
+| `GET`/`POST` | `/auth/logout` | Log out (clears the `access_token_cookie` and `refresh_token_cookie` cookies) |
 | `POST` | `/auth/api-keys` | Create an API key |
 | `GET` | `/auth/api-keys` | List API keys |
 | `DELETE` | `/auth/api-keys/{id}` | Delete an API key |
@@ -254,28 +266,22 @@ The interactive API documentation (Swagger UI) is available at `http://localhost
 #### Upload a Binary
 
 ```
-POST /api/v1/uploadBinary
+POST /api/v1/binaries/uploadBinary
 ```
 
 **Form Data:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `file` | File | Yes | The binary file (ELF format) |
-| `training_data` | String | No | `"true"` for training, `"false"` for prediction (default: `"false"`) |
-| `model_name` | String | Yes | Name of the ML model |
-| `ml_class_type` | String | Yes | Classification label |
-| `name` | String | Yes | Human-readable task name |
+| `binary_file` | File | Yes | The binary file (ELF format) |
+| `name` | String | Yes | Human-readable name for this analysis |
 
 **Example:**
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/uploadBinary \
+curl -X POST http://localhost:8000/api/v1/binaries/uploadBinary \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -F "file=@/path/to/binary.elf" \
-  -F "training_data=true" \
-  -F "model_name=malware_detector" \
-  -F "ml_class_type=malware" \
+  -F "binary_file=@/path/to/binary.elf" \
   -F "name=sample_analysis_1"
 ```
 
@@ -286,23 +292,101 @@ curl -X POST http://localhost:8000/api/v1/uploadBinary \
   "success": true,
   "message": "Binary uploaded successfully",
   "data": {
+    "binary_id": 1,
     "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
   }
 }
 ```
 
-### Model Management API
+The `uuid` can be used to track the background decompilation task via the Task Status API. Once the upload task completes, the binary's raw functions are stored and the binary can be used for training or prediction tasks.
 
-#### List All Models
+### Task Execution API
+
+#### Execute a Task
 
 ```
-GET /api/v1/models/getModels
+POST /api/v1/tasks/execute
+```
+
+Queues an analysis task on a previously uploaded binary. The task runs in the background; track it with the returned `task_uuid`.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `binary_id` | int | Yes | Database id of the uploaded binary |
+| `task_type` | string | Yes | One of: `ml_training`, `ml_prediction`, `code_reuse`, `dangerous_functions`, `similarity_computation` |
+| `task_name` | string | Yes | Human-readable name for the task (1–128 chars) |
+| `model_name` | string | For ML tasks | Name of the model (required for `ml_training` and `ml_prediction`) |
+| `ml_class_type` | string | For training | Classification label (required for `ml_training`) |
+
+**Example (ML training):**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/tasks/execute \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "binary_id": 1,
+    "task_type": "ml_training",
+    "task_name": "malware_detector",
+    "model_name": "malware_detector",
+    "ml_class_type": "malware"
+  }'
+```
+
+**Example (ML prediction):**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/tasks/execute \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "binary_id": 2,
+    "task_type": "ml_prediction",
+    "task_name": "unknown_binary_analysis",
+    "model_name": "malware_detector"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Task ml_training queued successfully",
+  "data": {
+    "task_uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "task_type": "ml_training",
+    "binary_id": 1,
+    "status": "starting"
+  }
+}
+```
+
+#### Get Task Status
+
+```
+GET /api/v1/tasks/{task_uuid}/status
 ```
 
 ```bash
 curl -H "Authorization: Bearer $ACCESS_TOKEN" \
-  http://localhost:8000/api/v1/models/getModels
+  "http://localhost:8000/api/v1/tasks/a1b2c3d4-e5f6-7890-abcd-ef1234567890/status"
 ```
+
+#### Get Task Results
+
+```
+GET /api/v1/tasks/{task_uuid}/results
+```
+
+```bash
+curl -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "http://localhost:8000/api/v1/tasks/a1b2c3d4-e5f6-7890-abcd-ef1234567890/results"
+```
+
+### Model Management API
 
 #### Get Functions for a Model
 
@@ -356,6 +440,14 @@ curl -X DELETE -H "Authorization: Bearer $ACCESS_TOKEN" \
 POST /api/v1/predictions/predict
 ```
 
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `modelName` | string | Yes | Name of the trained model to use |
+| `taskName` | string | Yes | Unique name for the prediction task |
+| `uuid` | string | No | Optional custom UUID for the task |
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/predictions/predict \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
@@ -381,34 +473,58 @@ curl -X POST http://localhost:8000/api/v1/predictions/predict \
 #### Get All Predictions
 
 ```
-GET /api/v1/predictions/getPredictions
+GET /api/v1/predictions/getPredictionsList?page={page}&page_size={page_size}
 ```
+
+Returns a paginated list of prediction tasks (default: `page=1`, `page_size=50`, max `page_size=200`).
 
 ```bash
 curl -H "Authorization: Bearer $ACCESS_TOKEN" \
-  http://localhost:8000/api/v1/predictions/getPredictions
+  "http://localhost:8000/api/v1/predictions/getPredictionsList?page=1&page_size=50"
 ```
 
 #### Get Prediction Details
 
 ```
-GET /api/v1/predictions/getPrediction?task_name={task_name}
+GET /api/v1/predictions/getPrediction?model_name={model_name}&task_name={task_name}
 ```
 
 ```bash
 curl -H "Authorization: Bearer $ACCESS_TOKEN" \
-  "http://localhost:8000/api/v1/predictions/getPrediction?task_name=unknown_binary_analysis"
+  "http://localhost:8000/api/v1/predictions/getPrediction?model_name=malware_detector&task_name=unknown_binary_analysis"
 ```
 
 #### Get Prediction Function Details
 
 ```
-GET /api/v1/predictions/getPredictionFunction?task_name={task_name}&function_name={function_name}
+GET /api/v1/predictions/getPredictionDetails?model_name={model_name}&task_name={task_name}&function_name={function_name}
 ```
 
 ```bash
 curl -H "Authorization: Bearer $ACCESS_TOKEN" \
-  "http://localhost:8000/api/v1/predictions/getPredictionFunction?task_name=unknown_binary_analysis&function_name=entry_0x401000"
+  "http://localhost:8000/api/v1/predictions/getPredictionDetails?model_name=malware_detector&task_name=unknown_binary_analysis&function_name=entry_0x401000"
+```
+
+#### Delete a Prediction
+
+```
+DELETE /api/v1/predictions/deletePrediction?task_name={task_name}
+```
+
+```bash
+curl -X DELETE -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "http://localhost:8000/api/v1/predictions/deletePrediction?task_name=unknown_binary_analysis"
+```
+
+#### Delete Multiple Predictions
+
+```
+DELETE /api/v1/predictions/deletePredictions?task_names={comma_separated_names}
+```
+
+```bash
+curl -X DELETE -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "http://localhost:8000/api/v1/predictions/deletePredictions?task_names=task1,task2,task3"
 ```
 
 ### Task Status API
@@ -437,11 +553,13 @@ curl -H "Authorization: Bearer $ACCESS_TOKEN" \
 ```
 
 Possible status values:
-- `pending` — Task is queued
-- `running` — Task is being processed
+- `starting` — Task has been queued
+- `processing` — Task is being processed
 - `completed` — Task finished successfully
-- `failed` — Task encountered an error
-- `UUID Not Found` — The UUID does not exist
+- `error` — Task encountered an error
+- `failed` / `cancelled` — Terminal states that stop SSE streaming
+
+If the UUID does not exist, the endpoint returns a `404` with error code `UUID_NOT_FOUND`.
 
 #### Update Task Status
 
@@ -459,24 +577,40 @@ curl -X POST http://localhost:8000/api/v1/status/statusUpdate \
   }'
 ```
 
-### Configuration API
-
-#### Get Current Configuration
+#### Stream Task Status (SSE)
 
 ```
-GET /api/v1/config
+GET /api/v1/status/streamStatus?uuid={uuid}&interval={interval}&timeout={timeout}
 ```
+
+Streams real-time status updates using Server-Sent Events until the task reaches a terminal state or the timeout is exceeded.
+
+| Query Param | Type | Default | Description |
+|-------------|------|---------|-------------|
+| `uuid` | string | — | UUID of the task to monitor |
+| `interval` | float | 2.0 | Polling interval in seconds (0.5–30) |
+| `timeout` | int | 600 | Maximum streaming duration in seconds (10–3600) |
 
 ```bash
-curl -H "Authorization: Bearer $ACCESS_TOKEN" \
-  http://localhost:8000/api/v1/config
+curl -N -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "http://localhost:8000/api/v1/status/streamStatus?uuid=a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 ```
+
+### Configuration API
 
 #### Save Configuration
 
 ```
 POST /api/v1/config/save
 ```
+
+All fields are optional; only provided fields are updated. Changes are persisted to `config.yml`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `max_file_size_mb` | int | Maximum upload file size in MB (1–2048) |
+| `cpu_cores` | int | Number of CPU cores for processing (1 up to the machine's core count) |
+| `llm` | object | Optional per-user LLM endpoint configuration (`enabled`, `base_url`, `port`, `api_path`, `model`, `api_key`, `timeout_seconds`, `temperature`, `max_tokens`, `max_concurrent`) |
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/config/save \
@@ -488,16 +622,41 @@ curl -X POST http://localhost:8000/api/v1/config/save \
   }'
 ```
 
+#### Test LLM Endpoint
+
+```
+POST /api/v1/config/llm-test
+```
+
+Sends a minimal prompt to the configured OpenAI-compatible endpoint to verify connectivity. Returns `ok`/`model`/`elapsed_ms` on success, or `ok`/`error` when the endpoint is reachable but misbehaves. Returns `503` with error code `LLM_NOT_CONFIGURED` when the endpoint cannot be built from the current configuration.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/config/llm-test \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
 ---
 
 ## Processing Pipeline
 
-Glyph processes binaries through a pluggable pipeline architecture. The pipeline steps differ between training and prediction modes.
+Glyph processes binaries through a pluggable pipeline architecture. The pipeline steps differ between upload, training, and prediction modes.
+
+### Upload Pipeline
+
+```
+Upload → Validate → Decompile (Ghidra) → Save Raw Functions
+```
+
+| Step | Description |
+|------|-------------|
+| **ValidationStep** | Validates file existence, readability, and size limits |
+| **DecompileStep** | Uses Ghidra headless mode to decompile the binary |
+| **SaveRawFunctionsStep** | Persists raw decompiled functions to the database |
 
 ### Training Pipeline
 
 ```
-Upload → Validate → Decompile (Ghidra) → Tokenize → Filter → Extract Features → Train Model → Save
+Upload → Validate → Decompile (Ghidra) → Tokenize → Filter → Extract Features → Train Model
 ```
 
 | Step | Description |
@@ -506,17 +665,16 @@ Upload → Validate → Decompile (Ghidra) → Tokenize → Filter → Extract F
 | **DecompileStep** | Uses Ghidra headless mode to decompile the binary |
 | **TokenizeStep** | Extracts code tokens from decompiled functions |
 | **FilterStep** | Normalizes addresses, function names, and variable names; removes comments |
-| **FeatureExtractStep** | Converts token sequences into ML features using TF-IDF |
-| **TrainStep** | Trains a scikit-learn classifier on the extracted features |
-| **Save** | Persists the trained model using joblib serialization |
+| **FeatureExtractStep** | Extracts token sequences from filtered functions and stores them in the context for the ML pipeline |
+| **TrainStep** | Trains a scikit-learn classifier on the extracted features and persists the model using joblib serialization |
 
 ### Prediction Pipeline
 
 ```
-Upload → Validate → Decompile (Ghidra) → Tokenize → Filter → Extract Features → Predict → Save
+Upload → Validate → Decompile (Ghidra) → Tokenize → Filter → Extract Features → Predict
 ```
 
-The prediction pipeline replaces `TrainStep` with `PredictStep`, which classifies each function using the trained model.
+The prediction pipeline replaces `TrainStep` with `PredictStep`, which classifies each function using the trained model. When functions are already stored in the database (from a previous upload), the pipeline skips validation and decompilation and loads the stored functions instead.
 
 ---
 
@@ -533,8 +691,44 @@ Glyph is configured via [`config.yml`](../config.yml). The following settings ar
 | `jwt_algorithm` | string | `HS256` | JWT signing algorithm |
 | `access_token_expire_minutes` | int | `15` | Access token lifetime in minutes |
 | `refresh_token_expire_days` | int | `7` | Refresh token lifetime in days |
+| `upload_folder` | path | `./binaries` | Directory where uploaded binaries are stored |
 | `use_https` | bool | `false` | Enable HTTPS/TLS mode |
+| `trusted_proxies` | list | `[]` | Trusted proxy IPs/CIDRs for `X-Forwarded-For` |
 | `auth_enabled` | bool | `true` | Enable/disable authentication |
+| `llm` | object | *(see below)* | LLM-assisted analysis settings (nested block) |
+
+### LLM Configuration
+
+The optional `llm` block configures the OpenAI-compatible endpoint used for LLM-assisted analysis of dangerous function findings. It is disabled by default; individual users can override these global defaults from the **Profile → LLM** tab.
+
+```yaml
+llm:
+  enabled: false
+  base_url: https://api.openai.com
+  port: null                    # explicit port; scheme default (80/443) when omitted
+  api_path: /v1/chat/completions
+  model: your-model
+  api_key: ""
+  timeout_seconds: 900.0        # 60–600+ per-request timeout
+  temperature: 0.1              # 0.0–2.0
+  max_tokens: null              # optional cap on generated tokens
+  max_concurrent: 5             # 1–20 parallel analysis requests
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `false` | Enable LLM-assisted analysis |
+| `base_url` | `https://your.model.url` | Base URL of the endpoint (scheme + host) |
+| `port` | *(scheme default)* | Explicit port; 443 for HTTPS and 80 for HTTP are omitted from the URL |
+| `api_path` | `/v1/chat/completions` | Path of the chat completions endpoint |
+| `model` | `your model here` | Model name sent in each request |
+| `api_key` | *(empty)* | Sent as `Authorization: Bearer <key>` |
+| `timeout_seconds` | `900.0` | Per-request timeout (seconds) |
+| `temperature` | `0.1` | Sampling temperature, 0.0–2.0 |
+| `max_tokens` | *(none)* | Maximum tokens to generate per completion |
+| `max_concurrent` | `5` | Maximum parallel analysis requests, 1–20 |
+
+Each `llm` field can also be overridden with a `GLYPH_LLM_`-prefixed environment variable (nested settings use `_` as the delimiter), e.g. `GLYPH_LLM_ENABLED=true` or `GLYPH_LLM_BASE_URL=https://api.openai.com`. As with all settings, a value present in `config.yml` takes precedence over the environment.
 
 ### Logging Configuration
 
@@ -564,23 +758,43 @@ logging:
 
 ## Environment Variables
 
-All configuration settings can be overridden via environment variables using the `GLYPH_` prefix:
+Configuration is loaded from `config.yml` first. Environment variables with the `GLYPH_` prefix are consulted **only for keys that are absent from `config.yml`** — if the file already defines a key, the file value takes precedence (see `settings_customise_sources` in [`app/config/settings.py`](../app/config/settings.py)).
 
 | Environment Variable | Config Key | Description |
 |---------------------|------------|-------------|
-| `GLYPH_CPU_CORES` | `cpu_cores` | Override CPU cores |
-| `GLYPH_MAX_FILE_SIZE_MB` | `max_file_size_mb` | Override max file size |
-| `GLYPH_JWT_SECRET_KEY` | `jwt_secret_key` | Override JWT secret |
-| `GLYPH_ACCESS_TOKEN_EXPIRE_MINUTES` | `access_token_expire_minutes` | Override token expiry |
-| `GLYPH_USE_HTTPS` | `use_https` | Enable HTTPS mode |
-| `GLYPH_AUTH_ENABLED` | `auth_enabled` | Enable/disable auth |
+| `GLYPH_CPU_CORES` | `cpu_cores` | CPU cores (used only if not set in `config.yml`) |
+| `GLYPH_MAX_FILE_SIZE_MB` | `max_file_size_mb` | Max file size (used only if not set in `config.yml`) |
+| `GLYPH_JWT_SECRET_KEY` | `jwt_secret_key` | JWT secret (used only if not set in `config.yml`) |
+| `GLYPH_ACCESS_TOKEN_EXPIRE_MINUTES` | `access_token_expire_minutes` | Token expiry (used only if not set in `config.yml`) |
+| `GLYPH_USE_HTTPS` | `use_https` | Enable HTTPS mode (used only if not set in `config.yml`) |
+| `GLYPH_AUTH_ENABLED` | `auth_enabled` | Enable/disable auth (used only if not set in `config.yml`) |
+| `GLYPH_UPLOAD_FOLDER` | `upload_folder` | Binary storage directory |
+| `GLYPH_TRUSTED_PROXIES` | `trusted_proxies` | Trusted proxy IPs/CIDRs (comma-separated) |
+| `GLYPH_LLM_ENABLED` | `llm.enabled` | Enable LLM analysis (nested, `_`-delimited) |
+| `GLYPH_LLM_BASE_URL` | `llm.base_url` | LLM endpoint base URL |
+| `GLYPH_LLM_API_PATH` | `llm.api_path` | LLM chat completions path |
+| `GLYPH_LLM_MODEL` | `llm.model` | LLM model name |
+| `GLYPH_LLM_API_KEY` | `llm.api_key` | LLM API key |
+| `GLYPH_LLM_TIMEOUT_SECONDS` | `llm.timeout_seconds` | LLM per-request timeout |
+| `GLYPH_LLM_TEMPERATURE` | `llm.temperature` | LLM sampling temperature |
+| `GLYPH_LLM_MAX_TOKENS` | `llm.max_tokens` | LLM max generated tokens |
+| `GLYPH_LLM_MAX_CONCURRENT` | `llm.max_concurrent` | LLM max parallel requests |
 
-**Example:**
+A few more values are read directly from the environment, independent of `config.yml`:
+
+| Environment Variable | Description |
+|---------------------|-------------|
+| `GLYPH_DATA_DIR` | Data directory for the SQLite databases (default: `data`) |
+| `GLYPH_RATE_LIMIT_LOGIN_MAX` / `GLYPH_RATE_LIMIT_LOGIN_WINDOW` | Override the login rate limit |
+| `GLYPH_RATE_LIMIT_REGISTER_MAX` / `GLYPH_RATE_LIMIT_REGISTER_WINDOW` | Override the registration rate limit |
+| `GLYPH_RATE_LIMIT_PASSWORD_CHANGE_MAX` / `GLYPH_RATE_LIMIT_PASSWORD_CHANGE_WINDOW` | Override the password-change rate limit |
+| `GLYPH_RATE_LIMIT_REFRESH_MAX` / `GLYPH_RATE_LIMIT_REFRESH_WINDOW` | Override the token-refresh rate limit |
+
+**Example (setting values that are not defined in `config.yml`):**
 
 ```bash
-export GLYPH_JWT_SECRET_KEY="your-strong-random-secret-key"
-export GLYPH_CPU_CORES=4
-export GLYPH_MAX_FILE_SIZE_MB=1024
+export GLYPH_USE_HTTPS=true
+export GLYPH_AUTH_ENABLED=false
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -597,7 +811,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 **Solution:** Ensure the `GHIDRA_INSTALL_DIR` environment variable points to a valid Ghidra installation directory:
 
 ```bash
-export GHIDRA_INSTALL_DIR=/opt/ghidra/ghidra_11.0_PUBLIC
+export GHIDRA_INSTALL_DIR=/opt/ghidra/ghidra_12.0_PUBLIC
 ```
 
 The directory should contain `support/`, `GhidraRun`, and other Ghidra runtime files.
@@ -629,7 +843,7 @@ Or log in again to obtain fresh tokens.
 - `application/x-sharedlib`
 - `application/octet-stream`
 
-#### Task Stuck in "pending" Status
+#### Task Stuck in "starting" Status
 
 **Solution:** Check the application logs for errors:
 
@@ -652,26 +866,29 @@ Common causes include Ghidra process failures, insufficient disk space, or the b
 
 **Warning:** `Using default JWT secret key`
 
-**Solution:** Set a strong JWT secret key in production:
+**Solution:** Set a strong JWT secret key in production. Because `config.yml` takes precedence over environment variables, the reliable fix is to set `jwt_secret_key` directly in `config.yml` (or remove the key from the file so the `GLYPH_JWT_SECRET_KEY` environment variable is used):
 
 ```bash
 # Generate a random secret
 python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
 
-# Set it in config.yml or via environment variable
-export GLYPH_JWT_SECRET_KEY="your-generated-secret-here"
+```yaml
+# config.yml
+jwt_secret_key: your-generated-secret-here
 ```
 
 ### Rate Limiting
 
-Glyph applies rate limiting to authentication endpoints to prevent brute-force attacks:
+Glyph applies rate limiting to authentication endpoints and LLM analysis to prevent brute-force attacks and excessive LLM usage:
 
 | Endpoint | Limit |
 |----------|-------|
-| Login | 5 requests per minute |
-| Registration | 3 requests per minute |
-| Password Change | 3 requests per minute |
+| Login | 10 requests per minute |
+| Registration | 5 requests per 5 minutes |
+| Password Change | 5 requests per 5 minutes |
 | Token Refresh | 10 requests per minute |
+| LLM Analysis (`/llm-analysis`, `/llm-test`) | 10 requests per minute |
 
 If you receive a `429 Too Many Requests` response, wait before retrying.
 

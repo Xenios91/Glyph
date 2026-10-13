@@ -32,12 +32,13 @@
             }
         });
 
-        // Close mobile menu on Escape
+        // Close mobile menu on Escape and return focus to the toggle
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
+            if (e.key === 'Escape' && navLinks.classList.contains('is-open')) {
                 navToggle.setAttribute('aria-expanded', 'false');
                 navToggle.classList.remove('is-active');
                 navLinks.classList.remove('is-open');
+                navToggle.focus();
             }
         });
     }
@@ -53,6 +54,7 @@
             const href = link.getAttribute('href');
             if (href && path.startsWith(href) && href !== '/') {
                 link.classList.add('nav-active');
+                link.setAttribute('aria-current', 'page');
 
                 // Highlight parent dropdown toggle
                 const dropdown = link.closest('.nav-dropdown');
@@ -74,28 +76,21 @@
             }
         });
 
-        // Handle top-level links (for unauthenticated users)
-        document.querySelectorAll('.nav-links > a').forEach(function (link) {
-            const href = link.getAttribute('href');
-            if (href && path.startsWith(href) && href !== '/') {
-                link.classList.add('nav-active');
-            }
+        // Clear stale aria-current markers before applying new state
+        document.querySelectorAll('.nav-links a[aria-current]').forEach(function (link) {
+            link.removeAttribute('aria-current');
         });
 
-        // Handle home page active state
-        if (path === '/') {
-            const homeLink = document.querySelector('.nav-dropdown-menu a[href="/"]');
-            if (homeLink) {
-                homeLink.classList.add('nav-active');
-                const homeDropdown = homeLink.closest('.nav-dropdown');
-                if (homeDropdown) {
-                    const toggle = homeDropdown.querySelector('.nav-dropdown-toggle');
-                    if (toggle) {
-                        toggle.classList.add('active');
-                    }
-                }
+        // Handle top-level links (HOME and unauthenticated links)
+        document.querySelectorAll('.nav-links > a').forEach(function (link) {
+            const href = link.getAttribute('href');
+            if (!href) return;
+            const isMatch = href === '/' ? path === '/' : path.startsWith(href);
+            if (isMatch) {
+                link.classList.add('nav-active');
+                link.setAttribute('aria-current', 'page');
             }
-        }
+        });
     }
 
     /**
@@ -216,8 +211,15 @@
                 }
             }
 
-            // Close dropdowns and sub-dropdowns on Escape
+            // Close dropdowns and sub-dropdowns on Escape,
+            // returning focus to the toggle that was open
             if (e.key === 'Escape') {
+                const openSub = document.querySelector('.nav-dropdown-sub-menu.is-open');
+                const openMenu = document.querySelector('.nav-dropdown-menu.is-open');
+                const focusTarget = openSub
+                    ? openSub.closest('.nav-dropdown-sub')?.querySelector('.nav-dropdown-sub-toggle')
+                    : openMenu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
+
                 document.querySelectorAll('.nav-dropdown-menu').forEach(menu => {
                     menu.classList.remove('is-open');
                 });
@@ -232,6 +234,10 @@
                     toggle.setAttribute('aria-expanded', 'false');
                     toggle.classList.remove('active');
                 });
+
+                if (focusTarget) {
+                    focusTarget.focus();
+                }
             }
         });
     }

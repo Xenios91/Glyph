@@ -133,36 +133,11 @@ def _extract_usage_context(tokens: list[str], dangerous_function_name: str) -> l
     return unique_lines[:10]
 
 
-def _scan_function_names(functions: list[dict[str, Any]]) -> list[ScanResult]:
-    """Scan function names against the dangerous function catalog.
-
-    Previously detected functions whose names directly match dangerous function
-    names from the catalog (e.g., a function named 'strcpy'). However, this
-    produced misleading self-references like "sprintf found in sprintf" since
-    such functions are typically library exports or import stubs, not code
-    that uses the dangerous function.
-
-    The body scan (_scan_function_bodies) already properly detects dangerous
-    function calls within function bodies and skips self-references, so this
-    name-based scan is no longer needed.
-
-    Args:
-        functions: List of function dictionaries.
-
-    Returns:
-        Empty list (name-based scan is deprecated in favor of body scan).
-
-    """
-    # Name-based scan removed to avoid self-referencing false positives.
-    # The body scan (_scan_function_bodies) handles all real detections.
-    return []
-
-
 def scan_functions(functions: list[dict[str, Any]]) -> list[ScanResult]:
     """Scan a list of decompiled functions for calls to dangerous functions.
 
-    Scans each function's name and decompiled token list for references to
-    dangerous functions from the catalog.
+    Scans each function's decompiled token list for references to dangerous
+    functions from the catalog.
 
     Args:
         functions: List of function dictionaries from Ghidra decompilation.
@@ -172,14 +147,8 @@ def scan_functions(functions: list[dict[str, Any]]) -> list[ScanResult]:
         List of ScanResult sorted by severity (Critical first).
 
     """
-    # Scan function names for direct matches
-    name_results = _scan_function_names(functions)
-
     # Scan function bodies for dangerous function calls
-    body_results = _scan_function_bodies(functions)
-
-    # Combine results
-    results = name_results + body_results
+    results = _scan_function_bodies(functions)
 
     # Sort by severity
     results.sort(key=lambda r: get_severity_order(r.severity))

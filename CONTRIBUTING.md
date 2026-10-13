@@ -57,13 +57,7 @@ playwright install chromium
 
 ### Configuration
 
-Copy and modify the configuration file:
-
-```bash
-cp config.yml config.local.yml
-```
-
-Update `config.local.yml` with your settings, especially:
+The application reads its settings from [`config.yml`](config.yml) at the repository root. Edit that file directly with your local settings (there is no separate local config file the app reads), especially:
 - `jwt_secret_key`: Use a strong random secret
 - `cpu_cores`: Set to your available cores
 - `upload_folder`: Path for binary storage

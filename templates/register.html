@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/auth_style.css') }}">
+<link rel="stylesheet" href="{{ static_url(request, 'css/auth_style.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -52,5 +52,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', path='js/register.js') }}" defer></script>
+<script src="{{ static_url(request, 'js/register.js') }}" defer></script>
 {% endblock %}

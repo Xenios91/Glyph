@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/config_style.css') }}">
+<link rel="stylesheet" href="{{ static_url(request, 'css/config_style.css') }}">
 {% endblock head %}
 {% block content %}
 {% set max_file_size = current_max_file_size | default(512) %}
@@ -88,11 +88,10 @@
                                 min="1" max="{{ max_cores }}" value="{{ cpu_cores }}"
                                 aria-label="Exact number of CPU cores for analysis workers">
                             <span class="unit-label">cores</span>
+                            </div>
                         </div>
-                    </div>
+                    </article>
                 </div>
-            </article>
-        </div>
 
         <!-- Action Buttons -->
         <div class="config-actions btn-group">
@@ -115,5 +114,5 @@
 {% endblock content %}
 
 {% block scripts %}
-<script src="{{ url_for('static', path='js/config.js') }}" defer></script>
+<script src="{{ static_url(request, 'js/config.js') }}" defer></script>
 {% endblock scripts %}

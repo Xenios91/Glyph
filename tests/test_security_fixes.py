@@ -12,6 +12,8 @@ from app.core.rate_limiter import rate_limit_key_func as get_client_ip
 from app.utils.secure_deserializer import BLOCKED_BUILTINS
 from fastapi.testclient import TestClient
 
+pytestmark = pytest.mark.security
+
 
 class TestXSSPrevention:
     """Test that Jinja2 auto-escaping prevents XSS when rendering user-controlled content.

@@ -1,10 +1,14 @@
-version: "3.9"
-
+# Note: the image is "API/UI only" (no bundled JDK/Ghidra). For decompilation,
+# run Glyph where a JDK + Ghidra 12.0+ + pyghidra are available and
+# GHIDRA_INSTALL_DIR is set (see the Dockerfile header). Rate limiting is
+# in-memory (slowapi), so no external cache/queue service is required.
 services:
   glyph:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GLYPH_VERSION: "0.3.0"
     container_name: glyph
     restart: unless-stopped
     ports:
@@ -19,7 +23,6 @@ services:
     volumes:
       - ./binaries:/app/binaries
       - ./logs:/app/logs
-      - ./models:/app/models
       - ./data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -27,24 +30,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    depends_on:
-      - redis
-
-  redis:
-    image: redis:7-alpine
-    container_name: glyph-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-volumes:
-  redis_data:
-    driver: local

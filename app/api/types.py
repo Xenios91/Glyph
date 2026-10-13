@@ -5,6 +5,9 @@ from typing import Annotated
 
 from pydantic import StringConstraints
 
+# Accept header value used to detect HTML browser requests (vs. API/JSON clients).
+ACCEPT_TYPE: str = "text/html"
+
 
 class TaskType(StrEnum):
     """Types of analysis tasks that can be performed on a binary."""
@@ -22,7 +25,7 @@ FunctionName = Annotated[str, StringConstraints(strip_whitespace=True, min_lengt
 
 TaskName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
 
-UUID = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
+TaskUUID = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
 
 BinaryName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=256)]
 
