@@ -264,11 +264,9 @@
                     var row = document.createElement('tr');
                     row.classList.add('hover-row');
                     var entrypoint = fn.entrypoint ? '0x' + fn.entrypoint : 'N/A';
-                    var lineCount = fn.raw_code_lines || 0;
                     row.innerHTML =
                         '<td><span class="binary-name">' + escapeHtml(fn.function_name) + '</span></td>' +
-                        '<td>' + entrypoint + '</td>' +
-                        '<td><span class="function-badge">' + lineCount + '</span></td>';
+                        '<td>' + entrypoint + '</td>';
                     tbody.appendChild(row);
                 });
             }

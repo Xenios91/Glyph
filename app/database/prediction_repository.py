@@ -8,6 +8,7 @@ from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import ColumnElement
 
 from app.database.models import Prediction, get_utc_now
 from app.database.session_handler import close_async_session, get_async_session
@@ -131,6 +132,59 @@ class PredictionRepository:
             await close_async_session(session)
 
     @staticmethod
+    async def get_predictions_metadata_for_user(user_id: int) -> list[dict[str, Any]]:
+        """Get lightweight prediction metadata (no BLOB deserialization).
+
+        Selects only the plain columns ``task_name``, ``model_name``,
+        ``function_count`` and ``user_id`` for the rows the given user may
+        access. Mirrors the ownership rule used by ``can_access``: unowned
+        rows (``user_id IS NULL``) are visible to everyone, owned rows only
+        to their owner, and the anonymous user (auth disabled, id 0) sees
+        only unowned rows.
+
+        Unlike :meth:`get_predictions_list`, this never loads or
+        deserializes the ``functions_data`` BLOBs, so it stays fast and
+        memory-light even for predictions with large function sets.
+
+        Args:
+            user_id: The current user's id (0 for anonymous).
+
+        Returns:
+            A list of dicts with keys ``task_name``, ``model_name``,
+            ``function_count`` and ``user_id``, ordered by task name.
+
+        """
+        session: AsyncSession = await get_async_session("predictions")
+        try:
+            where: ColumnElement[bool] = (
+                Prediction.user_id.is_(None)
+                if user_id == 0
+                else or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+            )
+            result = await session.execute(
+                select(
+                    Prediction.task_name,
+                    Prediction.model_name,
+                    Prediction.function_count,
+                    Prediction.user_id,
+                ).where(where).order_by(Prediction.task_name)
+            )
+            return [
+                {
+                    "task_name": row.task_name,
+                    "model_name": row.model_name,
+                    "function_count": row.function_count or 0,
+                    "user_id": row.user_id,
+                }
+                for row in result.all()
+            ]
+        except sa_exc.SQLAlchemyError:
+            logger.exception("Failed to retrieve prediction metadata for user {}", user_id)
+            raise
+        finally:
+            await close_async_session(session)
+
+    @staticmethod
     async def get(task_name: str, model_name: str) -> PredictionResult | None:
         """Retrieve and deserialize a Prediction object from the database.
 
@@ -203,6 +257,7 @@ class PredictionRepository:
                 task_name=name,
                 model_name=model_name,
                 functions_data=functions_serialized,
+                function_count=len(functions),
                 user_id=user_id,
                 created_at=now,
                 modified_at=now,
@@ -211,6 +266,7 @@ class PredictionRepository:
                 index_elements=[Prediction.task_name, Prediction.model_name],
                 set_={
                     Prediction.functions_data: ins.excluded.functions_data,
+                    Prediction.function_count: ins.excluded.function_count,
                     Prediction.modified_at: ins.excluded.modified_at,
                 },
             )

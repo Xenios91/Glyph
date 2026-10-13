@@ -115,13 +115,13 @@ async function deleteSelectedPredictions() {
     if (!confirmed) return;
 
     try {
-        const response = await authenticatedFetch('/api/v1/predictions/deletePredictions', {
+        const queryString = taskNames.map(encodeURIComponent).join(',');
+        const response = await authenticatedFetch(
+            `/api/v1/predictions/deletePredictions?task_names=${queryString}`, {
             method: 'DELETE',
             headers: {
-                'Content-Type': 'application/json',
                 'Accept': 'application/json'
-            },
-            body: JSON.stringify({ task_names: taskNames })
+            }
         });
 
         const data = await response.json();

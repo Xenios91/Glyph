@@ -16,7 +16,7 @@ from markupsafe import escape
 from pydantic import BaseModel
 
 from app.api.types import FunctionName, ModelName, TaskName
-from app.auth.dependencies import assert_owned, can_access, get_current_active_user
+from app.auth.dependencies import assert_owned, get_current_active_user
 from app.database.function_repository import FunctionRepository
 from app.database.models import User
 from app.database.prediction_repository import PredictionRepository
@@ -197,17 +197,18 @@ async def get_predictions_list(
         Success response with a paginated list of prediction tasks.
 
     """
-    all_predictions, total = await PredictionService.get_predictions_list(offset=0, limit=10000)
-    # Scope to rows the current user may access (own + legacy/unowned).
-    all_predictions = [p for p in all_predictions if can_access(p, current_user)]
-    total = len(all_predictions)
+    # Lightweight metadata-only query (no BLOB deserialization), scoped to the
+    # rows the current user may access (own + legacy/unowned).
+    all_predictions, total = await PredictionService.get_predictions_list(
+        user_id=current_user.id, offset=0, limit=10000,
+    )
     offset = (page - 1) * page_size
     page_predictions = all_predictions[offset : offset + page_size]
 
     items: list[dict[str, Any]] = [
         {
-            "task_name": prediction.task_name,
-            "model_name": prediction.model_name,
+            "task_name": prediction["task_name"],
+            "model_name": prediction["model_name"],
         }
         for prediction in page_predictions
     ]
@@ -341,10 +342,11 @@ async def get_prediction_details(
         owner = await PredictionRepository.get_owner_by_task(task_name)
         assert_owned(types.SimpleNamespace(user_id=owner), current_user, "prediction")
 
-        prediction_data = await PredictionRepository.get_prediction_function(task_name, model_name, function_name)
+        _prediction_data, prediction_tokens = await PredictionService.get_prediction_function_details(
+            task_name, model_name, function_name,
+        )
 
         model_tokens = format_code(model_info.tokens)
-        prediction_tokens = format_code(prediction_data.get("tokens", "") if prediction_data else "")
 
     except (TypeError, IndexError, KeyError, AttributeError):
         logger.exception(

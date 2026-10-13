@@ -27,7 +27,6 @@ dependencies = [
     "Jinja2>=3.1.6",
     "joblib>=1.5.3",
     "numpy>=2.4.6",
-    "pandas>=3.0.3",
     "scikit-learn>=1.9.0",
     "scipy>=1.17.1",
     "pydantic>=2.13.4",
@@ -169,12 +168,11 @@ module = [
     "loguru.*",
     "asgi_correlation_id.*",
     "playwright.*",
-    "pandas",
 ]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["sklearn.*", "joblib.*", "pandas.*"]
+module = ["sklearn.*", "joblib.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

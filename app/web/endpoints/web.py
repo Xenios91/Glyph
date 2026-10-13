@@ -34,6 +34,7 @@ from app.database.models import User
 from app.database.prediction_repository import PredictionRepository
 from app.database.repository import UserRepository
 from app.processing.task_management import TaskManager
+from app.services.prediction_service import PredictionService
 from app.templates import templates
 from app.utils.common import build_prediction_details_response, format_code
 
@@ -222,14 +223,14 @@ async def get_list_predictions(
     request: Request, current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> dict[str, list[dict[str, Any]]] | HTMLResponse:
     """Obtain all predictions available"""
-    predictions = [
-        p for p in await PredictionRepository.get_predictions_list() if can_access(p, current_user)
-    ]
+    # Lightweight metadata-only query (no BLOB deserialization), scoped to the
+    # rows the current user may access (own + legacy/unowned).
+    predictions = await PredictionRepository.get_predictions_metadata_for_user(current_user.id)
 
     accept = request.headers.get("Accept", "")
 
     if ACCEPT_TYPE not in accept:
-        return {"predictions": [p.__dict__ for p in predictions]}
+        return {"predictions": predictions}
 
     return templates.TemplateResponse(
         request, "get_predictions.html", {"title": "Predictions List", "predictions": predictions, "user": current_user},
@@ -251,7 +252,9 @@ async def get_prediction_details(
 
     try:
         model_info = await FunctionRepository.get(model_name, func_name)
-        prediction_data = await PredictionRepository.get_prediction_function(task_name, model_name, func_name)
+        prediction_data, prediction_tokens = await PredictionService.get_prediction_function_details(
+            task_name, model_name, func_name,
+        )
 
         if not model_info:
             raise HTTPException(status_code=404, detail="Function not found in model")
@@ -264,7 +267,6 @@ async def get_prediction_details(
         assert_owned(types.SimpleNamespace(user_id=pred_owner_id), current_user, "prediction")
 
         model_tokens = format_code(getattr(model_info, "tokens", ""))
-        prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
     except HTTPException:
         raise

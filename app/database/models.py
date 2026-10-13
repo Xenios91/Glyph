@@ -76,6 +76,8 @@ class Prediction(Base):
         model_name: Name of the model used for prediction
         user_id: ID of the user who owns this prediction (nullable for legacy rows)
         functions_data: Serialized list of function predictions (joblib format)
+        function_count: Number of function predictions stored (denormalized for
+            lightweight list queries that must not deserialize the BLOB).
         created_at: Timestamp when the prediction was created
         modified_at: Timestamp when the prediction was last modified
 
@@ -88,6 +90,7 @@ class Prediction(Base):
     model_name: Mapped[str] = mapped_column(String(64), nullable=False)
     user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     functions_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    function_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=get_utc_now,

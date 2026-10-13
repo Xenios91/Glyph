@@ -202,7 +202,9 @@ async def get_prediction_details(
         assert_owned(types.SimpleNamespace(user_id=pred_owner_id), current_user, "prediction")
 
         model_info = await FunctionRepository.get(model_name, function_name)
-        prediction_data = await PredictionRepository.get_prediction_function(task_name, model_name, function_name)
+        prediction_data, prediction_tokens = await PredictionService.get_prediction_function_details(
+            task_name, model_name, function_name,
+        )
 
         if not prediction_data:
             raise HTTPException(
@@ -218,7 +220,6 @@ async def get_prediction_details(
             model_tokens = format_code(model_info.tokens)
         else:
             model_tokens = "Model function not found (binary was not used during training)"
-        prediction_tokens = format_code(prediction_data.get("tokens", ""))
 
     except HTTPException:
         raise

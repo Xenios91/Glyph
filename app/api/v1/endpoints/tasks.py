@@ -188,6 +188,20 @@ async def execute_task(
                 error_code="MISSING_ML_CLASS_TYPE", error_message="ml_class_type is required for ML training",
             ).model_dump(),
         )
+    if request_values.task_type == TaskType.SIMILARITY_COMPUTATION:
+        # Similarity computation is pairwise and requires at least two binaries,
+        # which the single-binary TaskExecutionRequest schema cannot express.
+        # It is handled by the dedicated /similarity-computation endpoint.
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="UNSUPPORTED_TASK_TYPE",
+                error_message=(
+                    "similarity_computation is not supported by /execute; "
+                    "use the dedicated /similarity-computation endpoint"
+                ),
+            ).model_dump(),
+        )
 
     task_uuid = TaskManager().get_uuid()
     TaskManager.register_task(task_uuid, "starting", owner_id=current_user.id)
@@ -208,16 +222,6 @@ async def execute_task(
             request_values.binary_id,
             task_uuid,
             request_values.task_name,
-            captured_ctx,
-        )
-    elif request_values.task_type == TaskType.SIMILARITY_COMPUTATION:
-        background_tasks.add_task(
-            run_similarity_computation_task,
-            [request_values.binary_id],
-            task_uuid,
-            request_values.task_name,
-            0.7,
-            current_user.id,
             captured_ctx,
         )
     else:

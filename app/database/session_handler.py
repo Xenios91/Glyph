@@ -1,12 +1,14 @@
 """Database session management for Glyph application."""
 
+import asyncio
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import event, func, select, text, update
+from sqlalchemy import event, func, or_, select, text, update
+from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -169,6 +171,76 @@ async def _ensure_llm_verdict_columns(engine: AsyncEngine) -> None:
                 continue
             await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))
             logger.info(f"Added {column_name} column to {table_name} table")
+
+
+# (table_name, column_name, sql_type) for the denormalized prediction function
+# count added after the initial predictions schema.
+_PREDICTION_COUNT_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("predictions", "function_count", "INTEGER NOT NULL DEFAULT 0"),
+)
+
+
+async def _ensure_prediction_count_columns(engine: AsyncEngine) -> None:
+    """Add the ``function_count`` column to pre-existing predictions tables.
+
+    ``create_all`` never alters existing tables, so deployments that already
+    have the table (from before the lightweight-list feature) get the new
+    column here with a raw ``ALTER TABLE`` guarded by a column-existence check.
+    """
+    async with engine.begin() as conn:
+        if conn.dialect.name != "sqlite":
+            return
+        for table_name, column_name, column_type in _PREDICTION_COUNT_COLUMNS:
+            rows = (await conn.execute(text(f"PRAGMA table_info({table_name})"))).fetchall()
+            if not rows:
+                # Table does not exist yet; create_all will build it with the column.
+                continue
+            existing_cols = {row[1] for row in rows}
+            if column_name in existing_cols:
+                continue
+            await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))
+            logger.info(f"Added {column_name} column to {table_name} table")
+
+
+async def _backfill_prediction_function_count() -> None:
+    """Backfill ``function_count`` on prediction rows where it is unset.
+
+    Runs once per startup; only touches rows whose ``function_count`` is 0 or
+    NULL, so it is cheap on subsequent starts. The count is derived by
+    deserializing the ``functions_data`` BLOB once per affected row.
+    """
+    from app.utils.secure_deserializer import SecureDeserializationError, secure_load_bytes
+
+    session: AsyncSession = await get_async_session("predictions")
+    try:
+        rows = (
+            await session.execute(
+                select(Prediction.id, Prediction.functions_data).where(
+                    or_(Prediction.function_count.is_(None), Prediction.function_count == 0)
+                )
+            )
+        ).all()
+        for pred_id, functions_data in rows:
+            count = 0
+            try:
+                raw = await asyncio.to_thread(secure_load_bytes, functions_data)
+                if isinstance(raw, list):
+                    count = len(raw)
+            except SecureDeserializationError:
+                logger.warning("Blocked deserializing prediction id {} during function_count backfill", pred_id)
+            except Exception:
+                logger.exception("Failed to backfill function_count for prediction id {}", pred_id)
+            await session.execute(
+                update(Prediction).where(Prediction.id == pred_id).values(function_count=count)
+            )
+        await session.commit()
+        if rows:
+            logger.info("Backfilled function_count for {} prediction rows", len(rows))
+    except sa_exc.SQLAlchemyError:
+        await session.rollback()
+        logger.exception("Failed to backfill prediction function_count")
+    finally:
+        await close_async_session(session)
 
 
 async def _backfill_owner_columns() -> None:
@@ -353,10 +425,16 @@ async def init_async_databases() -> None:
         await _ensure_owner_columns(async_engines[name])
         # LLM verdict columns added after the initial llm_analysis_results schema.
         await _ensure_llm_verdict_columns(async_engines[name])
+        # Denormalized prediction function count for lightweight list queries.
+        await _ensure_prediction_count_columns(async_engines[name])
     try:
         await _backfill_owner_columns()
     except Exception as e:  # pragma: no cover - defensive: never block startup
         logger.error(f"Ownership backfill failed: {e}")
+    try:
+        await _backfill_prediction_function_count()
+    except Exception as e:  # pragma: no cover - defensive: never block startup
+        logger.error(f"Prediction function_count backfill failed: {e}")
 
 
 async def get_async_session(database: str = "auth") -> AsyncSession:

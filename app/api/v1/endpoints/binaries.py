@@ -305,7 +305,6 @@ class BinaryFunctionItem(BaseModel):
 
     function_name: str
     entrypoint: str
-    raw_code_lines: int
 
 
 class BinaryFunctionsResponse(BaseModel):
@@ -358,16 +357,10 @@ async def list_binary_functions(
     offset = (page - 1) * page_size
     functions = await _upload_service.get_functions(binary_id, offset=offset, limit=page_size)
 
-    items: list[BinaryFunctionItem] = []
-    for fn in functions:
-        line_count = fn.raw_code.count("\n") + 1 if fn.raw_code else 0
-        items.append(
-            BinaryFunctionItem(
-                function_name=fn.function_name,
-                entrypoint=fn.entrypoint,
-                raw_code_lines=line_count,
-            ),
-        )
+    items: list[BinaryFunctionItem] = [
+        BinaryFunctionItem(function_name=fn.function_name, entrypoint=fn.entrypoint)
+        for fn in functions
+    ]
 
     return create_success_response(
         data=create_paginated_response(items, total, page, page_size),

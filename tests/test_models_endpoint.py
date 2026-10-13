@@ -215,10 +215,11 @@ class TestModelsRouter:
         finally:
             clear_dependency_overrides(models_client)
 
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.api.v1.endpoints.models.PredictionRepository")
     @patch("app.api.v1.endpoints.models.FunctionRepository")
     def test_get_prediction_details_success_json(
-        self, mock_func_repo: Any, mock_pred_repo: Any, models_client: Any,
+        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, models_client: Any,
     ) -> None:
         """Test getting prediction details successfully with JSON response."""
         from app.auth.dependencies import get_current_active_user
@@ -230,7 +231,7 @@ class TestModelsRouter:
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
         mock_pred_repo.get_owner = AsyncMock(return_value=None)
         # prediction_data uses .get("tokens")
-        mock_pred_repo.get_prediction_function = AsyncMock(
+        mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
             },
@@ -257,10 +258,11 @@ class TestModelsRouter:
         finally:
             clear_dependency_overrides(models_client)
 
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.api.v1.endpoints.models.PredictionRepository")
     @patch("app.api.v1.endpoints.models.FunctionRepository")
     def test_get_prediction_details_model_function_not_found(
-        self, mock_func_repo: Any, mock_pred_repo: Any, models_client: Any,
+        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, models_client: Any,
     ) -> None:
         """Test getting prediction details when model function not found still returns 200.
 
@@ -272,7 +274,7 @@ class TestModelsRouter:
 
         mock_func_repo.get = AsyncMock(return_value=None)
         mock_pred_repo.get_owner = AsyncMock(return_value=None)
-        mock_pred_repo.get_prediction_function = AsyncMock(
+        mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
             },
@@ -299,10 +301,11 @@ class TestModelsRouter:
         finally:
             clear_dependency_overrides(models_client)
 
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.api.v1.endpoints.models.PredictionRepository")
     @patch("app.api.v1.endpoints.models.FunctionRepository")
     def test_get_prediction_details_prediction_not_found(
-        self, mock_func_repo: Any, mock_pred_repo: Any, models_client: Any,
+        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, models_client: Any,
     ) -> None:
         """Test getting prediction details when prediction not found returns 404."""
         from app.auth.dependencies import get_current_active_user
@@ -316,7 +319,7 @@ class TestModelsRouter:
             },
         )
         mock_pred_repo.get_owner = AsyncMock(return_value=None)
-        mock_pred_repo.get_prediction_function = AsyncMock(return_value=None)
+        mock_service_pred_repo.get_prediction_function = AsyncMock(return_value=None)
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
@@ -425,10 +428,11 @@ class TestModelsRouter:
         finally:
             clear_dependency_overrides(models_client)
 
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.api.v1.endpoints.models.PredictionRepository")
     @patch("app.api.v1.endpoints.models.FunctionRepository")
     def test_get_prediction_details_json_response(
-        self, mock_func_repo: Any, mock_pred_repo: Any, models_client: Any,
+        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, models_client: Any,
     ) -> None:
         """Test getting prediction details returns JSON (no HTML content negotiation)."""
         from app.auth.dependencies import get_current_active_user
@@ -438,7 +442,7 @@ class TestModelsRouter:
         mock_model_info.user_id = None
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
         mock_pred_repo.get_owner = AsyncMock(return_value=None)
-        mock_pred_repo.get_prediction_function = AsyncMock(
+        mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
             },

@@ -204,10 +204,11 @@ class TestPredictionsRouter:
         assert data["success"] is True
         assert "Prediction deleted successfully" in data["message"]
 
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
     def test_get_prediction_details_success_json(
-        self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any,
+        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, predictions_client: Any,
     ) -> None:
         """Test getting prediction details successfully with JSON response."""
         mock_model_info = Mock()
@@ -215,7 +216,7 @@ class TestPredictionsRouter:
         mock_model_info.user_id = None
         mock_pred_repo.get_owner_by_task = AsyncMock(return_value=None)
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
-        mock_pred_repo.get_prediction_function = AsyncMock(
+        mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "test tokens",
                 "prediction": "test_prediction",
@@ -261,10 +262,11 @@ class TestPredictionsRouter:
         assert detail["success"] is False
         assert "RETRIEVAL_ERROR" in detail.get("error", {}).get("code", "")
 
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
     def test_get_prediction_details_json_response(
-        self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any,
+        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, predictions_client: Any,
     ) -> None:
         """Test getting prediction details returns JSON (no HTML content negotiation)."""
         mock_model_info = Mock()
@@ -272,7 +274,7 @@ class TestPredictionsRouter:
         mock_model_info.user_id = None
         mock_pred_repo.get_owner_by_task = AsyncMock(return_value=None)
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
-        mock_pred_repo.get_prediction_function = AsyncMock(
+        mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "test tokens",
                 "prediction": "test_prediction",
@@ -294,10 +296,11 @@ class TestPredictionsRouter:
         data = response.json()
         assert data["data"]["task_name"] == "test_task"
 
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
     def test_get_prediction_details_json_data(
-        self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any,
+        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, predictions_client: Any,
     ) -> None:
         """Test getting prediction details returns correct JSON data."""
         mock_model_info = Mock()
@@ -305,7 +308,7 @@ class TestPredictionsRouter:
         mock_model_info.user_id = None
         mock_pred_repo.get_owner_by_task = AsyncMock(return_value=None)
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
-        mock_pred_repo.get_prediction_function = AsyncMock(
+        mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "test tokens",
                 "prediction": "test_prediction",
@@ -499,15 +502,16 @@ class TestPredictionsRouter:
         assert detail["success"] is False
         assert "FUNCTION_NOT_FOUND" in detail.get("error", {}).get("code", "")
 
+    @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
     def test_get_prediction_details_type_error(
-        self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any,
+        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, predictions_client: Any,
     ) -> None:
         """Test getting prediction details with TypeError."""
         mock_func_repo.get = AsyncMock(return_value=Mock(tokens="tokens", user_id=None))
         mock_pred_repo.get_owner_by_task = AsyncMock(return_value=None)
-        mock_pred_repo.get_prediction_function = AsyncMock(side_effect=TypeError("bad data"))
+        mock_service_pred_repo.get_prediction_function = AsyncMock(side_effect=TypeError("bad data"))
         set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.get(
