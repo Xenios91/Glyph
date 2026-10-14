@@ -20,7 +20,7 @@
 FROM python:3.12-slim AS version
 WORKDIR /src
 COPY app/_version.py app/_version.py
-ARG GLYPH_VERSION=0.4.0
+ARG GLYPH_VERSION=0.3.0
 RUN ACTUAL=$(python -c "from app._version import __version__; print(__version__)") \
     && if [ "$ACTUAL" != "$GLYPH_VERSION" ]; then \
          echo "ERROR: GLYPH_VERSION ($GLYPH_VERSION) does not match app/_version.py ($ACTUAL)." >&2 \
@@ -59,7 +59,7 @@ FROM python:3.12-slim AS production
 
 # Set labels. The version must match app/_version.py — the "version" stage above
 # fails the build if it does not, so this label can never silently drift.
-ARG GLYPH_VERSION=0.4.0
+ARG GLYPH_VERSION=0.3.0
 LABEL maintainer="glyph-team"
 LABEL description="Glyph - Architecture-independent binary analysis tool (API/UI only; Ghidra/JDK not bundled)"
 LABEL version="${GLYPH_VERSION}"

@@ -7,17 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-10-14
+## [0.3.0] - 2026-10-14
 
 ### Added
 - LLM analysis now returns a structured verdict: the model is asked to end its answer with a `VERDICT: VULNERABLE|NOT_VULNERABLE|UNCERTAIN (confidence: <low|medium|high>)` line, which is parsed into `is_vulnerability`, `confidence`, and `verdict` fields on `FindingAnalysis`
 - `llm_analysis_results` table stores the parsed verdict (`is_vulnerability`, `confidence`, `verdict` columns) with an idempotent startup migration for pre-existing databases
 - Dangerous functions table LLM badges are now verdict-aware: vulnerable findings show a warning badge, safe findings a green check, and the LLM column sorts vulnerable findings first
 - The LLM analysis modal shows a verdict pill (e.g. "Vulnerable (high confidence)") next to the function name when a verdict was parsed
-
-## [0.3.0] - 2026-10-02
-
-### Added
 - Health check endpoints (`/health` and `/ready`) for orchestrator integration
 - Request body size limit middleware to prevent DoS attacks
 - HSTS security header in CSPMiddleware
@@ -111,7 +107,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - E2E testing with Playwright
 - Comprehensive unit test suite
 
-[0.4.0]: https://github.com/Xenios91/Glyph/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Xenios91/Glyph/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Xenios91/Glyph/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Xenios91/Glyph/releases/tag/v0.1.0

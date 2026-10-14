@@ -13,7 +13,7 @@ Glyph decompiles 32- and 64-bit ELF binaries with Ghidra and applies machine lea
 
 All capabilities are available through a modern web UI and a fully authenticated REST API (JWT tokens or API keys), with long-running work executed as background tasks.
 
-## Version 0.4.0
+## Version 0.3.0
 
 ### Features
 
