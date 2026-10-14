@@ -165,7 +165,11 @@ def format_code(code: str) -> str:
 
 
 def build_prediction_details_response(
-    task_name: str, model_name: str, function_name: str, model_tokens: str, prediction_tokens: str,
+    task_name: str,
+    model_name: str,
+    function_name: str,
+    model_tokens: str,
+    prediction_tokens: str,
 ) -> dict[str, Any]:
     """Build a standardized prediction details response.
 

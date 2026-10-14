@@ -52,7 +52,9 @@ class TestAPIRouter:
         """api_v1_router should have actual endpoint routes registered."""
         # Included routers appear as _IncludedRouter objects without a "path" attribute.
         # Count them along with any direct routes.
-        routes = [route for route in api_v1_router.routes if hasattr(route, "path") or hasattr(route, "original_router")]
+        routes = [
+            route for route in api_v1_router.routes if hasattr(route, "path") or hasattr(route, "original_router")
+        ]
         assert len(routes) > 0, "api_v1_router should have at least one route"
 
     def test_api_router_includes_v1_routes(self) -> None:
@@ -61,6 +63,7 @@ class TestAPIRouter:
         In modern FastAPI, included routers appear as _IncludedRouter objects
         that store the prefix in include_context.prefix rather than on individual routes.
         """
+
         def _collect_prefixes(router) -> set[str]:
             prefixes: set[str] = set()
             for route in router.routes:

@@ -56,7 +56,7 @@ class TestLLMConfigPayload:
         assert payload.model_fields_set == set()
 
     def test_llm_config_payload_tracks_provided_fields(self) -> None:
-        """Test that explicitly provided fields are tracked, including explicit nulls."""""
+        """Test that explicitly provided fields are tracked, including explicit nulls.""" ""
         payload = LLMConfigPayload(model="gpt-4o", port=None)
         assert payload.model == "gpt-4o"
         assert payload.port is None
@@ -149,7 +149,10 @@ class TestConfigRouter:
     @patch("app.api.v1.endpoints.config.get_settings")
     @patch("app.api.v1.endpoints.config._persist_config_changes")
     def test_save_config_partial_update(
-        self, mock_persist: Any, mock_get_settings: Any, config_client: TestClient,
+        self,
+        mock_persist: Any,
+        mock_get_settings: Any,
+        config_client: TestClient,
     ) -> None:
         """Test saving config with partial update."""
         from unittest.mock import Mock
@@ -168,7 +171,6 @@ class TestConfigRouter:
         data = response.json()
         assert data["success"] is True
 
-
     @staticmethod
     def _llm_settings() -> Any:
         """Build a settings mock with real scalar values (yaml.dump-safe)."""
@@ -182,7 +184,11 @@ class TestConfigRouter:
 
     @patch("app.api.v1.endpoints.config.get_settings")
     def test_save_config_llm_full(
-        self, mock_get_settings: Any, config_client: TestClient, tmp_path: Path, monkeypatch: Any,
+        self,
+        mock_get_settings: Any,
+        config_client: TestClient,
+        tmp_path: Path,
+        monkeypatch: Any,
     ) -> None:
         """Test saving an LLM config upserts the per-user row with normalized values."""
         settings = self._llm_settings()
@@ -190,7 +196,8 @@ class TestConfigRouter:
         monkeypatch.setattr("app.api.v1.endpoints.config._CONFIG_FILE", tmp_path / "config.yml")
 
         with patch(
-            "app.api.v1.endpoints.config.LLMUserConfigRepository.upsert", new_callable=AsyncMock,
+            "app.api.v1.endpoints.config.LLMUserConfigRepository.upsert",
+            new_callable=AsyncMock,
         ) as mock_upsert:
             response = config_client.post(
                 "/config/save",
@@ -229,20 +236,27 @@ class TestConfigRouter:
 
     @patch("app.api.v1.endpoints.config.get_settings")
     def test_save_config_llm_partial_preserves_other_fields(
-        self, mock_get_settings: Any, config_client: TestClient, tmp_path: Path, monkeypatch: Any,
+        self,
+        mock_get_settings: Any,
+        config_client: TestClient,
+        tmp_path: Path,
+        monkeypatch: Any,
     ) -> None:
         """Test that a partial LLM update only upserts the provided fields."""
         settings = self._llm_settings()
         mock_get_settings.return_value = settings
         config_file = tmp_path / "config.yml"
         config_file.write_text(
-            yaml.safe_dump({"cpu_cores": 1, "max_file_size_mb": 512, "llm": {"model": "old-model", "api_key": "sk-old"}}),
+            yaml.safe_dump(
+                {"cpu_cores": 1, "max_file_size_mb": 512, "llm": {"model": "old-model", "api_key": "sk-old"}}
+            ),
             encoding="utf-8",
         )
         monkeypatch.setattr("app.api.v1.endpoints.config._CONFIG_FILE", config_file)
 
         with patch(
-            "app.api.v1.endpoints.config.LLMUserConfigRepository.upsert", new_callable=AsyncMock,
+            "app.api.v1.endpoints.config.LLMUserConfigRepository.upsert",
+            new_callable=AsyncMock,
         ) as mock_upsert:
             response = config_client.post("/config/save", json={"llm": {"model": "new-model"}})
 
@@ -254,7 +268,11 @@ class TestConfigRouter:
 
     @patch("app.api.v1.endpoints.config.get_settings")
     def test_save_config_llm_port_null_clears(
-        self, mock_get_settings: Any, config_client: TestClient, tmp_path: Path, monkeypatch: Any,
+        self,
+        mock_get_settings: Any,
+        config_client: TestClient,
+        tmp_path: Path,
+        monkeypatch: Any,
     ) -> None:
         """Test that an explicit null port is upserted as a clear for the user row."""
         settings = self._llm_settings()
@@ -267,7 +285,8 @@ class TestConfigRouter:
         monkeypatch.setattr("app.api.v1.endpoints.config._CONFIG_FILE", config_file)
 
         with patch(
-            "app.api.v1.endpoints.config.LLMUserConfigRepository.upsert", new_callable=AsyncMock,
+            "app.api.v1.endpoints.config.LLMUserConfigRepository.upsert",
+            new_callable=AsyncMock,
         ) as mock_upsert:
             response = config_client.post("/config/save", json={"llm": {"port": None}})
 
@@ -278,7 +297,11 @@ class TestConfigRouter:
 
     @patch("app.api.v1.endpoints.config.get_settings")
     def test_save_config_without_llm_leaves_section(
-        self, mock_get_settings: Any, config_client: TestClient, tmp_path: Path, monkeypatch: Any,
+        self,
+        mock_get_settings: Any,
+        config_client: TestClient,
+        tmp_path: Path,
+        monkeypatch: Any,
     ) -> None:
         """Test that saving without llm fields leaves a pre-seeded llm section untouched."""
         settings = self._llm_settings()
@@ -317,7 +340,11 @@ class TestConfigRouter:
     )
     @patch("app.api.v1.endpoints.config.get_settings")
     def test_save_config_invalid_llm(
-        self, mock_get_settings: Any, config_client: TestClient, llm_payload: dict[str, Any], expected_code: str,
+        self,
+        mock_get_settings: Any,
+        config_client: TestClient,
+        llm_payload: dict[str, Any],
+        expected_code: str,
     ) -> None:
         """Test that invalid LLM values are rejected with an INVALID_LLM_* code."""
         from unittest.mock import Mock
@@ -340,7 +367,10 @@ class TestLLMTestEndpoint:
     @patch("app.api.v1.endpoints.config.test_llm_connection", new_callable=AsyncMock)
     @patch("app.api.v1.endpoints.config.resolve_user_llm_config", new_callable=AsyncMock)
     def test_llm_test_not_configured(
-        self, mock_resolve: Any, mock_test: Any, config_client: TestClient,
+        self,
+        mock_resolve: Any,
+        mock_test: Any,
+        config_client: TestClient,
     ) -> None:
         """Test that a missing LLM configuration returns 503."""
         mock_resolve.return_value = LLMConfig()
@@ -357,7 +387,10 @@ class TestLLMTestEndpoint:
     @patch("app.api.v1.endpoints.config.test_llm_connection", new_callable=AsyncMock)
     @patch("app.api.v1.endpoints.config.resolve_user_llm_config", new_callable=AsyncMock)
     def test_llm_test_success(
-        self, mock_resolve: Any, mock_test: Any, config_client: TestClient,
+        self,
+        mock_resolve: Any,
+        mock_test: Any,
+        config_client: TestClient,
     ) -> None:
         """Test that a successful connection test returns ok with model info."""
         mock_resolve.return_value = LLMConfig()
@@ -376,7 +409,10 @@ class TestLLMTestEndpoint:
     @patch("app.api.v1.endpoints.config.test_llm_connection", new_callable=AsyncMock)
     @patch("app.api.v1.endpoints.config.resolve_user_llm_config", new_callable=AsyncMock)
     def test_llm_test_failure(
-        self, mock_resolve: Any, mock_test: Any, config_client: TestClient,
+        self,
+        mock_resolve: Any,
+        mock_test: Any,
+        config_client: TestClient,
     ) -> None:
         """Test that a failed connection test returns ok=false with the error."""
         mock_resolve.return_value = LLMConfig()

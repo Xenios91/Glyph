@@ -187,7 +187,10 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.PredictionService")
     def test_delete_prediction_success(
-        self, mock_pred_service: Any, mock_pred_repo: Any, predictions_client: Any,
+        self,
+        mock_pred_service: Any,
+        mock_pred_repo: Any,
+        predictions_client: Any,
     ) -> None:
         """Test deleting a prediction successfully."""
         mock_pred_service.delete_prediction = AsyncMock()
@@ -208,7 +211,11 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
     def test_get_prediction_details_success_json(
-        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, predictions_client: Any,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        mock_service_pred_repo: Any,
+        predictions_client: Any,
     ) -> None:
         """Test getting prediction details successfully with JSON response."""
         mock_model_info = Mock()
@@ -266,7 +273,11 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
     def test_get_prediction_details_json_response(
-        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, predictions_client: Any,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        mock_service_pred_repo: Any,
+        predictions_client: Any,
     ) -> None:
         """Test getting prediction details returns JSON (no HTML content negotiation)."""
         mock_model_info = Mock()
@@ -300,7 +311,11 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
     def test_get_prediction_details_json_data(
-        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, predictions_client: Any,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        mock_service_pred_repo: Any,
+        predictions_client: Any,
     ) -> None:
         """Test getting prediction details returns correct JSON data."""
         mock_model_info = Mock()
@@ -411,7 +426,10 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.PredictionService")
     def test_delete_predictions_success(
-        self, mock_pred_service: Any, mock_pred_repo: Any, predictions_client: Any,
+        self,
+        mock_pred_service: Any,
+        mock_pred_repo: Any,
+        predictions_client: Any,
     ) -> None:
         """Test batch deleting predictions successfully."""
         mock_pred_service.delete_prediction = AsyncMock()
@@ -449,7 +467,10 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.PredictionService")
     def test_delete_predictions_partial_failure(
-        self, mock_pred_service: Any, mock_pred_repo: Any, predictions_client: Any,
+        self,
+        mock_pred_service: Any,
+        mock_pred_repo: Any,
+        predictions_client: Any,
     ) -> None:
         """Test batch delete with some failures."""
 
@@ -477,7 +498,10 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
     def test_get_prediction_details_function_not_found(
-        self, mock_func_repo: Any, mock_pred_repo: Any, predictions_client: Any,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        predictions_client: Any,
     ) -> None:
         """Test getting prediction details when function doesn't exist."""
         mock_func_repo.get = AsyncMock(return_value=None)
@@ -506,7 +530,11 @@ class TestPredictionsRouter:
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.FunctionRepository")
     def test_get_prediction_details_type_error(
-        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, predictions_client: Any,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        mock_service_pred_repo: Any,
+        predictions_client: Any,
     ) -> None:
         """Test getting prediction details with TypeError."""
         mock_func_repo.get = AsyncMock(return_value=Mock(tokens="tokens", user_id=None))

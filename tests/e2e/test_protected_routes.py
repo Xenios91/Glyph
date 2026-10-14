@@ -52,7 +52,8 @@ class TestProtectedRoutesRedirect:
     def test_prediction_details_redirects_to_login(self, page: Any, server: Any) -> None:
         """Test that accessing prediction details redirects to login."""
         page.goto(
-            f"{BASE_URL}/getPredictionDetails?model_name=test&function_name=test&task_name=test", wait_until="commit",
+            f"{BASE_URL}/getPredictionDetails?model_name=test&function_name=test&task_name=test",
+            wait_until="commit",
         )
         current_url = page.url
         assert "/login" in current_url or "Not authenticated" in page.content()

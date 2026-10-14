@@ -167,7 +167,9 @@ class PredictionRepository:
                     Prediction.model_name,
                     Prediction.function_count,
                     Prediction.user_id,
-                ).where(where).order_by(Prediction.task_name)
+                )
+                .where(where)
+                .order_by(Prediction.task_name)
             )
             return [
                 {
@@ -225,7 +227,9 @@ class PredictionRepository:
                 logger.exception("Failed to deserialize prediction for task '{}'", task_name)
                 return None
 
-            return PredictionResult(task_name=task_name, model_name=model_name, pred=prediction_data, user_id=row.user_id)
+            return PredictionResult(
+                task_name=task_name, model_name=model_name, pred=prediction_data, user_id=row.user_id
+            )
         except sa_exc.SQLAlchemyError:
             logger.exception("Failed to retrieve predictions for task '{}'", task_name)
             return None

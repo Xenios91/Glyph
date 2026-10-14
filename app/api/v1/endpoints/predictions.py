@@ -161,7 +161,8 @@ async def predict_tokens(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="TASK_NAME_REQUIRED", error_message="taskName is required for predictions",
+                error_code="TASK_NAME_REQUIRED",
+                error_message="taskName is required for predictions",
             ).model_dump(),
         )
     task_name = task_name.strip()
@@ -181,7 +182,8 @@ async def predict_tokens(
     background_tasks.add_task(_run_prediction_task, prediction_request, captured_ctx)
 
     return create_success_response(
-        data={"uuid": prediction_request.uuid}, message="Prediction task created successfully",
+        data={"uuid": prediction_request.uuid},
+        message="Prediction task created successfully",
     )
 
 
@@ -200,7 +202,9 @@ async def get_predictions_list(
     # Lightweight metadata-only query (no BLOB deserialization), scoped to the
     # rows the current user may access (own + legacy/unowned).
     all_predictions, total = await PredictionService.get_predictions_list(
-        user_id=current_user.id, offset=0, limit=10000,
+        user_id=current_user.id,
+        offset=0,
+        limit=10000,
     )
     offset = (page - 1) * page_size
     page_predictions = all_predictions[offset : offset + page_size]
@@ -214,7 +218,8 @@ async def get_predictions_list(
     ]
 
     return create_success_response(
-        data=create_paginated_response(items, total, page, page_size), message="Predictions list retrieved successfully",
+        data=create_paginated_response(items, total, page, page_size),
+        message="Predictions list retrieved successfully",
     )
 
 
@@ -236,7 +241,8 @@ async def get_prediction(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="PREDICTION_NOT_FOUND", error_message="Prediction not found",
+                error_code="PREDICTION_NOT_FOUND",
+                error_message="Prediction not found",
             ).model_dump(),
         )
 
@@ -261,7 +267,8 @@ async def get_prediction(
 )
 @catch_http_exception(status_code=500, error_code="DELETE_ERROR", message="Failed to delete prediction")
 async def delete_prediction(
-    current_user: Annotated[User, Depends(get_current_active_user)], task_name: Annotated[TaskName, Query()],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    task_name: Annotated[TaskName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete a single prediction task by task name."""
     owner = await PredictionRepository.get_owner_by_task(task_name)
@@ -278,7 +285,8 @@ async def delete_prediction(
 )
 @catch_http_exception(status_code=500, error_code="DELETE_PREDICTIONS_ERROR", message="Failed to delete predictions")
 async def delete_predictions(
-    current_user: Annotated[User, Depends(get_current_active_user)], task_names: Annotated[str, Query()],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    task_names: Annotated[str, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete multiple prediction tasks by comma-separated task names."""
     names = [name.strip() for name in task_names.split(",") if name.strip()]
@@ -286,7 +294,8 @@ async def delete_predictions(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_TASK_NAMES", error_message="At least one task name must be provided",
+                error_code="INVALID_TASK_NAMES",
+                error_message="At least one task name must be provided",
             ).model_dump(),
         )
 
@@ -333,7 +342,8 @@ async def get_prediction_details(
             raise HTTPException(
                 status_code=404,
                 detail=create_error_response(
-                    error_code="FUNCTION_NOT_FOUND", error_message="Function not found",
+                    error_code="FUNCTION_NOT_FOUND",
+                    error_message="Function not found",
                 ).model_dump(),
             )
 
@@ -343,7 +353,9 @@ async def get_prediction_details(
         assert_owned(types.SimpleNamespace(user_id=owner), current_user, "prediction")
 
         _prediction_data, prediction_tokens = await PredictionService.get_prediction_function_details(
-            task_name, model_name, function_name,
+            task_name,
+            model_name,
+            function_name,
         )
 
         model_tokens = format_code(model_info.tokens)
@@ -358,7 +370,8 @@ async def get_prediction_details(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="RETRIEVAL_ERROR", error_message="Could not retrieve details",
+                error_code="RETRIEVAL_ERROR",
+                error_message="Could not retrieve details",
             ).model_dump(),
         )
 

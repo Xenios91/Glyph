@@ -67,7 +67,10 @@ class GlyphSettings(BaseSettings):
     """Pydantic-based configuration for Glyph application."""
 
     prediction_probability_threshold: float = Field(
-        default=50.0, ge=0, le=100, description="Minimum probability threshold for predictions (0-100)",
+        default=50.0,
+        ge=0,
+        le=100,
+        description="Minimum probability threshold for predictions (0-100)",
     )
 
     max_file_size_mb: int = Field(default=512, ge=1, le=2048, description="Maximum file size for uploads in MB")
@@ -77,7 +80,8 @@ class GlyphSettings(BaseSettings):
     upload_folder: Path = Field(default=Path("./binaries"), description="Upload directory")
 
     jwt_secret_key: str = Field(
-        default="change-me-in-production", description="Secret key for JWT signing (must be changed in production)",
+        default="change-me-in-production",
+        description="Secret key for JWT signing (must be changed in production)",
     )
     jwt_algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=15)
@@ -85,7 +89,8 @@ class GlyphSettings(BaseSettings):
 
     use_https: bool = Field(default=False, description="Whether the application is deployed behind HTTPS/TLS")
     trusted_proxies: list[str] = Field(
-        default_factory=list, description="List of trusted proxy IPs/CIDRs for X-Forwarded-For",
+        default_factory=list,
+        description="List of trusted proxy IPs/CIDRs for X-Forwarded-For",
     )
 
     auth_enabled: bool = Field(default=True, description="Whether authentication is enabled")
@@ -175,8 +180,7 @@ def _validate_production_settings(settings: GlyphSettings) -> None:
             )
         else:
             logger.warning(
-                "use_https is False — cookies will be sent over unencrypted HTTP. "
-                "Enable use_https in production.",
+                "use_https is False — cookies will be sent over unencrypted HTTP. Enable use_https in production.",
             )
 
 

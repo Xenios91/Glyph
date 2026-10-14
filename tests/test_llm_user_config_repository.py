@@ -126,9 +126,7 @@ class TestUpsert:
         try:
             from sqlalchemy import func, select
 
-            count = (
-                await session.execute(select(func.count()).select_from(LLMUserConfig))
-            ).scalar_one()
+            count = (await session.execute(select(func.count()).select_from(LLMUserConfig))).scalar_one()
         finally:
             await session.close()
         assert count == 1
@@ -160,7 +158,8 @@ class TestResolveUserLlmConfig:
     async def test_row_overrides_defaults_field_by_field(self, fresh_auth_tables: Any) -> None:
         await _seed_user()
         await LLMUserConfigRepository.upsert(
-            1, {"model": "llama-3", "base_url": "http://localhost:8000", "enabled": True},
+            1,
+            {"model": "llama-3", "base_url": "http://localhost:8000", "enabled": True},
         )
 
         resolved = await resolve_user_llm_config(1)

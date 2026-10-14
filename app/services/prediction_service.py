@@ -118,7 +118,9 @@ class PredictionService:
 
         """
         prediction_data = await PredictionRepository.get_prediction_function(
-            task_name, model_name, function_name,
+            task_name,
+            model_name,
+            function_name,
         )
         prediction_tokens = format_code(prediction_data.get("tokens", "") if prediction_data else "")
         return prediction_data, prediction_tokens
@@ -155,7 +157,8 @@ class PredictionService:
 
     @staticmethod
     async def save_prediction_functions(
-        prediction_request: "PredictionRequest", predictions: list[str],
+        prediction_request: "PredictionRequest",
+        predictions: list[str],
     ) -> None:
         """Merge predictions with functions and persist to database.
 
@@ -173,7 +176,10 @@ class PredictionService:
                 updated_function["prediction"] = predictions[ctr]
                 functions[ctr] = updated_function
             await PredictionRepository.save(
-                task_name, prediction_request.model_name, functions, user_id=prediction_request.user_id,
+                task_name,
+                prediction_request.model_name,
+                functions,
+                user_id=prediction_request.user_id,
             )
         elif functions:
             logger.warning(

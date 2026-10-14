@@ -11,6 +11,7 @@ import hashlib
 from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
 
 templates = Jinja2Templates(directory="templates")
 templates.env.autoescape = True
@@ -19,7 +20,7 @@ _STATIC_DIR = Path("static")
 _hash_cache: dict[str, str] = {}
 
 
-def static_url(request, path: str) -> str:
+def static_url(request: Request, path: str) -> str:
     """Build a static asset URL with a content-hash cache-busting query string.
 
     The application serves static files with long-lived immutable cache headers

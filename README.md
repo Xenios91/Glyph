@@ -13,10 +13,11 @@ Glyph decompiles 32- and 64-bit ELF binaries with Ghidra and applies machine lea
 
 All capabilities are available through a modern web UI and a fully authenticated REST API (JWT tokens or API keys), with long-running work executed as background tasks.
 
-## Version 0.3.0
+## Version 0.4.0
 
 ### Features
 
+- Structured LLM verdicts: analysis now ends with a parsed `VERDICT: VULNERABLE|NOT_VULNERABLE|UNCERTAIN (confidence: …)` line, surfaced as verdict-aware badges, sorting, and a verdict pill in the analysis modal
 - LLM-assisted analysis of dangerous function findings via any OpenAI-compatible chat completions endpoint (OpenAI, Ollama, vLLM, and more)
 - Per-user LLM endpoint configuration with built-in connectivity testing from the Profile page
 - Persistent LLM analysis results with retrieval, per-finding retry, and deletion
@@ -27,7 +28,7 @@ All capabilities are available through a modern web UI and a fully authenticated
 
 ### LLM-Assisted Analysis
 
-Glyph 0.3.0 adds optional LLM-assisted analysis to the dangerous functions scanner. After a scan, findings can be sent to a user-configured OpenAI-compatible chat completions endpoint. For each finding, the LLM reviews the decompiled call site and reports on:
+Glyph adds optional LLM-assisted analysis to the dangerous functions scanner. After a scan, findings can be sent to a user-configured OpenAI-compatible chat completions endpoint. For each finding, the LLM reviews the decompiled call site and reports on:
 
 1. **Exploitability** — whether the usage is plausibly exploitable given the taint paths and controls visible in the code
 2. **Risk assessment** — confidence level and agreement (or disagreement) with the catalog severity rating, with justification

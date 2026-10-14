@@ -82,9 +82,7 @@ class BinarySimilarityService:
         binary_name = await BinaryRepository.get_name(binary_id=binary_id)
 
         # Build function dicts from raw BinaryFunction records
-        function_dicts: list[FunctionDict] = [
-            cast(FunctionDict, binary_function_to_dict(bf)) for bf in raw_functions
-        ]
+        function_dicts: list[FunctionDict] = [cast(FunctionDict, binary_function_to_dict(bf)) for bf in raw_functions]
 
         # Run tokenize and filter pipeline steps in-memory
         context = PipelineContext(

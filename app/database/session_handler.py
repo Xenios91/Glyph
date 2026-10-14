@@ -230,9 +230,7 @@ async def _backfill_prediction_function_count() -> None:
                 logger.warning("Blocked deserializing prediction id {} during function_count backfill", pred_id)
             except Exception:
                 logger.exception("Failed to backfill function_count for prediction id {}", pred_id)
-            await session.execute(
-                update(Prediction).where(Prediction.id == pred_id).values(function_count=count)
-            )
+            await session.execute(update(Prediction).where(Prediction.id == pred_id).values(function_count=count))
         await session.commit()
         if rows:
             logger.info("Backfilled function_count for {} prediction rows", len(rows))
@@ -266,23 +264,15 @@ async def _backfill_owner_columns() -> None:
         async_session("intelligence") as i_session,
     ):
         # Binary owner map (shared across all backfills).
-        b_rows = (
-            await b_session.execute(select(Binary.name, Binary.uploaded_by))
-        ).all()
+        b_rows = (await b_session.execute(select(Binary.name, Binary.uploaded_by))).all()
         binary_owner: dict[str, int | None] = dict(b_rows)
 
         # 1) Models from their binary.
-        m_rows = (
-            await m_session.execute(
-                select(Model.id, Model.model_name).where(Model.user_id.is_(None))
-            )
-        ).all()
+        m_rows = (await m_session.execute(select(Model.id, Model.model_name).where(Model.user_id.is_(None)))).all()
         for model_id, model_name in m_rows:
             owner = binary_owner.get(model_name)
             if owner is not None:
-                await m_session.execute(
-                    update(Model).where(Model.id == model_id).values(user_id=owner)
-                )
+                await m_session.execute(update(Model).where(Model.id == model_id).values(user_id=owner))
         await m_session.commit()
 
         # Re-read model owners (now backfilled) for dependent tables.
@@ -291,32 +281,24 @@ async def _backfill_owner_columns() -> None:
 
         # 2) Functions from their model (or binary fallback).
         f_rows = (
-            await f_session.execute(
-                select(Function.id, Function.model_name).where(Function.user_id.is_(None))
-            )
+            await f_session.execute(select(Function.id, Function.model_name).where(Function.user_id.is_(None)))
         ).all()
         for fn_id, model_name in f_rows:
             owner = model_owner.get(model_name)
             if owner is None:
                 owner = binary_owner.get(model_name)
             if owner is not None:
-                await f_session.execute(
-                    update(Function).where(Function.id == fn_id).values(user_id=owner)
-                )
+                await f_session.execute(update(Function).where(Function.id == fn_id).values(user_id=owner))
         await f_session.commit()
 
         # 3) Predictions from their task/binary.
         p_rows = (
-            await p_session.execute(
-                select(Prediction.id, Prediction.task_name).where(Prediction.user_id.is_(None))
-            )
+            await p_session.execute(select(Prediction.id, Prediction.task_name).where(Prediction.user_id.is_(None)))
         ).all()
         for pred_id, task_name in p_rows:
             owner = binary_owner.get(task_name)
             if owner is not None:
-                await p_session.execute(
-                    update(Prediction).where(Prediction.id == pred_id).values(user_id=owner)
-                )
+                await p_session.execute(update(Prediction).where(Prediction.id == pred_id).values(user_id=owner))
         await p_session.commit()
 
         # Re-read prediction owners (now backfilled).
@@ -325,34 +307,22 @@ async def _backfill_owner_columns() -> None:
 
         # 4) Scan reports from target name (binary / model / prediction owner).
         s_rows = (
-            await i_session.execute(
-                select(ScanReport.id, ScanReport.target_name).where(ScanReport.user_id.is_(None))
-            )
+            await i_session.execute(select(ScanReport.id, ScanReport.target_name).where(ScanReport.user_id.is_(None)))
         ).all()
         for report_id, target_name in s_rows:
-            owner = (
-                binary_owner.get(target_name)
-                or model_owner.get(target_name)
-                or pred_owner.get(target_name)
-            )
+            owner = binary_owner.get(target_name) or model_owner.get(target_name) or pred_owner.get(target_name)
             if owner is not None:
-                await i_session.execute(
-                    update(ScanReport).where(ScanReport.id == report_id).values(user_id=owner)
-                )
+                await i_session.execute(update(ScanReport).where(ScanReport.id == report_id).values(user_id=owner))
         await i_session.commit()
 
         # Re-read scan report owners (now backfilled).
-        s_all = (
-            await i_session.execute(select(ScanReport.target_name, ScanReport.user_id))
-        ).all()
+        s_all = (await i_session.execute(select(ScanReport.target_name, ScanReport.user_id))).all()
         report_owner: dict[str, int | None] = dict(s_all)
 
         # 5) LLM results from their scan report (or target fallback).
         l_rows = (
             await i_session.execute(
-                select(LLMAnalysisResult.id, LLMAnalysisResult.target_name).where(
-                    LLMAnalysisResult.user_id.is_(None)
-                )
+                select(LLMAnalysisResult.id, LLMAnalysisResult.target_name).where(LLMAnalysisResult.user_id.is_(None))
             )
         ).all()
         for result_id, target_name in l_rows:
@@ -364,9 +334,7 @@ async def _backfill_owner_columns() -> None:
             )
             if owner is not None:
                 await i_session.execute(
-                    update(LLMAnalysisResult)
-                    .where(LLMAnalysisResult.id == result_id)
-                    .values(user_id=owner)
+                    update(LLMAnalysisResult).where(LLMAnalysisResult.id == result_id).values(user_id=owner)
                 )
         await i_session.commit()
 
@@ -380,17 +348,10 @@ async def _backfill_owner_columns() -> None:
             (i_session, LLMAnalysisResult, "llm_analysis_results"),
         ):
             unowned = (
-                await session.execute(
-                    select(func.count())
-                    .select_from(model_cls)
-                    .where(model_cls.user_id.is_(None))
-                )
+                await session.execute(select(func.count()).select_from(model_cls).where(model_cls.user_id.is_(None)))
             ).scalar_one()
             if unowned:
-                logger.warning(
-                    f"{unowned} row(s) in {table_name} remain unowned (user_id is NULL) "
-                    "after backfill"
-                )
+                logger.warning(f"{unowned} row(s) in {table_name} remain unowned (user_id is NULL) after backfill")
 
 
 async def init_async_databases() -> None:

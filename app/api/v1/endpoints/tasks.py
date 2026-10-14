@@ -178,14 +178,16 @@ async def execute_task(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="MISSING_MODEL_NAME", error_message="model_name is required for ML tasks",
+                error_code="MISSING_MODEL_NAME",
+                error_message="model_name is required for ML tasks",
             ).model_dump(),
         )
     if request_values.task_type == TaskType.ML_TRAINING and not request_values.ml_class_type:
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="MISSING_ML_CLASS_TYPE", error_message="ml_class_type is required for ML training",
+                error_code="MISSING_ML_CLASS_TYPE",
+                error_message="ml_class_type is required for ML training",
             ).model_dump(),
         )
     if request_values.task_type == TaskType.SIMILARITY_COMPUTATION:
@@ -287,7 +289,8 @@ async def get_task_results(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="TASK_RESULTS_NOT_AVAILABLE", error_message="Task results not available",
+                error_code="TASK_RESULTS_NOT_AVAILABLE",
+                error_message="Task results not available",
             ).model_dump(),
         )
 
@@ -454,7 +457,8 @@ async def get_similarity_computation(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="COMPUTATION_NOT_FOUND", error_message="Computation not found",
+                error_code="COMPUTATION_NOT_FOUND",
+                error_message="Computation not found",
             ).model_dump(),
         )
 
@@ -517,7 +521,8 @@ async def delete_similarity_computation(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="COMPUTATION_NOT_FOUND", error_message="Computation not found",
+                error_code="COMPUTATION_NOT_FOUND",
+                error_message="Computation not found",
             ).model_dump(),
         )
 

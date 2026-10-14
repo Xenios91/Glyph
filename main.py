@@ -183,7 +183,8 @@ _STATUS_ERROR_CODE: dict[int, str] = {
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(
-    request: Request, exc: HTTPException,
+    request: Request,
+    exc: HTTPException,
 ) -> HTMLResponse | JSONResponse | RedirectResponse:
     """Handle HTTP exceptions with appropriate response format.
 

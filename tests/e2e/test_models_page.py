@@ -33,8 +33,9 @@ class TestModelsPage:
         # Page should show either the empty state or a models table
         empty_state = page.locator(".no-models-empty-state")
         models_table = page.locator("table.cyber-table")
-        assert empty_state.is_visible() or models_table.is_visible(), \
+        assert empty_state.is_visible() or models_table.is_visible(), (
             "Models page should show either empty state or models table"
+        )
 
     def test_models_empty_state_structure(self, page: Any, server: Any) -> None:
         """Test that the models page has correct empty state structure when no models exist."""

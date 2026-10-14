@@ -167,7 +167,10 @@ class ProcessingPipeline:
 
         """
         logger.info(
-            "Starting pipeline '{}' execution for UUID {} with {} steps", self._name, context.uuid, len(self._steps),
+            "Starting pipeline '{}' execution for UUID {} with {} steps",
+            self._name,
+            context.uuid,
+            len(self._steps),
         )
 
         for step in self._steps:

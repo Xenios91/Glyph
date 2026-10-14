@@ -31,7 +31,8 @@ router = APIRouter()
 )
 @catch_http_exception(status_code=500, error_code="DELETE_MODEL_ERROR", message="Failed to delete model")
 async def delete_model(
-    current_user: Annotated[User, Depends(get_current_active_user)], model_name: Annotated[ModelName, Query()],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    model_name: Annotated[ModelName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete a trained ML model by name and all associated predictions."""
     model_row = await ModelRepository.get(model_name)
@@ -39,7 +40,8 @@ async def delete_model(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="MODEL_NOT_FOUND", error_message="Model not found",
+                error_code="MODEL_NOT_FOUND",
+                error_message="Model not found",
             ).model_dump(),
         )
     assert_owned(model_row, current_user, "model")
@@ -55,7 +57,8 @@ async def delete_model(
 )
 @catch_http_exception(status_code=500, error_code="DELETE_MODELS_ERROR", message="Failed to delete models")
 async def delete_models(
-    current_user: Annotated[User, Depends(get_current_active_user)], model_names: Annotated[str, Query()],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    model_names: Annotated[str, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete multiple trained ML models by comma-separated names."""
     names = [name.strip() for name in model_names.split(",") if name.strip()]
@@ -63,7 +66,8 @@ async def delete_models(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_MODEL_NAMES", error_message="At least one model name must be provided",
+                error_code="INVALID_MODEL_NAMES",
+                error_message="At least one model name must be provided",
             ).model_dump(),
         )
     if len(names) > 100:
@@ -115,14 +119,16 @@ async def get_function(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_MODEL_NAME", error_message="model_name must be a non-empty string",
+                error_code="INVALID_MODEL_NAME",
+                error_message="model_name must be a non-empty string",
             ).model_dump(),
         )
     if not function_name or not function_name.strip():
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="INVALID_FUNCTION_NAME", error_message="function_name must be a non-empty string",
+                error_code="INVALID_FUNCTION_NAME",
+                error_message="function_name must be a non-empty string",
             ).model_dump(),
         )
 
@@ -132,7 +138,8 @@ async def get_function(
         raise HTTPException(
             status_code=404,
             detail=create_error_response(
-                error_code="FUNCTION_NOT_FOUND", error_message="Function not found",
+                error_code="FUNCTION_NOT_FOUND",
+                error_message="Function not found",
             ).model_dump(),
         )
 
@@ -203,14 +210,17 @@ async def get_prediction_details(
 
         model_info = await FunctionRepository.get(model_name, function_name)
         prediction_data, prediction_tokens = await PredictionService.get_prediction_function_details(
-            task_name, model_name, function_name,
+            task_name,
+            model_name,
+            function_name,
         )
 
         if not prediction_data:
             raise HTTPException(
                 status_code=404,
                 detail=create_error_response(
-                    error_code="PREDICTION_NOT_FOUND", error_message="Prediction not found",
+                    error_code="PREDICTION_NOT_FOUND",
+                    error_message="Prediction not found",
                 ).model_dump(),
             )
 
@@ -228,7 +238,8 @@ async def get_prediction_details(
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
-                error_code="RETRIEVAL_ERROR", error_message="Could not retrieve details",
+                error_code="RETRIEVAL_ERROR",
+                error_message="Could not retrieve details",
             ).model_dump(),
         )
 

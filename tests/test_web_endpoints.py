@@ -39,7 +39,9 @@ class TestWebEndpoints:
 
     @patch("app.web.endpoints.web.get_settings")
     def test_config_endpoint(
-        self, mock_get_settings: Any, web_client: TestClient,
+        self,
+        mock_get_settings: Any,
+        web_client: TestClient,
     ) -> None:
         """Test config endpoint renders system settings (LLM lives on the profile page)."""
         mock_settings = Mock()
@@ -58,7 +60,9 @@ class TestWebEndpoints:
 
     @patch("app.web.endpoints.web.resolve_user_llm_config", new_callable=AsyncMock)
     def test_profile_endpoint_renders_llm_settings(
-        self, mock_resolve: Any, web_client: TestClient,
+        self,
+        mock_resolve: Any,
+        web_client: TestClient,
     ) -> None:
         """Test profile page renders LLM settings without leaking the API key."""
         mock_resolve.return_value = LLMConfig(api_key="sk-test-secret-key")
@@ -77,7 +81,9 @@ class TestWebEndpoints:
 
     @patch("app.web.endpoints.web.resolve_user_llm_config", new_callable=AsyncMock)
     def test_profile_endpoint_llm_no_key_stored(
-        self, mock_resolve: Any, web_client: TestClient,
+        self,
+        mock_resolve: Any,
+        web_client: TestClient,
     ) -> None:
         """Test profile page shows the no-key hint when no LLM API key is stored."""
         mock_resolve.return_value = LLMConfig()
@@ -171,7 +177,11 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
     def test_get_prediction_details_json_success(
-        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, web_client: TestClient,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        mock_service_pred_repo: Any,
+        web_client: TestClient,
     ) -> None:
         """Test get prediction details returns JSON on success."""
         mock_func_repo.get = AsyncMock(
@@ -208,7 +218,11 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
     def test_get_prediction_details_function_not_found(
-        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, web_client: TestClient,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        mock_service_pred_repo: Any,
+        web_client: TestClient,
     ) -> None:
         """Test get prediction details returns 404 when function not found."""
         mock_func_repo.get = AsyncMock(return_value=None)
@@ -234,7 +248,11 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
     def test_get_prediction_details_prediction_not_found(
-        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, web_client: TestClient,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        mock_service_pred_repo: Any,
+        web_client: TestClient,
     ) -> None:
         """Test get prediction details returns 404 when prediction not found."""
         mock_model_info = Mock()
@@ -310,7 +328,11 @@ class TestWebEndpoints:
     @patch("app.web.endpoints.web.PredictionRepository")
     @patch("app.web.endpoints.web.FunctionRepository")
     def test_get_prediction_details_html_response(
-        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, web_client: TestClient,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        mock_service_pred_repo: Any,
+        web_client: TestClient,
     ) -> None:
         """Test get prediction details returns HTML for browsers."""
         mock_model_info = Mock()

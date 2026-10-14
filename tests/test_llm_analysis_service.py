@@ -61,8 +61,9 @@ class FakeClient:
     async def __aexit__(self, *args: Any) -> None:
         return None
 
-    async def post(self, url: str, json: dict[str, Any] | None = None,
-                   headers: dict[str, str] | None = None) -> FakeResponse:
+    async def post(
+        self, url: str, json: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+    ) -> FakeResponse:
         self.calls.append((url, json, headers))
         if self._exc is not None:
             raise self._exc
@@ -72,6 +73,7 @@ class FakeClient:
 
 def _patch_client(monkeypatch: Any, client: FakeClient) -> None:
     """Replace the service's httpx AsyncClient with a factory returning client."""
+
     def _factory(timeout: Any = None) -> FakeClient:
         client.timeout = timeout
         return client
@@ -133,7 +135,9 @@ class TestTestLLMConnection:
 
     async def test_success(self, monkeypatch: Any) -> None:
         """Test a successful connection returns ok with model and timing."""
-        client = FakeClient(response=FakeResponse(200, {"model": "gpt-4o-mini", "choices": [{"message": {"content": "ok"}}]}))
+        client = FakeClient(
+            response=FakeResponse(200, {"model": "gpt-4o-mini", "choices": [{"message": {"content": "ok"}}]})
+        )
         _patch_client(monkeypatch, client)
         llm = _make_llm(api_key="sk-123")
 
@@ -299,9 +303,7 @@ class TestParseVerdict:
 
     def test_case_insensitive(self) -> None:
         """Test that the verdict line is matched case-insensitively."""
-        is_vuln, confidence, verdict = service.parse_verdict(
-            "verdict: vulnerable (confidence: HIGH)"
-        )
+        is_vuln, confidence, verdict = service.parse_verdict("verdict: vulnerable (confidence: HIGH)")
         assert is_vuln is True
         assert confidence == "high"
         assert verdict == "VULNERABLE"
@@ -329,9 +331,7 @@ class TestParseVerdict:
 
     def test_verdict_at_start(self) -> None:
         """Test a verdict line at the very start of the content."""
-        is_vuln, confidence, verdict = service.parse_verdict(
-            "VERDICT: VULNERABLE (confidence: high)\n## Analysis"
-        )
+        is_vuln, confidence, verdict = service.parse_verdict("VERDICT: VULNERABLE (confidence: high)\n## Analysis")
         assert is_vuln is True
         assert confidence == "high"
         assert verdict == "VULNERABLE"
@@ -461,13 +461,7 @@ class TestAnalyzeFinding:
         """Test that a parseable verdict line populates the result fields."""
         body = {
             "model": "test-model-echo",
-            "choices": [
-                {
-                    "message": {
-                        "content": "## Analysis\nRisky.\nVERDICT: VULNERABLE (confidence: high)"
-                    }
-                }
-            ],
+            "choices": [{"message": {"content": "## Analysis\nRisky.\nVERDICT: VULNERABLE (confidence: high)"}}],
         }
         client = FakeClient(response=FakeResponse(200, body))
         _patch_client(monkeypatch, client)
@@ -648,8 +642,9 @@ class TestAnalyzeFindings:
         class FlakyClient(FakeClient):
             """Client that fails the request for fn0 with a connection error."""
 
-            async def post(self, url: str, json: dict[str, Any] | None = None,
-                           headers: dict[str, str] | None = None) -> FakeResponse:
+            async def post(
+                self, url: str, json: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+            ) -> FakeResponse:
                 self.calls.append((url, json, headers))
                 if json is not None and "fn0" in str(json["messages"][1]["content"]):
                     raise httpx.ConnectError("boom")
@@ -669,14 +664,14 @@ class TestAnalyzeFindings:
         class TimingClient(FakeClient):
             """Client that records the peak number of in-flight posts."""
 
-            def __init__(self, response: FakeResponse | None = None,
-                         exc: Exception | None = None) -> None:
+            def __init__(self, response: FakeResponse | None = None, exc: Exception | None = None) -> None:
                 super().__init__(response=response, exc=exc)
                 self.in_flight = 0
                 self.max_in_flight = 0
 
-            async def post(self, url: str, json: dict[str, Any] | None = None,
-                           headers: dict[str, str] | None = None) -> FakeResponse:
+            async def post(
+                self, url: str, json: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+            ) -> FakeResponse:
                 self.calls.append((url, json, headers))
                 self.in_flight += 1
                 self.max_in_flight = max(self.max_in_flight, self.in_flight)

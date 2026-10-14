@@ -309,7 +309,10 @@ class APIKey(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     hashed_key: Mapped[str] = mapped_column(String(256), nullable=False)
@@ -363,7 +366,11 @@ class LLMUserConfig(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True,
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
     )
     enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     base_url: Mapped[str] = mapped_column(String(512), default="", nullable=False)
@@ -477,7 +484,10 @@ class SimilarityPair(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "computation_id", "binary_a_id", "binary_b_id", name="uq_similarity_pair_computation_binaries",
+            "computation_id",
+            "binary_a_id",
+            "binary_b_id",
+            name="uq_similarity_pair_computation_binaries",
         ),
     )
 
@@ -543,7 +553,10 @@ class LLMAnalysisResult(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "target_name", "function_name", "containing_function", "entrypoint",
+            "target_name",
+            "function_name",
+            "containing_function",
+            "entrypoint",
             name="uq_llm_analysis_target_function",
         ),
     )

@@ -358,8 +358,7 @@ async def list_binary_functions(
     functions = await _upload_service.get_functions(binary_id, offset=offset, limit=page_size)
 
     items: list[BinaryFunctionItem] = [
-        BinaryFunctionItem(function_name=fn.function_name, entrypoint=fn.entrypoint)
-        for fn in functions
+        BinaryFunctionItem(function_name=fn.function_name, entrypoint=fn.entrypoint) for fn in functions
     ]
 
     return create_success_response(
