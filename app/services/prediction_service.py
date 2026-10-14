@@ -26,13 +26,16 @@ class PredictionService:
 
     @staticmethod
     async def check_task_name_unique(task_name: str) -> bool:
-        """Check if a task name is unique among existing predictions.
+        """Check whether a task name already exists among predictions.
+
+        Despite the method name, this reports *existence*: it returns True
+        when the task name is already taken (i.e. not unique).
 
         Args:
             task_name: The task name to check.
 
         Returns:
-            True if the task name is unique, False otherwise.
+            True if the task name already exists (is not unique), False otherwise.
 
         """
         return await PredictionRepository.task_name_exists(task_name)
@@ -95,7 +98,7 @@ class PredictionService:
         task_name: str,
         model_name: str,
         function_name: str,
-    ) -> tuple[dict[str, Any] | None, str]:
+    ) -> tuple[dict[str, Any], str]:
         """Fetch a single function's prediction data and its formatted tokens.
 
         Shared core for the ``getPredictionDetails`` endpoints. The raw
@@ -109,8 +112,9 @@ class PredictionService:
             function_name: The function to retrieve details for.
 
         Returns:
-            Tuple of (raw prediction data or None, formatted prediction tokens).
-            The tokens string is empty when no prediction data exists.
+            Tuple of (raw prediction data, formatted prediction tokens). The
+            data dict is empty when no prediction exists for the function, and
+            the tokens string is empty in that case as well.
 
         """
         prediction_data = await PredictionRepository.get_prediction_function(
@@ -131,9 +135,6 @@ class PredictionService:
         Args:
             task_name: The prediction task name to delete.
             model_name: Optional model name to scope the deletion.
-
-        Raises:
-            PredictionNotFoundError: If prediction does not exist.
 
         """
         await PredictionRepository.delete(task_name, model_name)

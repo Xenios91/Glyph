@@ -31,7 +31,6 @@ Glyph 0.3.0 adds optional LLM-assisted analysis to the dangerous functions scann
 
 1. **Exploitability** — whether the usage is plausibly exploitable given the taint paths and controls visible in the code
 2. **Risk assessment** — confidence level and agreement (or disagreement) with the catalog severity rating, with justification
-3. **Remediation** — concrete, actionable fixes for that specific call site
 
 Any server exposing the OpenAI chat completions API works — for example `https://api.openai.com`, or a local runtime such as Ollama or vLLM exposing `/v1/chat/completions`. The endpoint can be configured globally in the `llm` block of [`config.yml`](config.yml), or per user from the **Profile → LLM** tab (with a one-click endpoint connectivity test). Analyses are persisted per target and call site, so previously analyzed findings keep their status badges across sessions and can be re-analyzed or deleted at any time.
 
