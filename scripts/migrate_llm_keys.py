@@ -18,9 +18,8 @@ the development default.
 import os
 import sqlite3
 
-from loguru import logger
-
 from app.utils.secret_cipher import ENC_PREFIX, get_secret_cipher
+from loguru import logger
 
 
 def _data_dir() -> str:
