@@ -158,7 +158,9 @@ warn_unused_ignores = true
 warn_no_return = true
 strict_optional = true
 plugins = ["pydantic.mypy"]
-exclude = ["tests/e2e", "app/stubs"]
+# tests/ is excluded to match the pre-commit mypy hook (exclude: ^(tests|app/stubs)/):
+# the test suite is not held to the strict app typing rules.
+exclude = ["tests/e2e", "app/stubs", "tests/"]
 mypy_path = "app/stubs"
 disable_error_code = ["no-any-return"]
 
@@ -168,7 +170,6 @@ module = [
     "slowapi.*",
     "loguru.*",
     "asgi_correlation_id.*",
-    "playwright.*",
 ]
 ignore_missing_imports = true
 

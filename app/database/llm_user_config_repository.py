@@ -117,7 +117,9 @@ class LLMUserConfigRepository:
                 delete(LLMUserConfig).where(LLMUserConfig.user_id == user_id),
             )
             await session.commit()
-            deleted = (result.rowcount or 0) > 0
+            # Result.rowcount exists at runtime for DELETE statements but is
+            # not exposed on the Result[Any] type stub.
+            deleted = (result.rowcount or 0) > 0  # type: ignore[attr-defined]
             if deleted:
                 logger.info("Deleted LLM configuration for user {}", user_id)
             return deleted

@@ -433,7 +433,7 @@ async def scan_dangerous_functions(
         # Deserialize prediction functions (off the event loop; handles both
         # compressed and legacy uncompressed payloads).
         try:
-            raw_data = await asyncio.to_thread(secure_load_bytes, prediction.functions_data)  # type: ignore[attr-defined]
+            raw_data = await asyncio.to_thread(secure_load_bytes, prediction.functions_data)
             if isinstance(raw_data, list):
                 functions_data = raw_data
             else:

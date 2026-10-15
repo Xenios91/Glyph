@@ -790,6 +790,8 @@ A few more values are read directly from the environment, independent of `config
 | `GLYPH_RATE_LIMIT_PASSWORD_CHANGE_MAX` / `GLYPH_RATE_LIMIT_PASSWORD_CHANGE_WINDOW` | Override the password-change rate limit |
 | `GLYPH_RATE_LIMIT_REFRESH_MAX` / `GLYPH_RATE_LIMIT_REFRESH_WINDOW` | Override the token-refresh rate limit |
 
+> **Production:** `GLYPH_USE_HTTPS=true` is **required** in production — including when running behind a TLS-terminating reverse proxy. When it is `false`, JWT cookies are sent without the `Secure` flag and the HSTS header is omitted, and the application only logs a critical warning (it does **not** refuse to start).
+
 **Example (setting values that are not defined in `config.yml`):**
 
 ```bash
@@ -891,6 +893,8 @@ Glyph applies rate limiting to authentication endpoints and LLM analysis to prev
 | LLM Analysis (`/llm-analysis`, `/llm-test`) | 10 requests per minute |
 
 If you receive a `429 Too Many Requests` response, wait before retrying.
+
+> **Note:** The rate limiter is in-memory and **per worker process**. When running with multiple uvicorn workers (e.g. `--workers 4`, as in the Docker image), the effective limit per client is approximately the configured limit × number of workers.
 
 ### Security Headers
 

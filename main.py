@@ -22,7 +22,7 @@ from app.utils.logging_config import setup_logging_from_config
 from app.web.endpoints.web import router as web_router
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from loguru import logger
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -30,6 +30,18 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 
 setup_logging_from_config()
+
+
+def _handle_rate_limit_exceeded(request: Request, exc: Exception) -> Response:
+    """Rate-limit exception handler compatible with Starlette's handler signature.
+
+    Starlette expects handlers typed to accept ``Exception``; the slowapi
+    handler only handles ``RateLimitExceeded``, so narrow internally and
+    delegate to it, preserving the original 429 response behavior.
+    """
+    if isinstance(exc, RateLimitExceeded):
+        return _rate_limit_exceeded_handler(request, exc)
+    return JSONResponse({"error": "Rate limit exceeded"}, status_code=429)
 
 
 def create_app() -> FastAPI:
@@ -73,7 +85,7 @@ def create_app() -> FastAPI:
         logger.info("CorrelationIdMiddleware disabled via config")
 
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded, _handle_rate_limit_exceeded)
     logger.info("Rate limiter registered: slowapi")
 
     app.add_middleware(CSPMiddleware, use_https=settings.use_https)

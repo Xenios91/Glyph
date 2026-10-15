@@ -9,7 +9,7 @@ factory in ``main.py``:
 """
 
 from collections.abc import Awaitable, Callable
-from typing import Any, cast
+from typing import Any
 
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -241,4 +241,4 @@ class CachedStaticFiles(StaticFiles):
         if isinstance(response, FileResponse):
             response.headers["Cache-Control"] = f"public, max-age={self.cache_control_max_age}"
             response.headers["Immutable"] = "true"
-        return cast(Response, response)
+        return response

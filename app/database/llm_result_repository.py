@@ -204,7 +204,9 @@ class LLMResultRepository:
                 ),
             )
             await session.commit()
-            deleted = (result.rowcount or 0) > 0
+            # Result.rowcount exists at runtime for DELETE statements but is
+            # not exposed on the Result[Any] type stub.
+            deleted = (result.rowcount or 0) > 0  # type: ignore[attr-defined]
             if deleted:
                 logger.info("Deleted LLM analysis results for target '{}'", target_name)
             return deleted

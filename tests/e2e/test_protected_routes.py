@@ -7,6 +7,7 @@ Tests that protected routes redirect unauthenticated users to the login page.
 from typing import Any
 
 from playwright.sync_api import expect
+
 from tests.e2e.utils import (
     BASE_URL,
     register_and_login,

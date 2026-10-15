@@ -86,7 +86,7 @@ class PredictionRepository:
         session: AsyncSession = await get_async_session("predictions")
         try:
             if user_id == 0:
-                where = Prediction.user_id.is_(None)
+                where: ColumnElement[bool] = Prediction.user_id.is_(None)
             else:
                 where = or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
             result = await session.execute(select(func.count()).select_from(Prediction).where(where))
@@ -120,7 +120,7 @@ class PredictionRepository:
         session: AsyncSession = await get_async_session("predictions")
         try:
             if user_id == 0:
-                where = Prediction.user_id.is_(None)
+                where: ColumnElement[bool] = Prediction.user_id.is_(None)
             else:
                 where = or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
             result = await session.execute(select(Prediction.task_name).where(where).distinct())

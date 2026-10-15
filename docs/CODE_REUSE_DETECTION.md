@@ -121,7 +121,7 @@ result = await compare_binaries(
 
 - **Service**: [`app/services/code_reuse_detector.py`](../app/services/code_reuse_detector.py)
 - **Key Functions**:
-  - [`compute_similarity()`](../app/services/code_reuse_detector.py:42) — Core similarity metric
-  - [`compare_binaries()`](../app/services/code_reuse_detector.py:77) — Full binary comparison pipeline
-  - [`_longest_common_subsequence()`](../app/services/code_reuse_detector.py:12) — Space-optimized LCS
+  - [`compute_similarity()`](../app/services/code_reuse_detector.py:89) — Core similarity metric
+  - [`compare_binaries()`](../app/services/code_reuse_detector.py:123) — Full binary comparison pipeline
+  - [`_longest_common_subsequence()`](../app/services/code_reuse_detector.py:58) — Space-optimized LCS
 - **Pipeline Integration**: Uses `TokenizeStep` and `FilterStep` from the processing pipeline for consistent token normalization

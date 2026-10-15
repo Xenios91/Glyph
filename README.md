@@ -121,7 +121,7 @@ pip install .
 
 Before running Glyph, you **must** update the [`config.yml`](config.yml) file with your own settings:
 
-- **`jwt_secret_key`**: Replace the default value (`change-me-in-production`) with a strong, randomly generated secret key. This key is used to sign JWT tokens for authentication and **should never be used in production with the default value**.
+- **`jwt_secret_key`**: Replace the default value (`change-me-in-production`) with a strong, randomly generated secret key. This key is used to sign JWT tokens for authentication and **should never be used in production with the default value**. In production, prefer providing it via the `GLYPH_JWT_SECRET_KEY` environment variable and remove the `jwt_secret_key` key from `config.yml` (the file takes precedence over the environment).
 
 Example configuration:
 
@@ -175,6 +175,8 @@ For production, run without `--reload`:
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
+
+> **Production note:** Set `GLYPH_USE_HTTPS=true` (or `use_https: true` in `config.yml`) in production, including when deploying behind a TLS-terminating reverse proxy. Without it, JWT cookies are sent without the `Secure` flag and the HSTS header is absent.
 
 ### 7. Access the Application
 

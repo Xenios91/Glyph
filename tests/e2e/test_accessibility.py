@@ -10,6 +10,7 @@ Tests cover:
 from typing import Any
 
 from playwright.sync_api import expect
+
 from tests.e2e.utils import register_and_login
 
 
