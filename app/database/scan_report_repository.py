@@ -7,12 +7,13 @@ from loguru import logger
 from sqlalchemy import delete, or_, select
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import ColumnElement
 
 from app.database.models import ScanReport
 from app.database.session_handler import close_async_session, get_async_session
 
 
-def _ownership_clause(user_id: int | None):
+def _ownership_clause(user_id: int | None) -> ColumnElement[bool]:
     """Build an ownership filter for a ScanReport query.
 
     A report whose ``user_id`` is ``None`` (legacy/unowned) is visible to any
@@ -135,7 +136,9 @@ class ScanReportRepository:
                 ),
             )
             await session.commit()
-            deleted = (result.rowcount or 0) > 0
+            # Result.rowcount exists at runtime for DELETE statements but is
+            # not exposed on the Result[Any] type stub.
+            deleted = (result.rowcount or 0) > 0  # type: ignore[attr-defined]
             if deleted:
                 logger.info("Deleted scan report for target '{}'", target_name)
             return deleted

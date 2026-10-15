@@ -7,9 +7,10 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import OAuth2PasswordBearer
 from loguru import logger
+from sqlalchemy import Column, or_
 from sqlalchemy import exc as sa_exc
-from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import ColumnElement
 
 from app.auth.jwt_handler import (
     BadSignatureError,
@@ -89,7 +90,9 @@ async def get_current_user(
     if not token:
         logger.warning("Authentication failed: missing token")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     user_id = None
@@ -308,7 +311,7 @@ def assert_owned(resource: object, current_user: User, resource_label: str) -> N
     )
 
 
-def owned_or_unowned_filter(user_id_column, current_user: User):
+def owned_or_unowned_filter(user_id_column: Column, current_user: User) -> ColumnElement[bool]:
     """Build a SQLAlchemy filter scoping a list query to the current user.
 
     Returns ``user_id == current_user.id OR user_id IS NULL`` so that the

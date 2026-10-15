@@ -181,7 +181,11 @@ class UserRepository:
         return None
 
     async def update_user(
-        self, user_id: int, full_name: str | None = None, email: str | None = None, is_active: bool | None = None,
+        self,
+        user_id: int,
+        full_name: str | None = None,
+        email: str | None = None,
+        is_active: bool | None = None,
     ) -> User | None:
         """Update a user's information."""
         user = await self.get_by_id(user_id)
@@ -263,7 +267,11 @@ class APIKeyRepository:
         return bcrypt.checkpw(api_key.encode("utf-8"), hashed_key.encode("utf-8"))
 
     async def create_api_key(
-        self, user_id: int, name: str, permissions: list[str] | None = None, expires_days: int | None = None,
+        self,
+        user_id: int,
+        name: str,
+        permissions: list[str] | None = None,
+        expires_days: int | None = None,
     ) -> tuple[APIKey, str]:
         """Create a new API key for a user. Returns (APIKey, plain_text_key)."""
         api_key = self.generate_api_key()

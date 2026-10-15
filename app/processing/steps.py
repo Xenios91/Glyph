@@ -413,8 +413,11 @@ class TrainStep(PipelineStep):
                 asyncio.to_thread(secure_dump, ml_pipeline),
             )
 
-            await ModelRepository.save(  # type: ignore[attr-defined]
-                model_name, encoder_bytes, model_bytes, user_id=user_id,
+            await ModelRepository.save(
+                model_name,
+                encoder_bytes,
+                model_bytes,
+                user_id=user_id,
             )
 
             context.set("label_encoder", label_encoder)
@@ -474,7 +477,7 @@ class PredictStep(PipelineStep):
             return context
 
         try:
-            model, label_encoder = await ModelRepository.load_model(model_name)  # type: ignore[attr-defined]
+            model, label_encoder = await ModelRepository.load_model(model_name)
 
             predictions = await asyncio.to_thread(model.predict, tokens)
             prediction_probability = await asyncio.to_thread(model.predict_proba, tokens)

@@ -103,7 +103,9 @@ def create_paginated_response(
 
 
 def create_success_response(
-    data: T | None = None, message: str | None = None, request_id: str | None = None,
+    data: T | None = None,
+    message: str | None = None,
+    request_id: str | None = None,
 ) -> SuccessResponse[T]:
     """Factory function to create a success response.
 
@@ -117,12 +119,18 @@ def create_success_response(
 
     """
     return SuccessResponse(
-        success=True, data=data, message=message, metadata=Metadata(request_id=request_id) if request_id else Metadata(),
+        success=True,
+        data=data,
+        message=message,
+        metadata=Metadata(request_id=request_id) if request_id else Metadata(),
     )
 
 
 def create_error_response(
-    error_code: str, error_message: str, details: dict[str, Any] | None = None, request_id: str | None = None,
+    error_code: str,
+    error_message: str,
+    details: dict[str, Any] | None = None,
+    request_id: str | None = None,
 ) -> ErrorResponse:
     """Factory function to create an error response.
 
@@ -136,7 +144,7 @@ def create_error_response(
         An ErrorResponse instance.
 
     """
-    error = {"code": error_code, "message": error_message}
+    error: dict[str, Any] = {"code": error_code, "message": error_message}
     if details is not None:
         error["details"] = details
     return ErrorResponse(

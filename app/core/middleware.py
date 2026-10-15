@@ -9,7 +9,7 @@ factory in ``main.py``:
 """
 
 from collections.abc import Awaitable, Callable
-from typing import Any, cast
+from typing import Any
 
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -30,10 +30,16 @@ class CSPMiddleware:
         - Permissions-Policy: Restricts browser features.
     """
 
+    # style-src is split: <style> elements (style-src-elem) are strict ('self'
+    # + Google Fonts) to block style-element injection, while inline style
+    # *attributes* (style-src-attr) still allow 'unsafe-inline' for the
+    # handful of JS-driven dynamic styles (progress bars, canvas tooltips).
+    # Full inline-style cleanup is tracked as follow-up work.
     CSP_HEADER = (
         "default-src 'self'; "
         "script-src 'self'; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "style-src-elem 'self' https://fonts.googleapis.com; "
+        "style-src-attr 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
         "font-src 'self' https://fonts.gstatic.com; "
         "object-src 'none'; "
@@ -235,4 +241,4 @@ class CachedStaticFiles(StaticFiles):
         if isinstance(response, FileResponse):
             response.headers["Cache-Control"] = f"public, max-age={self.cache_control_max_age}"
             response.headers["Immutable"] = "true"
-        return cast(Response, response)
+        return response

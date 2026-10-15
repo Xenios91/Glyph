@@ -356,6 +356,7 @@ class TestTrainStep:
         # MagicMock cannot be pickled, so we patch to_thread to call the function directly.
         async def _fake_to_thread(func, *args, **kwargs):
             return func(*args, **kwargs)
+
         mock_to_thread.side_effect = _fake_to_thread
 
         # secure_dump serializes the mock pipeline, so patch it to return a stub payload.

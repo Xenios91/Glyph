@@ -219,7 +219,11 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.PredictionRepository")
     @patch("app.api.v1.endpoints.models.FunctionRepository")
     def test_get_prediction_details_success_json(
-        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, models_client: Any,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        mock_service_pred_repo: Any,
+        models_client: Any,
     ) -> None:
         """Test getting prediction details successfully with JSON response."""
         from app.auth.dependencies import get_current_active_user
@@ -262,7 +266,11 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.PredictionRepository")
     @patch("app.api.v1.endpoints.models.FunctionRepository")
     def test_get_prediction_details_model_function_not_found(
-        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, models_client: Any,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        mock_service_pred_repo: Any,
+        models_client: Any,
     ) -> None:
         """Test getting prediction details when model function not found still returns 200.
 
@@ -305,7 +313,11 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.PredictionRepository")
     @patch("app.api.v1.endpoints.models.FunctionRepository")
     def test_get_prediction_details_prediction_not_found(
-        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, models_client: Any,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        mock_service_pred_repo: Any,
+        models_client: Any,
     ) -> None:
         """Test getting prediction details when prediction not found returns 404."""
         from app.auth.dependencies import get_current_active_user
@@ -344,7 +356,10 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.PredictionRepository")
     @patch("app.api.v1.endpoints.models.FunctionRepository")
     def test_get_prediction_details_retrieval_error(
-        self, mock_func_repo: Any, mock_pred_repo: Any, models_client: Any,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        models_client: Any,
     ) -> None:
         """Test getting prediction details when retrieval fails returns 400."""
         from app.auth.dependencies import get_current_active_user
@@ -432,7 +447,11 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.PredictionRepository")
     @patch("app.api.v1.endpoints.models.FunctionRepository")
     def test_get_prediction_details_json_response(
-        self, mock_func_repo: Any, mock_pred_repo: Any, mock_service_pred_repo: Any, models_client: Any,
+        self,
+        mock_func_repo: Any,
+        mock_pred_repo: Any,
+        mock_service_pred_repo: Any,
+        models_client: Any,
     ) -> None:
         """Test getting prediction details returns JSON (no HTML content negotiation)."""
         from app.auth.dependencies import get_current_active_user
@@ -497,7 +516,10 @@ class TestModelsRouter:
     @patch("app.api.v1.endpoints.models.ModelRepository")
     @patch("app.api.v1.endpoints.models.PredictionService")
     def test_delete_models_partial_failure(
-        self, mock_pred_service: Any, mock_model_repo: Any, models_client: Any,
+        self,
+        mock_pred_service: Any,
+        mock_model_repo: Any,
+        models_client: Any,
     ) -> None:
         """Test deleting multiple models with some failures."""
         from app.auth.dependencies import get_current_active_user

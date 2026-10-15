@@ -50,7 +50,9 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 @limiter.limit(REGISTER_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def register(
-    request: Request, user_data: UserRegister, db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+    user_data: UserRegister,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> UserResponse:
     """Register a new user.
 
@@ -249,7 +251,9 @@ async def refresh_token(
     settings = get_settings()
     response = Response(
         content=TokenResponse(
-            access_token=new_access_token, refresh_token=new_refresh_token, token_type="bearer",
+            access_token=new_access_token,
+            refresh_token=new_refresh_token,
+            token_type="bearer",
         ).model_dump_json(),
         media_type="application/json",
     )
@@ -395,7 +399,8 @@ async def update_profile(
 
 @router.get("/api-keys")
 async def list_api_keys(
-    current_user: Annotated[User, Depends(get_current_active_user)], db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[APIKeyResponse]:
     """List all API keys for current user.
 

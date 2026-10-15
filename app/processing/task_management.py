@@ -174,7 +174,7 @@ class EventWatcher:
                 # Cleanup: remove the entry only if it still references the same future.
                 # If the callback re-registered the job with a new future, the identity
                 # check below will fail and we correctly keep the new entry alive.
-                completed_uuid: str | None = target_uuid
+                completed_uuid = target_uuid
                 with self._data_lock:
                     entry = self._watched_futures.get(completed_uuid)
                     if entry is not None and entry[1] is future:

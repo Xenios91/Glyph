@@ -7,6 +7,7 @@ Tests that protected routes redirect unauthenticated users to the login page.
 from typing import Any
 
 from playwright.sync_api import expect
+
 from tests.e2e.utils import (
     BASE_URL,
     register_and_login,
@@ -52,7 +53,8 @@ class TestProtectedRoutesRedirect:
     def test_prediction_details_redirects_to_login(self, page: Any, server: Any) -> None:
         """Test that accessing prediction details redirects to login."""
         page.goto(
-            f"{BASE_URL}/getPredictionDetails?model_name=test&function_name=test&task_name=test", wait_until="commit",
+            f"{BASE_URL}/getPredictionDetails?model_name=test&function_name=test&task_name=test",
+            wait_until="commit",
         )
         current_url = page.url
         assert "/login" in current_url or "Not authenticated" in page.content()

@@ -223,7 +223,9 @@ class TestUpsertMany:
         assert await LLMResultRepository.get_for_target("target_a") == []
 
     async def test_single_commit_for_batch(
-        self, fresh_intelligence_tables: Any, monkeypatch: pytest.MonkeyPatch,
+        self,
+        fresh_intelligence_tables: Any,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """The whole batch is persisted with exactly one commit."""
         commits = 0
@@ -418,7 +420,8 @@ class TestScanReportRepository:
         assert deleted is False
 
     async def test_delete_does_not_affect_llm_results(
-        self, fresh_intelligence_tables: Any,
+        self,
+        fresh_intelligence_tables: Any,
     ) -> None:
         """Deleting a scan report leaves LLM analysis results untouched."""
         await LLMResultRepository.upsert_many("target_a", [_make_result()])

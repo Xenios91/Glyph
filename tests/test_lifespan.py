@@ -7,8 +7,6 @@ import pytest
 from app.core.lifespan import lifespan
 
 
-
-
 class TestLifespan:
     """Tests for lifespan context manager."""
 

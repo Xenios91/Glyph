@@ -10,6 +10,7 @@ Tests cover:
 from typing import Any
 
 from playwright.sync_api import expect
+
 from tests.e2e.utils import register_and_login
 
 
@@ -309,7 +310,9 @@ class TestScreenReaderCompatibility:
 
         # Dropdown arrows are decorative and should be aria-hidden
         dropdown_arrows = page.locator('.dropdown-arrow[aria-hidden="true"]')
-        assert dropdown_arrows.count() >= 3, f"Expected at least 3 dropdown arrows with aria-hidden, found {dropdown_arrows.count()}"
+        assert dropdown_arrows.count() >= 3, (
+            f"Expected at least 3 dropdown arrows with aria-hidden, found {dropdown_arrows.count()}"
+        )
 
     def test_form_inputs_have_aria_required(self, page: Any, server: Any) -> None:
         """Verify required form inputs have aria-required='true'."""
@@ -346,4 +349,6 @@ class TestScreenReaderCompatibility:
 
             # Each feature card link should have an aria-label
             card_links = page.locator(".feature-cards a[aria-label]")
-            assert card_links.count() >= 3, f"Expected at least 3 feature card links with aria-label, found {card_links.count()}"
+            assert card_links.count() >= 3, (
+                f"Expected at least 3 feature card links with aria-label, found {card_links.count()}"
+            )

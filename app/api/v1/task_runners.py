@@ -277,6 +277,7 @@ async def run_ml_task(
         model_name: ML model name.
         ml_class_type: Classification type (for training).
         captured_ctx: Captured request context.
+        user_id: ID of the user who initiated the task (None for anonymous/legacy).
 
     """
     from app.processing.pipeline import PipelineContext

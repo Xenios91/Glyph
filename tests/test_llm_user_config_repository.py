@@ -126,9 +126,7 @@ class TestUpsert:
         try:
             from sqlalchemy import func, select
 
-            count = (
-                await session.execute(select(func.count()).select_from(LLMUserConfig))
-            ).scalar_one()
+            count = (await session.execute(select(func.count()).select_from(LLMUserConfig))).scalar_one()
         finally:
             await session.close()
         assert count == 1
@@ -160,7 +158,8 @@ class TestResolveUserLlmConfig:
     async def test_row_overrides_defaults_field_by_field(self, fresh_auth_tables: Any) -> None:
         await _seed_user()
         await LLMUserConfigRepository.upsert(
-            1, {"model": "llama-3", "base_url": "http://localhost:8000", "enabled": True},
+            1,
+            {"model": "llama-3", "base_url": "http://localhost:8000", "enabled": True},
         )
 
         resolved = await resolve_user_llm_config(1)
@@ -178,3 +177,72 @@ class TestResolveUserLlmConfig:
         await LLMUserConfigRepository.upsert(1, {"model": "m"})
         resolved = await resolve_user_llm_config(1)
         assert isinstance(resolved, LLMConfig)
+
+
+class TestApiKeyEncryption:
+    """The LLM api_key is encrypted at rest and decrypted on read."""
+
+    async def test_upsert_stores_encrypted_not_plaintext(self, fresh_auth_tables: Any) -> None:
+        await _seed_user()
+        await LLMUserConfigRepository.upsert(1, {"api_key": "sk-plaintext-123"})
+
+        # Read the raw stored value straight from the DB (bypassing decryption).
+        session = await get_async_session("auth")
+        try:
+            from sqlalchemy import select
+
+            raw = (
+                await session.execute(select(LLMUserConfig).where(LLMUserConfig.user_id == 1))
+            ).scalar_one()
+        finally:
+            await session.close()
+        assert raw.api_key.startswith("enc1:")
+        assert raw.api_key != "sk-plaintext-123"
+
+    async def test_get_for_user_returns_decrypted_key(self, fresh_auth_tables: Any) -> None:
+        await _seed_user()
+        await LLMUserConfigRepository.upsert(1, {"api_key": "sk-secret-abc"})
+
+        row = await LLMUserConfigRepository.get_for_user(1)
+        assert row is not None
+        assert row.api_key == "sk-secret-abc"
+
+    async def test_resolve_returns_original_key_encrypted_row(self, fresh_auth_tables: Any) -> None:
+        await _seed_user()
+        await LLMUserConfigRepository.upsert(1, {"api_key": "sk-resolve-1"})
+        resolved = await resolve_user_llm_config(1)
+        assert resolved.api_key == "sk-resolve-1"
+
+    async def test_resolve_returns_original_key_legacy_plaintext_row(self, fresh_auth_tables: Any) -> None:
+        """A row written before encryption (no enc1: prefix) still resolves."""
+        await _seed_user()
+        # Insert a legacy plaintext row directly, bypassing upsert.
+        session = await get_async_session("auth")
+        try:
+            session.add(LLMUserConfig(user_id=1, api_key="legacy-plaintext-key"))
+            await session.commit()
+        finally:
+            await session.close()
+
+        resolved = await resolve_user_llm_config(1)
+        assert resolved.api_key == "legacy-plaintext-key"
+
+    async def test_corrupt_token_treated_as_unset(self, fresh_auth_tables: Any) -> None:
+        """A token encrypted with a different key (rotation) yields an empty key."""
+        from app.utils.secret_cipher import ENC_PREFIX
+        from cryptography.fernet import Fernet
+
+        await _seed_user()
+        # Encrypt with a *different* key so the current key cannot decrypt it,
+        # simulating a key rotation.
+        other_token = Fernet(Fernet.generate_key()).encrypt(b"rotated-secret")
+        session = await get_async_session("auth")
+        try:
+            session.add(LLMUserConfig(user_id=1, api_key=f"{ENC_PREFIX}{other_token.decode()}"))
+            await session.commit()
+        finally:
+            await session.close()
+
+        row = await LLMUserConfigRepository.get_for_user(1)
+        assert row is not None
+        assert row.api_key == ""

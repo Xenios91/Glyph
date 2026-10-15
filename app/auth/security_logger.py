@@ -129,27 +129,8 @@ class LoginFailureTracker:
         self._failures.pop(key, None)
         self._alerted.pop(key, None)
 
-    def clear_all(self) -> None:
-        """Clear all recorded failures and alerted flags.
-
-        Unlike reset(), which targets a single key, this wipes the entire
-        tracker state. Intended for test isolation so brute-force state
-        never leaks across tests.
-        """
-        self._failures.clear()
-        self._alerted.clear()
-
 
 _login_failure_tracker = LoginFailureTracker()
-
-
-def reset_login_failure_tracker() -> None:
-    """Reset the global login failure tracker to a pristine state.
-
-    Primarily useful for tests: clears all recorded failures and alerted
-    flags so per-username/IP blockout state never accumulates across tests.
-    """
-    _login_failure_tracker.clear_all()
 
 
 def is_blocked(username: str, ip_address: str | None = None) -> bool:

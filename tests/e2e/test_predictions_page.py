@@ -8,6 +8,7 @@ and action buttons.
 from typing import Any
 
 from playwright.sync_api import expect
+
 from tests.e2e.utils import BASE_URL, register_and_login
 
 
@@ -37,8 +38,9 @@ class TestPredictionsPage:
         # Either empty state or predictions table should be visible
         empty_state = page.locator(".no-predictions-empty-state")
         predictions_table = page.locator(".cyber-table")
-        assert empty_state.is_visible() or predictions_table.is_visible(), \
+        assert empty_state.is_visible() or predictions_table.is_visible(), (
             "Predictions page should show either empty state or predictions table"
+        )
 
     def test_predictions_empty_state_structure(self, page: Any, server: Any) -> None:
         """Test that the predictions empty state shows the title if visible."""

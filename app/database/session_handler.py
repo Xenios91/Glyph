@@ -7,8 +7,8 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import event
-from sqlalchemy.engine import make_url
+from sqlalchemy import event, func, or_, select, text, update
+from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -86,7 +86,6 @@ DB_TABLE_MAP: dict[str, list[Any]] = {
 
 async_engines: dict[str, AsyncEngine] = {}
 async_session_factories: dict[str, async_sessionmaker[AsyncSession]] = {}
-_memory_keepalive_connections: dict[str, Any] = {}
 
 
 def _configure_sqlite(dbapi_connection: Any, connection_record: Any) -> None:
@@ -99,29 +98,8 @@ def _configure_sqlite(dbapi_connection: Any, connection_record: Any) -> None:
     cursor.close()
 
 
-def _ensure_sqlite_directory(url: str) -> None:
-    """Ensure the parent directory of a file-backed SQLite database exists.
-
-    SQLite cannot create missing parent directories, so a fresh checkout
-    without ``data/`` would fail with "unable to open database file".
-    In-memory and non-SQLite URLs are left untouched.
-    """
-    parsed = make_url(url)
-    if parsed.get_backend_name() != "sqlite":
-        return
-    db_path = parsed.database or ""
-    if not db_path or db_path == ":memory:":
-        return
-    if parsed.query.get("mode") == "memory":
-        return
-    parent = os.path.dirname(db_path)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-
-
 def _create_engine(url: str) -> AsyncEngine:
     """Create an async engine for SQLite with aiosqlite."""
-    _ensure_sqlite_directory(url)
     engine = create_async_engine(
         url,
         echo=False,
@@ -224,6 +202,86 @@ async def _ensure_prediction_count_columns(engine: AsyncEngine) -> None:
             logger.info(f"Added {column_name} column to {table_name} table")
 
 
+# The per-user prediction unique constraint. Older schemas have
+# UNIQUE(task_name, model_name); current schemas have
+# UNIQUE(task_name, model_name, user_id). Detected via PRAGMA index_info.
+_PREDICTION_OLD_UNIQUE_COLS = ("task_name", "model_name")
+_PREDICTION_NEW_UNIQUE_COLS = ("task_name", "model_name", "user_id")
+
+
+def _prediction_unique_columns(conn: Any) -> tuple[str, ...] | None:
+    """Return the column tuple of the predictions unique index, or None.
+
+    Inspects the table's unique indexes via PRAGMA and returns the column
+    ordering of the one that covers (task_name, model_name[, user_id]).
+    """
+    rows = conn.execute(text("PRAGMA index_list(predictions)")).fetchall()
+    for row in rows:
+        # row: (seq, name, unique, origin, partial)
+        name, unique = row[1], row[2]
+        if not unique:
+            continue
+        cols = tuple(r[2] for r in conn.execute(text(f"PRAGMA index_info({name})")).fetchall())
+        if cols in (_PREDICTION_OLD_UNIQUE_COLS, _PREDICTION_NEW_UNIQUE_COLS):
+            return cols
+    return None
+
+
+async def _ensure_prediction_per_user_constraint(engine: AsyncEngine) -> None:
+    """Migrate the predictions unique constraint to per-user scope (idempotent).
+
+    Older deployments carry ``UNIQUE(task_name, model_name)``. The multi-tenant
+    design scopes task-name uniqueness per user, so the constraint becomes
+    ``UNIQUE(task_name, model_name, user_id)``. SQLite cannot ALTER a unique
+    constraint, so the table is rebuilt: rename, recreate with the new
+    constraint, copy rows, drop the old table, and recreate the secondary
+    index. This is safe without deduplication because the old (tighter)
+    constraint guarantees at most one row per (task_name, model_name), which
+    trivially satisfies the new (looser) per-user constraint.
+    """
+    async with engine.begin() as conn:
+        if conn.dialect.name != "sqlite":
+            return
+        rows = (await conn.execute(text("PRAGMA table_info(predictions)"))).fetchall()
+        if not rows:
+            # Table does not exist yet; create_all builds it with the new constraint.
+            return
+        cols = await conn.run_sync(lambda sync_conn: _prediction_unique_columns(sync_conn))
+        if cols is None or cols == _PREDICTION_NEW_UNIQUE_COLS:
+            # Already on the per-user constraint (or no recognizable index).
+            return
+        # Rebuild the table with the per-user unique constraint.
+        await conn.execute(text("ALTER TABLE predictions RENAME TO predictions_old"))
+        await conn.execute(
+            text(
+                "CREATE TABLE predictions ("
+                "id INTEGER NOT NULL, "
+                "task_name VARCHAR(64) NOT NULL, "
+                "model_name VARCHAR(64) NOT NULL, "
+                "functions_data BLOB NOT NULL, "
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
+                "modified_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
+                "user_id INTEGER, "
+                "function_count INTEGER NOT NULL DEFAULT 0, "
+                "PRIMARY KEY (id), "
+                "CONSTRAINT uq_predictions_task_model_user UNIQUE (task_name, model_name, user_id)"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO predictions "
+                "(id, task_name, model_name, functions_data, created_at, modified_at, user_id, function_count) "
+                "SELECT id, task_name, model_name, functions_data, created_at, modified_at, user_id, function_count "
+                "FROM predictions_old"
+            )
+        )
+        await conn.execute(text("DROP TABLE predictions_old"))
+        # Recreate the secondary index that the model declares on user_id.
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_predictions_user_id ON predictions (user_id)"))
+        logger.info("Migrated predictions unique constraint to per-user scope")
+
+
 async def _backfill_prediction_function_count() -> None:
     """Backfill ``function_count`` on prediction rows where it is unset.
 
@@ -252,9 +310,7 @@ async def _backfill_prediction_function_count() -> None:
                 logger.warning("Blocked deserializing prediction id {} during function_count backfill", pred_id)
             except Exception:
                 logger.exception("Failed to backfill function_count for prediction id {}", pred_id)
-            await session.execute(
-                update(Prediction).where(Prediction.id == pred_id).values(function_count=count)
-            )
+            await session.execute(update(Prediction).where(Prediction.id == pred_id).values(function_count=count))
         await session.commit()
         if rows:
             logger.info("Backfilled function_count for {} prediction rows", len(rows))
@@ -288,93 +344,65 @@ async def _backfill_owner_columns() -> None:
         async_session("intelligence") as i_session,
     ):
         # Binary owner map (shared across all backfills).
-        b_rows = (
-            await b_session.execute(select(Binary.name, Binary.uploaded_by))
-        ).all()
-        binary_owner: dict[str, int | None] = dict(b_rows)
+        b_rows = (await b_session.execute(select(Binary.name, Binary.uploaded_by))).all()
+        binary_owner: dict[str, int | None] = {row[0]: row[1] for row in b_rows}
 
         # 1) Models from their binary.
-        m_rows = (
-            await m_session.execute(
-                select(Model.id, Model.model_name).where(Model.user_id.is_(None))
-            )
-        ).all()
+        m_rows = (await m_session.execute(select(Model.id, Model.model_name).where(Model.user_id.is_(None)))).all()
         for model_id, model_name in m_rows:
             owner = binary_owner.get(model_name)
             if owner is not None:
-                await m_session.execute(
-                    update(Model).where(Model.id == model_id).values(user_id=owner)
-                )
+                await m_session.execute(update(Model).where(Model.id == model_id).values(user_id=owner))
         await m_session.commit()
 
         # Re-read model owners (now backfilled) for dependent tables.
         m_all = (await m_session.execute(select(Model.model_name, Model.user_id))).all()
-        model_owner: dict[str, int | None] = dict(m_all)
+        model_owner: dict[str, int | None] = {row[0]: row[1] for row in m_all}
 
         # 2) Functions from their model (or binary fallback).
         f_rows = (
-            await f_session.execute(
-                select(Function.id, Function.model_name).where(Function.user_id.is_(None))
-            )
+            await f_session.execute(select(Function.id, Function.model_name).where(Function.user_id.is_(None)))
         ).all()
         for fn_id, model_name in f_rows:
             owner = model_owner.get(model_name)
             if owner is None:
                 owner = binary_owner.get(model_name)
             if owner is not None:
-                await f_session.execute(
-                    update(Function).where(Function.id == fn_id).values(user_id=owner)
-                )
+                await f_session.execute(update(Function).where(Function.id == fn_id).values(user_id=owner))
         await f_session.commit()
 
         # 3) Predictions from their task/binary.
         p_rows = (
-            await p_session.execute(
-                select(Prediction.id, Prediction.task_name).where(Prediction.user_id.is_(None))
-            )
+            await p_session.execute(select(Prediction.id, Prediction.task_name).where(Prediction.user_id.is_(None)))
         ).all()
         for pred_id, task_name in p_rows:
             owner = binary_owner.get(task_name)
             if owner is not None:
-                await p_session.execute(
-                    update(Prediction).where(Prediction.id == pred_id).values(user_id=owner)
-                )
+                await p_session.execute(update(Prediction).where(Prediction.id == pred_id).values(user_id=owner))
         await p_session.commit()
 
         # Re-read prediction owners (now backfilled).
         p_all = (await p_session.execute(select(Prediction.task_name, Prediction.user_id))).all()
-        pred_owner: dict[str, int | None] = dict(p_all)
+        pred_owner: dict[str, int | None] = {row[0]: row[1] for row in p_all}
 
         # 4) Scan reports from target name (binary / model / prediction owner).
         s_rows = (
-            await i_session.execute(
-                select(ScanReport.id, ScanReport.target_name).where(ScanReport.user_id.is_(None))
-            )
+            await i_session.execute(select(ScanReport.id, ScanReport.target_name).where(ScanReport.user_id.is_(None)))
         ).all()
         for report_id, target_name in s_rows:
-            owner = (
-                binary_owner.get(target_name)
-                or model_owner.get(target_name)
-                or pred_owner.get(target_name)
-            )
+            owner = binary_owner.get(target_name) or model_owner.get(target_name) or pred_owner.get(target_name)
             if owner is not None:
-                await i_session.execute(
-                    update(ScanReport).where(ScanReport.id == report_id).values(user_id=owner)
-                )
+                await i_session.execute(update(ScanReport).where(ScanReport.id == report_id).values(user_id=owner))
         await i_session.commit()
 
         # Re-read scan report owners (now backfilled).
-        s_all = (
-            await i_session.execute(select(ScanReport.target_name, ScanReport.user_id))
-        ).all()
-        report_owner: dict[str, int | None] = dict(s_all)
+        s_all = (await i_session.execute(select(ScanReport.target_name, ScanReport.user_id))).all()
+        report_owner: dict[str, int | None] = {row[0]: row[1] for row in s_all}
 
         # 5) LLM results from their scan report (or target fallback).
         l_rows = (
             await i_session.execute(
-                select(LLMAnalysisResult.id, LLMAnalysisResult.target_name).where(
-                    LLMAnalysisResult.user_id.is_(None)
-                )
+                select(LLMAnalysisResult.id, LLMAnalysisResult.target_name).where(LLMAnalysisResult.user_id.is_(None))
             )
         ).all()
         for result_id, target_name in l_rows:
@@ -386,9 +414,7 @@ async def _backfill_owner_columns() -> None:
             )
             if owner is not None:
                 await i_session.execute(
-                    update(LLMAnalysisResult)
-                    .where(LLMAnalysisResult.id == result_id)
-                    .values(user_id=owner)
+                    update(LLMAnalysisResult).where(LLMAnalysisResult.id == result_id).values(user_id=owner)
                 )
         await i_session.commit()
 
@@ -402,17 +428,10 @@ async def _backfill_owner_columns() -> None:
             (i_session, LLMAnalysisResult, "llm_analysis_results"),
         ):
             unowned = (
-                await session.execute(
-                    select(func.count())
-                    .select_from(model_cls)
-                    .where(model_cls.user_id.is_(None))
-                )
+                await session.execute(select(func.count()).select_from(model_cls).where(model_cls.user_id.is_(None)))
             ).scalar_one()
             if unowned:
-                logger.warning(
-                    f"{unowned} row(s) in {table_name} remain unowned (user_id is NULL) "
-                    "after backfill"
-                )
+                logger.warning(f"{unowned} row(s) in {table_name} remain unowned (user_id is NULL) after backfill")
 
 
 async def init_async_databases() -> None:
@@ -434,12 +453,6 @@ async def init_async_databases() -> None:
                 autoflush=False,
                 expire_on_commit=False,
             )
-            if make_url(url).query.get("mode") == "memory":
-                # Shared-cache in-memory databases are destroyed when their last
-                # connection closes. With NullPool each session gets a fresh
-                # short-lived connection, so keep one idle connection open for
-                # the lifetime of the engine to keep the database alive.
-                _memory_keepalive_connections[name] = await async_engines[name].connect()
 
         target_tables = DB_TABLE_MAP.get(name)
         if target_tables:
@@ -455,6 +468,9 @@ async def init_async_databases() -> None:
         await _ensure_llm_verdict_columns(async_engines[name])
         # Denormalized prediction function count for lightweight list queries.
         await _ensure_prediction_count_columns(async_engines[name])
+        # Per-user prediction unique constraint (table rebuild for SQLite).
+        if name == "predictions":
+            await _ensure_prediction_per_user_constraint(async_engines[name])
     try:
         await _backfill_owner_columns()
     except Exception as e:  # pragma: no cover - defensive: never block startup
@@ -506,10 +522,6 @@ async def close_async_session(session: AsyncSession) -> None:
 
 async def dispose_async_engines() -> None:
     """Dispose all async database engines."""
-    for name, connection in _memory_keepalive_connections.items():
-        await connection.close()
-        logger.info("Async database '{}' keep-alive connection closed", name)
-    _memory_keepalive_connections.clear()
     for name, engine in async_engines.items():
         await engine.dispose()
         logger.info("Async database '{}' engine disposed", name)

@@ -8,6 +8,7 @@ the expected UI elements for scanning binaries for insecure functions.
 from typing import Any
 
 from playwright.sync_api import expect
+
 from tests.e2e.utils import BASE_URL, register_and_login
 
 
@@ -617,9 +618,7 @@ class TestLlmMarkdownPreview:
 
         # The safe link is rendered as an anchor with its target URL.
         safe_link = analysis.locator("a", has_text="CWE-120")
-        expect(safe_link).to_have_attribute(
-            "href", "https://cwe.mitre.org/data/definitions/120.html"
-        )
+        expect(safe_link).to_have_attribute("href", "https://cwe.mitre.org/data/definitions/120.html")
         # The unsafe link is not rendered as an anchor.
         expect(analysis.locator("a", has_text="unsafe")).to_have_count(0)
         expect(analysis).to_contain_text("unsafe")
@@ -800,10 +799,10 @@ class TestColumnSorting:
         header.click()
 
         assert _visible_row_function_names(page) == [
-            "sprintf",      # format_msg
-            "strcpy",       # main
-            "gets",         # read_input
-            "system",       # run_command
+            "sprintf",  # format_msg
+            "strcpy",  # main
+            "gets",  # read_input
+            "system",  # run_command
         ]
 
     def test_sorting_keeps_llm_buttons_attached_to_findings(self, page: Any, server: Any) -> None:
@@ -892,9 +891,7 @@ class TestColumnSorting:
         # carries a sort indicator.
         assert _visible_row_function_names(page) == ["gets", "strcpy"]
         for key in ["function_name", "containing_function", "severity", "llm"]:
-            expect(page.locator(f'.scan-results-table th[data-sort="{key}"]')).to_have_attribute(
-                "aria-sort", "none"
-            )
+            expect(page.locator(f'.scan-results-table th[data-sort="{key}"]')).to_have_attribute("aria-sort", "none")
 
     def test_sorting_works_with_pagination(self, page: Any, server: Any) -> None:
         """Sorting re-orders the full result set while pagination continues
@@ -938,10 +935,19 @@ class TestColumnSorting:
 
         # Page 1 shows the first ten sorted names.
         assert _visible_row_function_names(page) == [
-            "f1", "f10", "f11", "f12", "f2", "f3", "f4", "f5", "f6", "f7",
+            "f1",
+            "f10",
+            "f11",
+            "f12",
+            "f2",
+            "f3",
+            "f4",
+            "f5",
+            "f6",
+            "f7",
         ]
         expect(page.locator("#scan-results-pagination .pagination-info")).to_contain_text(
-            "Showing 1–10 of 12"
+            "Showing 1–10 of 12"  # noqa: RUF001 - UI renders an en-dash range (see static/js/common.js)
         )
 
         # Page 2 shows the remaining sorted names.

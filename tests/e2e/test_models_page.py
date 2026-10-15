@@ -8,6 +8,7 @@ and action buttons.
 from typing import Any
 
 from playwright.sync_api import expect
+
 from tests.e2e.utils import BASE_URL, register_and_login
 
 
@@ -59,10 +60,8 @@ class TestModelsPage:
 
         empty_state = page.locator(".no-models-empty-state")
         if empty_state.is_visible():
-            # Check that at least one description paragraph exists within the empty state
-            description = empty_state.locator(".empty-state-description")
-            assert description.count() >= 1, "Empty state should have description text"
-            expect(description.first).to_be_visible()
+            # The empty state may contain multiple description paragraphs.
+            expect(page.locator(".empty-state-description").first).to_be_visible()
         # If empty state is not visible, models exist - that's also valid
 
     def test_models_empty_state_has_create_model_link(self, page: Any, server: Any) -> None:

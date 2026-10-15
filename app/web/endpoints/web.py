@@ -43,10 +43,10 @@ router = APIRouter()
 
 @router.get("/", response_model=None)
 async def home(
-    request: Request, current_user: Annotated[User, Depends(get_current_active_user)],
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> JSONResponse | HTMLResponse:
-    """Loads the homepage of Glyph
-    """
+    """Loads the homepage of Glyph"""
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE not in accept:
         return JSONResponse(content={"version": _version.__version__})
@@ -56,8 +56,7 @@ async def home(
 
 @router.get("/stats", response_model=None)
 async def home_stats(request: Request, current_user: Annotated[User, Depends(get_current_active_user)]) -> JSONResponse:
-    """Returns homepage statistics for the current user.
-    """
+    """Returns homepage statistics for the current user."""
     from app.database.binary_repository import BinaryRepository
 
     binaries = await BinaryRepository.get_by_user(user_id=current_user.id)
@@ -75,8 +74,7 @@ async def home_stats(request: Request, current_user: Annotated[User, Depends(get
 
 @router.get("/config")
 async def config(request: Request, current_user: Annotated[User, Depends(get_current_active_user)]) -> HTMLResponse:
-    """Loads the configuration page of Glyph
-    """
+    """Loads the configuration page of Glyph"""
     settings = get_settings()
     return templates.TemplateResponse(
         request,
@@ -93,8 +91,7 @@ async def config(request: Request, current_user: Annotated[User, Depends(get_cur
 
 @router.get("/error")
 async def error_page(request: Request, type: str | None = None) -> HTMLResponse:
-    """Displays errors using the templates system.
-    """
+    """Displays errors using the templates system."""
     message = "Uh oh! An unknown error has occurred"
 
     if type == "uploadError":
@@ -108,10 +105,10 @@ async def error_page(request: Request, type: str | None = None) -> HTMLResponse:
 
 @router.get("/getModels", response_model=None)
 async def get_list_models(
-    request: Request, current_user: Annotated[User, Depends(get_current_active_user)],
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> dict[str, list[str]] | HTMLResponse:
-    """Handles a GET request to obtain all models available
-    """
+    """Handles a GET request to obtain all models available"""
     models: list[str] = sorted(await ModelRepository.get_models_list_for_user(current_user.id))
     accept = request.headers.get("Accept", "")
 
@@ -123,7 +120,9 @@ async def get_list_models(
         models_status[model] = "complete"
 
     return templates.TemplateResponse(
-        request, "get_models.html", {"title": "Models List", "models": models_status, "user": current_user},
+        request,
+        "get_models.html",
+        {"title": "Models List", "models": models_status, "user": current_user},
     )
 
 
@@ -220,7 +219,8 @@ async def get_function(
 
 @router.get("/getPredictions", response_model=None)
 async def get_list_predictions(
-    request: Request, current_user: Annotated[User, Depends(get_current_active_user)],
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> dict[str, list[dict[str, Any]]] | HTMLResponse:
     """Obtain all predictions available"""
     # Lightweight metadata-only query (no BLOB deserialization), scoped to the
@@ -233,7 +233,9 @@ async def get_list_predictions(
         return {"predictions": predictions}
 
     return templates.TemplateResponse(
-        request, "get_predictions.html", {"title": "Predictions List", "predictions": predictions, "user": current_user},
+        request,
+        "get_predictions.html",
+        {"title": "Predictions List", "predictions": predictions, "user": current_user},
     )
 
 
@@ -253,7 +255,10 @@ async def get_prediction_details(
     try:
         model_info = await FunctionRepository.get(model_name, func_name)
         prediction_data, prediction_tokens = await PredictionService.get_prediction_function_details(
-            task_name, model_name, func_name,
+            task_name,
+            model_name,
+            func_name,
+            current_user.id,
         )
 
         if not model_info:
@@ -263,7 +268,7 @@ async def get_prediction_details(
 
         # Ownership: both the model function and the prediction must be accessible.
         assert_owned(model_info, current_user, "function")
-        pred_owner_id = await PredictionRepository.get_owner(task_name, model_name)
+        pred_owner_id = await PredictionRepository.get_owner(task_name, model_name, current_user.id)
         assert_owned(types.SimpleNamespace(user_id=pred_owner_id), current_user, "prediction")
 
         model_tokens = format_code(getattr(model_info, "tokens", ""))
@@ -301,7 +306,7 @@ async def get_prediction(
     model_name: Annotated[str, Query()],
 ) -> dict[str, Any] | HTMLResponse:
     """Obtain predictions for a specific task and model"""
-    prediction = await PredictionRepository.get(task_name, model_name)
+    prediction = await PredictionRepository.get(task_name, model_name, current_user.id)
 
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
@@ -345,10 +350,10 @@ async def get_dangerous_functions_page(
 
 @router.get("/login", response_model=None)
 async def login_page(
-    request: Request, current_user: Annotated[User | None, Depends(get_optional_user)],
+    request: Request,
+    current_user: Annotated[User | None, Depends(get_optional_user)],
 ) -> HTMLResponse | RedirectResponse:
-    """Loads the login page
-    """
+    """Loads the login page"""
     if current_user:
         return RedirectResponse(url="/")
 
@@ -362,8 +367,7 @@ async def login_submit(
     db: Annotated[AsyncSession, Depends(get_db)],
     jwt_handler: Annotated[JWTHandler, Depends(get_jwt_handler)],
 ) -> RedirectResponse | HTMLResponse:
-    """Handles login form submission (POST).
-    """
+    """Handles login form submission (POST)."""
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
         body = await request.json()
@@ -385,7 +389,9 @@ async def login_submit(
 
     if not user.is_active:
         return templates.TemplateResponse(
-            request, "login.html", {"title": "Glyph - Login", "user": None, "login_error": "User account is disabled"},
+            request,
+            "login.html",
+            {"title": "Glyph - Login", "user": None, "login_error": "User account is disabled"},
         )
 
     access_token = jwt_handler.create_access_token(str(user.id))
@@ -415,10 +421,10 @@ async def login_submit(
 
 @router.get("/register", response_model=None)
 async def register_page(
-    request: Request, current_user: Annotated[User | None, Depends(get_optional_user)],
+    request: Request,
+    current_user: Annotated[User | None, Depends(get_optional_user)],
 ) -> HTMLResponse | RedirectResponse:
-    """Loads the registration page
-    """
+    """Loads the registration page"""
     if current_user:
         return RedirectResponse(url="/")
 
@@ -428,10 +434,10 @@ async def register_page(
 @router.post("/register", response_model=None)
 @limiter.limit(REGISTER_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def register_submit(
-    request: Request, db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> RedirectResponse | HTMLResponse:
-    """Handles registration form submission (POST).
-    """
+    """Handles registration form submission (POST)."""
     from app.auth.schemas import UserRegister
     from app.auth.security_logger import log_user_registration
 
@@ -450,11 +456,11 @@ async def register_submit(
             password=body.get("password", ""),
             full_name=body.get("full_name") or None,
         )
-    except ValueError as exc:
+    except ValueError as value_error:
         return templates.TemplateResponse(
             request,
             "register.html",
-            {"title": "Glyph - Register", "user": None, "register_error": str(exc)},
+            {"title": "Glyph - Register", "user": None, "register_error": str(value_error)},
         )
 
     username = user_data.username
@@ -482,7 +488,11 @@ async def register_submit(
             )
 
         user = await user_repo.create_user(
-            username=username, email=email, password=password, full_name=full_name or None, permissions=["read"],
+            username=username,
+            email=email,
+            password=password,
+            full_name=full_name or None,
+            permissions=["read"],
         )
     except exc.IntegrityError:
         await db.rollback()
@@ -500,10 +510,10 @@ async def register_submit(
 
 @router.get("/profile")
 async def profile_page(
-    request: Request, current_user: Annotated[User, Depends(get_current_active_user)],
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> HTMLResponse:
-    """Loads the user profile page
-    """
+    """Loads the user profile page"""
     llm = await resolve_user_llm_config(current_user.id)
     return templates.TemplateResponse(
         request,
@@ -531,10 +541,10 @@ async def profile_page(
 
 @router.get("/binary-library")
 async def binary_library_page(
-    request: Request, current_user: Annotated[User, Depends(get_current_active_user)],
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> HTMLResponse:
-    """Loads the binary library page for managing uploaded binaries.
-    """
+    """Loads the binary library page for managing uploaded binaries."""
     return templates.TemplateResponse(
         request,
         "binary_library.html",
@@ -544,10 +554,11 @@ async def binary_library_page(
 
 @router.get("/binary/{binary_id}")
 async def binary_detail_page(
-    request: Request, binary_id: int, current_user: Annotated[User, Depends(get_current_active_user)],
+    request: Request,
+    binary_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> HTMLResponse:
-    """Loads the binary detail page showing functions and metadata for a specific binary.
-    """
+    """Loads the binary detail page showing functions and metadata for a specific binary."""
     return templates.TemplateResponse(
         request,
         "binary_detail.html",
@@ -566,8 +577,7 @@ async def run_task_page(
     binary_id: Annotated[int, Query()],
     binary_name: Annotated[str, Query()],
 ) -> HTMLResponse:
-    """Loads the task execution page for a given binary.
-    """
+    """Loads the task execution page for a given binary."""
     models: list[str] = sorted(await ModelRepository.get_models_list_for_user(current_user.id))
     return templates.TemplateResponse(
         request,
@@ -620,8 +630,7 @@ async def task_results_page(
     current_user: Annotated[User, Depends(get_current_active_user)],
     task_uuid: Annotated[str, Query()],
 ) -> HTMLResponse:
-    """Loads the task results page for a given task UUID.
-    """
+    """Loads the task results page for a given task UUID."""
     return templates.TemplateResponse(
         request,
         "task_results.html",
@@ -634,8 +643,7 @@ async def similarity_dashboard_page(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> HTMLResponse:
-    """Loads the binary similarity dashboard page.
-    """
+    """Loads the binary similarity dashboard page."""
     return templates.TemplateResponse(
         request,
         "similarity_dashboard.html",

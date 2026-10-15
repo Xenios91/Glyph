@@ -7,6 +7,7 @@ Tests config save, profile update, password change, and API key creation flows.
 from typing import Any
 
 from playwright.sync_api import expect
+
 from tests.e2e.utils import BASE_URL, generate_unique_username, register_and_login
 
 

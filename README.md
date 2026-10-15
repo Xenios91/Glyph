@@ -17,6 +17,7 @@ All capabilities are available through a modern web UI and a fully authenticated
 
 ### Features
 
+- Structured LLM verdicts: analysis now ends with a parsed `VERDICT: VULNERABLE|NOT_VULNERABLE|UNCERTAIN (confidence: …)` line, surfaced as verdict-aware badges, sorting, and a verdict pill in the analysis modal
 - LLM-assisted analysis of dangerous function findings via any OpenAI-compatible chat completions endpoint (OpenAI, Ollama, vLLM, and more)
 - Per-user LLM endpoint configuration with built-in connectivity testing from the Profile page
 - Persistent LLM analysis results with retrieval, per-finding retry, and deletion
@@ -27,11 +28,10 @@ All capabilities are available through a modern web UI and a fully authenticated
 
 ### LLM-Assisted Analysis
 
-Glyph 0.3.0 adds optional LLM-assisted analysis to the dangerous functions scanner. After a scan, findings can be sent to a user-configured OpenAI-compatible chat completions endpoint. For each finding, the LLM reviews the decompiled call site and reports on:
+Glyph adds optional LLM-assisted analysis to the dangerous functions scanner. After a scan, findings can be sent to a user-configured OpenAI-compatible chat completions endpoint. For each finding, the LLM reviews the decompiled call site and reports on:
 
 1. **Exploitability** — whether the usage is plausibly exploitable given the taint paths and controls visible in the code
 2. **Risk assessment** — confidence level and agreement (or disagreement) with the catalog severity rating, with justification
-3. **Remediation** — concrete, actionable fixes for that specific call site
 
 Any server exposing the OpenAI chat completions API works — for example `https://api.openai.com`, or a local runtime such as Ollama or vLLM exposing `/v1/chat/completions`. The endpoint can be configured globally in the `llm` block of [`config.yml`](config.yml), or per user from the **Profile → LLM** tab (with a one-click endpoint connectivity test). Analyses are persisted per target and call site, so previously analyzed findings keep their status badges across sessions and can be re-analyzed or deleted at any time.
 
@@ -121,7 +121,7 @@ pip install .
 
 Before running Glyph, you **must** update the [`config.yml`](config.yml) file with your own settings:
 
-- **`jwt_secret_key`**: Replace the default value (`change-me-in-production`) with a strong, randomly generated secret key. This key is used to sign JWT tokens for authentication and **should never be used in production with the default value**.
+- **`jwt_secret_key`**: Replace the default value (`change-me-in-production`) with a strong, randomly generated secret key. This key is used to sign JWT tokens for authentication and **should never be used in production with the default value**. In production, prefer providing it via the `GLYPH_JWT_SECRET_KEY` environment variable and remove the `jwt_secret_key` key from `config.yml` (the file takes precedence over the environment).
 
 Example configuration:
 
@@ -175,6 +175,8 @@ For production, run without `--reload`:
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
+
+> **Production note:** Set `GLYPH_USE_HTTPS=true` (or `use_https: true` in `config.yml`) in production, including when deploying behind a TLS-terminating reverse proxy. Without it, JWT cookies are sent without the `Secure` flag and the HSTS header is absent.
 
 ### 7. Access the Application
 

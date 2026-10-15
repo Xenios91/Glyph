@@ -11,9 +11,6 @@
         "ghcr.io/devcontainers/features/java:1": {
             "version": "21",
             "jdkDistro": "ms"
-        },
-        "ghcr.io/devcontainers/features/node:1": {
-            "version": "latest"
         }
     },
     "customizations": {

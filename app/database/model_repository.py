@@ -232,8 +232,8 @@ class ModelRepository:
         # gzip decompression CPU-heavy. secure_load_bytes also transparently
         # handles legacy uncompressed rows.
         model, label_encoder = await asyncio.gather(
-            asyncio.to_thread(secure_load_bytes, model_row.model_data),  # type: ignore[attr-defined]
-            asyncio.to_thread(secure_load_bytes, model_row.label_encoder_data),  # type: ignore[attr-defined]
+            asyncio.to_thread(secure_load_bytes, model_row.model_data),
+            asyncio.to_thread(secure_load_bytes, model_row.label_encoder_data),
         )
 
         logger.info("Model '{}' loaded successfully", model_name)

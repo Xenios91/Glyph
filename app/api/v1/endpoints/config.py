@@ -19,6 +19,7 @@ from app.database.llm_user_config_repository import LLMUserConfigRepository, res
 from app.database.models import User
 from app.services.llm_analysis_service import LLMNotConfiguredError, test_llm_connection
 from app.utils.responses import SuccessResponse, create_error_response, create_success_response
+from app.utils.ssrf_guard import assert_public_url
 
 router = APIRouter()
 
@@ -201,7 +202,8 @@ def _persist_config_changes(settings: Any) -> None:
     description="Update and persist application configuration settings to config.yml.",
 )
 async def save_config(
-    payload: ConfigPayload, current_user: Annotated[User, Depends(get_current_active_user)],
+    payload: ConfigPayload,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[dict[str, Any]]:
     """Saves the configuration settings
 
@@ -239,7 +241,8 @@ async def save_config(
             raise HTTPException(
                 status_code=400,
                 detail=create_error_response(
-                    error_code="INVALID_CPU_CORES", error_message=f"CPU cores must be between 1 and {MAX_CPU_CORES}",
+                    error_code="INVALID_CPU_CORES",
+                    error_message=f"CPU cores must be between 1 and {MAX_CPU_CORES}",
                 ).model_dump(),
             )
 
@@ -248,6 +251,21 @@ async def save_config(
         for name, value in llm_updates.items():
             log_value = "****" if name == "api_key" and value else value
             logger.info("Configuration updated: llm.{}={}", name, log_value)
+        if "base_url" in llm_updates:
+            # Defense in depth: reject a base_url whose host resolves to a
+            # non-public address (loopback / private / link-local / reserved /
+            # multicast) so users get immediate feedback at save time.
+            try:
+                await assert_public_url(llm_updates["base_url"])
+            except ValueError:
+                logger.warning("LLM configuration update rejected: base_url host is not a public address")
+                raise HTTPException(
+                    status_code=400,
+                    detail=create_error_response(
+                        error_code="INVALID_LLM_BASE_URL",
+                        error_message="base_url host is not a public address",
+                    ).model_dump(),
+                ) from None
         await LLMUserConfigRepository.upsert(current_user.id, llm_updates)
 
     _persist_config_changes(settings)
@@ -265,7 +283,8 @@ async def save_config(
 )
 @limiter.limit(LLM_ANALYSIS_LIMIT)  # pyright: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def test_llm_endpoint(
-    request: Request, current_user: Annotated[User, Depends(get_current_active_user)],
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[dict[str, Any]]:
     """Test the connection to the configured LLM endpoint.
 

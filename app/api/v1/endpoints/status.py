@@ -55,7 +55,8 @@ class StatusUpdatePayload(BaseModel):
     description="Retrieve the current status of a background analysis task by its UUID.",
 )
 async def get_status(
-    current_user: Annotated[User, Depends(get_current_active_user)], uuid: Annotated[UUIDType, Query()],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    uuid: Annotated[UUIDType, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     if not TaskManager().verify_task_owner(uuid, current_user.id):
         raise HTTPException(
@@ -86,7 +87,8 @@ async def get_status(
     description="Update the status of a background analysis task. Requires task ownership.",
 )
 async def update_status(
-    payload: StatusUpdatePayload, current_user: Annotated[User, Depends(get_current_active_user)],
+    payload: StatusUpdatePayload,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> SuccessResponse[dict[str, Any]]:
     if not TaskManager().verify_task_owner(payload.uuid, current_user.id):
         logger.warning("Access denied: user {} attempted to update UUID {}", current_user.id, payload.uuid)

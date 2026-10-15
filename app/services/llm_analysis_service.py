@@ -18,6 +18,7 @@ import httpx2 as httpx
 from loguru import logger
 
 from app.config.settings import LLMConfig
+from app.utils.ssrf_guard import assert_public_url, resolve_and_pin
 
 TEST_PROMPT = "Reply with the single word: ok."
 
@@ -159,6 +160,37 @@ def build_endpoint_url(llm: LLMConfig) -> str:
     return f"{parts.scheme}://{host_part}{api_path}"
 
 
+async def _resolve_llm_url(url: str) -> tuple[str, str | None]:
+    """Validate ``url`` against SSRF and return ``(request_url, host_header)``.
+
+    The host is resolved and every resolved address is checked to be public. For
+    ``http`` the returned URL is *pinned* to the validated IP (with the original
+    virtual host preserved via ``host_header``) so the connection cannot be
+    redirected to a different address by DNS rebinding. For ``https`` the
+    original URL is returned unchanged: TLS certificate validation already
+    defeats rebinding (an attacker cannot present a valid certificate for a
+    private IP matching the public hostname), and pinning the IP would break
+    certificate validation.
+
+    Args:
+        url: The fully qualified endpoint URL to validate.
+
+    Returns:
+        A tuple of (request_url, host_header). ``host_header`` is ``None`` for
+        https (no Host override needed) and the original virtual host for http.
+
+    Raises:
+        ValueError: If the host is missing, does not resolve, or resolves to a
+            non-public address.
+
+    """
+    if urlsplit(url).scheme == "http":
+        pinned, host_header = await resolve_and_pin(url)
+        return pinned, host_header
+    await assert_public_url(url)
+    return url, None
+
+
 async def test_llm_connection(llm: LLMConfig) -> LLMTestResult:
     """Send a minimal prompt to the configured endpoint to verify connectivity.
 
@@ -174,6 +206,13 @@ async def test_llm_connection(llm: LLMConfig) -> LLMTestResult:
     """
     url = build_endpoint_url(llm)
 
+    try:
+        request_url, host_header = await _resolve_llm_url(url)
+    except ValueError:
+        # Generic message: do not reveal which address range matched.
+        logger.warning("LLM connection test rejected: endpoint host is not a public address")
+        return LLMTestResult(ok=False, error="Endpoint host is not a public address")
+
     headers: dict[str, str] = {"Content-Type": "application/json"}
     if llm.api_key:
         headers["Authorization"] = f"Bearer {llm.api_key}"
@@ -186,10 +225,13 @@ async def test_llm_connection(llm: LLMConfig) -> LLMTestResult:
     if llm.max_tokens is not None:
         payload["max_tokens"] = llm.max_tokens
 
+    if host_header is not None:
+        headers["Host"] = host_header
+
     start = time.perf_counter()
     async with httpx.AsyncClient(timeout=llm.timeout_seconds) as client:
         try:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(request_url, json=payload, headers=headers)
         except httpx.TimeoutException:
             error = f"Request timed out after {llm.timeout_seconds:g}s"
             logger.warning("LLM connection test failed: {}", error)
@@ -202,8 +244,15 @@ async def test_llm_connection(llm: LLMConfig) -> LLMTestResult:
     elapsed_ms = int((time.perf_counter() - start) * 1000)
 
     if response.status_code != 200:
-        error = f"HTTP {response.status_code}: {response.text[:300]}"
-        logger.warning("LLM connection test failed: {}", error)
+        # Reflect only the status code to the caller. The upstream body may be
+        # sensitive (or, for an attacker-controlled endpoint, a reflected SSRF
+        # read), so it is kept server-side in the log only.
+        error = f"Endpoint returned HTTP {response.status_code}"
+        logger.warning(
+            "LLM connection test failed: HTTP {} body={}",
+            response.status_code,
+            response.text[:300],
+        )
         return LLMTestResult(ok=False, error=error)
 
     try:
@@ -285,6 +334,13 @@ async def analyze_finding(llm: LLMConfig, finding: dict[str, Any]) -> FindingAna
     url = build_endpoint_url(llm)
     function_name = str(finding.get("function_name") or "unknown")
 
+    try:
+        request_url, host_header = await _resolve_llm_url(url)
+    except ValueError:
+        # Generic message: do not reveal which address range matched.
+        logger.warning("LLM analysis rejected ({}): endpoint host is not a public address", function_name)
+        return FindingAnalysis(status="error", error="Endpoint host is not a public address")
+
     headers: dict[str, str] = {"Content-Type": "application/json"}
     if llm.api_key:
         headers["Authorization"] = f"Bearer {llm.api_key}"
@@ -300,10 +356,13 @@ async def analyze_finding(llm: LLMConfig, finding: dict[str, Any]) -> FindingAna
     if llm.max_tokens is not None:
         payload["max_tokens"] = llm.max_tokens
 
+    if host_header is not None:
+        headers["Host"] = host_header
+
     start = time.perf_counter()
     async with httpx.AsyncClient(timeout=llm.timeout_seconds) as client:
         try:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(request_url, json=payload, headers=headers)
         except httpx.TimeoutException:
             error = f"Request timed out after {llm.timeout_seconds:g}s"
             logger.warning("LLM analysis failed ({}): {}", function_name, error)
@@ -316,8 +375,16 @@ async def analyze_finding(llm: LLMConfig, finding: dict[str, Any]) -> FindingAna
     elapsed_ms = int((time.perf_counter() - start) * 1000)
 
     if response.status_code != 200:
-        error = f"HTTP {response.status_code}: {response.text[:300]}"
-        logger.warning("LLM analysis failed ({}): {}", function_name, error)
+        # Reflect only the status code to the caller. The upstream body may be
+        # sensitive (or, for an attacker-controlled endpoint, a reflected SSRF
+        # read), so it is kept server-side in the log only.
+        error = f"Endpoint returned HTTP {response.status_code}"
+        logger.warning(
+            "LLM analysis failed ({}): HTTP {} body={}",
+            function_name,
+            response.status_code,
+            response.text[:300],
+        )
         return FindingAnalysis(status="error", error=error)
 
     try:
@@ -372,7 +439,9 @@ async def analyze_findings(
         LLMNotConfiguredError: If the endpoint URL cannot be built from config.
 
     """
-    build_endpoint_url(llm)  # fail fast before scheduling any requests
+    # Fail fast before scheduling any requests: build the URL and validate the
+    # host is public (SSRF guard).
+    await _resolve_llm_url(build_endpoint_url(llm))
 
     if not findings:
         return []
@@ -411,7 +480,9 @@ async def stream_findings(
         LLMNotConfiguredError: If the endpoint URL cannot be built from config.
 
     """
-    build_endpoint_url(llm)  # fail fast before scheduling any requests
+    # Fail fast before scheduling any requests: build the URL and validate the
+    # host is public (SSRF guard).
+    await _resolve_llm_url(build_endpoint_url(llm))
 
     if not findings:
         return

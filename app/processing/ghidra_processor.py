@@ -167,7 +167,9 @@ def analyze_binary_and_decompile(binary_path: str) -> dict[str, list[Any]]:
         import pyghidra
     except ImportError:
         pyghidra = type(
-            "pyghidra", (), {"started": lambda: False, "start": lambda: None, "open_program": lambda *a, **k: None},
+            "pyghidra",
+            (),
+            {"started": lambda: False, "start": lambda: None, "open_program": lambda *a, **k: None},
         )
 
     if not pyghidra.started():

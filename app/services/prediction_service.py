@@ -25,17 +25,24 @@ class PredictionService:
     # --- Task Creation ---
 
     @staticmethod
-    async def check_task_name_unique(task_name: str) -> bool:
-        """Check if a task name is unique among existing predictions.
+    async def check_task_name_unique(task_name: str, user_id: int) -> bool:
+        """Check whether a task name already exists *for the given user*.
+
+        Despite the method name, this reports *existence*: it returns True
+        when the user already owns a prediction with this task name (i.e. the
+        name is not unique for them). A name owned by another user does not
+        count, so users may share a task name.
 
         Args:
             task_name: The task name to check.
+            user_id: The caller's user id.
 
         Returns:
-            True if the task name is unique, False otherwise.
+            True if the user already owns a prediction with this name,
+            False otherwise.
 
         """
-        return await PredictionRepository.task_name_exists(task_name)
+        return await PredictionRepository.task_name_exists(task_name, user_id)
 
     # --- Query Operations ---
 
@@ -62,21 +69,32 @@ class PredictionService:
             ``user_id``.
 
         """
-        all_predictions = await PredictionRepository.get_predictions_metadata_for_user(user_id)
-        total = len(all_predictions)
-        page_predictions = all_predictions[offset : offset + limit]
+        # Push pagination down to SQL (OFFSET/LIMIT) and get the true total from
+        # a dedicated COUNT query instead of loading every row into memory.
+        page_predictions = await PredictionRepository.get_predictions_metadata_for_user(
+            user_id,
+            offset=offset,
+            limit=limit,
+        )
+        total = await PredictionRepository.count_for_user(user_id)
         return page_predictions, total
 
     @staticmethod
     async def get_prediction(
         task_name: str,
         model_name: str,
+        user_id: int | None = None,
     ) -> Any:
         """Get a single prediction result.
+
+        Scoped to the caller when ``user_id`` is provided so a same-named row
+        owned by another user is never returned.
 
         Args:
             task_name: The prediction task name.
             model_name: The model name used for prediction.
+            user_id: The caller's user id (0 for anonymous). When provided, only
+                the caller's own row and unowned/legacy rows are considered.
 
         Returns:
             PredictionResult object.
@@ -85,7 +103,7 @@ class PredictionService:
             PredictionNotFoundError: If prediction does not exist.
 
         """
-        prediction = await PredictionRepository.get(task_name, model_name)
+        prediction = await PredictionRepository.get(task_name, model_name, user_id)
         if prediction is None:
             raise PredictionNotFoundError(task_name, model_name)
         return prediction
@@ -95,7 +113,8 @@ class PredictionService:
         task_name: str,
         model_name: str,
         function_name: str,
-    ) -> tuple[dict[str, Any] | None, str]:
+        user_id: int | None = None,
+    ) -> tuple[dict[str, Any], str]:
         """Fetch a single function's prediction data and its formatted tokens.
 
         Shared core for the ``getPredictionDetails`` endpoints. The raw
@@ -103,18 +122,27 @@ class PredictionService:
         can apply their own presence checks (404 vs. placeholder) before
         rendering.
 
+        Scoped to the caller when ``user_id`` is provided so a same-named row
+        owned by another user is never returned.
+
         Args:
             task_name: The prediction task name.
             model_name: The model name used for prediction.
             function_name: The function to retrieve details for.
+            user_id: The caller's user id (0 for anonymous). When provided, only
+                the caller's own row and unowned/legacy rows are considered.
 
         Returns:
-            Tuple of (raw prediction data or None, formatted prediction tokens).
-            The tokens string is empty when no prediction data exists.
+            Tuple of (raw prediction data, formatted prediction tokens). The
+            data dict is empty when no prediction exists for the function, and
+            the tokens string is empty in that case as well.
 
         """
         prediction_data = await PredictionRepository.get_prediction_function(
-            task_name, model_name, function_name,
+            task_name,
+            model_name,
+            function_name,
+            user_id,
         )
         prediction_tokens = format_code(prediction_data.get("tokens", "") if prediction_data else "")
         return prediction_data, prediction_tokens
@@ -125,18 +153,19 @@ class PredictionService:
     async def delete_prediction(
         task_name: str,
         model_name: str | None = None,
+        user_id: int | None = None,
     ) -> None:
         """Delete a prediction task.
 
         Args:
             task_name: The prediction task name to delete.
             model_name: Optional model name to scope the deletion.
-
-        Raises:
-            PredictionNotFoundError: If prediction does not exist.
+            user_id: When provided, the delete is additionally scoped to rows
+                owned by this user, so another user's same-named task is never
+                touched.
 
         """
-        await PredictionRepository.delete(task_name, model_name)
+        await PredictionRepository.delete(task_name, model_name, user_id)
         logger.info("Prediction deleted: task_name={}, model_name={}", task_name, model_name)
 
     @staticmethod
@@ -154,7 +183,8 @@ class PredictionService:
 
     @staticmethod
     async def save_prediction_functions(
-        prediction_request: "PredictionRequest", predictions: list[str],
+        prediction_request: "PredictionRequest",
+        predictions: list[str],
     ) -> None:
         """Merge predictions with functions and persist to database.
 
@@ -172,7 +202,10 @@ class PredictionService:
                 updated_function["prediction"] = predictions[ctr]
                 functions[ctr] = updated_function
             await PredictionRepository.save(
-                task_name, prediction_request.model_name, functions, user_id=prediction_request.user_id,
+                task_name,
+                prediction_request.model_name,
+                functions,
+                user_id=prediction_request.user_id,
             )
         elif functions:
             logger.warning(

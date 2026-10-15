@@ -117,3 +117,44 @@ class TestGetTaskNamesForUser:
         """An empty table yields an empty list."""
         assert await PredictionRepository.get_task_names_for_user(1) == []
         assert await PredictionRepository.get_task_names_for_user(0) == []
+
+
+class TestGetPredictionsMetadataPagination:
+    """SQL-level OFFSET/LIMIT pagination for prediction metadata."""
+
+    async def test_limit_caps_rows_returned(self, fresh_predictions_table: Any) -> None:
+        """Only ``limit`` rows are returned even when more exist."""
+        for i in range(5):
+            await _insert_prediction(f"task_{i:02d}", "model_a", user_id=1)
+
+        rows = await PredictionRepository.get_predictions_metadata_for_user(1, limit=2)
+
+        assert len(rows) == 2
+        # Ordered by task_name, so the first two are the alphabetically earliest.
+        assert [r["task_name"] for r in rows] == ["task_00", "task_01"]
+
+    async def test_offset_selects_correct_slice(self, fresh_predictions_table: Any) -> None:
+        """``offset`` skips the leading rows and the slice is correct."""
+        for i in range(5):
+            await _insert_prediction(f"task_{i:02d}", "model_a", user_id=1)
+
+        rows = await PredictionRepository.get_predictions_metadata_for_user(1, offset=2, limit=2)
+
+        assert [r["task_name"] for r in rows] == ["task_02", "task_03"]
+
+    async def test_offset_beyond_range_returns_empty(self, fresh_predictions_table: Any) -> None:
+        """An offset past the end of the data returns no rows."""
+        await _insert_prediction("task_a", "model_a", user_id=1)
+
+        rows = await PredictionRepository.get_predictions_metadata_for_user(1, offset=5, limit=10)
+
+        assert rows == []
+
+    async def test_no_limit_returns_all(self, fresh_predictions_table: Any) -> None:
+        """With no limit the full (ordered) set is returned."""
+        for i in range(3):
+            await _insert_prediction(f"task_{i:02d}", "model_a", user_id=1)
+
+        rows = await PredictionRepository.get_predictions_metadata_for_user(1)
+
+        assert [r["task_name"] for r in rows] == ["task_00", "task_01", "task_02"]

@@ -37,6 +37,13 @@ def format_code(code: str) -> str:
 
     Returns raw, unescaped code. HTML escaping is handled by Jinja2 auto-escaping
     when rendered in templates, and JSON responses remain clean for API consumers.
+
+    Args:
+        code: The Ghidra C code to format.
+
+    Returns:
+        The formatted, unescaped C code string.
+
     """
 
     # Non-greedy pattern for C-style block comment removal.
@@ -158,7 +165,11 @@ def format_code(code: str) -> str:
 
 
 def build_prediction_details_response(
-    task_name: str, model_name: str, function_name: str, model_tokens: str, prediction_tokens: str,
+    task_name: str,
+    model_name: str,
+    function_name: str,
+    model_tokens: str,
+    prediction_tokens: str,
 ) -> dict[str, Any]:
     """Build a standardized prediction details response.
 

@@ -105,7 +105,14 @@ class Prediction(Base):
         nullable=False,
     )
 
-    __table_args__ = (UniqueConstraint("task_name", "model_name", name="uq_predictions_task_model"),)
+    # Per-user uniqueness: two users may share a (task_name, model_name) pair,
+    # but a single user cannot have two rows for the same pair. The nullable
+    # user_id means unowned/legacy rows are not part of the unique index (SQLite
+    # treats NULLs as distinct), which is acceptable because the API always saves
+    # with a real owner id.
+    __table_args__ = (
+        UniqueConstraint("task_name", "model_name", "user_id", name="uq_predictions_task_model_user"),
+    )
 
 
 class Function(Base):
@@ -309,7 +316,10 @@ class APIKey(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     hashed_key: Mapped[str] = mapped_column(String(256), nullable=False)
@@ -363,14 +373,19 @@ class LLMUserConfig(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True,
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
     )
     enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     base_url: Mapped[str] = mapped_column(String(512), default="", nullable=False)
     port: Mapped[int | None] = mapped_column(Integer, nullable=True)
     api_path: Mapped[str] = mapped_column(String(256), default="", nullable=False)
     model: Mapped[str] = mapped_column(String(256), default="", nullable=False)
-    api_key: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    # Stored encrypted at rest (enc1:<Fernet token>); see app.utils.secret_cipher.
+    api_key: Mapped[str] = mapped_column(String(1024), default="", nullable=False)
     timeout_seconds: Mapped[float] = mapped_column(Float, default=900.0, nullable=False)
     temperature: Mapped[float] = mapped_column(Float, default=0.1, nullable=False)
     max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -477,7 +492,10 @@ class SimilarityPair(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "computation_id", "binary_a_id", "binary_b_id", name="uq_similarity_pair_computation_binaries",
+            "computation_id",
+            "binary_a_id",
+            "binary_b_id",
+            name="uq_similarity_pair_computation_binaries",
         ),
     )
 
@@ -543,7 +561,10 @@ class LLMAnalysisResult(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "target_name", "function_name", "containing_function", "entrypoint",
+            "target_name",
+            "function_name",
+            "containing_function",
+            "entrypoint",
             name="uq_llm_analysis_target_function",
         ),
     )

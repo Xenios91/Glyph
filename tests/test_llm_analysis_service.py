@@ -61,8 +61,9 @@ class FakeClient:
     async def __aexit__(self, *args: Any) -> None:
         return None
 
-    async def post(self, url: str, json: dict[str, Any] | None = None,
-                   headers: dict[str, str] | None = None) -> FakeResponse:
+    async def post(
+        self, url: str, json: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+    ) -> FakeResponse:
         self.calls.append((url, json, headers))
         if self._exc is not None:
             raise self._exc
@@ -72,11 +73,29 @@ class FakeClient:
 
 def _patch_client(monkeypatch: Any, client: FakeClient) -> None:
     """Replace the service's httpx AsyncClient with a factory returning client."""
+
     def _factory(timeout: Any = None) -> FakeClient:
         client.timeout = timeout
         return client
 
     monkeypatch.setattr(service.httpx, "AsyncClient", _factory)
+
+
+@pytest.fixture(autouse=True)
+def _bypass_ssrf_guard(monkeypatch: Any) -> Any:
+    """Stub the SSRF guard to a pass-through for connection/analysis tests.
+
+    The guard performs real DNS resolution, which these tests do not want. It is
+    exercised directly in ``tests/test_ssrf_guard.py`` and via dedicated tests
+    below; here it is stubbed so the default ``http://localhost`` base URL (a
+    loopback address that the guard would reject) is accepted.
+    """
+
+    async def _passthrough(url: str) -> tuple[str, str | None]:
+        return url, None
+
+    monkeypatch.setattr(service, "_resolve_llm_url", _passthrough)
+    return _passthrough
 
 
 class TestBuildEndpointUrl:
@@ -133,7 +152,9 @@ class TestTestLLMConnection:
 
     async def test_success(self, monkeypatch: Any) -> None:
         """Test a successful connection returns ok with model and timing."""
-        client = FakeClient(response=FakeResponse(200, {"model": "gpt-4o-mini", "choices": [{"message": {"content": "ok"}}]}))
+        client = FakeClient(
+            response=FakeResponse(200, {"model": "gpt-4o-mini", "choices": [{"message": {"content": "ok"}}]})
+        )
         _patch_client(monkeypatch, client)
         llm = _make_llm(api_key="sk-123")
 
@@ -183,15 +204,17 @@ class TestTestLLMConnection:
         assert result.error == "Could not reach endpoint: ConnectError"
 
     async def test_http_error_status(self, monkeypatch: Any) -> None:
-        """Test that a non-200 status includes the status and a body snippet."""
+        """Test that a non-200 status reflects only the status code, never the body."""
         client = FakeClient(response=FakeResponse(500, text="Internal Server Error"))
         _patch_client(monkeypatch, client)
 
         result = await service.test_llm_connection(_make_llm())
 
         assert result.ok is False
-        assert result.error.startswith("HTTP 500:")
-        assert "Internal Server Error" in result.error
+        assert result.error == "Endpoint returned HTTP 500"
+        assert "500" in result.error
+        # The upstream body must not be reflected to the caller.
+        assert "Internal Server Error" not in result.error
 
     async def test_invalid_json(self, monkeypatch: Any) -> None:
         """Test that invalid JSON is reported as a format error."""
@@ -299,9 +322,7 @@ class TestParseVerdict:
 
     def test_case_insensitive(self) -> None:
         """Test that the verdict line is matched case-insensitively."""
-        is_vuln, confidence, verdict = service.parse_verdict(
-            "verdict: vulnerable (confidence: HIGH)"
-        )
+        is_vuln, confidence, verdict = service.parse_verdict("verdict: vulnerable (confidence: HIGH)")
         assert is_vuln is True
         assert confidence == "high"
         assert verdict == "VULNERABLE"
@@ -329,9 +350,7 @@ class TestParseVerdict:
 
     def test_verdict_at_start(self) -> None:
         """Test a verdict line at the very start of the content."""
-        is_vuln, confidence, verdict = service.parse_verdict(
-            "VERDICT: VULNERABLE (confidence: high)\n## Analysis"
-        )
+        is_vuln, confidence, verdict = service.parse_verdict("VERDICT: VULNERABLE (confidence: high)\n## Analysis")
         assert is_vuln is True
         assert confidence == "high"
         assert verdict == "VULNERABLE"
@@ -461,13 +480,7 @@ class TestAnalyzeFinding:
         """Test that a parseable verdict line populates the result fields."""
         body = {
             "model": "test-model-echo",
-            "choices": [
-                {
-                    "message": {
-                        "content": "## Analysis\nRisky.\nVERDICT: VULNERABLE (confidence: high)"
-                    }
-                }
-            ],
+            "choices": [{"message": {"content": "## Analysis\nRisky.\nVERDICT: VULNERABLE (confidence: high)"}}],
         }
         client = FakeClient(response=FakeResponse(200, body))
         _patch_client(monkeypatch, client)
@@ -525,15 +538,17 @@ class TestAnalyzeFinding:
         assert result.error == "Could not reach endpoint: ConnectError"
 
     async def test_http_error_status(self, monkeypatch: Any) -> None:
-        """Test that a non-200 status includes the status and a body snippet."""
+        """Test that a non-200 status reflects only the status code, never the body."""
         client = FakeClient(response=FakeResponse(401, text="invalid api key"))
         _patch_client(monkeypatch, client)
 
         result = await service.analyze_finding(_make_llm(api_key="sk-bad"), self._finding())
 
         assert result.status == "error"
-        assert result.error.startswith("HTTP 401:")
-        assert "invalid api key" in result.error
+        assert result.error == "Endpoint returned HTTP 401"
+        assert "401" in result.error
+        # The upstream body must not be reflected to the caller.
+        assert "invalid api key" not in result.error
 
     async def test_invalid_json(self, monkeypatch: Any) -> None:
         """Test that invalid JSON is reported as a format error."""
@@ -648,8 +663,9 @@ class TestAnalyzeFindings:
         class FlakyClient(FakeClient):
             """Client that fails the request for fn0 with a connection error."""
 
-            async def post(self, url: str, json: dict[str, Any] | None = None,
-                           headers: dict[str, str] | None = None) -> FakeResponse:
+            async def post(
+                self, url: str, json: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+            ) -> FakeResponse:
                 self.calls.append((url, json, headers))
                 if json is not None and "fn0" in str(json["messages"][1]["content"]):
                     raise httpx.ConnectError("boom")
@@ -669,14 +685,14 @@ class TestAnalyzeFindings:
         class TimingClient(FakeClient):
             """Client that records the peak number of in-flight posts."""
 
-            def __init__(self, response: FakeResponse | None = None,
-                         exc: Exception | None = None) -> None:
+            def __init__(self, response: FakeResponse | None = None, exc: Exception | None = None) -> None:
                 super().__init__(response=response, exc=exc)
                 self.in_flight = 0
                 self.max_in_flight = 0
 
-            async def post(self, url: str, json: dict[str, Any] | None = None,
-                           headers: dict[str, str] | None = None) -> FakeResponse:
+            async def post(
+                self, url: str, json: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+            ) -> FakeResponse:
                 self.calls.append((url, json, headers))
                 self.in_flight += 1
                 self.max_in_flight = max(self.max_in_flight, self.in_flight)
@@ -693,3 +709,54 @@ class TestAnalyzeFindings:
         assert len(results) == 6
         assert all(r.status == "success" for r in results)
         assert client.max_in_flight == 2
+
+
+class TestSsrfGuardMapping:
+    """Tests that a rejected (non-public) endpoint host yields a generic error.
+
+    These override the autouse pass-through fixture so the guard actually
+    rejects the URL; the service must map that ``ValueError`` to the generic
+    "not a public address" error and must not open any connection.
+    """
+
+    @pytest.fixture
+    def _rejecting_guard(self, monkeypatch: Any) -> Any:
+        async def _reject(url: str) -> tuple[str, str | None]:
+            raise ValueError("host resolves to a non-public address")
+
+        monkeypatch.setattr(service, "_resolve_llm_url", _reject)
+        return _reject
+
+    async def test_test_llm_connection_rejects_non_public(self, monkeypatch: Any, _rejecting_guard: Any) -> None:
+        """A non-public host yields the generic error and no HTTP request."""
+        client = FakeClient(response=FakeResponse(200, OK_BODY))
+        _patch_client(monkeypatch, client)
+
+        result = await service.test_llm_connection(_make_llm())
+
+        assert result.ok is False
+        assert result.error == "Endpoint host is not a public address"
+        assert client.calls == []
+
+    async def test_analyze_finding_rejects_non_public(self, monkeypatch: Any, _rejecting_guard: Any) -> None:
+        """A non-public host yields the generic error and no HTTP request."""
+        client = FakeClient(response=FakeResponse(200, OK_BODY))
+        _patch_client(monkeypatch, client)
+
+        result = await service.analyze_finding(_make_llm(), {"function_name": "fn"})
+
+        assert result.status == "error"
+        assert result.error == "Endpoint host is not a public address"
+        assert client.calls == []
+
+    async def test_analyze_findings_fails_fast_on_non_public(
+        self, monkeypatch: Any, _rejecting_guard: Any
+    ) -> None:
+        """A batch fails fast: the guard raises before any request is scheduled."""
+        client = FakeClient(response=FakeResponse(200, OK_BODY))
+        _patch_client(monkeypatch, client)
+
+        with pytest.raises(ValueError):
+            await service.analyze_findings(_make_llm(), [{"function_name": "fn"}])
+
+        assert client.calls == []

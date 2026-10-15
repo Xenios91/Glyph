@@ -167,6 +167,7 @@ Example:
 import pytest
 from fastapi.testclient import TestClient
 
+
 @pytest.mark.auth
 async def test_login_success(test_client: TestClient) -> None:
     # Arrange

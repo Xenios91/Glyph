@@ -307,9 +307,9 @@ curl -X POST http://localhost:8000/api/v1/tasks/execute \
 - **LLM Result Repository**: [`app/database/llm_result_repository.py`](../app/database/llm_result_repository.py)
 - **LLM Configuration**: [`LLMConfig`](../app/config/settings.py) — OpenAI-compatible endpoint settings (the `llm` block in `config.yml`)
 - **Key Classes**:
-  - [`ScanResult`](../app/services/dangerous_function_scanner.py:23) — Individual finding
+  - [`ScanResult`](../app/services/dangerous_function_scanner.py:21) — Individual finding
   - [`ScanReport`](../app/services/dangerous_function_scanner.py:52) — Aggregated report
-  - [`scan_functions()`](../app/services/dangerous_function_scanner.py:120) — Core scanning function
-  - [`generate_report()`](../app/services/dangerous_function_scanner.py:200) — Report aggregation
-  - [`analyze_findings()`](../app/services/llm_analysis_service.py:300) — LLM analysis fan-out for a batch of findings
-  - [`test_llm_connection()`](../app/services/llm_analysis_service.py:115) — LLM endpoint connectivity test
+  - [`scan_functions()`](../app/services/dangerous_function_scanner.py:136) — Core scanning function
+  - [`generate_report()`](../app/services/dangerous_function_scanner.py:325) — Report aggregation
+  - [`analyze_findings()`](../app/services/llm_analysis_service.py:424) — LLM analysis fan-out for a batch of findings
+  - [`test_llm_connection()`](../app/services/llm_analysis_service.py:194) — LLM endpoint connectivity test
