@@ -41,6 +41,7 @@ dependencies = [
     "bcrypt>=5.0.0",
     "aiosqlite>=0.22.1",
     "joserfc>=0.11.0",
+    "cryptography>=42.0.0",
     "SQLAlchemy[asyncio]>=2.0.48,<2.2",
     "email-validator>=2.3.0",
     # httpx2 (pydantic/httpx2) is the intentional HTTP client here, not a typo of

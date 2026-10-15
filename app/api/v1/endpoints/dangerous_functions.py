@@ -415,15 +415,16 @@ async def scan_dangerous_functions(
 
     elif body.taskName:
         target_name = body.taskName
-        # Get prediction data
-        all_predictions = await PredictionRepository.get_predictions_list()
-        matching = [p for p in all_predictions if p.task_name == target_name]
-        if not matching:
+        # Get the caller's own prediction with this task name. Scoped to the
+        # caller so a same-named row owned by another user is never matched
+        # (the old "load all, take first match" could assert the wrong row
+        # once task names became per-user).
+        prediction = await PredictionRepository.get_for_user(target_name, current_user.id)
+        if prediction is None:
             raise HTTPException(
                 status_code=404,
                 detail=f"Prediction task '{target_name}' not found",
             )
-        prediction = matching[0]
 
         # Enforce prediction ownership before exposing any prediction data.
         assert_owned(prediction, current_user, "prediction")

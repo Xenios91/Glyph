@@ -191,9 +191,20 @@ class TestConfigRouter:
         monkeypatch: Any,
     ) -> None:
         """Test saving an LLM config upserts the per-user row with normalized values."""
+        import socket
+
         settings = self._llm_settings()
         mock_get_settings.return_value = settings
         monkeypatch.setattr("app.api.v1.endpoints.config._CONFIG_FILE", tmp_path / "config.yml")
+
+        # The save path resolves the base_url host via the SSRF guard; mock DNS
+        # to a public IP so the (public) host is accepted.
+        def _public_dns(host: str, port: int, *args: Any, **kwargs: Any) -> list[tuple]:
+            return [
+                (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, (), ("93.184.216.34", port))
+            ]
+
+        monkeypatch.setattr("app.utils.ssrf_guard.socket.getaddrinfo", _public_dns)
 
         with patch(
             "app.api.v1.endpoints.config.LLMUserConfigRepository.upsert",
@@ -204,7 +215,7 @@ class TestConfigRouter:
                 json={
                     "llm": {
                         "enabled": True,
-                        "base_url": "http://localhost:8000/",
+                        "base_url": "http://llm.example.com:8000/",
                         "api_path": "v1/chat/completions",
                         "model": "  llama-3  ",
                         "api_key": "sk-test",
@@ -222,7 +233,7 @@ class TestConfigRouter:
             1,
             {
                 "enabled": True,
-                "base_url": "http://localhost:8000",
+                "base_url": "http://llm.example.com:8000",
                 "api_path": "/v1/chat/completions",
                 "model": "llama-3",
                 "api_key": "sk-test",
@@ -233,6 +244,42 @@ class TestConfigRouter:
         # The global config.yml must not receive the user's LLM settings.
         persisted = yaml.safe_load((tmp_path / "config.yml").read_text(encoding="utf-8"))
         assert persisted == {"max_file_size_mb": 512, "cpu_cores": 4}
+
+    @patch("app.api.v1.endpoints.config.get_settings")
+    def test_save_config_llm_rejects_private_base_url(
+        self,
+        mock_get_settings: Any,
+        config_client: TestClient,
+        tmp_path: Path,
+        monkeypatch: Any,
+    ) -> None:
+        """Saving a base_url that resolves to a private IP is rejected with 400."""
+        import socket
+
+        settings = self._llm_settings()
+        mock_get_settings.return_value = settings
+        monkeypatch.setattr("app.api.v1.endpoints.config._CONFIG_FILE", tmp_path / "config.yml")
+
+        def _private_dns(host: str, port: int, *args: Any, **kwargs: Any) -> list[tuple]:
+            return [
+                (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, (), ("10.0.0.1", port))
+            ]
+
+        monkeypatch.setattr("app.utils.ssrf_guard.socket.getaddrinfo", _private_dns)
+
+        with patch(
+            "app.api.v1.endpoints.config.LLMUserConfigRepository.upsert",
+            new_callable=AsyncMock,
+        ) as mock_upsert:
+            response = config_client.post(
+                "/config/save",
+                json={"llm": {"base_url": "http://internal.example.com"}},
+            )
+
+        assert response.status_code == 400
+        detail = response.json().get("detail", response.json())
+        assert detail.get("error", {}).get("code", "") == "INVALID_LLM_BASE_URL"
+        mock_upsert.assert_not_awaited()
 
     @patch("app.api.v1.endpoints.config.get_settings")
     def test_save_config_llm_partial_preserves_other_fields(
@@ -425,6 +472,36 @@ class TestLLMTestEndpoint:
         assert data["success"] is True
         assert data["data"]["ok"] is False
         assert data["data"]["error"] == "HTTP 500: boom"
+
+    @patch("app.services.llm_analysis_service.httpx.AsyncClient")
+    @patch("app.api.v1.endpoints.config.resolve_user_llm_config", new_callable=AsyncMock)
+    def test_llm_test_rejects_metadata_ip_no_outbound(
+        self,
+        mock_resolve: Any,
+        mock_client_cls: Any,
+        config_client: TestClient,
+    ) -> None:
+        """A cloud-metadata base_url is rejected generically with no outbound request.
+
+        The real ``test_llm_connection`` (with its SSRF guard) runs; the client
+        factory must never be instantiated because the host is rejected before
+        any connection is attempted.
+        """
+        mock_resolve.return_value = LLMConfig(
+            enabled=True,
+            base_url="http://169.254.169.254",
+            api_path="/v1/chat/completions",
+            model="m",
+        )
+
+        response = config_client.post("/config/llm-test")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["ok"] is False
+        assert data["data"]["error"] == "Endpoint host is not a public address"
+        # No outbound request: the HTTP client was never created.
+        mock_client_cls.assert_not_called()
 
 
 class TestStatusRouter:

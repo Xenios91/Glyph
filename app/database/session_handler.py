@@ -202,6 +202,86 @@ async def _ensure_prediction_count_columns(engine: AsyncEngine) -> None:
             logger.info(f"Added {column_name} column to {table_name} table")
 
 
+# The per-user prediction unique constraint. Older schemas have
+# UNIQUE(task_name, model_name); current schemas have
+# UNIQUE(task_name, model_name, user_id). Detected via PRAGMA index_info.
+_PREDICTION_OLD_UNIQUE_COLS = ("task_name", "model_name")
+_PREDICTION_NEW_UNIQUE_COLS = ("task_name", "model_name", "user_id")
+
+
+def _prediction_unique_columns(conn: Any) -> tuple[str, ...] | None:
+    """Return the column tuple of the predictions unique index, or None.
+
+    Inspects the table's unique indexes via PRAGMA and returns the column
+    ordering of the one that covers (task_name, model_name[, user_id]).
+    """
+    rows = conn.execute(text("PRAGMA index_list(predictions)")).fetchall()
+    for row in rows:
+        # row: (seq, name, unique, origin, partial)
+        name, unique = row[1], row[2]
+        if not unique:
+            continue
+        cols = tuple(r[2] for r in conn.execute(text(f"PRAGMA index_info({name})")).fetchall())
+        if cols in (_PREDICTION_OLD_UNIQUE_COLS, _PREDICTION_NEW_UNIQUE_COLS):
+            return cols
+    return None
+
+
+async def _ensure_prediction_per_user_constraint(engine: AsyncEngine) -> None:
+    """Migrate the predictions unique constraint to per-user scope (idempotent).
+
+    Older deployments carry ``UNIQUE(task_name, model_name)``. The multi-tenant
+    design scopes task-name uniqueness per user, so the constraint becomes
+    ``UNIQUE(task_name, model_name, user_id)``. SQLite cannot ALTER a unique
+    constraint, so the table is rebuilt: rename, recreate with the new
+    constraint, copy rows, drop the old table, and recreate the secondary
+    index. This is safe without deduplication because the old (tighter)
+    constraint guarantees at most one row per (task_name, model_name), which
+    trivially satisfies the new (looser) per-user constraint.
+    """
+    async with engine.begin() as conn:
+        if conn.dialect.name != "sqlite":
+            return
+        rows = (await conn.execute(text("PRAGMA table_info(predictions)"))).fetchall()
+        if not rows:
+            # Table does not exist yet; create_all builds it with the new constraint.
+            return
+        cols = await conn.run_sync(lambda sync_conn: _prediction_unique_columns(sync_conn))
+        if cols is None or cols == _PREDICTION_NEW_UNIQUE_COLS:
+            # Already on the per-user constraint (or no recognizable index).
+            return
+        # Rebuild the table with the per-user unique constraint.
+        await conn.execute(text("ALTER TABLE predictions RENAME TO predictions_old"))
+        await conn.execute(
+            text(
+                "CREATE TABLE predictions ("
+                "id INTEGER NOT NULL, "
+                "task_name VARCHAR(64) NOT NULL, "
+                "model_name VARCHAR(64) NOT NULL, "
+                "functions_data BLOB NOT NULL, "
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
+                "modified_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
+                "user_id INTEGER, "
+                "function_count INTEGER NOT NULL DEFAULT 0, "
+                "PRIMARY KEY (id), "
+                "CONSTRAINT uq_predictions_task_model_user UNIQUE (task_name, model_name, user_id)"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO predictions "
+                "(id, task_name, model_name, functions_data, created_at, modified_at, user_id, function_count) "
+                "SELECT id, task_name, model_name, functions_data, created_at, modified_at, user_id, function_count "
+                "FROM predictions_old"
+            )
+        )
+        await conn.execute(text("DROP TABLE predictions_old"))
+        # Recreate the secondary index that the model declares on user_id.
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_predictions_user_id ON predictions (user_id)"))
+        logger.info("Migrated predictions unique constraint to per-user scope")
+
+
 async def _backfill_prediction_function_count() -> None:
     """Backfill ``function_count`` on prediction rows where it is unset.
 
@@ -388,6 +468,9 @@ async def init_async_databases() -> None:
         await _ensure_llm_verdict_columns(async_engines[name])
         # Denormalized prediction function count for lightweight list queries.
         await _ensure_prediction_count_columns(async_engines[name])
+        # Per-user prediction unique constraint (table rebuild for SQLite).
+        if name == "predictions":
+            await _ensure_prediction_per_user_constraint(async_engines[name])
     try:
         await _backfill_owner_columns()
     except Exception as e:  # pragma: no cover - defensive: never block startup

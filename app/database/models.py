@@ -105,7 +105,14 @@ class Prediction(Base):
         nullable=False,
     )
 
-    __table_args__ = (UniqueConstraint("task_name", "model_name", name="uq_predictions_task_model"),)
+    # Per-user uniqueness: two users may share a (task_name, model_name) pair,
+    # but a single user cannot have two rows for the same pair. The nullable
+    # user_id means unowned/legacy rows are not part of the unique index (SQLite
+    # treats NULLs as distinct), which is acceptable because the API always saves
+    # with a real owner id.
+    __table_args__ = (
+        UniqueConstraint("task_name", "model_name", "user_id", name="uq_predictions_task_model_user"),
+    )
 
 
 class Function(Base):
@@ -377,7 +384,8 @@ class LLMUserConfig(Base):
     port: Mapped[int | None] = mapped_column(Integer, nullable=True)
     api_path: Mapped[str] = mapped_column(String(256), default="", nullable=False)
     model: Mapped[str] = mapped_column(String(256), default="", nullable=False)
-    api_key: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    # Stored encrypted at rest (enc1:<Fernet token>); see app.utils.secret_cipher.
+    api_key: Mapped[str] = mapped_column(String(1024), default="", nullable=False)
     timeout_seconds: Mapped[float] = mapped_column(Float, default=900.0, nullable=False)
     temperature: Mapped[float] = mapped_column(Float, default=0.1, nullable=False)
     max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)

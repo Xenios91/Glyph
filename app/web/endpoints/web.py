@@ -258,6 +258,7 @@ async def get_prediction_details(
             task_name,
             model_name,
             func_name,
+            current_user.id,
         )
 
         if not model_info:
@@ -267,7 +268,7 @@ async def get_prediction_details(
 
         # Ownership: both the model function and the prediction must be accessible.
         assert_owned(model_info, current_user, "function")
-        pred_owner_id = await PredictionRepository.get_owner(task_name, model_name)
+        pred_owner_id = await PredictionRepository.get_owner(task_name, model_name, current_user.id)
         assert_owned(types.SimpleNamespace(user_id=pred_owner_id), current_user, "prediction")
 
         model_tokens = format_code(getattr(model_info, "tokens", ""))
@@ -305,7 +306,7 @@ async def get_prediction(
     model_name: Annotated[str, Query()],
 ) -> dict[str, Any] | HTMLResponse:
     """Obtain predictions for a specific task and model"""
-    prediction = await PredictionRepository.get(task_name, model_name)
+    prediction = await PredictionRepository.get(task_name, model_name, current_user.id)
 
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")

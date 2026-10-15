@@ -1,5 +1,6 @@
 """Tests for predictions API v1 endpoints."""
 
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -8,10 +9,20 @@ from app.auth.dependencies import get_current_active_user
 from tests.conftest import set_dependency_override
 from tests.factories import make_mock_user
 
+MODEL_REPO_PATH = "app.api.v1.endpoints.predictions.ModelRepository"
+
+
+def _mock_owned_model(user_id: int = 1) -> Any:
+    """Return a mock model row owned by the given user (for ModelRepository.get)."""
+    model_row = Mock()
+    model_row.user_id = user_id
+    return model_row
+
 
 class TestPredictionsRouter:
     """Tests for predictions router endpoints."""
 
+    @patch(MODEL_REPO_PATH)
     @patch("app.api.v1.endpoints.predictions._run_prediction_task")
     @patch("app.api.v1.endpoints.predictions.PredictionService")
     @patch("app.api.v1.endpoints.predictions.TaskManager")
@@ -22,9 +33,11 @@ class TestPredictionsRouter:
         mock_task_manager: Any,
         mock_pred_repo: Any,
         mock_run_prediction_task: Any,
+        mock_model_repo: Any,
         predictions_client: Any,
     ) -> None:
         """Test creating a prediction task successfully."""
+        mock_model_repo.get = AsyncMock(return_value=_mock_owned_model(1))
         mock_pred_repo.check_task_name_unique = AsyncMock(return_value=False)
         mock_task_manager_instance = Mock()
         mock_task_manager_instance.get_uuid.return_value = "test-uuid-123"
@@ -48,6 +61,7 @@ class TestPredictionsRouter:
         assert "uuid" in data["data"]
         assert "Prediction task created successfully" in data["message"]
 
+    @patch(MODEL_REPO_PATH)
     @patch("app.api.v1.endpoints.predictions.PredictionService")
     @patch("app.api.v1.endpoints.predictions.TaskManager")
     @patch("app.api.v1.endpoints.predictions.PredictionRequest")
@@ -56,9 +70,11 @@ class TestPredictionsRouter:
         mock_prediction_request: Any,
         mock_task_manager: Any,
         mock_pred_repo: Any,
+        mock_model_repo: Any,
         predictions_client: Any,
     ) -> None:
         """Test prediction with existing task name returns 409."""
+        mock_model_repo.get = AsyncMock(return_value=_mock_owned_model(1))
         mock_pred_repo.check_task_name_unique = AsyncMock(return_value=True)
         set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
@@ -76,6 +92,7 @@ class TestPredictionsRouter:
         assert detail["success"] is False
         assert "TASK_NAME_EXISTS" in detail.get("error", {}).get("code", "")
 
+    @patch(MODEL_REPO_PATH)
     @patch("app.api.v1.endpoints.predictions._run_prediction_task")
     @patch("app.api.v1.endpoints.predictions.PredictionService")
     @patch("app.api.v1.endpoints.predictions.TaskManager")
@@ -86,9 +103,11 @@ class TestPredictionsRouter:
         mock_task_manager: Any,
         mock_pred_repo: Any,
         mock_run_prediction_task: Any,
+        mock_model_repo: Any,
         predictions_client: Any,
     ) -> None:
         """Test creating a prediction task with custom UUID."""
+        mock_model_repo.get = AsyncMock(return_value=_mock_owned_model(1))
         mock_pred_repo.check_task_name_unique = AsyncMock(return_value=False)
         mock_task_manager_instance = Mock()
         mock_task_manager_instance.get_uuid.return_value = "custom-uuid-456"
@@ -112,6 +131,7 @@ class TestPredictionsRouter:
         assert data["success"] is True
         assert data["data"]["uuid"] == "custom-uuid-456"
 
+    @patch(MODEL_REPO_PATH)
     @patch("app.api.v1.endpoints.predictions.PredictionService")
     @patch("app.api.v1.endpoints.predictions.TaskManager")
     @patch("app.api.v1.endpoints.predictions.PredictionRequest")
@@ -120,9 +140,11 @@ class TestPredictionsRouter:
         mock_prediction_request: Any,
         mock_task_manager: Any,
         mock_pred_repo: Any,
+        mock_model_repo: Any,
         predictions_client: Any,
     ) -> None:
         """Test prediction task creation error."""
+        mock_model_repo.get = AsyncMock(return_value=_mock_owned_model(1))
         mock_pred_repo.check_task_name_unique = AsyncMock(side_effect=Exception("Test error"))
         set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
@@ -139,6 +161,65 @@ class TestPredictionsRouter:
         detail = data.get("detail", data)
         assert detail["success"] is False
         assert "PREDICTION_ERROR" in detail.get("error", {}).get("code", "")
+
+    @patch(MODEL_REPO_PATH)
+    @patch("app.api.v1.endpoints.predictions.PredictionService")
+    @patch("app.api.v1.endpoints.predictions.TaskManager")
+    @patch("app.api.v1.endpoints.predictions.PredictionRequest")
+    def test_predict_tokens_model_not_found(
+        self,
+        mock_prediction_request: Any,
+        mock_task_manager: Any,
+        mock_pred_repo: Any,
+        mock_model_repo: Any,
+        predictions_client: Any,
+    ) -> None:
+        """Test predicting with a nonexistent model returns 404 MODEL_NOT_FOUND."""
+        mock_model_repo.get = AsyncMock(return_value=None)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
+
+        response = predictions_client.post(
+            "/predictions/predict",
+            json={
+                "modelName": "missing_model",
+                "taskName": "test_task",
+            },
+        )
+
+        assert response.status_code == 404
+        data = response.json()
+        detail = data.get("detail", data)
+        assert detail["success"] is False
+        assert "MODEL_NOT_FOUND" in detail.get("error", {}).get("code", "")
+        # The uniqueness check must never run when the model is missing.
+        mock_pred_repo.check_task_name_unique.assert_not_called()
+
+    @patch(MODEL_REPO_PATH)
+    @patch("app.api.v1.endpoints.predictions.PredictionService")
+    @patch("app.api.v1.endpoints.predictions.TaskManager")
+    @patch("app.api.v1.endpoints.predictions.PredictionRequest")
+    def test_predict_tokens_other_users_model(
+        self,
+        mock_prediction_request: Any,
+        mock_task_manager: Any,
+        mock_pred_repo: Any,
+        mock_model_repo: Any,
+        predictions_client: Any,
+    ) -> None:
+        """Test predicting with another user's model returns 404 (existence not leaked)."""
+        mock_model_repo.get = AsyncMock(return_value=_mock_owned_model(99))
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
+
+        response = predictions_client.post(
+            "/predictions/predict",
+            json={
+                "modelName": "other_model",
+                "taskName": "test_task",
+            },
+        )
+
+        assert response.status_code == 404
+        mock_pred_repo.check_task_name_unique.assert_not_called()
 
     @patch("app.api.v1.endpoints.predictions.PredictionService")
     def test_get_prediction_success_json(self, mock_pred_repo: Any, predictions_client: Any) -> None:
@@ -192,9 +273,10 @@ class TestPredictionsRouter:
         mock_pred_repo: Any,
         predictions_client: Any,
     ) -> None:
-        """Test deleting a prediction successfully."""
+        """Test deleting a prediction the caller owns succeeds and is scoped."""
         mock_pred_service.delete_prediction = AsyncMock()
-        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=None)
+        # The scoped lookup returns the caller's id only when they own the task.
+        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=1)
         set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.delete(
@@ -206,6 +288,31 @@ class TestPredictionsRouter:
         data = response.json()
         assert data["success"] is True
         assert "Prediction deleted successfully" in data["message"]
+        # The delete is scoped to the caller (regression: unscoped delete).
+        mock_pred_service.delete_prediction.assert_awaited_once_with("test_task", user_id=1)
+
+    @patch("app.api.v1.endpoints.predictions.PredictionRepository")
+    @patch("app.api.v1.endpoints.predictions.PredictionService")
+    def test_delete_prediction_not_owned_returns_404(
+        self,
+        mock_pred_service: Any,
+        mock_pred_repo: Any,
+        predictions_client: Any,
+    ) -> None:
+        """Deleting a task the caller does not own 404s (no unscoped delete)."""
+        mock_pred_service.delete_prediction = AsyncMock()
+        # Scoped lookup returns None: the caller has no prediction with this name.
+        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=None)
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
+
+        response = predictions_client.delete(
+            "/predictions/deletePrediction",
+            params={"task_name": "someone_else_task"},
+        )
+
+        assert response.status_code == 404
+        # The delete must NOT run for a task the caller does not own.
+        mock_pred_service.delete_prediction.assert_not_awaited()
 
     @patch("app.services.prediction_service.PredictionRepository")
     @patch("app.api.v1.endpoints.predictions.PredictionRepository")
@@ -221,7 +328,7 @@ class TestPredictionsRouter:
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
         mock_model_info.user_id = None
-        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=None)
+        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=1)
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
         mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
@@ -283,7 +390,7 @@ class TestPredictionsRouter:
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
         mock_model_info.user_id = None
-        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=None)
+        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=1)
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
         mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
@@ -321,7 +428,7 @@ class TestPredictionsRouter:
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
         mock_model_info.user_id = None
-        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=None)
+        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=1)
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
         mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
@@ -433,7 +540,8 @@ class TestPredictionsRouter:
     ) -> None:
         """Test batch deleting predictions successfully."""
         mock_pred_service.delete_prediction = AsyncMock()
-        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=None)
+        # The caller owns each named task, so the scoped lookup returns their id.
+        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=1)
         set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.delete(
@@ -474,12 +582,13 @@ class TestPredictionsRouter:
     ) -> None:
         """Test batch delete with some failures."""
 
-        def side_effect(name: str) -> None:
+        def side_effect(name: str, user_id: int | None = None) -> None:
             if name == "bad_task":
                 raise RuntimeError("DB error")
 
         mock_pred_service.delete_prediction = AsyncMock(side_effect=side_effect)
-        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=None)
+        # The caller owns each named task; the failure comes from the service, not ownership.
+        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=1)
         set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
         response = predictions_client.delete(
@@ -538,7 +647,8 @@ class TestPredictionsRouter:
     ) -> None:
         """Test getting prediction details with TypeError."""
         mock_func_repo.get = AsyncMock(return_value=Mock(tokens="tokens", user_id=None))
-        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=None)
+        # The caller owns the task so the request reaches the (failing) service call.
+        mock_pred_repo.get_owner_by_task = AsyncMock(return_value=1)
         mock_service_pred_repo.get_prediction_function = AsyncMock(side_effect=TypeError("bad data"))
         set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
 
@@ -689,3 +799,25 @@ class TestPredictionsRouter:
         import asyncio
 
         asyncio.run(_execute_prediction(pred_request, captured_ctx))
+
+    @patch("app.api.v1.endpoints.predictions.PredictionService")
+    def test_get_predictions_list_pagination(self, mock_pred_repo: Any, predictions_client: Any) -> None:
+        """Page 2 of size 10 requests offset=10/limit=10 and returns the slice + total."""
+        mock_pred_repo.get_predictions_list = AsyncMock(
+            return_value=([{"task_name": "t11", "model_name": "m"}, {"task_name": "t12", "model_name": "m"}], 25)
+        )
+        set_dependency_override(predictions_client, get_current_active_user, make_mock_user)
+
+        response = predictions_client.get(
+            "/predictions/getPredictionsList", params={"page": 2, "page_size": 10}
+        )
+
+        assert response.status_code == 200
+        # The endpoint must push pagination down to the service (no in-memory slice).
+        mock_pred_repo.get_predictions_list.assert_awaited_once_with(user_id=1, offset=10, limit=10)
+        data = response.json()["data"]
+        assert data["total"] == 25
+        assert data["page"] == 2
+        assert data["page_size"] == 10
+        assert data["total_pages"] == 3
+        assert [item["task_name"] for item in data["items"]] == ["t11", "t12"]

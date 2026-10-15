@@ -205,7 +205,7 @@ async def get_prediction_details(
     """Get detailed prediction results for a specific function, comparing model and prediction tokens."""
     try:
         # Enforce prediction ownership before exposing any prediction data.
-        pred_owner_id = await PredictionRepository.get_owner(task_name, model_name)
+        pred_owner_id = await PredictionRepository.get_owner(task_name, model_name, current_user.id)
         assert_owned(types.SimpleNamespace(user_id=pred_owner_id), current_user, "prediction")
 
         model_info = await FunctionRepository.get(model_name, function_name)
@@ -213,6 +213,7 @@ async def get_prediction_details(
             task_name,
             model_name,
             function_name,
+            current_user.id,
         )
 
         if not prediction_data:

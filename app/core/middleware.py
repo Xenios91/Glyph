@@ -30,10 +30,16 @@ class CSPMiddleware:
         - Permissions-Policy: Restricts browser features.
     """
 
+    # style-src is split: <style> elements (style-src-elem) are strict ('self'
+    # + Google Fonts) to block style-element injection, while inline style
+    # *attributes* (style-src-attr) still allow 'unsafe-inline' for the
+    # handful of JS-driven dynamic styles (progress bars, canvas tooltips).
+    # Full inline-style cleanup is tracked as follow-up work.
     CSP_HEADER = (
         "default-src 'self'; "
         "script-src 'self'; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "style-src-elem 'self' https://fonts.googleapis.com; "
+        "style-src-attr 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
         "font-src 'self' https://fonts.gstatic.com; "
         "object-src 'none'; "

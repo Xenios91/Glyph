@@ -7,7 +7,6 @@ Pure JSON API endpoints -- HTML responses are handled by web endpoints
 in app/web/endpoints/web.py.
 """
 
-import types
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
@@ -18,6 +17,7 @@ from pydantic import BaseModel
 from app.api.types import FunctionName, ModelName, TaskName
 from app.auth.dependencies import assert_owned, get_current_active_user
 from app.database.function_repository import FunctionRepository
+from app.database.model_repository import ModelRepository
 from app.database.models import User
 from app.database.prediction_repository import PredictionRepository
 from app.processing.task_management import TaskManager
@@ -167,12 +167,28 @@ async def predict_tokens(
         )
     task_name = task_name.strip()
 
-    if await PredictionService.check_task_name_unique(task_name):
+    # Verify the model exists and belongs to the caller before queuing anything.
+    # A 404 (not 403) is returned for other users' models so existence is not
+    # leaked, matching the /scan and /execute conventions.
+    model_row = await ModelRepository.get(model_name)
+    if model_row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=create_error_response(
+                error_code="MODEL_NOT_FOUND",
+                error_message=f"Model '{model_name}' not found",
+            ).model_dump(),
+        )
+    assert_owned(model_row, current_user, "model")
+
+    # Uniqueness is scoped to the caller: a name owned by another user is not
+    # a conflict, so users may share a task name.
+    if await PredictionService.check_task_name_unique(task_name, current_user.id):
         raise HTTPException(
             status_code=409,
             detail=create_error_response(
                 error_code="TASK_NAME_EXISTS",
-                error_message=f"Task name '{task_name}' already exists. Task names must be unique.",
+                error_message=f"Task name '{task_name}' already exists for your account.",
             ).model_dump(),
         )
 
@@ -200,14 +216,14 @@ async def get_predictions_list(
 
     """
     # Lightweight metadata-only query (no BLOB deserialization), scoped to the
-    # rows the current user may access (own + legacy/unowned).
-    all_predictions, total = await PredictionService.get_predictions_list(
-        user_id=current_user.id,
-        offset=0,
-        limit=10000,
-    )
+    # rows the current user may access (own + legacy/unowned). Pagination is
+    # pushed down to SQL (OFFSET/LIMIT) rather than slicing in memory.
     offset = (page - 1) * page_size
-    page_predictions = all_predictions[offset : offset + page_size]
+    page_predictions, total = await PredictionService.get_predictions_list(
+        user_id=current_user.id,
+        offset=offset,
+        limit=page_size,
+    )
 
     items: list[dict[str, Any]] = [
         {
@@ -235,7 +251,7 @@ async def get_prediction(
     task_name: Annotated[TaskName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Get the results of a specific prediction task for a model."""
-    prediction = await PredictionService.get_prediction(task_name, model_name)
+    prediction = await PredictionService.get_prediction(task_name, model_name, current_user.id)
 
     if not prediction:
         raise HTTPException(
@@ -271,9 +287,22 @@ async def delete_prediction(
     task_name: Annotated[TaskName, Query()],
 ) -> SuccessResponse[dict[str, Any]]:
     """Delete a single prediction task by task name."""
-    owner = await PredictionRepository.get_owner_by_task(task_name)
-    assert_owned(types.SimpleNamespace(user_id=owner), current_user, "prediction")
-    await PredictionService.delete_prediction(task_name)
+    # Scoped to the caller: returns the caller's id only if they own a
+    # prediction with this name, else None. A None owner means the caller has
+    # no such task -> 404 (do not rely on assert_owned, which passes for a
+    # None owner under the unowned-row rule).
+    owner = await PredictionRepository.get_owner_by_task(task_name, current_user.id)
+    if owner is None:
+        raise HTTPException(
+            status_code=404,
+            detail=create_error_response(
+                error_code="PREDICTION_NOT_FOUND",
+                error_message="Prediction not found",
+            ).model_dump(),
+        )
+    # The delete is additionally scoped to the caller so a same-named row
+    # owned by another user can never be removed.
+    await PredictionService.delete_prediction(task_name, user_id=current_user.id)
 
     return create_success_response(data={}, message="Prediction deleted successfully")
 
@@ -303,9 +332,12 @@ async def delete_predictions(
     failed: list[str] = []
     for name in names:
         try:
-            owner = await PredictionRepository.get_owner_by_task(name)
-            assert_owned(types.SimpleNamespace(user_id=owner), current_user, "prediction")
-            await PredictionService.delete_prediction(name)
+            owner = await PredictionRepository.get_owner_by_task(name, current_user.id)
+            if owner is None:
+                logger.warning("Prediction '{}' not found for user {}", name, current_user.id)
+                failed.append(name)
+                continue
+            await PredictionService.delete_prediction(name, user_id=current_user.id)
             deleted.append(name)
         except Exception as exc:
             logger.warning("Failed to delete prediction '{}': {}", name, exc)
@@ -349,13 +381,21 @@ async def get_prediction_details(
 
         # Ownership: both the model and the prediction must be accessible.
         assert_owned(model_info, current_user, "model")
-        owner = await PredictionRepository.get_owner_by_task(task_name)
-        assert_owned(types.SimpleNamespace(user_id=owner), current_user, "prediction")
+        owner = await PredictionRepository.get_owner_by_task(task_name, current_user.id)
+        if owner is None:
+            raise HTTPException(
+                status_code=404,
+                detail=create_error_response(
+                    error_code="PREDICTION_NOT_FOUND",
+                    error_message="Prediction not found",
+                ).model_dump(),
+            )
 
         _prediction_data, prediction_tokens = await PredictionService.get_prediction_function_details(
             task_name,
             model_name,
             function_name,
+            current_user.id,
         )
 
         model_tokens = format_code(model_info.tokens)

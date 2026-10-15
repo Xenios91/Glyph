@@ -350,6 +350,39 @@ class TestSecurityHeaders:
 
         assert captured_headers.get("x-content-type-options") == "nosniff"
 
+    @pytest.mark.asyncio
+    async def test_csp_style_src_split(self) -> None:
+        """CSP must use a strict style-src-elem and not allow 'unsafe-inline' on <style>."""
+        captured_headers: dict[str, str] = {}
+
+        async def capture_send(message: dict[str, Any]) -> None:
+            if message["type"] == "http.response.start":
+                for name, value in message.get("headers", []):
+                    captured_headers[name.decode("utf-8")] = value.decode("utf-8")
+
+        async def dummy_app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"ok"})
+
+        from main import CSPMiddleware
+
+        mw = CSPMiddleware(dummy_app)
+
+        scope: dict[str, Any] = {"type": "http", "method": "GET", "path": "/"}
+
+        async def receive() -> dict[str, str]:
+            return {"type": "http.request"}
+
+        await mw(scope, receive, capture_send)
+
+        csp = captured_headers.get("content-security-policy", "")
+        # The <style>-element policy is strict and does not allow 'unsafe-inline'.
+        assert "style-src-elem 'self' https://fonts.googleapis.com" in csp
+        # The old blanket 'style-src ... 'unsafe-inline'' directive is gone.
+        assert "style-src 'self' 'unsafe-inline'" not in csp
+        # Attribute styles keep the narrow exception for JS-driven dynamic values.
+        assert "style-src-attr 'self' 'unsafe-inline'" in csp
+
 
 class TestBruteForceLockout:
     """Test brute-force detection and lockout."""

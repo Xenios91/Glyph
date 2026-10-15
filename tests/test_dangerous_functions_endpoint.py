@@ -230,7 +230,7 @@ class TestScanEndpoint:
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
 
         with patch("app.api.v1.endpoints.dangerous_functions.PredictionRepository") as mock_pred:
-            mock_pred.get_predictions_list = AsyncMock(return_value=[])
+            mock_pred.get_for_user = AsyncMock(return_value=None)
 
             response = dangerous_functions_client.post(
                 "/dangerous-functions/scan",
@@ -437,7 +437,7 @@ class TestScanEndpoint:
         mock_prediction.functions_data = pickle.dumps(func_data)
 
         with patch("app.api.v1.endpoints.dangerous_functions.PredictionRepository") as mock_pred:
-            mock_pred.get_predictions_list = AsyncMock(return_value=[mock_prediction])
+            mock_pred.get_for_user = AsyncMock(return_value=mock_prediction)
 
             response = dangerous_functions_client.post(
                 "/dangerous-functions/scan",
