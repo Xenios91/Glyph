@@ -158,6 +158,25 @@ class CallGraphService:
 
         functions = await BinaryRepository.get_functions(binary_id=binary_id)
 
+        return CallGraphService.build_graph_from_functions(binary_id, functions)
+
+    @staticmethod
+    def build_graph_from_functions(binary_id: int, functions: list[Any]) -> CallGraph:
+        """Build a call graph from a list of function objects.
+
+        Parses each function's decompiled code for call sites and builds
+        the call graph. Functions are expected to expose ``function_name``,
+        ``entrypoint``, and ``raw_code`` attributes (e.g. ORM BinaryFunction
+        rows).
+
+        Args:
+            binary_id: Database ID of the parent binary.
+            functions: Function objects to build the graph from.
+
+        Returns:
+            CallGraph containing all nodes and edges.
+
+        """
         if not functions:
             logger.warning("No functions found for binary {}", binary_id)
             return CallGraph(binary_id=binary_id)
@@ -181,8 +200,15 @@ class CallGraphService:
             caller = f.function_name
             raw_code = f.raw_code or ""
 
+            # Real Ghidra raw_code (getPlainC) includes the function's own
+            # signature line (e.g. ``undefined main(void) { ... }``). Scanning
+            # the full text would match the function's own name in its
+            # signature and create a spurious self-edge for every function,
+            # which makes find_entry_points() return []. Parse only the body.
+            body = raw_code[raw_code.find("{") :] if "{" in raw_code else raw_code
+
             # Extract all potential call targets
-            for match in _CALL_PATTERN.finditer(raw_code):
+            for match in _CALL_PATTERN.finditer(body):
                 callee_candidate = match.group(1)
 
                 # Skip non-call keywords

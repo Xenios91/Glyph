@@ -274,6 +274,92 @@ The scanner page (`/getDangerousFunctions`) exposes LLM analysis directly:
 - **Clear LLM Results** button — enabled only when the target has stored LLM analysis results; removes only those results (`DELETE /llm-results`), keeping the scan report and its findings.
 - **Delete** button — removes both the stored scan report and the LLM analysis results (`DELETE /scan-results`), clearing the results table and LLM badges for the target and hiding the banner.
 
+## Taint Analysis
+
+Taint analysis answers a follow-up question after a scan: *which functions in the scanned binary can reach the dangerous-function call site (the sink)?* This surfaces entry points and input-receiving functions that could plausibly feed attacker-controlled data into the unsafe call.
+
+### How It Works
+
+- **Sink resolution** — Dangerous functions such as `strcpy` or `system` are external libc calls, so they are not nodes in the binary's call graph (the graph only contains the binary's own functions). The taint sink is therefore the in-binary function that *calls* the dangerous function:
+  - If `function_name != containing_function` (a call inside a function body) → the sink is `containing_function`.
+  - If `function_name == containing_function` (the finding is the function itself) → the sink is `function_name`.
+- **Graph construction** — The binary's functions are loaded and a call graph is built via [`CallGraphService.build_graph_from_functions`](../app/services/call_graph_service.py).
+- **Input-receiver detection** — A function is flagged as an *input receiver* when its decompiled `raw_code` calls a small built-in set of input functions (the `scanf` family, `gets`, `fgets`, `getline`, `fread`, `read`, `recv`, `receive`, `getchar`).
+- **Backward reachability** — A backward breadth-first search from the sink's callers (with a visited set and a depth guard of `MAX_DEPTH = 16`) collects every function that can reach the sink.
+- **Path enumeration** — Simple source → … → sink chains are enumerated from entry points and input receivers (capped at 50 paths) so the most relevant taint paths are shown first.
+- **Cycle safety** — The traversal is cycle-safe (mutual recursion does not loop indefinitely).
+
+> **Approximation, not proof.** Taint here is *call-graph reachability*, not intra-procedural data-flow tracking. The results are the set of functions that *can* reach the sink ("potentially tainted callers"), not proven data flows from an input to the sink.
+
+### Running Taint Analysis
+
+```bash
+curl -X POST http://localhost:8000/api/v1/dangerous-functions/taint-analysis \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "binaryId": 5,
+    "function_name": "strcpy",
+    "containing_function": "FUN_00401230"
+  }'
+```
+
+- `binaryId` (required): Database ID of the binary containing the sink.
+- `function_name` (required): Dangerous function name from the scan finding.
+- `containing_function` (optional): Function that contains the dangerous call site; used as the sink when it differs from `function_name`.
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "binary_id": 5,
+    "sink_function": "FUN_00401230",
+    "dangerous_function": "strcpy",
+    "containing_function": "FUN_00401230",
+    "total_tainted_callers": 2,
+    "entry_points_reaching_sink": ["main"],
+    "input_receivers_reaching_sink": ["read_input"],
+    "tainted_callers": [
+      {
+        "function_name": "main",
+        "entrypoint": "0x401000",
+        "depth": 2,
+        "call_count": 1,
+        "is_entry_point": true,
+        "is_input_receiver": false
+      },
+      {
+        "function_name": "read_input",
+        "entrypoint": "0x402000",
+        "depth": 1,
+        "call_count": 1,
+        "is_entry_point": false,
+        "is_input_receiver": true
+      }
+    ],
+    "paths": [["main", "read_input", "FUN_00401230"]],
+    "max_depth": 16
+  },
+  "message": "Taint analysis complete: 2 potentially tainted callers of sink 'FUN_00401230'"
+}
+```
+
+**Errors:**
+- `404` — The binary does not exist, or the resolved sink is not a function of the binary.
+- `403` — The binary is owned by a different user.
+- `422` — Missing `binaryId` or `function_name`, or an unexpected field is present.
+
+A sink with no callers is a valid (empty) report: `total_tainted_callers` is `0` and the lists are empty.
+
+### Scanner Page
+
+The scanner page (`/getDangerousFunctions`) exposes taint analysis as a per-finding action:
+
+- **Run Taint Analysis** button — lives in the finding-details (context) modal, which opens when a result row is clicked. It is enabled only when the scan target type is **binary** and a row is open; for model or task targets it is disabled with the tooltip *"Taint analysis requires a binary target"* (a `binaryId` only exists for binary targets).
+- **Taint modal** — clicking the button POSTs to `POST /taint-analysis` and opens a modal showing the sink, the containing function, the target binary, the count of potentially tainted callers, the entry points and input receivers that can reach the sink, a table of tainted callers, and the enumerated taint paths.
+
 ## Severity Levels
 
 | Severity | Description |
@@ -303,6 +389,8 @@ curl -X POST http://localhost:8000/api/v1/tasks/execute \
 - **Scanner Service**: [`app/services/dangerous_function_scanner.py`](../app/services/dangerous_function_scanner.py)
 - **Catalog**: [`app/services/dangerous_functions_catalog.py`](../app/services/dangerous_functions_catalog.py)
 - **API Endpoints**: [`app/api/v1/endpoints/dangerous_functions.py`](../app/api/v1/endpoints/dangerous_functions.py)
+- **Taint Analysis Service**: [`app/services/taint_analysis_service.py`](../app/services/taint_analysis_service.py)
+- **Call Graph Service**: [`app/services/call_graph_service.py`](../app/services/call_graph_service.py)
 - **LLM Analysis Service**: [`app/services/llm_analysis_service.py`](../app/services/llm_analysis_service.py)
 - **LLM Result Repository**: [`app/database/llm_result_repository.py`](../app/database/llm_result_repository.py)
 - **LLM Configuration**: [`LLMConfig`](../app/config/settings.py) — OpenAI-compatible endpoint settings (the `llm` block in `config.yml`)

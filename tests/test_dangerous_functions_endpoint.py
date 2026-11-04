@@ -10,6 +10,7 @@ from app.config.settings import LLMConfig
 from app.database.models import LLMAnalysisResult
 from app.services.llm_analysis_service import FindingAnalysis
 from sqlalchemy.exc import SQLAlchemyError
+
 from tests.conftest import set_dependency_override
 from tests.factories import make_mock_user
 
@@ -1237,3 +1238,205 @@ class TestDeleteLlmResultsEndpoint:
         set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
         response = dangerous_functions_client.request("DELETE", "/dangerous-functions/llm-results")
         assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# POST /taint-analysis tests
+# ---------------------------------------------------------------------------
+
+
+class TestTaintAnalysisEndpoint:
+    """Tests for POST /taint-analysis endpoint."""
+
+    def test_taint_analysis_success(self, dangerous_functions_client: Any) -> None:
+        """Test successful taint analysis returns the report in a success envelope."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        mock_binary = Mock()
+        mock_binary.id = 1
+        mock_binary.uploaded_by = 1
+
+        mock_report = Mock()
+        mock_report.total_tainted_callers = 2
+        mock_report.sink_function = "vuln_func"
+        mock_report.to_dict.return_value = {
+            "binary_id": 1,
+            "sink_function": "vuln_func",
+            "dangerous_function": "strcpy",
+            "containing_function": "vuln_func",
+            "total_tainted_callers": 2,
+            "entry_points_reaching_sink": ["main"],
+            "input_receivers_reaching_sink": [],
+            "tainted_callers": [
+                {
+                    "function_name": "main",
+                    "entrypoint": "0x401000",
+                    "depth": 2,
+                    "call_count": 1,
+                    "is_entry_point": True,
+                    "is_input_receiver": False,
+                },
+                {
+                    "function_name": "mid",
+                    "entrypoint": "0x402000",
+                    "depth": 1,
+                    "call_count": 1,
+                    "is_entry_point": False,
+                    "is_input_receiver": False,
+                },
+            ],
+            "paths": [["main", "mid", "vuln_func"]],
+            "max_depth": 16,
+        }
+
+        with (
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.BinaryRepository.get",
+                new_callable=AsyncMock,
+                return_value=mock_binary,
+            ),
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.TaintAnalysisService.analyze",
+                new_callable=AsyncMock,
+                return_value=mock_report,
+            ) as mock_analyze,
+        ):
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/taint-analysis",
+                json={
+                    "binaryId": 1,
+                    "function_name": "strcpy",
+                    "containing_function": "vuln_func",
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["data"]["sink_function"] == "vuln_func"
+        assert data["data"]["total_tainted_callers"] == 2
+        assert "taint analysis complete" in data["message"].lower()
+        mock_analyze.assert_awaited_once_with(
+            binary_id=1,
+            function_name="strcpy",
+            containing_function="vuln_func",
+        )
+
+    def test_taint_analysis_binary_not_found(self, dangerous_functions_client: Any) -> None:
+        """Test taint analysis with a nonexistent binary returns 404."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with patch(
+            "app.api.v1.endpoints.dangerous_functions.BinaryRepository.get",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/taint-analysis",
+                json={"binaryId": 999, "function_name": "strcpy"},
+            )
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    def test_taint_analysis_not_owner(self, dangerous_functions_client: Any) -> None:
+        """Test taint analysis on a binary owned by another user returns 403."""
+        # make_mock_user() returns a user with id=1; the binary is owned by id=2.
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        mock_binary = Mock()
+        mock_binary.id = 1
+        mock_binary.uploaded_by = 2  # owned by a different user
+
+        with patch(
+            "app.api.v1.endpoints.dangerous_functions.BinaryRepository.get",
+            new_callable=AsyncMock,
+            return_value=mock_binary,
+        ):
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/taint-analysis",
+                json={"binaryId": 1, "function_name": "strcpy"},
+            )
+
+        assert response.status_code == 403
+
+    def test_taint_analysis_sink_not_in_binary(self, dangerous_functions_client: Any) -> None:
+        """Test taint analysis with a sink not in the binary returns 404."""
+        from app.services.taint_analysis_service import TaintSinkNotFoundError
+
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        mock_binary = Mock()
+        mock_binary.id = 1
+        mock_binary.uploaded_by = 1
+
+        with (
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.BinaryRepository.get",
+                new_callable=AsyncMock,
+                return_value=mock_binary,
+            ),
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.TaintAnalysisService.analyze",
+                new_callable=AsyncMock,
+                side_effect=TaintSinkNotFoundError("missing_func", 1),
+            ),
+        ):
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/taint-analysis",
+                json={
+                    "binaryId": 1,
+                    "function_name": "strcpy",
+                    "containing_function": "missing_func",
+                },
+            )
+
+        assert response.status_code == 404
+        assert "missing_func" in response.json()["detail"]
+
+    def test_taint_analysis_missing_binary_id(self, dangerous_functions_client: Any) -> None:
+        """Test taint analysis without binaryId returns 422."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        response = dangerous_functions_client.post(
+            "/dangerous-functions/taint-analysis",
+            json={"function_name": "strcpy"},
+        )
+
+        assert response.status_code == 422
+
+    def test_taint_analysis_missing_function_name(self, dangerous_functions_client: Any) -> None:
+        """Test taint analysis without function_name returns 422."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        response = dangerous_functions_client.post(
+            "/dangerous-functions/taint-analysis",
+            json={"binaryId": 1},
+        )
+
+        assert response.status_code == 422
+
+    def test_taint_analysis_rejects_extra_fields(self, dangerous_functions_client: Any) -> None:
+        """Test taint analysis with an unexpected field returns 422 (extra=forbid)."""
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        response = dangerous_functions_client.post(
+            "/dangerous-functions/taint-analysis",
+            json={"binaryId": 1, "function_name": "strcpy", "unexpected": "x"},
+        )
+
+        assert response.status_code == 422
+
+    def test_taint_analysis_requires_auth(self, dangerous_functions_client: Any) -> None:
+        """Test that the endpoint requires authentication (mocked dependency raises)."""
+        from fastapi import HTTPException
+
+        def raise_unauthenticated() -> None:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        set_dependency_override(dangerous_functions_client, get_current_active_user, raise_unauthenticated)
+        response = dangerous_functions_client.post(
+            "/dangerous-functions/taint-analysis",
+            json={"binaryId": 1, "function_name": "strcpy"},
+        )
+        assert response.status_code == 401

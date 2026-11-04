@@ -42,6 +42,7 @@ from app.services.llm_analysis_service import (
     build_endpoint_url,
     stream_findings,
 )
+from app.services.taint_analysis_service import TaintAnalysisService, TaintSinkNotFoundError
 from app.utils.common import binary_function_to_dict
 from app.utils.responses import (
     ErrorResponse,
@@ -72,6 +73,25 @@ class ScanRequest(BaseModel):
     modelName: str | None = None
     taskName: str | None = None
     binaryId: int | None = None
+
+    model_config = {"extra": "forbid"}
+
+
+class TaintAnalysisRequest(BaseModel):
+    """Request schema for taint analysis of a dangerous function finding.
+
+    Attributes:
+        binaryId: Database ID of the binary containing the sink.
+        function_name: Dangerous function name from the scan finding.
+        containing_function: Function that contains the dangerous call site.
+            When it differs from ``function_name`` it is used as the taint
+            sink; otherwise ``function_name`` itself is the sink.
+
+    """
+
+    binaryId: int
+    function_name: str
+    containing_function: str | None = None
 
     model_config = {"extra": "forbid"}
 
@@ -476,6 +496,79 @@ async def scan_dangerous_functions(
         else f"Scan complete: {report.total_found} dangerous functions found"
     )
     return create_success_response(data=report_dict, message=message)
+
+
+@router.post(
+    "/taint-analysis",
+    summary="Run taint analysis for a dangerous function finding",
+    description=(
+        "Statically trace which functions in the scanned binary can reach the "
+        "dangerous-function call site (the sink). The sink is the in-binary "
+        "function that calls the dangerous function. Returns entry points and "
+        "input-receiving functions that can reach the sink, plus enumerated "
+        "taint paths. This is a call-graph reachability approximation, not "
+        "intra-procedural data-flow tracking."
+    ),
+)
+async def run_taint_analysis(
+    request: Request,
+    body: TaintAnalysisRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> SuccessResponse[Any]:
+    """Run taint analysis for a dangerous function finding.
+
+    Resolves the taint sink from the finding (the in-binary function that
+    calls the dangerous function), then performs a backward reachability
+    traversal over the binary's call graph to identify entry points and
+    input-receiving functions that can reach the sink.
+
+    Args:
+        request: FastAPI request object.
+        body: Taint analysis request with binaryId, function_name, and
+            optional containing_function.
+        current_user: Authenticated user.
+
+    Returns:
+        Success response with the taint report.
+
+    Raises:
+        HTTPException: If the binary does not exist (404), the user does not
+            own the binary (403), or the resolved sink is not a function of
+            the binary (404).
+
+    """
+    binary = await BinaryRepository.get(binary_id=body.binaryId)
+    if binary is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Binary {body.binaryId} not found",
+        )
+
+    if binary.uploaded_by != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied",
+        )
+
+    try:
+        report = await TaintAnalysisService.analyze(
+            binary_id=body.binaryId,
+            function_name=body.function_name,
+            containing_function=body.containing_function,
+        )
+    except TaintSinkNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Sink function '{exc.sink_function}' not found in binary {body.binaryId}",
+        ) from exc
+
+    return create_success_response(
+        data=report.to_dict(),
+        message=(
+            f"Taint analysis complete: {report.total_tainted_callers} "
+            f"potentially tainted callers of sink '{report.sink_function}'"
+        ),
+    )
 
 
 @router.get(
