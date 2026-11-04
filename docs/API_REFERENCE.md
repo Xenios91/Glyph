@@ -1336,6 +1336,71 @@ Delete the stored scan report **and** the stored LLM analysis results for a targ
 
 ---
 
+#### POST `/taint-analysis`
+
+Run taint analysis for a dangerous function finding. Statically traces which functions in the scanned binary can reach the dangerous-function call site (the sink). The sink is the in-binary function that *calls* the dangerous function: `containing_function` when it differs from `function_name`, otherwise `function_name`. The report lists entry points and input-receiving functions that can reach the sink, plus enumerated taint paths. This is a call-graph reachability approximation, not intra-procedural data-flow tracking.
+
+**Request Body:**
+```json
+{
+  "binaryId": 5,
+  "function_name": "strcpy",
+  "containing_function": "FUN_00401230"
+}
+```
+
+- `binaryId` (required): Database ID of the binary containing the sink.
+- `function_name` (required): Dangerous function name from the scan finding.
+- `containing_function` (optional): Function that contains the dangerous call site; used as the sink when it differs from `function_name`.
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "binary_id": 5,
+    "sink_function": "FUN_00401230",
+    "dangerous_function": "strcpy",
+    "containing_function": "FUN_00401230",
+    "total_tainted_callers": 2,
+    "entry_points_reaching_sink": ["main"],
+    "input_receivers_reaching_sink": ["read_input"],
+    "tainted_callers": [
+      {
+        "function_name": "main",
+        "entrypoint": "0x401000",
+        "depth": 2,
+        "call_count": 1,
+        "is_entry_point": true,
+        "is_input_receiver": false
+      },
+      {
+        "function_name": "read_input",
+        "entrypoint": "0x402000",
+        "depth": 1,
+        "call_count": 1,
+        "is_entry_point": false,
+        "is_input_receiver": true
+      }
+    ],
+    "paths": [["main", "read_input", "FUN_00401230"]],
+    "max_depth": 16
+  },
+  "message": "Taint analysis complete: 2 potentially tainted callers of sink 'FUN_00401230'"
+}
+```
+
+A sink with no callers is a valid (empty) report: `total_tainted_callers` is `0` and the lists are empty.
+
+**Errors:**
+- `401` — Not authenticated
+- `403` — The binary is owned by a different user
+- `404` — The binary does not exist, or the resolved sink is not a function of the binary
+- `422` — Missing `binaryId` or `function_name`, or an unexpected field is present
+
+---
+
 ### Call Graph
 
 Base path: `/api/v1/call-graph`

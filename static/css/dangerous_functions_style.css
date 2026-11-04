@@ -534,6 +534,15 @@
     padding: 1.25rem 1.5rem 1.5rem;
 }
 
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--cyan-dim);
+    background: rgba(0, 0, 0, 0.4);
+}
+
 /* ── Finding Summary Bar ────────────────────────────────────── */
 
 .finding-summary {
@@ -988,6 +997,121 @@
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+/* ── Taint Analysis Modal ───────────────────────────────── */
+
+#taint-modal .modal-body h4 {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    color: var(--magenta);
+    letter-spacing: 0.05em;
+    margin: 0 0 0.5rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.taint-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.taint-summary-item {
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 3px;
+    padding: 0.6rem 0.8rem;
+}
+
+.taint-summary-item .summary-label {
+    display: block;
+    font-family: var(--font-code);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+}
+
+.taint-summary-item .summary-value {
+    display: block;
+    font-family: var(--font-code);
+    font-size: 0.95rem;
+    color: var(--cyan-bright);
+    word-break: break-word;
+}
+
+.taint-risk-section {
+    margin-bottom: 1.25rem;
+}
+
+.taint-risk-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.taint-risk-row:last-child {
+    border-bottom: none;
+}
+
+.taint-risk-label {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.taint-risk-value {
+    font-family: var(--font-code);
+    font-size: 0.9rem;
+    color: var(--cyan-bright);
+    word-break: break-word;
+    text-align: right;
+}
+
+.taint-callers-section {
+    margin-bottom: 1.25rem;
+}
+
+.taint-callers-table td {
+    font-family: var(--font-code);
+    font-size: 0.85rem;
+}
+
+.taint-paths-section {
+    margin-bottom: 0.5rem;
+}
+
+.taint-paths {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.taint-path {
+    font-family: var(--font-code);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 3px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.7;
+    word-break: break-word;
+}
+
+.taint-path::before {
+    content: '→ ';
+    color: var(--cyan-bright);
+    font-weight: var(--font-weight-semibold);
 }
 
 /* ── Responsive ─────────────────────────────────────────── */

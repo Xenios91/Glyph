@@ -100,6 +100,7 @@ Glyph is an architecture-independent binary analysis tool that uses NLP techniqu
 - **`call_graph_service.py`** - Call graph generation for binaries
 - **`dangerous_function_scanner.py`** - Dangerous function scanning with call-site context
 - **`dangerous_functions_catalog.py`** - Catalog of dangerous/insecure C library functions
+- **`taint_analysis_service.py`** - Taint analysis (call-graph reachability) of dangerous-function sinks: input-receiver detection, backward BFS, and taint-path enumeration
 - **`llm_analysis_service.py`** - LLM analysis of dangerous-function findings via an OpenAI-compatible chat completions endpoint
 
 ### Database Layer (`app/database/`)

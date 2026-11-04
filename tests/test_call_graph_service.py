@@ -544,3 +544,101 @@ class TestFindEntryPoints:
 
         result = CallGraphService.find_entry_points(graph)
         assert result == ["main"]
+
+
+# ---------------------------------------------------------------------------
+# Regression tests: realistic Ghidra raw_code (signature line + body)
+# ---------------------------------------------------------------------------
+# Real Ghidra raw_code (from getPlainC()) includes the function's own
+# signature, e.g. ``undefined main(void) { ... }``. The call-site regex
+# matched the function's own name in its signature and created a spurious
+# self-edge for every function, so ``find_entry_points()`` returned [] for
+# every binary (the "no input or entry" false-negative bug).
+
+
+@pytest.mark.regression
+class TestGhidraSignatureRegression:
+    """Regression tests for spurious self-edges from signature lines."""
+
+    @pytest.mark.asyncio
+    async def test_no_spurious_self_edge_from_signature(self) -> None:
+        """A function whose raw_code includes its own signature gets no self-edge."""
+        func = _make_mock_function(
+            "main",
+            raw_code="undefined main(void)\n{\n  return 0;\n}\n",
+        )
+        with patch(
+            "app.database.binary_repository.BinaryRepository.get_functions",
+            new_callable=AsyncMock,
+            return_value=[func],
+        ):
+            graph = await CallGraphService.generate_call_graph(binary_id=1)
+        assert "main" in graph.nodes
+        assert graph.edges == []
+        assert graph.nodes["main"].callers == []
+        assert graph.nodes["main"].callees == []
+
+    @pytest.mark.asyncio
+    async def test_find_entry_points_with_realistic_signatures(self) -> None:
+        """Entry points are found when raw_code includes signature lines."""
+        main_func = _make_mock_function(
+            "main",
+            raw_code=(
+                "undefined main(void)\n"
+                "{\n"
+                "  char buf[0x20];\n"
+                '  scanf("%s", buf);\n'
+                "  vuln_func(buf);\n"
+                "  return 0;\n"
+                "}\n"
+            ),
+        )
+        vuln_func = _make_mock_function(
+            "vuln_func",
+            raw_code=(
+                "undefined vuln_func(char *param_1)\n"
+                "{\n"
+                "  char local_buf[0x20];\n"
+                "  strcpy(local_buf, param_1);\n"
+                "  return;\n"
+                "}\n"
+            ),
+        )
+        with patch(
+            "app.database.binary_repository.BinaryRepository.get_functions",
+            new_callable=AsyncMock,
+            return_value=[main_func, vuln_func],
+        ):
+            graph = await CallGraphService.generate_call_graph(binary_id=1)
+        # Only the genuine main -> vuln_func edge exists; no self-edges.
+        assert [(e.caller, e.callee) for e in graph.edges] == [("main", "vuln_func")]
+        assert CallGraphService.find_entry_points(graph) == ["main"]
+
+    @pytest.mark.asyncio
+    async def test_legitimate_recursion_still_detected_with_signature(self) -> None:
+        """A genuine recursive self-call in the body still produces a real self-edge.
+
+        Guard: the signature-line fix must not suppress legitimate recursion.
+        With the signature included, exactly one self-call exists (in the body),
+        so the edge count must be 1 (the bug produced 2: signature + body).
+        """
+        func = _make_mock_function(
+            "factorial",
+            raw_code=(
+                "undefined factorial(long param_1)\n"
+                "{\n"
+                "  if (param_1 <= 1) return 1;\n"
+                "  return param_1 * factorial(param_1 - 1);\n"
+                "}\n"
+            ),
+        )
+        with patch(
+            "app.database.binary_repository.BinaryRepository.get_functions",
+            new_callable=AsyncMock,
+            return_value=[func],
+        ):
+            graph = await CallGraphService.generate_call_graph(binary_id=1)
+        assert len(graph.edges) == 1
+        assert graph.edges[0].caller == "factorial"
+        assert graph.edges[0].callee == "factorial"
+        assert graph.edges[0].call_count == 1

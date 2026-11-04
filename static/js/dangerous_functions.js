@@ -32,6 +32,24 @@ const llmModal = document.getElementById('llm-modal');
 const llmModalCloseBtn = document.getElementById('llm-modal-close-btn');
 const llmModalRetryBtn = document.getElementById('llm-modal-retry-btn');
 
+// Taint analysis elements (context modal button + taint modal)
+const taintAnalyzeBtn = document.getElementById('taint-analyze-btn');
+const taintModal = document.getElementById('taint-modal');
+const taintModalCloseBtn = document.getElementById('taint-modal-close-btn');
+const taintModalFunctionName = document.getElementById('taint-modal-function-name');
+const taintModalSink = document.getElementById('taint-modal-sink');
+const taintModalBinary = document.getElementById('taint-modal-binary');
+const taintModalTaintedCount = document.getElementById('taint-modal-tainted-count');
+const taintModalErrorSection = document.getElementById('taint-modal-error-section');
+const taintModalErrorMessage = document.getElementById('taint-modal-error-message');
+const taintRiskSection = document.getElementById('taint-risk-section');
+const taintEntryPoints = document.getElementById('taint-entry-points');
+const taintInputReceivers = document.getElementById('taint-input-receivers');
+const taintCallersSection = document.getElementById('taint-callers-section');
+const taintCallersBody = document.getElementById('taint-callers-body');
+const taintPathsSection = document.getElementById('taint-paths-section');
+const taintPathsList = document.getElementById('taint-paths');
+
 // Severity count elements
 const criticalCountEl = document.getElementById('critical-count');
 const highCountEl = document.getElementById('high-count');
@@ -69,6 +87,16 @@ let scanPagination = null;
 let llmPendingIndices = new Set();
 // Row index currently open in the LLM modal
 let llmModalOpenIndex = null;
+// Taint analysis results keyed by the original row index, so results stay
+// attached to their finding after column sorting (same pattern as llmResults).
+let taintResults = {};
+// Row indices whose taint analysis is currently in flight
+let taintPendingIndices = new Set();
+// Row index currently open in the taint modal
+let taintModalOpenIndex = null;
+// Original row index currently open in the context modal (drives the
+// per-finding "Run Taint Analysis" button).
+let contextModalOpenIndex = null;
 // True when the current target has stored LLM analysis results in the DB.
 let hasStoredLlmResults = false;
 
@@ -208,6 +236,28 @@ function setupEventListeners() {
         });
     }
 
+    // Run Taint Analysis (per-finding action from the context modal)
+    if (taintAnalyzeBtn) {
+        taintAnalyzeBtn.addEventListener('click', () => {
+            if (contextModalOpenIndex !== null) {
+                runTaintAnalysis(contextModalOpenIndex);
+            }
+        });
+    }
+
+    if (taintModalCloseBtn) {
+        taintModalCloseBtn.addEventListener('click', closeTaintModal);
+    }
+
+    // Close taint modal on background click
+    if (taintModal) {
+        taintModal.addEventListener('click', (e) => {
+            if (e.target === taintModal) {
+                closeTaintModal();
+            }
+        });
+    }
+
     if (viewStoredBtn) {
         viewStoredBtn.addEventListener('click', viewStoredResults);
     }
@@ -228,6 +278,9 @@ function setupEventListeners() {
         }
         if (llmModal && llmModal.style.display !== 'none') {
             closeLlmModal();
+        }
+        if (taintModal && taintModal.style.display !== 'none') {
+            closeTaintModal();
         }
     });
 
@@ -546,6 +599,7 @@ async function runScan() {
     hideError();
     hideStoredResultsBanner();
     resetLlmState();
+    resetTaintState();
 
     try {
         const { data, targetName } = await performScan();
@@ -847,6 +901,7 @@ async function deleteStoredResults() {
             llmModalOpenIndex = null;
             hideResults();
             updateLlmButtonState();
+            resetTaintState();
         }
         hasStoredLlmResults = false;
         updateClearLlmButtonState();
@@ -939,7 +994,9 @@ function createResultRow(result, index) {
 
     // Make entire row clickable
     row.addEventListener('click', () => {
+        contextModalOpenIndex = index;
         openContextModal(result);
+        updateTaintButtonState();
     });
 
     return row;
@@ -1005,6 +1062,8 @@ function closeModal() {
     if (contextModal) {
         contextModal.style.display = 'none';
     }
+    contextModalOpenIndex = null;
+    updateTaintButtonState();
 }
 
 // ── LLM Analysis ──────────────────────────────────────
@@ -1563,6 +1622,224 @@ function closeLlmModal() {
         llmModal.style.display = 'none';
     }
     llmModalOpenIndex = null;
+}
+
+// ── Taint Analysis ────────────────────────────────────────────
+
+/**
+ * Reset taint analysis state at the start of a new scan.
+ */
+function resetTaintState() {
+    taintResults = {};
+    taintPendingIndices.clear();
+    taintModalOpenIndex = null;
+    contextModalOpenIndex = null;
+    updateTaintButtonState();
+}
+
+/**
+ * Enable the "Run Taint Analysis" button only when the target type is
+ * `binary` and a finding row is open in the context modal. Taint analysis
+ * requires a binaryId, which only exists for binary scan targets.
+ */
+function updateTaintButtonState() {
+    if (!taintAnalyzeBtn) return;
+    const isBinaryTarget =
+        targetTypeSelect && targetTypeSelect.value === 'binary' && targetSelect && targetSelect.value;
+    const rowOpen = contextModalOpenIndex !== null;
+    const pending = taintPendingIndices.size > 0;
+    taintAnalyzeBtn.disabled = !isBinaryTarget || !rowOpen || pending;
+    taintAnalyzeBtn.title = isBinaryTarget ? '' : 'Taint analysis requires a binary target';
+}
+
+/**
+ * Set the taint button loading state (reuses the btn-text/btn-loading swap pattern).
+ * @param {boolean} loading - Whether taint analysis is in progress.
+ */
+function setTaintLoading(loading) {
+    if (!taintAnalyzeBtn) return;
+    const btnText = taintAnalyzeBtn.querySelector('.btn-text');
+    const btnLoading = taintAnalyzeBtn.querySelector('.btn-loading');
+    if (btnText) btnText.style.display = loading ? 'none' : '';
+    if (btnLoading) btnLoading.style.display = loading ? '' : 'none';
+    if (loading) {
+        taintAnalyzeBtn.disabled = true;
+    } else {
+        updateTaintButtonState();
+    }
+}
+
+/**
+ * Run taint analysis for a single finding.
+ * @param {number} index - Original row index of the finding.
+ */
+async function runTaintAnalysis(index) {
+    if (!lastScanData || !Array.isArray(lastScanData.results)) return;
+    const finding = lastScanData.results[index];
+    if (!finding) return;
+
+    // Taint analysis requires a binaryId, which only exists for binary targets.
+    if (!targetTypeSelect || targetTypeSelect.value !== 'binary' || !targetSelect || !targetSelect.value) {
+        updateTaintButtonState();
+        return;
+    }
+    const binaryId = parseInt(targetSelect.value, 10);
+    if (Number.isNaN(binaryId)) return;
+
+    taintPendingIndices.add(index);
+    setTaintLoading(true);
+
+    try {
+        const response = await fetch('/api/v1/dangerous-functions/taint-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                binaryId,
+                function_name: finding.function_name,
+                containing_function: finding.containing_function || null,
+            }),
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            const message =
+                (result.error && result.error.message) ||
+                (result.detail != null ? String(result.detail) : null) ||
+                `Taint analysis failed (${response.status})`;
+            taintResults[index] = { status: 'error', error: message };
+            openTaintModal(index);
+            return;
+        }
+
+        taintResults[index] = { status: 'success', report: result.data || {} };
+        openTaintModal(index);
+    } catch (error) {
+        console.error('Taint analysis failed:', error);
+        taintResults[index] = {
+            status: 'error',
+            error: 'Taint analysis request failed. Please try again.',
+        };
+        openTaintModal(index);
+    } finally {
+        taintPendingIndices.delete(index);
+        setTaintLoading(false);
+    }
+}
+
+/**
+ * Open the taint analysis modal for a row.
+ * @param {number} index - Original row index of the finding.
+ */
+function openTaintModal(index) {
+    if (!taintModal) return;
+    const entry = taintResults[index];
+    const finding =
+        lastScanData && Array.isArray(lastScanData.results) ? lastScanData.results[index] : null;
+    if (!entry || !finding) return;
+
+    taintModalOpenIndex = index;
+    const report = entry.status === 'success' ? entry.report || {} : null;
+
+    if (taintModalFunctionName) taintModalFunctionName.textContent = finding.function_name;
+    if (taintModalSink) {
+        taintModalSink.textContent = report ? (report.sink_function || finding.containing_function) : finding.containing_function;
+    }
+    if (taintModalBinary) {
+        const binary = report
+            ? availableBinaries.find((b) => String(b.id) === String(report.binary_id))
+            : null;
+        taintModalBinary.textContent = binary
+            ? binary.name
+            : report
+              ? `Binary ${report.binary_id}`
+              : 'N/A';
+    }
+    if (taintModalTaintedCount) {
+        taintModalTaintedCount.textContent = report ? (report.total_tainted_callers ?? 0) : '0';
+    }
+
+    const isSuccess = entry.status === 'success';
+    if (taintModalErrorSection) taintModalErrorSection.style.display = isSuccess ? 'none' : '';
+    if (!isSuccess && taintModalErrorMessage) taintModalErrorMessage.textContent = entry.error || 'Unknown error';
+    if (taintRiskSection) taintRiskSection.style.display = isSuccess ? '' : 'none';
+    if (taintCallersSection) taintCallersSection.style.display = isSuccess ? '' : 'none';
+
+    if (isSuccess) {
+        renderTaintReport(report || {});
+    }
+
+    taintModal.style.display = 'flex';
+}
+
+/**
+ * Render the taint report sections (entry points, input receivers, callers
+ * table, and taint paths) from a successful taint report.
+ * @param {Object} report - Taint report object from the API.
+ */
+function renderTaintReport(report) {
+    if (taintEntryPoints) {
+        const eps = report.entry_points_reaching_sink || [];
+        taintEntryPoints.textContent = eps.length ? eps.join(', ') : 'None';
+    }
+    if (taintInputReceivers) {
+        const irs = report.input_receivers_reaching_sink || [];
+        taintInputReceivers.textContent = irs.length ? irs.join(', ') : 'None';
+    }
+
+    if (taintCallersBody) {
+        taintCallersBody.innerHTML = '';
+        const callers = report.tainted_callers || [];
+        if (callers.length === 0) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 4;
+            td.textContent = 'No functions can reach the sink.';
+            tr.appendChild(td);
+            taintCallersBody.appendChild(tr);
+        } else {
+            callers.forEach((c) => {
+                const tr = document.createElement('tr');
+                const ep = c.entrypoint ? String(c.entrypoint) : 'N/A';
+                const flags = [];
+                if (c.is_entry_point) flags.push('entry');
+                if (c.is_input_receiver) flags.push('input');
+                tr.innerHTML = `
+                    <td>${escapeHtml(c.function_name)}</td>
+                    <td>${escapeHtml(ep)}</td>
+                    <td>${escapeHtml(String(c.depth))}</td>
+                    <td>${escapeHtml(flags.join(', ') || '—')}</td>
+                `;
+                taintCallersBody.appendChild(tr);
+            });
+        }
+    }
+
+    if (taintPathsSection && taintPathsList) {
+        const paths = report.paths || [];
+        if (paths.length === 0) {
+            taintPathsSection.style.display = 'none';
+        } else {
+            taintPathsSection.style.display = '';
+            taintPathsList.innerHTML = '';
+            paths.forEach((path) => {
+                const li = document.createElement('li');
+                li.className = 'taint-path';
+                li.textContent = path.join('  →  ');
+                taintPathsList.appendChild(li);
+            });
+        }
+    }
+}
+
+/**
+ * Close the taint analysis modal.
+ */
+function closeTaintModal() {
+    if (taintModal) {
+        taintModal.style.display = 'none';
+    }
+    taintModalOpenIndex = null;
 }
 
 // ── UI Helpers ────────────────────────────────────────────────

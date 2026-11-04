@@ -953,3 +953,120 @@ class TestColumnSorting:
         # Page 2 shows the remaining sorted names.
         page.locator("#scan-results-pagination #_scan_results_pagination_next-page").click()
         assert _visible_row_function_names(page) == ["f8", "f9"]
+
+
+def _display_taint_fixture(page: Any, target_type: str, target_value: str) -> None:
+    """Render a couple of findings with a specific scan target type/value.
+
+    Drives ``displayResults`` directly so the taint-button enable logic can be
+    exercised without a real binary upload (a minimal ELF yields no
+    decompilable functions, hence no findings to open).
+    """
+    page.evaluate(
+        """(args) => {
+            targetTypeSelect.value = args.targetType;
+            // targetSelect starts with only an empty placeholder option, so set
+            // .value to a non-existent value is a no-op; append a matching option.
+            const opt = document.createElement('option');
+            opt.value = args.targetValue;
+            opt.textContent = args.targetValue;
+            targetSelect.appendChild(opt);
+            targetSelect.value = args.targetValue;
+            displayResults(
+                {
+                    model_name: args.targetValue,
+                    critical_count: 1,
+                    high_count: 1,
+                    medium_count: 0,
+                    low_count: 0,
+                    total_found: 2,
+                    total_functions_scanned: 50,
+                    results: [
+                        {
+                            function_name: 'strcpy',
+                            containing_function: 'main',
+                            entrypoint: '0x401000',
+                            severity: 'High',
+                        },
+                        {
+                            function_name: 'system',
+                            containing_function: 'run_cmd',
+                            entrypoint: '0x402000',
+                            severity: 'Critical',
+                        },
+                    ],
+                },
+                args.targetValue
+            );
+        }""",
+        {"targetType": target_type, "targetValue": target_value},
+    )
+    page.wait_for_selector("#scan-results-body tr[data-index='0']")
+
+
+def _open_first_finding_row(page: Any) -> None:
+    """Click the first result row to open the per-finding context modal."""
+    page.locator("#scan-results-body tr[data-index='0']").click()
+    page.wait_for_selector("#context-modal", state="visible")
+
+
+class TestTaintButtonState:
+    """Tests for the 'Run Taint Analysis' button enable/disable behavior."""
+
+    def test_taint_button_present_in_context_modal(self, page: Any, server: Any) -> None:
+        """The context modal contains the per-finding taint analysis button."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        expect(page.locator("#taint-analyze-btn")).to_have_count(1)
+        expect(page.locator("#taint-analyze-btn")).to_have_attribute("aria-label", "Run taint analysis")
+
+    def test_taint_button_disabled_for_model_target(self, page: Any, server: Any) -> None:
+        """The taint button stays disabled for model targets, even with a row open,
+        because taint analysis requires a binaryId (only binary targets have one)."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        _display_taint_fixture(page, "model", "taint-model-target")
+        _open_first_finding_row(page)
+
+        btn = page.locator("#taint-analyze-btn")
+        expect(btn).to_be_disabled()
+        expect(btn).to_have_attribute("title", "Taint analysis requires a binary target")
+
+    def test_taint_button_disabled_for_task_target(self, page: Any, server: Any) -> None:
+        """The taint button stays disabled for task targets, even with a row open."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        _display_taint_fixture(page, "task", "taint-task-target")
+        _open_first_finding_row(page)
+
+        btn = page.locator("#taint-analyze-btn")
+        expect(btn).to_be_disabled()
+        expect(btn).to_have_attribute("title", "Taint analysis requires a binary target")
+
+    def test_taint_button_enabled_for_binary_target(self, page: Any, server: Any) -> None:
+        """The taint button becomes enabled once a binary target is selected and a
+        finding row is open in the context modal."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/getDangerousFunctions")
+        page.wait_for_load_state("networkidle")
+
+        _display_taint_fixture(page, "binary", "taint-binary-target")
+
+        # No row open yet: the per-finding button must remain disabled.
+        expect(page.locator("#taint-analyze-btn")).to_be_disabled()
+
+        # Open a finding row: the button must now be enabled.
+        _open_first_finding_row(page)
+
+        btn = page.locator("#taint-analyze-btn")
+        expect(btn).to_be_enabled()
