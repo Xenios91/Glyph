@@ -34,7 +34,16 @@ class TestAPIRouter:
         In modern FastAPI, included routers are wrapped in _IncludedRouter objects
         that store tags in include_context.tags rather than on individual route objects.
         """
-        expected_tags = {"binaries", "predictions", "models", "status", "config", "dangerous-functions", "tasks"}
+        expected_tags = {
+            "binaries",
+            "predictions",
+            "models",
+            "status",
+            "config",
+            "dangerous-functions",
+            "behavioral-scans",
+            "tasks",
+        }
         actual_tags: set[str] = set()
         for route in api_v1_router.routes:
             # Tags for included routers are stored in include_context.tags

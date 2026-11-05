@@ -252,6 +252,17 @@ def dangerous_functions_client() -> Any:
 
 
 @pytest.fixture
+def behavioral_scans_client() -> Any:
+    """Create test client with behavioral scans router."""
+    from app.api.v1.endpoints.behavioral_scans import router as bs_router
+
+    return create_app_client(
+        routers=[(bs_router, "/behavioral-scans")],
+        mount_static=True,
+    )
+
+
+@pytest.fixture
 def models_client_with_auth(mock_current_user: Any) -> Any:
     """Create test client with models router and auth override."""
     from app.api.v1.endpoints.models import router as models_router
@@ -285,6 +296,19 @@ def dangerous_functions_client_with_auth(mock_current_user: Any) -> Any:
 
     return create_app_client(
         routers=[(df_router, "/dangerous-functions")],
+        dependency_overrides={get_current_active_user: lambda: mock_current_user},
+        mount_static=True,
+    )
+
+
+@pytest.fixture
+def behavioral_scans_client_with_auth(mock_current_user: Any) -> Any:
+    """Create test client with behavioral scans router and auth override."""
+    from app.api.v1.endpoints.behavioral_scans import router as bs_router
+    from app.auth.dependencies import get_current_active_user
+
+    return create_app_client(
+        routers=[(bs_router, "/behavioral-scans")],
         dependency_overrides={get_current_active_user: lambda: mock_current_user},
         mount_static=True,
     )

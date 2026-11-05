@@ -1,6 +1,7 @@
 """API v1 endpoints package.
 
 Submodules:
+    behavioral_scans: Behavioral scan endpoints.
     binaries: Binary upload and analysis endpoints.
     call_graph: Call graph extraction endpoints.
     config: Configuration management endpoints.

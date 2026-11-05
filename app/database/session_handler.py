@@ -15,6 +15,7 @@ from sqlalchemy.pool import NullPool
 from app.database.models import (
     APIKey,
     Base,
+    BehavioralScanReport,
     Binary,
     BinaryFunction,
     Function,
@@ -81,6 +82,7 @@ DB_TABLE_MAP: dict[str, list[Any]] = {
         SimilarityPair.__table__,
         LLMAnalysisResult.__table__,
         ScanReport.__table__,
+        BehavioralScanReport.__table__,
     ],
 }
 

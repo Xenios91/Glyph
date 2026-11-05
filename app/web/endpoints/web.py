@@ -348,6 +348,19 @@ async def get_dangerous_functions_page(
     )
 
 
+@router.get("/getBehavioralScan", response_model=None)
+async def get_behavioral_scan_page(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> HTMLResponse:
+    """Loads the behavioral scan page."""
+    return templates.TemplateResponse(
+        request,
+        "get_behavioral_scan.html",
+        {"title": "Glyph - Behavioral Scan", "user": current_user},
+    )
+
+
 @router.get("/login", response_model=None)
 async def login_page(
     request: Request,

@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    behavioral_scans,
     binaries,
     call_graph,
     config,
@@ -24,6 +25,11 @@ api_v1_router.include_router(
     dangerous_functions.router,
     prefix="/dangerous-functions",
     tags=["dangerous-functions"],
+)
+api_v1_router.include_router(
+    behavioral_scans.router,
+    prefix="/behavioral-scans",
+    tags=["behavioral-scans"],
 )
 api_v1_router.include_router(
     call_graph.router,

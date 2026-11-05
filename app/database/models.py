@@ -341,8 +341,53 @@ class APIKey(Base):
         onupdate=get_utc_now,
         nullable=False,
     )
-
     user: Mapped["User"] = relationship(back_populates="api_keys")
+
+
+class BehavioralScanReport(Base):
+    """Stored behavioral scan report for a target.
+
+    Attributes:
+        id: Primary key.
+        target_name: Stable name of the scanned target (model, task, or binary name).
+        user_id: ID of the user who owns this report (nullable for legacy rows).
+        total_functions_scanned: Total number of functions analyzed.
+        total_found: Total number of behavioral matches.
+        critical_count: Number of Critical severity matches.
+        high_count: Number of High severity matches.
+        medium_count: Number of Medium severity matches.
+        low_count: Number of Low severity matches.
+        results_json: JSON-serialized list of individual scan results.
+        created_at: Creation timestamp.
+        modified_at: Last modification timestamp.
+
+    """
+
+    __tablename__ = "behavioral_scan_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    target_name: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    total_functions_scanned: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    critical_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    high_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    medium_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    low_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    results_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
 
 
 class LLMUserConfig(Base):
