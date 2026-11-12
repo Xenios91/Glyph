@@ -25,8 +25,11 @@ def _navigate_to_binary_detail(page: Any, tab: str = None) -> None:
     """
     page.goto(f"{BASE_URL}/binary/1")
     page.wait_for_load_state("networkidle")
-    # Reveal the detail content div so static structure can be tested
-    page.evaluate("() => { const el = document.getElementById('detail-content'); if (el) el.style.display = 'block'; }")
+    # Reveal the detail content div so static structure can be tested.
+    # The element is hidden with the global `is-hidden` utility (display:none
+    # !important), so it must be revealed by removing the class, not by an
+    # inline style (which cannot override !important).
+    page.evaluate("() => { const el = document.getElementById('detail-content'); if (el) el.classList.remove('is-hidden'); }")
     # Optionally activate a specific tab panel
     if tab:
         page.evaluate(f"""() => {{

@@ -10,22 +10,6 @@
         <p class="hero-subtitle">A binary analysis tool powered by machine learning</p>
     </div>
 
-    <!-- Stats Row -->
-    <div class="stats-row" role="region" aria-label="Dashboard statistics">
-        <div class="stat-card">
-            <span class="stat-value" id="stat-binaries">-</span>
-            <span class="stat-label">BINARIES</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-value" id="stat-models">-</span>
-            <span class="stat-label">MODELS</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-value" id="stat-predictions">-</span>
-            <span class="stat-label">PREDICTIONS</span>
-        </div>
-    </div>
-
     <!-- Feature Cards -->
     <div class="feature-cards" role="navigation" aria-label="Quick actions">
         <a href="/binary-library" class="feature-card" aria-label="Go to Binary Library">
@@ -38,14 +22,31 @@
             <span class="feature-title">CODE REUSE</span>
             <span class="feature-desc">Train and run ML models</span>
         </a>
+        <a href="/getModels" class="feature-card" aria-label="View trained models">
+            <span class="feature-icon" aria-hidden="true">&#x1F4CA;</span>
+            <span class="feature-title">MODELS</span>
+            <span class="feature-desc">Browse trained models</span>
+        </a>
+        <a href="/getPredictions" class="feature-card" aria-label="View predictions">
+            <span class="feature-icon" aria-hidden="true">&#x1F52D;</span>
+            <span class="feature-title">PREDICTIONS</span>
+            <span class="feature-desc">Review prediction results</span>
+        </a>
         <a href="/getDangerousFunctions" class="feature-card" aria-label="Scan for dangerous functions">
             <span class="feature-icon" aria-hidden="true">&#x26A0;</span>
             <span class="feature-title">DANGEROUS FUNCTIONS</span>
             <span class="feature-desc">Scan for risky patterns</span>
         </a>
+        <a href="/getBehavioralScan" class="feature-card" aria-label="Run a behavioral scan">
+            <span class="feature-icon" aria-hidden="true">&#x1F9EA;</span>
+            <span class="feature-title">BEHAVIORAL SCAN</span>
+            <span class="feature-desc">Analyze binary behavior</span>
+        </a>
+        <a href="/similarity-dashboard" class="feature-card" aria-label="Open the similarity dashboard">
+            <span class="feature-icon" aria-hidden="true">&#x1F517;</span>
+            <span class="feature-title">SIMILARITY</span>
+            <span class="feature-desc">Compare binaries pairwise</span>
+        </a>
     </div>
 </div>
 {% endblock content %}
-{% block scripts %}
-<script src="{{ static_url(request, 'js/main.js') }}"></script>
-{% endblock scripts %}

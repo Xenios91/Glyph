@@ -1,15 +1,52 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="content blue-bg" style="display: flex; justify-content: center; align-items: center;">
-    <div style="text-align: center; max-width: 600px;">
-        <section class="message-list" style="margin: 0 auto;">
-            <section class="message -left">
-                <div class="cyber-balloon from-left">
-                    <p class="cyber-text is-error blink_text">{{ message }}</p>
+<div class="content blue-bg">
+    <div class="empty-state-page">
+        <div class="empty-state-card">
+            <div class="empty-state-header">
+                <h2 class="empty-state-title">// ERROR //</h2>
+            </div>
+
+            <div class="empty-state-icon-wrapper">
+                <div class="empty-box-icon" aria-hidden="true">
+                    <div class="box-body">
+                        <span class="question-mark">!</span>
+                    </div>
+                    <div class="box-lid"></div>
                 </div>
-            </section>
-            <i style="float: left;" class="cyber-octocat animate"></i>
-        </section>
+            </div>
+
+            <div class="empty-state-message">
+                <p class="empty-state-description">{{ message }}</p>
+            </div>
+
+            <div class="empty-state-actions">
+                <a href="/" class="cyber-btn is-primary" aria-label="Back to home">BACK TO HOME</a>
+                <button type="button" id="error-go-back-btn" class="cyber-btn is-secondary" aria-label="Go back">GO BACK</button>
+            </div>
+
+            <p class="empty-state-hint">If this keeps happening, check that you're logged in and try again.</p>
+        </div>
     </div>
 </div>
 {% endblock content %}
+
+{% block scripts %}
+<script>
+    (function () {
+        function goBack() {
+            var origin = window.location.origin;
+            var referrer = document.referrer || '';
+            if (referrer.indexOf(origin) === 0) {
+                window.history.back();
+            } else {
+                window.location.href = '/';
+            }
+        }
+        var btn = document.getElementById('error-go-back-btn');
+        if (btn) {
+            btn.addEventListener('click', goBack);
+        }
+    })();
+</script>
+{% endblock scripts %}

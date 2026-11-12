@@ -187,7 +187,7 @@ function showCreateApiKeyModal() {
         modal.style.display = 'flex';
     }
     if (secretDiv) {
-        secretDiv.style.display = 'none';
+        secretDiv.classList.add('is-hidden');
         secretDiv.innerHTML = '';
     }
     if (form) {
@@ -238,7 +238,7 @@ async function createApiKey(formData) {
             // Hide form and show the secret
             document.getElementById('createApiKeyForm').style.display = 'none';
             const secretDiv = document.getElementById('apiKeySecret');
-            secretDiv.style.display = 'block';
+            secretDiv.classList.remove('is-hidden');
             secretDiv.innerHTML = '';
             const alertP = document.createElement('p');
             alertP.className = 'api-key-secret-alert';
@@ -263,7 +263,22 @@ async function createApiKey(formData) {
  * Delete an API key
  */
 async function deleteApiKey(keyId) {
-    if (!confirm('Are you sure you want to delete this API key?')) {
+    let keyName = '';
+    const deleteBtn = document.querySelector('.delete-api-key-btn[data-key-id="' + keyId + '"]');
+    if (deleteBtn) {
+        const keyItem = deleteBtn.closest('.api-key-item');
+        const nameEl = keyItem ? keyItem.querySelector('.api-key-info strong') : null;
+        if (nameEl) keyName = nameEl.textContent;
+    }
+
+    const confirmed = await showConfirm({
+        title: 'Delete API Key',
+        message: 'Are you sure you want to delete API key' +
+            (keyName ? ' "' + keyName + '"' : '') + '?',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel'
+    });
+    if (!confirmed) {
         return;
     }
 
@@ -552,8 +567,8 @@ async function saveLlmSettings() {
             const successDiv = document.getElementById('llm-success');
             if (successDiv) {
                 successDiv.textContent = data.message || 'LLM settings saved successfully';
-                successDiv.style.display = 'block';
-                setTimeout(() => { successDiv.style.display = 'none'; }, 3000);
+                successDiv.classList.remove('is-hidden');
+                setTimeout(() => { successDiv.classList.add('is-hidden'); }, 3000);
             }
             Toast.success('LLM settings saved successfully');
             clearLlmTestStatus();

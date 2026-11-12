@@ -3,12 +3,12 @@
 #   {% include 'components/button_group.html' with {
 #     'buttons': [
 #       {'text': 'Go Back', 'class': 'cyber-btn is-primary', 'action': 'onclick="history.back()"'},
-#       {'text': 'Delete', 'class': 'cyber-btn is-primary is-delete', 'action': 'onclick="deleteItem()"'}
+#       {'text': 'Delete', 'class': 'cyber-btn is-danger', 'action': 'onclick="deleteItem()"'}
 #     ],
 #     'alignment': 'center'
 #   } %}
 #}
-<div class="{% if alignment == 'center' %}center-contents{% endif %}" style="margin-top: 2%;">
+<div class="{% if alignment == 'center' %}center-contents{% endif %} btn-group-spacer">
     {% for button in buttons %}
     <button type="button" class="{{ button.class | default('cyber-btn') | e }}" {{ button.action }}>
         {{ button.text }}

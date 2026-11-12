@@ -11,7 +11,7 @@ from typing import Any
 
 from playwright.sync_api import expect
 
-from tests.e2e.utils import register_and_login
+from tests.e2e.utils import register_and_login, wait_for_login_form
 
 
 class TestKeyboardNavigation:
@@ -24,6 +24,7 @@ class TestKeyboardNavigation:
 
         username_input = page.locator("#username")
         password_input = page.locator("#password")
+        toggle_button = page.locator(".password-toggle-btn")
         submit_button = page.locator("#login-submit-btn")
 
         # Focus the first form field directly, then verify Tab navigation
@@ -34,9 +35,30 @@ class TestKeyboardNavigation:
         page.keyboard.press("Tab")
         expect(password_input).to_be_focused()
 
+        # Tab moves to the password visibility toggle (kept in the tab order)
+        page.keyboard.press("Tab")
+        expect(toggle_button).to_be_focused()
+
         # Tab moves to submit button
         page.keyboard.press("Tab")
         expect(submit_button).to_be_focused()
+
+    def test_password_toggle_is_keyboard_reachable(self, page: Any, server: Any) -> None:
+        """Verify the password toggle is reachable by keyboard (no tabindex=-1)."""
+        page.goto("http://127.0.0.1:8000/login")
+        wait_for_login_form(page)
+
+        toggle_button = page.locator(".password-toggle-btn")
+        # The toggle must not be excluded from the tab order
+        tabindex = toggle_button.get_attribute("tabindex")
+        assert tabindex is None or tabindex != "-1", (
+            f"Password toggle must be keyboard reachable, got tabindex={tabindex!r}"
+        )
+
+        # Tabbing from the password field must land on the toggle
+        page.locator("#password").click()
+        page.keyboard.press("Tab")
+        expect(toggle_button).to_be_focused()
 
     def test_tab_key_navigates_form_elements_on_register(self, page: Any, server: Any) -> None:
         """Verify Tab key moves focus through registration form elements in order."""
@@ -142,18 +164,19 @@ class TestARIAAttributes:
         expect(navbar).to_have_attribute("aria-label", "Main navigation")
 
     def test_dropdown_menus_have_role_menu(self, page: Any, server: Any) -> None:
-        """Verify dropdown menu containers have role='menu'."""
+        """Verify dropdown menu containers have role='menu'.
+
+        The nav has four dropdowns (BINARIES, MACHINE LEARNING, SCANNING, and
+        USER); the single-item SYSTEM dropdown was removed and replaced by a
+        top-level CONFIG link.
+        """
         register_and_login(page)
         page.goto("http://127.0.0.1:8000/")
         page.wait_for_load_state("networkidle")
 
-        analysis_menu = page.locator("#analysis-menu")
-        system_menu = page.locator("#system-menu")
-        user_menu = page.locator("#user-menu")
-
-        expect(analysis_menu).to_have_attribute("role", "menu")
-        expect(system_menu).to_have_attribute("role", "menu")
-        expect(user_menu).to_have_attribute("role", "menu")
+        for menu_id in ("binaries-menu", "machine-learning-menu", "scanning-menu", "user-menu"):
+            menu = page.locator(f"#{menu_id}")
+            expect(menu).to_have_attribute("role", "menu")
 
     def test_menu_items_have_role_menuitem(self, page: Any, server: Any) -> None:
         """Verify dropdown menu items have role='menuitem'."""
@@ -308,10 +331,11 @@ class TestScreenReaderCompatibility:
         page.goto("http://127.0.0.1:8000/")
         page.wait_for_load_state("networkidle")
 
-        # Dropdown arrows are decorative and should be aria-hidden
+        # Dropdown arrows are decorative and should be aria-hidden.
+        # The nav has two dropdowns (ANALYSIS and USER), so two arrows.
         dropdown_arrows = page.locator('.dropdown-arrow[aria-hidden="true"]')
-        assert dropdown_arrows.count() >= 3, (
-            f"Expected at least 3 dropdown arrows with aria-hidden, found {dropdown_arrows.count()}"
+        assert dropdown_arrows.count() >= 2, (
+            f"Expected at least 2 dropdown arrows with aria-hidden, found {dropdown_arrows.count()}"
         )
 
     def test_form_inputs_have_aria_required(self, page: Any, server: Any) -> None:
@@ -325,16 +349,14 @@ class TestScreenReaderCompatibility:
         expect(username_input).to_have_attribute("aria-required", "true")
         expect(password_input).to_have_attribute("aria-required", "true")
 
-    def test_stats_region_has_aria_label(self, page: Any, server: Any) -> None:
-        """Verify home page stats section has an aria-label."""
+    def test_home_has_no_stats_region(self, page: Any, server: Any) -> None:
+        """The home page stats section was removed, so no stats region
+        (or stale aria-label) should be present."""
         register_and_login(page)
         page.goto("http://127.0.0.1:8000/")
         page.wait_for_load_state("networkidle")
 
-        stats_row = page.locator(".stats-row")
-        if stats_row.is_visible():
-            expect(stats_row).to_have_attribute("role", "region")
-            expect(stats_row).to_have_attribute("aria-label", "Dashboard statistics")
+        expect(page.locator(".stats-row")).to_have_count(0)
 
     def test_feature_cards_have_aria_labels(self, page: Any, server: Any) -> None:
         """Verify feature card links have aria-label attributes."""

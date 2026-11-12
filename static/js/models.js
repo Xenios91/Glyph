@@ -11,27 +11,14 @@
  */
 function goToModelURL(rowElement) {
     const modelName = rowElement.dataset.modelName;
-    const statusCell = rowElement.querySelector('.model-status-cell');
 
-    if (!statusCell) {
-        console.error('Status cell not found for model:', modelName);
-        Toast.error('Model status not found');
+    if (!modelName) {
+        console.error('Model name not found on row');
+        Toast.error('Model name not found');
         return;
     }
 
-    const statusText = statusCell.dataset.status;
-
-    if (statusText === 'complete') {
-        const url = '/getSymbols?model_name=' + encodeURIComponent(modelName);
-
-        if (url) {
-            window.location = url;
-        }
-    } else if (statusText === 'na') {
-        Toast.warning('No analysis has been performed yet!');
-    } else {
-        Toast.warning('Binary Analysis is not complete!');
-    }
+    window.location = '/getSymbols?model_name=' + encodeURIComponent(modelName);
 }
 
 /**
@@ -45,9 +32,13 @@ async function deleteSelectedModels() {
         return;
     }
 
-    const confirmed = confirm(
-        `Are you sure you want to delete ${modelNames.length} model(s)?`
-    );
+    const confirmed = await showConfirm({
+        title: 'Delete Models',
+        message: 'Are you sure you want to delete ' + modelNames.length +
+            ' model(s): ' + modelNames.join(', ') + '?',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel'
+    });
 
     if (!confirmed) return;
 

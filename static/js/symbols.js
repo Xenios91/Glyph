@@ -41,6 +41,15 @@ async function deleteModel() {
 
     const modelToDelete = extractLabelValue(modelNameElement);
 
+    const confirmed = await showConfirm({
+        title: 'Delete Model',
+        message: 'Are you sure you want to delete model "' + modelToDelete + '"?',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel'
+    });
+
+    if (!confirmed) return;
+
     try {
         const response = await authenticatedFetch(`/api/v1/models/deleteModel?model_name=${encodeURIComponent(modelToDelete)}`, {
             method: 'DELETE',

@@ -3,35 +3,43 @@
 <link rel="stylesheet" href="{{ static_url(request, 'css/predictions_style.css') }}">
 {% endblock head %}
 {% block content %}
-<div class="blue-bg" style="padding: 2%;">
+<div class="blue-bg prediction-details-page">
     {% set items = [
         {'label': 'Task Name', 'value': task_name, 'id': 'task-name'},
         {'label': 'Model', 'value': model_name, 'id': 'model-name'},
         {'label': 'Function', 'value': function_name, 'id': 'function-name'}
     ] %}
+    <nav aria-label="Breadcrumb" class="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item"><a href="/getPredictions">PREDICTIONS</a></li>
+            <li class="breadcrumb-item"><a href="/getPrediction?task_name={{ task_name | urlencode }}&model_name={{ model_name | urlencode }}">{{ task_name }}</a></li>
+            <li class="breadcrumb-item" aria-current="page"><span>{{ function_name }}</span></li>
+        </ol>
+    </nav>
+
     {% include 'components/page_header.html' %}
 
-<div class="mt-2" style="display: flex; flex-wrap: wrap; gap: 2%; justify-content: center;">
-            <div style="flex: 1; min-width: 300px; max-width: 500px;">
+<div class="mt-2 token-cards-row">
+            <div class="token-card">
                 <div class="center-text">
                     <span class="center-text">Predicted Function: </span>
                 </div>
-                <div id="prediction_tokens_div" class="cyber-container is-rounded white-bg token-scroll" style="margin: 2%;">
-                    <pre style="font-family: 'Source Code Pro', monospace;">{{ prediction_tokens }}</pre>
+                <div id="prediction_tokens_div" class="cyber-container is-rounded white-bg token-scroll">
+                    <pre>{{ prediction_tokens }}</pre>
                 </div>
             </div>
-            <div style="flex: 1; min-width: 300px; max-width: 500px;">
+            <div class="token-card">
                 <div class="center-text">
                     <span>Original Function: </span>
                 </div>
-                <div id="model_tokens_div" class="cyber-container is-rounded white-bg token-scroll" style="margin: 2%;">
-                    <pre style="font-family: 'Source Code Pro', monospace;">{{ model_tokens }}</pre>
+                <div id="model_tokens_div" class="cyber-container is-rounded white-bg token-scroll">
+                    <pre>{{ model_tokens }}</pre>
                 </div>
             </div>
         </div>
 
-    <div class="btn-group" style="margin-top: 1.5rem;">
-        <button type="button" class="cyber-btn is-primary back-btn">Go Back</button>
+    <div class="btn-group details-back-group">
+        <button type="button" class="cyber-btn is-primary back-btn" data-fallback="/getPrediction">Go Back</button>
     </div>
 </div>
 

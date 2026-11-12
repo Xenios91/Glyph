@@ -39,6 +39,29 @@ class TestErrorPage:
         # Should mention binary/ELF type error
         expect(page.locator("body")).to_contain_text("ELF")
 
+    def test_error_page_uses_empty_state_card(self, page: Any, server: Any) -> None:
+        """R19: the error page must use the shared empty-state-card pattern
+        while still exposing the BACK TO HOME / GO BACK actions and hint."""
+        page.goto(f"{BASE_URL}/error")
+        page.wait_for_load_state("networkidle")
+
+        card = page.locator(".empty-state-card")
+        expect(card).to_have_count(1)
+        expect(card).to_be_visible()
+        expect(card.locator(".empty-state-title")).to_contain_text("ERROR")
+        expect(card.locator(".empty-state-description")).to_be_visible()
+
+        # The original navigation actions must be preserved.
+        back_home = page.locator(".empty-state-card a[aria-label='Back to home']")
+        expect(back_home).to_have_count(1)
+        expect(back_home).to_contain_text("BACK TO HOME")
+
+        go_back = page.locator("#error-go-back-btn")
+        expect(go_back).to_have_count(1)
+        expect(go_back).to_contain_text("GO BACK")
+
+        expect(card.locator(".empty-state-hint")).to_be_visible()
+
 
 class TestNonExistentResources:
     """Tests for accessing non-existent resources."""

@@ -19,6 +19,9 @@
     // ============================================================
 
     document.addEventListener('DOMContentLoaded', function () {
+        bindComparisonsInteractions();
+        bindDiffModal();
+
         if (!taskUuid) {
             showError('No task UUID provided');
             return;
@@ -101,6 +104,20 @@
 
         // Build summary
         var comparisons = result.comparisons || [];
+
+        // Store match token pairs for the in-page diff modal (R12). Tokens
+        // stay out of the DOM: VIEW buttons reference them by index.
+        matchStore.length = 0;
+        comparisons.forEach(function (comp) {
+            matchStore.push((comp.matched_functions || []).map(function (match) {
+                return {
+                    source: match.source_tokens || '',
+                    target: match.target_tokens || '',
+                    sourceName: match.source_function_name || '',
+                    targetName: match.target_function_name || ''
+                };
+            }));
+        });
         var totalMatches = 0;
         var totalBinaries = comparisons.length;
         var maxSimilarity = 0;
@@ -131,7 +148,7 @@
         }
 
         var summaryEl = document.getElementById('results-summary');
-        if (summaryEl) summaryEl.style.display = 'block';
+        if (summaryEl) summaryEl.classList.remove('is-hidden');
 
         // Render comparisons
         if (comparisons.length > 0) {
@@ -143,7 +160,7 @@
             }
 
             var containerEl = document.getElementById('comparisons-container');
-            if (containerEl) containerEl.style.display = 'block';
+            if (containerEl) containerEl.classList.remove('is-hidden');
         } else {
             showEmpty();
         }
@@ -191,7 +208,7 @@
         }
 
         var summaryEl = document.getElementById('results-summary');
-        if (summaryEl) summaryEl.style.display = 'block';
+        if (summaryEl) summaryEl.classList.remove('is-hidden');
 
         // Render scan results
         var scanResults = result.results || [];
@@ -204,7 +221,7 @@
             }
 
             var containerEl = document.getElementById('comparisons-container');
-            if (containerEl) containerEl.style.display = 'block';
+            if (containerEl) containerEl.classList.remove('is-hidden');
         } else {
             showEmpty();
         }
@@ -223,7 +240,7 @@
         }).join('');
 
         return '<div class="comparison-block">' +
-            '<div class="comparison-header" onclick="toggleComparison(' + idx + ')">' +
+            '<div class="comparison-header" role="button" tabindex="0" aria-expanded="false" data-comparison-idx="' + idx + '">' +
                 '<span class="comparison-title">' + escapeHtml(scan.function_name) +
                     ' <span class="severity-badge ' + severityClass + '">' + escapeHtml(scan.severity) + '</span>' +
                 '</span>' +
@@ -270,19 +287,20 @@
         var scoreClass = getScoreClass(comp.overall_similarity);
         var matches = comp.matched_functions || [];
 
-        var rows = matches.map(function (match) {
+        var rows = matches.map(function (match, mi) {
             var mClass = getScoreClass(match.similarity_score);
             return '<tr>' +
                 '<td><span class="function-name">' + escapeHtml(match.source_function_name) + '</span></td>' +
                 '<td><span class="function-name">' + escapeHtml(match.target_function_name) + '</span></td>' +
                 '<td><span class="score-cell ' + mClass + '">' + (match.similarity_score * 100).toFixed(1) + '%</span></td>' +
-                '<td><button class="code-preview-btn" onclick="showCodeDiff(\'' +
-                    escapeJs(match.source_tokens) + '\', \'' + escapeJs(match.target_tokens) + '\')">VIEW</button></td>' +
+                '<td><button class="code-preview-btn" type="button" data-comp-idx="' + idx +
+                    '" data-match-idx="' + mi +
+                    '" aria-label="View code comparison for ' + escapeHtml(match.source_function_name) + '">VIEW</button></td>' +
             '</tr>';
         }).join('');
 
         return '<div class="comparison-block">' +
-            '<div class="comparison-header" onclick="toggleComparison(' + idx + ')">' +
+            '<div class="comparison-header" role="button" tabindex="0" aria-expanded="false" data-comparison-idx="' + idx + '">' +
                 '<span class="comparison-title">' + escapeHtml(comp.target_binary_name) + '</span>' +
                 '<span class="comparison-score ' + scoreClass + '">' +
                     (comp.overall_similarity * 100).toFixed(1) + '% similar (' + matches.length + ' matches)' +
@@ -304,39 +322,224 @@
     // Interactivity
     // ============================================================
 
+    /** @type {Array<Array<{source: string, target: string, sourceName: string, targetName: string}>>} */
+    var matchStore = [];
+
+    /** @type {number|null} */
+    var diffModalOpen = false;
+
+    /** @type {Element|null} */
+    var diffModalTrigger = null;
+
     /**
      * Toggle comparison block open/closed
      * @param {number} idx
      */
-    window.toggleComparison = function (idx) {
+    function toggleComparison(idx) {
         var body = document.getElementById('comparison-body-' + idx);
-        if (body) {
-            body.classList.toggle('is-open');
+        if (!body) return;
+        var isOpen = body.classList.toggle('is-open');
+        var header = document.querySelector('.comparison-header[data-comparison-idx="' + idx + '"]');
+        if (header) {
+            header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         }
-    };
+    }
 
     /**
-     * Show code diff in a new window
+     * Compute a line-based diff via longest common subsequence.
+     * @param {string} source
+     * @param {string} target
+     * @returns {{source: Array<{no: number|null, text: string, type: string}>, target: Array<{no: number|null, text: string, type: string}>}}
+     */
+    function computeLineDiff(source, target) {
+        var srcLines = String(source || '').split('\n');
+        var tgtLines = String(target || '').split('\n');
+        var n = srcLines.length;
+        var m = tgtLines.length;
+
+        // LCS dynamic-programming table.
+        var dp = [];
+        for (var i = 0; i <= n; i++) {
+            dp.push(new Array(m + 1).fill(0));
+        }
+        for (var i2 = n - 1; i2 >= 0; i2--) {
+            for (var j = m - 1; j >= 0; j--) {
+                dp[i2][j] = srcLines[i2] === tgtLines[j]
+                    ? dp[i2 + 1][j + 1] + 1
+                    : Math.max(dp[i2 + 1][j], dp[i2][j + 1]);
+            }
+        }
+
+        var out = { source: [], target: [] };
+        var si = 0;
+        var ti = 0;
+        while (si < n && ti < m) {
+            if (srcLines[si] === tgtLines[ti]) {
+                out.source.push({ no: si + 1, text: srcLines[si], type: 'context' });
+                out.target.push({ no: ti + 1, text: tgtLines[ti], type: 'context' });
+                si++;
+                ti++;
+            } else if (dp[si + 1][ti] >= dp[si][ti + 1]) {
+                out.source.push({ no: si + 1, text: srcLines[si], type: 'removed' });
+                out.target.push({ no: null, text: '', type: 'removed' });
+                si++;
+            } else {
+                out.source.push({ no: null, text: '', type: 'added' });
+                out.target.push({ no: ti + 1, text: tgtLines[ti], type: 'added' });
+                ti++;
+            }
+        }
+        while (si < n) {
+            out.source.push({ no: si + 1, text: srcLines[si], type: 'removed' });
+            out.target.push({ no: null, text: '', type: 'removed' });
+            si++;
+        }
+        while (ti < m) {
+            out.source.push({ no: null, text: '', type: 'added' });
+            out.target.push({ no: ti + 1, text: tgtLines[ti], type: 'added' });
+            ti++;
+        }
+        return out;
+    }
+
+    /**
+     * Build one column of diff rows as DOM nodes (no innerHTML with data).
+     * @param {Array<{no: number|null, text: string, type: string}>} rows
+     * @returns {DocumentFragment}
+     */
+    function buildDiffColumn(rows) {
+        var frag = document.createDocumentFragment();
+        rows.forEach(function (row) {
+            var line = document.createElement('div');
+            line.className = 'diff-line ' + row.type;
+
+            var no = document.createElement('span');
+            no.className = 'line-no';
+            no.textContent = row.no !== null ? String(row.no) : '';
+
+            var text = document.createElement('span');
+            text.className = 'line-text';
+            text.textContent = row.text;
+
+            line.appendChild(no);
+            line.appendChild(text);
+            frag.appendChild(line);
+        });
+        return frag;
+    }
+
+    /**
+     * Open the in-page code diff modal for a matched function pair.
      * @param {string} sourceCode
      * @param {string} targetCode
+     * @param {string} sourceName
+     * @param {string} targetName
+     * @param {Element} [trigger]
      */
-    window.showCodeDiff = function (sourceCode, targetCode) {
-        var win = window.open('', '_blank', 'width=800,height=600');
-        if (win) {
-            win.document.write(
-                '<!doctype html><html><head><title>Code Comparison</title>' +
-                '<style>body{font-family:monospace;background:#111;color:#ccc;padding:20px;}' +
-                '.panel{float:left;width:48%;min-height:400px;border:1px solid #333;padding:10px;overflow:auto;}' +
-                '.label{font-weight:bold;color:#7dd8d8;margin-bottom:10px;display:block;}' +
-                'pre{white-space:pre-wrap;word-wrap:break-word;margin:0;}</style></head>' +
-                '<body>' +
-                '<div class="panel"><span class="label">Source</span><pre>' + escapeHtml(sourceCode) + '</pre></div>' +
-                '<div class="panel"><span class="label">Target</span><pre>' + escapeHtml(targetCode) + '</pre></div>' +
-                '</body></html>'
-            );
-            win.document.close();
+    function openDiffModal(sourceCode, targetCode, sourceName, targetName, trigger) {
+        var overlay = document.getElementById('diff-modal-overlay');
+        if (!overlay) return;
+
+        var diff = computeLineDiff(sourceCode, targetCode);
+
+        var sourceCol = document.getElementById('diff-source-lines');
+        var targetCol = document.getElementById('diff-target-lines');
+        if (sourceCol) {
+            sourceCol.textContent = '';
+            sourceCol.appendChild(buildDiffColumn(diff.source));
         }
-    };
+        if (targetCol) {
+            targetCol.textContent = '';
+            targetCol.appendChild(buildDiffColumn(diff.target));
+        }
+
+        var sourceLabel = document.querySelector('#diff-source-col .diff-col-label');
+        if (sourceLabel) sourceLabel.textContent = 'SOURCE: ' + (sourceName || 'unknown');
+        var targetLabel = document.querySelector('#diff-target-col .diff-col-label');
+        if (targetLabel) targetLabel.textContent = 'TARGET: ' + (targetName || 'unknown');
+
+        diffModalTrigger = trigger || null;
+        overlay.classList.add('is-visible');
+        diffModalOpen = true;
+
+        var closeBtn = document.getElementById('diff-modal-close');
+        if (closeBtn) closeBtn.focus();
+    }
+
+    /**
+     * Close the in-page code diff modal.
+     */
+    function closeDiffModal() {
+        var overlay = document.getElementById('diff-modal-overlay');
+        if (!overlay) return;
+        overlay.classList.remove('is-visible');
+        diffModalOpen = false;
+        if (diffModalTrigger && typeof diffModalTrigger.focus === 'function') {
+            diffModalTrigger.focus();
+        }
+        diffModalTrigger = null;
+    }
+
+    /**
+     * Wire delegated interactions: comparison header toggles and
+     * code-diff VIEW buttons (inline handlers are blocked by CSP).
+     */
+    function bindComparisonsInteractions() {
+        var list = document.getElementById('comparisons-list');
+        if (!list) return;
+
+        list.addEventListener('click', function (event) {
+            var target = event.target;
+            if (!target || !target.closest) return;
+
+            var previewBtn = target.closest('.code-preview-btn');
+            if (previewBtn) {
+                var compIdx = parseInt(previewBtn.dataset.compIdx, 10);
+                var matchIdx = parseInt(previewBtn.dataset.matchIdx, 10);
+                var entry = matchStore[compIdx] && matchStore[compIdx][matchIdx];
+                if (entry) {
+                    openDiffModal(entry.source, entry.target, entry.sourceName, entry.targetName, previewBtn);
+                }
+                return;
+            }
+
+            var header = target.closest('.comparison-header');
+            if (header) {
+                var idx = parseInt(header.dataset.comparisonIdx, 10);
+                if (!isNaN(idx)) toggleComparison(idx);
+            }
+        });
+
+        list.addEventListener('keydown', function (event) {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            var header = event.target && event.target.closest ? event.target.closest('.comparison-header') : null;
+            if (!header) return;
+            event.preventDefault();
+            var idx = parseInt(header.dataset.comparisonIdx, 10);
+            if (!isNaN(idx)) toggleComparison(idx);
+        });
+    }
+
+    /**
+     * Wire diff modal dismissal (close button, overlay click, Escape).
+     */
+    function bindDiffModal() {
+        var overlay = document.getElementById('diff-modal-overlay');
+        if (!overlay) return;
+
+        overlay.addEventListener('click', function (event) {
+            if (event.target === overlay) closeDiffModal();
+        });
+
+        var closeBtn = document.getElementById('diff-modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeDiffModal);
+        }
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && diffModalOpen) closeDiffModal();
+        });
+    }
 
     // ============================================================
     // State Display
@@ -350,7 +553,7 @@
         if (loadingEl) loadingEl.style.display = 'none';
 
         var emptyEl = document.getElementById('results-empty');
-        if (emptyEl) emptyEl.style.display = 'block';
+        if (emptyEl) emptyEl.classList.remove('is-hidden');
     }
 
     /**
@@ -374,7 +577,7 @@
 
         var errorEl = document.getElementById('results-error');
         var errorMsg = document.getElementById('error-message');
-        if (errorEl) errorEl.style.display = 'block';
+        if (errorEl) errorEl.classList.remove('is-hidden');
         if (errorMsg) errorMsg.textContent = message;
     }
 
@@ -413,16 +616,6 @@
         var div = document.createElement('div');
         div.appendChild(document.createTextNode(str));
         return div.innerHTML;
-    }
-
-    /**
-     * Escape for JavaScript string
-     * @param {string} str
-     * @returns {string}
-     */
-    function escapeJs(str) {
-        if (!str) return '';
-        return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
     }
 
 })();

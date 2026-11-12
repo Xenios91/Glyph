@@ -421,18 +421,35 @@ class PredictionRepository:
             await close_async_session(session)
 
     @staticmethod
-    async def delete_model_predictions(model_name: str) -> None:
-        """Delete all predictions for a model from the database.
+    async def delete_model_predictions(model_name: str, user_id: int | None = None) -> None:
+        """Delete predictions for a model from the database.
 
         Uses bulk DELETE statement for better performance.
 
+        Scoped to the caller when ``user_id`` is provided so a same-named model
+        cannot cause another user's rows to be deleted (the per-user unique key
+        allows several users to hold predictions for the same model_name, e.g.
+        via a legacy/unowned model). Mirrors the ownership filter used by
+        ``get``/``get_prediction_function``/``get_owner``: the caller's own rows
+        and unowned/legacy rows are deleted, rows owned by another user are
+        left untouched. When ``user_id`` is None the delete is unscoped
+        (legacy/admin cleanup behavior).
+
         Args:
             model_name: Name of the model.
+            user_id: The caller's user id (0 for anonymous). When provided, only
+                the caller's own rows and unowned/legacy rows are deleted.
 
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
-            await session.execute(delete(Prediction).where(Prediction.model_name == model_name))
+            stmt = delete(Prediction).where(Prediction.model_name == model_name)
+            if user_id is not None:
+                if user_id == 0:
+                    stmt = stmt.where(Prediction.user_id.is_(None))
+                else:
+                    stmt = stmt.where(or_(Prediction.user_id == user_id, Prediction.user_id.is_(None)))
+            await session.execute(stmt)
             await session.commit()
             logger.info("Predictions for model '{}' deleted", model_name)
         except sa_exc.SQLAlchemyError:

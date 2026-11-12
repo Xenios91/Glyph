@@ -20,6 +20,7 @@ const StatusBar = {
 
     // Internal state
     _tasks: new Map(),
+    _taskStartTimes: new Map(),
     _pollTimer: null,
     _panel: null,
     _entriesContainer: null,
@@ -353,6 +354,34 @@ const StatusBar = {
     },
 
     /**
+     * Register a long-running task (model training, prediction, analysis).
+     * Unlike registerUpload, the task is already server-side: it is tracked
+     * under its UUID immediately and polled by the status bar.
+     * @param {string} taskUuid - Server-side task UUID.
+     * @param {string} taskName - Human-readable task name for the entry label.
+     * @param {object} [options] - Optional extras.
+     * @param {string} [options.resultLink] - URL surfaced in the completion toast.
+     * @param {string} [options.resultLabel] - Label for the results link (default "View results").
+     * @returns {string} The task UUID.
+     */
+    registerTask(taskUuid, taskName, options) {
+        const opts = options || {};
+        this._tasks.set(taskUuid, {
+            uuid: taskUuid,
+            fileName: taskName,
+            state: 'processing',
+            notFoundCount: 0,
+            resultLink: opts.resultLink || null,
+            resultLabel: opts.resultLabel || 'View results'
+        });
+        this._taskStartTimes.set(taskUuid, Date.now());
+        this._createEntry(taskUuid, taskName, 'processing');
+        this._updateBadge();
+        this._ensurePolling();
+        return taskUuid;
+    },
+
+    /**
      * Register a new upload entry.
      * @param {string} fileName - Name of the file being uploaded.
      */
@@ -554,10 +583,23 @@ const StatusBar = {
             }
         }
 
-        // Show toast notification
+        // Show toast notification (with a results link for registered tasks)
         if (typeof Toast !== 'undefined') {
             if (status === 'completed') {
-                Toast.success(`${task.fileName} processed successfully`, 4000);
+                if (task.resultLink) {
+                    const toast = Toast.success(`${task.fileName} completed successfully`, 6000);
+                    if (toast) {
+                        const link = document.createElement('a');
+                        link.href = task.resultLink;
+                        link.textContent = task.resultLabel;
+                        link.style.marginLeft = '8px';
+                        link.style.color = 'var(--cyan-bright)';
+                        link.style.textDecoration = 'underline';
+                        toast.appendChild(link);
+                    }
+                } else {
+                    Toast.success(`${task.fileName} processed successfully`, 4000);
+                }
             } else {
                 Toast.error(`${task.fileName} processing failed`, 5000);
             }
@@ -565,6 +607,7 @@ const StatusBar = {
 
         // Remove from tracking
         this._tasks.delete(uuid);
+        this._taskStartTimes.delete(uuid);
         this._persistTasks();
         this._updateBadge();
 
@@ -733,6 +776,7 @@ const StatusBar = {
      */
     removeEntry(uuid) {
         this._tasks.delete(uuid);
+        this._taskStartTimes.delete(uuid);
         this._persistTasks();
         this._updateBadge();
 

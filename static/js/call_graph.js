@@ -126,10 +126,10 @@
         var emptyEl = document.getElementById('graph-empty');
 
         if (loadBtn) loadBtn.disabled = true;
-        if (loadingEl) loadingEl.style.display = 'flex';
-        if (containerEl) containerEl.style.display = 'none';
-        if (errorEl) errorEl.style.display = 'none';
-        if (emptyEl) emptyEl.style.display = 'none';
+        if (loadingEl) loadingEl.classList.remove('is-hidden');
+        if (containerEl) containerEl.classList.add('is-hidden');
+        if (errorEl) errorEl.classList.add('is-hidden');
+        if (emptyEl) emptyEl.classList.add('is-hidden');
 
         try {
             var response = await authenticatedFetch(
@@ -147,8 +147,8 @@
             buildGraph(graphData);
 
             if (nodes.length === 0) {
-                if (emptyEl) emptyEl.style.display = 'block';
-                if (loadingEl) loadingEl.style.display = 'none';
+                if (emptyEl) emptyEl.classList.remove('is-hidden');
+                if (loadingEl) loadingEl.classList.add('is-hidden');
                 if (loadBtn) loadBtn.disabled = false;
                 return;
             }
@@ -156,8 +156,8 @@
             updateStats(graphData);
             enableControls(true);
 
-            if (loadingEl) loadingEl.style.display = 'none';
-            if (containerEl) containerEl.style.display = 'block';
+            if (loadingEl) loadingEl.classList.add('is-hidden');
+            if (containerEl) containerEl.classList.remove('is-hidden');
 
             // Resize canvas now that container is visible and reposition nodes
             onResize();
@@ -169,9 +169,9 @@
 
         } catch (error) {
             console.error('Load call graph error:', error);
-            if (loadingEl) loadingEl.style.display = 'none';
+            if (loadingEl) loadingEl.classList.add('is-hidden');
             if (errorEl) {
-                errorEl.style.display = 'block';
+                errorEl.classList.remove('is-hidden');
                 var msgEl = document.getElementById('graph-error-message');
                 if (msgEl) msgEl.textContent = error.message;
             }
@@ -789,7 +789,7 @@
         }
 
         tooltipEl.innerHTML = html;
-        tooltipEl.style.display = 'block';
+        tooltipEl.classList.remove('is-hidden');
         positionTooltip(pos);
     }
 
@@ -811,7 +811,7 @@
     }
 
     function hideTooltip() {
-        if (tooltipEl) tooltipEl.style.display = 'none';
+        if (tooltipEl) tooltipEl.classList.add('is-hidden');
     }
 
     // ============================================================

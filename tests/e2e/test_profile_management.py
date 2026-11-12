@@ -6,6 +6,7 @@ on the profile page.
 """
 
 from typing import Any
+from uuid import uuid4
 
 from playwright.sync_api import expect
 
@@ -281,3 +282,60 @@ class TestAccessibilityTab:
         page.evaluate("() => switchTab('tab-accessibility', 'panel-accessibility')")
 
         expect(page.locator("#dyslexia-font-toggle")).to_be_visible()
+
+
+class TestAPIKeyDeleteConfirmation:
+    """R9/R10: deleting an API key must use the styled confirm modal."""
+
+    def test_api_key_delete_uses_styled_confirm_modal(self, page: Any, server: Any) -> None:
+        """Create a key, then verify cancel keeps it and confirm deletes it."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/profile")
+        page.wait_for_load_state("networkidle")
+        page.evaluate("() => switchTab('tab-apikeys', 'panel-apikeys')")
+
+        # Create a key through the real form.
+        key_name = f"e2e_key_{uuid4().hex[:8]}"
+        page.locator("#create-api-key-btn").click()
+        expect(page.locator("#createApiKeyModal")).to_be_visible()
+        page.locator("#key_name").fill(key_name)
+        page.locator("#create-key-submit-btn").click()
+        expect(page.locator("#apiKeySecret")).to_be_visible()
+
+        # Closing the modal refreshes the list, which now contains the key.
+        # After creation the form (and its Cancel button) is hidden, so close
+        # via the page-level Escape handler, which also refreshes the list.
+        page.keyboard.press("Escape")
+        expect(page.locator("#createApiKeyModal")).to_have_count(1)
+        expect(page.locator("#createApiKeyModal")).not_to_be_visible()
+        expect(page.locator("#apiKeysList .api-key-item")).to_have_count(1)
+        expect(page.locator("#apiKeysList .api-key-item strong")).to_contain_text(key_name)
+
+        native_dialogs: list[str] = []
+
+        def _on_dialog(dialog: Any) -> None:
+            native_dialogs.append(dialog.message)
+            dialog.dismiss()
+
+        page.on("dialog", _on_dialog)
+
+        # Clicking Delete opens the styled modal naming the key.
+        page.locator(".delete-api-key-btn").click()
+        overlay = page.locator(".confirm-modal-overlay")
+        expect(overlay).to_be_visible()
+        expect(page.locator(".confirm-modal-title")).to_contain_text("Delete API Key")
+        expect(page.locator(".confirm-modal-message")).to_contain_text(key_name)
+
+        # Cancelling keeps the key.
+        page.locator(".confirm-modal .cyber-btn", has_text="Cancel").click()
+        expect(overlay).to_have_count(0)
+        expect(page.locator("#apiKeysList .api-key-item")).to_have_count(1)
+
+        # Confirming deletes the key.
+        page.locator(".delete-api-key-btn").click()
+        expect(overlay).to_be_visible()
+        page.locator(".confirm-modal .cyber-btn", has_text="Delete").click()
+        expect(page.locator("#apiKeysList .api-key-item")).to_have_count(0)
+        expect(page.locator("#apiKeysList .no-api-keys")).to_be_visible()
+        assert not native_dialogs, f"Native dialog opened: {native_dialogs}"

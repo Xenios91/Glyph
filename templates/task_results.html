@@ -17,14 +17,14 @@
     </div>
 
     <!-- Summary -->
-    <div id="results-summary" class="cyber-container with-title is-centered" style="display: none;">
+    <div id="results-summary" class="cyber-container with-title is-centered is-hidden">
         <p class="title">// SUMMARY</p>
         <div class="summary-grid" id="summary-grid">
         </div>
     </div>
 
     <!-- Comparisons -->
-    <div id="comparisons-container" style="display: none;">
+    <div id="comparisons-container" class="is-hidden">
         <div class="cyber-container with-title is-centered">
             <p class="title">// COMPARISON DETAILS</p>
         </div>
@@ -33,14 +33,14 @@
     </div>
 
     <!-- Empty State -->
-    <div id="results-empty" class="cyber-container with-title is-centered" style="display: none;">
+    <div id="results-empty" class="cyber-container with-title is-centered is-hidden">
         <p class="title">// NO RESULTS</p>
         <p class="empty-state">No matches found or no other binaries to compare against.</p>
     </div>
 
     <!-- Error State -->
-    <div id="results-error" class="cyber-container with-title is-centered" style="display: none;">
-        <p class="title" style="color: var(--red);">// ERROR</p>
+    <div id="results-error" class="cyber-container with-title is-centered is-hidden">
+        <p class="title error-title">// ERROR</p>
         <p class="empty-state" id="error-message">Failed to load results.</p>
     </div>
 
@@ -51,6 +51,29 @@
 </div>
 
 {% endblock content %}
+
+{% block modals %}
+<!-- Code Diff Modal (R12) — outside page-content so its fixed overlay
+     is not trapped in the page-content stacking context (z-index: 10) -->
+<div id="diff-modal-overlay" class="diff-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="diff-modal-title">
+    <div class="diff-modal">
+        <div class="diff-modal-header">
+            <h2 class="diff-modal-title" id="diff-modal-title">CODE COMPARISON</h2>
+            <button type="button" class="diff-modal-close" id="diff-modal-close" aria-label="Close code comparison">&times;</button>
+        </div>
+        <div class="diff-modal-body">
+            <div class="diff-col" id="diff-source-col">
+                <p class="diff-col-label">SOURCE</p>
+                <div class="diff-lines" id="diff-source-lines"></div>
+            </div>
+            <div class="diff-col" id="diff-target-col">
+                <p class="diff-col-label">TARGET</p>
+                <div class="diff-lines" id="diff-target-lines"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock modals %}
 
 {% block scripts %}
 <script src="{{ static_url(request, 'js/task_results.js') }}" defer></script>

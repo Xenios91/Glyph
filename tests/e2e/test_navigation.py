@@ -1,7 +1,7 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 """Playwright tests for application navigation.
 
-Tests navigation elements, dropdown menus, and page transitions.
+Tests navigation elements, category dropdown menus, and page transitions.
 """
 
 from typing import Any
@@ -10,8 +10,7 @@ from playwright.sync_api import expect
 
 from tests.e2e.utils import (
     BASE_URL,
-    open_analysis_dropdown,
-    open_code_reuse_submenu,
+    open_nav_dropdown,
     register_and_login,
 )
 
@@ -54,45 +53,52 @@ class TestAuthenticatedNavigation:
         user_dropdown = page.locator(f"button:has-text('{username.upper()}')")
         expect(user_dropdown).to_be_visible()
 
-    def test_home_link_navigates_to_home(self, page: Any, server: Any) -> None:
-        """Test clicking HOME link navigates to home page."""
+    def test_navbar_logo_navigates_to_home(self, page: Any, server: Any) -> None:
+        """Test clicking the navbar logo navigates to the home page."""
         register_and_login(page)
 
         # Navigate away from home
         page.goto(f"{BASE_URL}/profile")
 
-        # Click HOME link
-        page.locator('a[aria-label="Home"]').click()
+        # Click the logo (the HOME link was removed as a duplicate of the logo)
+        page.locator(".nav-logo").click()
         page.wait_for_url(f"{BASE_URL}/")
 
         expect(page).to_have_title("Glyph")
 
-    def test_analysis_dropdown_shows_menu_items(self, page: Any, server: Any) -> None:
-        """Test that the ANALYSIS dropdown shows menu items."""
+    def test_navbar_shows_category_dropdowns(self, page: Any, server: Any) -> None:
+        """Test that the authenticated navbar shows the three category dropdowns."""
         register_and_login(page)
 
-        # Use JS to force open both ANALYSIS dropdown and CODE REUSE sub-menu
-        # (hover unreliable in headless browser for nested sub-menus)
-        page.evaluate("""
-          const analysisMenu = document.getElementById('analysis-menu');
-          const analysisToggle = analysisMenu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
-          if (analysisMenu && analysisToggle) {
-            analysisMenu.classList.add('is-open');
-            analysisToggle.setAttribute('aria-expanded', 'true');
-          }
-          const codeReuseMenu = document.getElementById('code-reuse-menu');
-          const codeReuseToggle = codeReuseMenu?.closest('.nav-dropdown-sub')?.querySelector('.nav-dropdown-sub-toggle');
-          if (codeReuseMenu && codeReuseToggle) {
-            codeReuseMenu.classList.add('is-open');
-            codeReuseToggle.setAttribute('aria-expanded', 'true');
-          }
-        """)
-        # Wait for sub-menu to be visible
-        page.wait_for_selector("#code-reuse-menu.is-open", state="visible", timeout=5000)
+        # Each category dropdown toggle is visible in the navbar
+        for label in ("BINARIES", "MACHINE LEARNING", "SCANNING"):
+            toggle = page.locator(f".nav-dropdown-toggle:has-text('{label}')")
+            expect(toggle).to_be_visible()
+
+    def test_binaries_dropdown_shows_menu_items(self, page: Any, server: Any) -> None:
+        """Test that the BINARIES dropdown shows library and similarity items."""
+        register_and_login(page)
+
+        # Use JS to force open the BINARIES dropdown (hover unreliable in headless)
+        open_nav_dropdown(page, "binaries-menu")
+        page.wait_for_selector("#binaries-menu.is-open", state="visible", timeout=5000)
 
         # Check menu items are visible
         library_link = page.locator('a[role="menuitem"][aria-label="Binary Library"]')
         expect(library_link).to_be_visible()
+
+        similarity_link = page.locator('a[role="menuitem"][aria-label="Binary Similarity Dashboard"]')
+        expect(similarity_link).to_be_visible()
+
+    def test_machine_learning_dropdown_shows_menu_items(self, page: Any, server: Any) -> None:
+        """Test that the MACHINE LEARNING dropdown shows model and prediction items."""
+        register_and_login(page)
+
+        open_nav_dropdown(page, "machine-learning-menu")
+        page.wait_for_selector("#machine-learning-menu.is-open", state="visible", timeout=5000)
+
+        create_model_link = page.locator('a[role="menuitem"][aria-label="Create Model"]')
+        expect(create_model_link).to_be_visible()
 
         models_link = page.locator('a[role="menuitem"][aria-label="Models"]')
         expect(models_link).to_be_visible()
@@ -100,19 +106,28 @@ class TestAuthenticatedNavigation:
         predictions_link = page.locator('a[role="menuitem"][aria-label="View Predictions"]')
         expect(predictions_link).to_be_visible()
 
-    def test_system_dropdown_shows_config(self, page: Any, server: Any) -> None:
-        """Test that the SYSTEM dropdown shows configuration link."""
+    def test_scanning_dropdown_shows_menu_items(self, page: Any, server: Any) -> None:
+        """Test that the SCANNING dropdown shows both scanner items."""
         register_and_login(page)
 
-        # Hover over the SYSTEM dropdown toggle to open via hover
-        system_toggle = page.locator('button:has-text("SYSTEM")')
-        system_toggle.hover()
-        # Wait for the specific system menu to open
-        page.wait_for_selector("#system-menu.is-open", state="visible", timeout=5000)
+        open_nav_dropdown(page, "scanning-menu")
+        page.wait_for_selector("#scanning-menu.is-open", state="visible", timeout=5000)
 
-        # Check config link is visible
-        config_link = page.locator('a[role="menuitem"][aria-label="Configuration"]')
+        dangerous_link = page.locator('a[role="menuitem"][aria-label="Scan for Dangerous Functions"]')
+        expect(dangerous_link).to_be_visible()
+
+        behavioral_link = page.locator('a[role="menuitem"][aria-label="Behavioral Scan"]')
+        expect(behavioral_link).to_be_visible()
+
+    def test_navbar_shows_top_level_config_link(self, page: Any, server: Any) -> None:
+        """Test that CONFIG is a top-level navbar link (the single-item
+        SYSTEM dropdown was removed to de-duplicate the nav)."""
+        register_and_login(page)
+
+        # CONFIG is a direct top-level link, not inside a dropdown
+        config_link = page.locator('a[aria-label="Configuration"]')
         expect(config_link).to_be_visible()
+        expect(config_link).to_have_attribute("href", "/config")
 
     def test_user_dropdown_shows_profile_and_logout(self, page: Any, server: Any) -> None:
         """Test that the user dropdown shows profile and logout links."""
@@ -132,43 +147,36 @@ class TestAuthenticatedNavigation:
         logout_link = page.locator('a[role="menuitem"][aria-label="Logout"]')
         expect(logout_link).to_be_visible()
 
-    def test_navigation_to_models_via_dropdown(self, page: Any, server: Any) -> None:
-        """Test navigating to models page via the ANALYSIS dropdown."""
+    def test_navigation_to_models_via_machine_learning_dropdown(self, page: Any, server: Any) -> None:
+        """Test navigating to models page via the MACHINE LEARNING dropdown MODELS item."""
         register_and_login(page)
 
-        # Use JS to force open both ANALYSIS dropdown and CODE REUSE sub-menu
-        page.evaluate("""
-          const analysisMenu = document.getElementById('analysis-menu');
-          const analysisToggle = analysisMenu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
-          if (analysisMenu && analysisToggle) {
-            analysisMenu.classList.add('is-open');
-            analysisToggle.setAttribute('aria-expanded', 'true');
-          }
-          const codeReuseMenu = document.getElementById('code-reuse-menu');
-          const codeReuseToggle = codeReuseMenu?.closest('.nav-dropdown-sub')?.querySelector('.nav-dropdown-sub-toggle');
-          if (codeReuseMenu && codeReuseToggle) {
-            codeReuseMenu.classList.add('is-open');
-            codeReuseToggle.setAttribute('aria-expanded', 'true');
-          }
-        """)
-        page.wait_for_selector("#code-reuse-menu.is-open", state="visible", timeout=5000)
+        open_nav_dropdown(page, "machine-learning-menu")
+        page.wait_for_selector("#machine-learning-menu.is-open", state="visible", timeout=5000)
         models_link = page.locator('a[role="menuitem"][aria-label="Models"]')
         models_link.click()
         page.wait_for_url(f"{BASE_URL}/getModels")
 
         expect(page).to_have_title("Models List")
 
-    def test_navigation_to_config_via_dropdown(self, page: Any, server: Any) -> None:
-        """Test navigating to config page via the SYSTEM dropdown."""
+    def test_navigation_to_predictions_via_machine_learning_dropdown(self, page: Any, server: Any) -> None:
+        """Test navigating to predictions page via the MACHINE LEARNING dropdown
+        PREDICTIONS item."""
         register_and_login(page)
 
-        # Hover over SYSTEM dropdown to open
-        system_toggle = page.locator('button:has-text("SYSTEM")')
-        system_toggle.hover()
-        # Wait for menu to open, then hover and click CONFIG
-        page.wait_for_selector("#system-menu.is-open", state="visible", timeout=5000)
-        config_link = page.locator('a[role="menuitem"][aria-label="Configuration"]')
-        config_link.hover()
+        open_nav_dropdown(page, "machine-learning-menu")
+        page.wait_for_selector("#machine-learning-menu.is-open", state="visible", timeout=5000)
+        predictions_link = page.locator('a[role="menuitem"][aria-label="View Predictions"]')
+        predictions_link.click()
+        page.wait_for_url(f"{BASE_URL}/getPredictions")
+
+        expect(page).to_have_title("Predictions List")
+
+    def test_navigation_to_config_via_top_level(self, page: Any, server: Any) -> None:
+        """Test navigating to the config page via the top-level CONFIG link."""
+        register_and_login(page)
+
+        config_link = page.locator('a[aria-label="Configuration"]')
         config_link.click()
         page.wait_for_url(f"{BASE_URL}/config")
 
@@ -190,53 +198,52 @@ class TestAuthenticatedNavigation:
 
         expect(page).to_have_title("Glyph - Profile")
 
-    def test_navigation_to_binary_library_via_dropdown(self, page: Any, server: Any) -> None:
-        """Test navigating to binary library via the ANALYSIS dropdown."""
+    def test_navigation_to_binary_library_via_binaries_dropdown(self, page: Any, server: Any) -> None:
+        """Test navigating to binary library via the BINARIES dropdown."""
         register_and_login(page)
 
-        # Use JS to force open ANALYSIS dropdown
-        open_analysis_dropdown(page)
-        page.wait_for_selector("#analysis-menu.is-open", state="visible", timeout=5000)
+        # Use JS to force open BINARIES dropdown
+        open_nav_dropdown(page, "binaries-menu")
+        page.wait_for_selector("#binaries-menu.is-open", state="visible", timeout=5000)
         library_link = page.locator('a[role="menuitem"][aria-label="Binary Library"]')
         library_link.click()
         page.wait_for_url(f"{BASE_URL}/binary-library")
 
         expect(page).to_have_title("Glyph - Binary Library")
 
-    def test_navigation_to_create_model_via_dropdown(self, page: Any, server: Any) -> None:
-        """Test navigating to create model page via ANALYSIS > CODE REUSE submenu."""
+    def test_navigation_to_create_model_via_machine_learning_dropdown(self, page: Any, server: Any) -> None:
+        """Test navigating to create model page via the MACHINE LEARNING dropdown."""
         register_and_login(page)
 
-        # Use JS to force open both ANALYSIS dropdown and CODE REUSE sub-menu
-        open_analysis_dropdown(page)
-        open_code_reuse_submenu(page)
-        page.wait_for_selector("#code-reuse-menu.is-open", state="visible", timeout=5000)
+        # Use JS to force open the MACHINE LEARNING dropdown
+        open_nav_dropdown(page, "machine-learning-menu")
+        page.wait_for_selector("#machine-learning-menu.is-open", state="visible", timeout=5000)
         create_model_link = page.locator('a[role="menuitem"][aria-label="Create Model"]')
         create_model_link.click()
         page.wait_for_url(f"{BASE_URL}/create-model")
 
         expect(page).to_have_title("Glyph - Create Model")
 
-    def test_navigation_to_dangerous_functions_via_dropdown(self, page: Any, server: Any) -> None:
-        """Test navigating to dangerous functions page via the ANALYSIS dropdown."""
+    def test_navigation_to_dangerous_functions_via_scanning_dropdown(self, page: Any, server: Any) -> None:
+        """Test navigating to dangerous functions page via the SCANNING dropdown."""
         register_and_login(page)
 
-        # Use JS to force open ANALYSIS dropdown
-        open_analysis_dropdown(page)
-        page.wait_for_selector("#analysis-menu.is-open", state="visible", timeout=5000)
+        # Use JS to force open SCANNING dropdown
+        open_nav_dropdown(page, "scanning-menu")
+        page.wait_for_selector("#scanning-menu.is-open", state="visible", timeout=5000)
         dangerous_link = page.locator('a[role="menuitem"][aria-label="Scan for Dangerous Functions"]')
         dangerous_link.click()
         page.wait_for_url(f"{BASE_URL}/getDangerousFunctions")
 
         expect(page).to_have_title("Glyph - Dangerous Function Scanner")
 
-    def test_navigation_to_similarity_dashboard_via_dropdown(self, page: Any, server: Any) -> None:
-        """Test navigating to similarity dashboard via the ANALYSIS dropdown."""
+    def test_navigation_to_similarity_dashboard_via_binaries_dropdown(self, page: Any, server: Any) -> None:
+        """Test navigating to similarity dashboard via the BINARIES dropdown."""
         register_and_login(page)
 
-        # Use JS to force open ANALYSIS dropdown
-        open_analysis_dropdown(page)
-        page.wait_for_selector("#analysis-menu.is-open", state="visible", timeout=5000)
+        # Use JS to force open BINARIES dropdown
+        open_nav_dropdown(page, "binaries-menu")
+        page.wait_for_selector("#binaries-menu.is-open", state="visible", timeout=5000)
         similarity_link = page.locator('a[role="menuitem"][aria-label="Binary Similarity Dashboard"]')
         similarity_link.click()
         page.wait_for_url(f"{BASE_URL}/similarity-dashboard")

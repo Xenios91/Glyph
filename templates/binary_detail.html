@@ -5,6 +5,14 @@
 {% endblock head %}
 {% block content %}
 <div class="content blue-bg">
+    <!-- Breadcrumb -->
+    <nav aria-label="Breadcrumb" class="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item"><a href="/binary-library">LIBRARY</a></li>
+            <li class="breadcrumb-item" aria-current="page"><span id="breadcrumb-binary-name">BINARY</span></li>
+        </ol>
+    </nav>
+
     <!-- Header -->
     <div class="page-header">
         <p class="title">// BINARY DETAILS</p>
@@ -18,7 +26,13 @@
     </div>
 
     <!-- Main Content Card -->
-    <div id="detail-content" class="cyber-container binary-detail-card" style="display: none;">
+    <div id="detail-content" class="cyber-container binary-detail-card is-hidden">
+
+        <!-- Per-Binary Action Row (populated from the canonical BinaryActions list) -->
+        <div id="binary-actions" class="detail-section is-hidden" role="region" aria-label="Actions for this binary">
+            <p class="title">// ACTIONS</p>
+            <div id="binary-actions-list" class="task-option-grid"></div>
+        </div>
 
         <!-- Tab Navigation -->
         <div class="tab-nav" role="tablist" aria-label="Binary detail sections">
@@ -38,12 +52,12 @@
         <!-- Functions Panel -->
         <div class="tab-panel" id="panel-functions" role="tabpanel" aria-labelledby="tab-functions" aria-hidden="true">
             <div class="detail-section">
-                <div id="functions-empty" class="empty-state" style="display: none;">
+                <div id="functions-empty" class="empty-state is-hidden">
                     <p>No functions found. The binary may still be processing.</p>
                 </div>
 
-                <div id="functions-table-wrapper" class="table-wrapper" style="display: none;">
-                    <table class="cyber-table" role="grid" aria-label="Binary functions">
+                <div id="functions-table-wrapper" class="table-wrapper is-hidden">
+                    <table class="cyber-table" role="grid" aria-label="Binary functions" data-click-handler="goToBinaryFunction">
                         <thead>
                             <tr>
                                 <th scope="col">Function Name</th>
@@ -56,7 +70,7 @@
                 </div>
 
                 <!-- Pagination Controls -->
-                <div id="functions-pagination" class="pagination-controls" style="display: none;"></div>
+                <div id="functions-pagination" class="pagination-controls is-hidden"></div>
             </div>
         </div>
 
@@ -78,21 +92,21 @@
                 </div>
 
                 <!-- Call Graph Loading -->
-                <div id="graph-loading" class="loading-indicator" style="display: none;">
+                <div id="graph-loading" class="loading-indicator is-hidden">
                     <span class="loading-spinner"></span>
                     <span>Generating call graph...</span>
                 </div>
 
                 <!-- Call Graph Empty State -->
-                <div id="graph-empty" class="empty-state" style="display: none;">
+                <div id="graph-empty" class="empty-state is-hidden">
                     <p>No call data available. The binary may not have been decompiled yet.</p>
                 </div>
 
                 <!-- Call Graph Canvas Container -->
-                <div id="graph-container" class="graph-container" style="display: none;">
+                <div id="graph-container" class="graph-container is-hidden">
                     <canvas id="graph-canvas"></canvas>
                     <!-- Tooltip -->
-                    <div id="graph-tooltip" class="graph-tooltip" style="display: none;"></div>
+                    <div id="graph-tooltip" class="graph-tooltip is-hidden"></div>
                     <!-- Legend -->
                     <div class="graph-legend">
                         <div class="legend-item">
@@ -115,7 +129,7 @@
                 </div>
 
                 <!-- Call Graph Error -->
-                <div id="graph-error" class="cyber-container is-danger" style="display: none;">
+                <div id="graph-error" class="cyber-container is-danger is-hidden">
                     <p class="empty-state" id="graph-error-message">Failed to load call graph.</p>
                 </div>
             </div>
@@ -123,8 +137,8 @@
     </div>
 
     <!-- Error State -->
-    <div id="detail-error" class="cyber-container is-danger" style="display: none;">
-        <p class="title" style="color: var(--red);">// ERROR</p>
+    <div id="detail-error" class="cyber-container is-danger is-hidden">
+        <p class="title error-title">// ERROR</p>
         <p class="empty-state" id="error-message">Failed to load binary details.</p>
     </div>
 
@@ -137,6 +151,7 @@
 {% endblock content %}
 
 {% block scripts %}
+<script src="{{ static_url(request, 'js/binary_actions.js') }}" defer></script>
 <script src="{{ static_url(request, 'js/call_graph.js') }}" defer></script>
 <script src="{{ static_url(request, 'js/binary_detail.js') }}" defer></script>
 {% endblock scripts %}

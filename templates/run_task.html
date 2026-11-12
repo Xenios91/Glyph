@@ -40,16 +40,17 @@
         <div class="cyber-field">
             <label for="task-type">Task Type</label>
             <div class="cyber-select">
-                <select id="task-type" name="task_type" aria-required="true" onchange="handleTaskTypeChange()">
+                <select id="task-type" name="task_type" aria-required="true">
                     <option value="dangerous_functions">Dangerous Functions Scan</option>
                     <option value="ml_training">ML Training</option>
+                    <option value="ml_prediction">ML Prediction</option>
                 </select>
             </div>
             <span class="field-hint">Select the type of analysis to perform</span>
         </div>
 
         <!-- Dangerous Functions Options -->
-        <div id="dangerous-functions-options" class="task-options" style="display: none;">
+        <div id="dangerous-functions-options" class="task-options is-hidden">
             <div class="cyber-container with-title">
                 <p class="title">// DANGEROUS FUNCTIONS OPTIONS</p>
                 <p class="option-description">
@@ -59,7 +60,7 @@
         </div>
 
         <!-- ML Training Options -->
-        <div id="ml-training-options" class="task-options" style="display: none;">
+        <div id="ml-training-options" class="task-options is-hidden">
             <div class="cyber-container with-title">
                 <p class="title">// ML TRAINING OPTIONS</p>
                 <p class="option-description">
@@ -81,23 +82,46 @@
             </div>
         </div>
 
+        <!-- ML Prediction Options -->
+        <div id="ml-prediction-options" class="task-options is-hidden">
+            <div class="cyber-container with-title">
+                <p class="title">// ML PREDICTION OPTIONS</p>
+                <p class="option-description">
+                    Run predictions using an existing ML model on the functions from this binary.
+                </p>
+                <div class="cyber-field">
+                    <label for="prediction-model-name">Model Name</label>
+                    <input type="text" id="prediction-model-name" class="cyber-input" placeholder="ENTER MODEL NAME...">
+                    <span class="field-hint">Name of the existing ML model to run predictions with</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Execute Button -->
         <div class="execute-section">
-            <button id="execute-btn" class="cyber-btn is-primary is-large" onclick="executeTask()">
+            <button id="execute-btn" class="cyber-btn is-primary is-large" type="button">
                 EXECUTE TASK
             </button>
         </div>
 
-        <div id="task-error" class="field-error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+        <div id="task-error" class="field-error-message is-hidden" role="alert" aria-live="assertive"></div>
     </div>
 
     <!-- Task Status -->
-    <div id="task-status" class="cyber-container with-title is-centered" style="display: none;" role="status" aria-live="polite">
+    <div id="task-status" class="cyber-container with-title is-centered is-hidden" role="status" aria-live="polite">
         <p class="title">// TASK STATUS</p>
         <div class="status-content">
             <div class="status-spinner"></div>
+            <div id="run-task-task-meta" class="task-meta is-hidden">
+                <p class="task-meta-name" id="run-task-task-name"></p>
+                <p class="task-meta-elapsed" id="run-task-elapsed">0s elapsed</p>
+            </div>
             <p class="status-text" id="status-text">Task is being processed...</p>
             <p class="status-subtext" id="status-subtext">This may take a few moments</p>
+            <div class="task-actions">
+                <button type="button" id="run-task-background-btn" class="cyber-btn is-small" aria-label="Run task in background">RUN IN BACKGROUND</button>
+                <button type="button" id="run-task-cancel-btn" class="cyber-btn is-small is-danger" aria-label="Cancel task">CANCEL TASK</button>
+            </div>
         </div>
     </div>
 </div>

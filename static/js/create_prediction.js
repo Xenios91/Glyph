@@ -113,7 +113,7 @@
         if (!binarySelect || !binarySelect.value) {
             if (errorEl) {
                 errorEl.textContent = 'Please select a binary.';
-                errorEl.style.display = 'block';
+                errorEl.classList.remove('is-hidden');
             }
             return false;
         }
@@ -121,7 +121,7 @@
         if (!modelSelect || !modelSelect.value) {
             if (errorEl) {
                 errorEl.textContent = 'Please select a model.';
-                errorEl.style.display = 'block';
+                errorEl.classList.remove('is-hidden');
             }
             return false;
         }
@@ -129,13 +129,13 @@
         if (!taskName || !taskName.value.trim()) {
             if (errorEl) {
                 errorEl.textContent = 'Please enter a task name.';
-                errorEl.style.display = 'block';
+                errorEl.classList.remove('is-hidden');
             }
             return false;
         }
 
         if (errorEl) {
-            errorEl.style.display = 'none';
+            errorEl.classList.add('is-hidden');
         }
         return true;
     }
@@ -152,17 +152,17 @@
 
         if (!statusEl || !statusText) return;
 
-        statusEl.style.display = 'block';
+        statusEl.classList.remove('is-hidden');
         statusEl.classList.remove('is-error', 'is-success');
 
         if (isSuccess === true) {
             statusEl.classList.add('is-success');
-            if (spinner) spinner.style.display = 'none';
+            if (spinner) spinner.classList.add('is-hidden');
         } else if (isSuccess === false) {
             statusEl.classList.add('is-error');
-            if (spinner) spinner.style.display = 'none';
+            if (spinner) spinner.classList.add('is-hidden');
         } else {
-            if (spinner) spinner.style.display = 'block';
+            if (spinner) spinner.classList.remove('is-hidden');
         }
 
         statusText.textContent = message;
@@ -179,14 +179,58 @@
         }
     }
 
+    /** @type {string|null} */
+    let activeTaskUuid = null;
+
+    /** @type {boolean} */
+    let pollingActive = false;
+
+    /** @type {number|undefined} */
+    let elapsedTimerId = undefined;
+
+    /** @type {number} */
+    let taskStartedAt = 0;
+
+    /**
+     * Start the ticking "Xs elapsed" counter.
+     */
+    function startElapsedTimer() {
+        taskStartedAt = Date.now();
+        const elapsedEl = document.getElementById('create-prediction-elapsed');
+        const tick = function () {
+            if (elapsedEl) {
+                const seconds = Math.floor((Date.now() - taskStartedAt) / 1000);
+                elapsedEl.textContent = seconds + 's elapsed';
+            }
+        };
+        tick();
+        elapsedTimerId = setInterval(tick, 1000);
+    }
+
+    /**
+     * Stop the elapsed counter and hide the task meta row.
+     */
+    function stopElapsedTimer() {
+        if (elapsedTimerId) {
+            clearInterval(elapsedTimerId);
+            elapsedTimerId = undefined;
+        }
+        const metaEl = document.getElementById('create-prediction-task-meta');
+        if (metaEl) {
+            metaEl.classList.add('is-hidden');
+        }
+    }
+
     /**
      * Poll task status until completion or failure
      * @param {string} taskUuid - Task UUID to poll
      */
     async function pollTaskStatus(taskUuid) {
         const POLL_INTERVAL = 3000; // 3 seconds
+        pollingActive = true;
 
         const checkStatus = async () => {
+            if (!pollingActive) return;
             try {
                 const response = await authenticatedFetch(
                     '/api/v1/tasks/' + encodeURIComponent(taskUuid) + '/status',
@@ -195,23 +239,28 @@
 
                 if (!response.ok) {
                     console.error('[CREATE_PREDICTION] Status poll failed:', response.status);
-                    return 'unknown';
+                    setTimeout(checkStatus, POLL_INTERVAL);
+                    return;
                 }
 
                 const data = await response.json();
                 const status = data.data && data.data.status;
 
                 if (status === 'completed') {
+                    pollingActive = false;
+                    stopElapsedTimer();
                     showStatus('Prediction completed successfully!', true);
                     // Redirect to predictions page after a brief delay
                     setTimeout(function () {
                         window.location.href = '/getPredictions';
                     }, 1500);
-                    return 'done';
+                    return;
                 } else if (status === 'failed' || status === 'error') {
+                    pollingActive = false;
+                    stopElapsedTimer();
                     showStatus('Prediction failed.', false);
                     setButtonState(false);
-                    return 'done';
+                    return;
                 }
 
                 // Still running - update status and continue polling
@@ -225,6 +274,45 @@
 
         // Start polling
         setTimeout(checkStatus, POLL_INTERVAL);
+    }
+
+    /**
+     * Dismiss the blocking status panel and let the StatusBar track the task.
+     * The task keeps running on the server; the completion toast (with a link
+     * to the results page) is surfaced by the StatusBar.
+     */
+    function runInBackground() {
+        pollingActive = false;
+        stopElapsedTimer();
+        const statusEl = document.getElementById('create-prediction-status');
+        if (statusEl) {
+            statusEl.classList.add('is-hidden');
+        }
+        setButtonState(false);
+        if (typeof Toast !== 'undefined') {
+            Toast.info('Task is now running in the background. Track it in the status panel.', 4000);
+        }
+    }
+
+    /**
+     * Cancel the task (client-side only: no server cancel endpoint exists).
+     * Stops local polling and removes the StatusBar entry.
+     */
+    function cancelTask() {
+        pollingActive = false;
+        stopElapsedTimer();
+        if (activeTaskUuid && typeof StatusBar !== 'undefined') {
+            StatusBar.removeEntry(activeTaskUuid);
+        }
+        activeTaskUuid = null;
+        const statusEl = document.getElementById('create-prediction-status');
+        if (statusEl) {
+            statusEl.classList.add('is-hidden');
+        }
+        setButtonState(false);
+        if (typeof Toast !== 'undefined') {
+            Toast.warning('Task tracking cancelled. The server may still finish the job.', 4000);
+        }
     }
 
     /**
@@ -269,6 +357,25 @@
             const taskUuid = data.data && data.data.task_uuid;
 
             if (taskUuid) {
+                activeTaskUuid = taskUuid;
+                // Register with the global StatusBar so the task is tracked
+                // even if the user navigates away (run in background).
+                if (typeof StatusBar !== 'undefined') {
+                    StatusBar.registerTask(taskUuid, taskName, {
+                        resultLink: '/getPredictions',
+                        resultLabel: 'View predictions'
+                    });
+                }
+                // Show task name + ticking elapsed time in the status panel
+                const taskNameEl = document.getElementById('create-prediction-task-name');
+                if (taskNameEl) {
+                    taskNameEl.textContent = taskName;
+                }
+                const metaEl = document.getElementById('create-prediction-task-meta');
+                if (metaEl) {
+                    metaEl.classList.remove('is-hidden');
+                }
+                startElapsedTimer();
                 showStatus('Prediction task submitted. Processing...', null);
                 pollTaskStatus(taskUuid);
             } else {
@@ -293,6 +400,16 @@
         const btn = document.getElementById('create-prediction-btn');
         if (btn) {
             btn.addEventListener('click', handleCreatePrediction);
+        }
+
+        const bgBtn = document.getElementById('create-prediction-background-btn');
+        if (bgBtn) {
+            bgBtn.addEventListener('click', runInBackground);
+        }
+
+        const cancelBtn = document.getElementById('create-prediction-cancel-btn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', cancelTask);
         }
     }
 

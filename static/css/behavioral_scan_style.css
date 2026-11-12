@@ -71,7 +71,7 @@
     gap: 0.35rem;
 }
 
-.control-group.button-group {
+.control-group.btn-group {
     flex-direction: row;
     align-items: flex-end;
     margin-left: auto;
@@ -662,7 +662,7 @@
         align-items: stretch;
     }
 
-    .control-group.button-group {
+    .control-group.btn-group {
         margin-left: 0;
         justify-content: stretch;
     }

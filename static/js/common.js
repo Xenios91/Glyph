@@ -235,9 +235,9 @@ function showError(elementId, message) {
     const errorDiv = document.getElementById(elementId);
     if (errorDiv) {
         errorDiv.textContent = message;
-        errorDiv.style.display = 'block';
+        errorDiv.classList.remove('is-hidden');
         setTimeout(() => {
-            errorDiv.style.display = 'none';
+            errorDiv.classList.add('is-hidden');
         }, 5000);
     }
 }
@@ -249,7 +249,7 @@ function showError(elementId, message) {
 function hideError(elementId) {
     const errorDiv = document.getElementById(elementId);
     if (errorDiv) {
-        errorDiv.style.display = 'none';
+        errorDiv.classList.add('is-hidden');
     }
 }
 
@@ -705,7 +705,11 @@ class Pagination {
     setVisible(show) {
         const paginationEl = document.querySelector(this.paginationSelector);
         if (paginationEl) {
-            paginationEl.style.display = show ? '' : 'none';
+            if (show) {
+                paginationEl.classList.remove('is-hidden');
+            } else {
+                paginationEl.classList.add('is-hidden');
+            }
         }
     }
 
@@ -955,11 +959,161 @@ class Pagination {
 // ============================================================
 
 // Initialize back button handlers (replaces inline onclick="history.back()")
+// If the user landed directly on the page (deep link / refresh / new tab) —
+// detected statelessly via document.referrer (empty or not same-origin) —
+// navigate to the button's data-fallback destination instead, defaulting to /.
 document.addEventListener('DOMContentLoaded', function() {
+    var appOrigin = window.location.origin;
     var backButtons = document.querySelectorAll('.back-btn');
     backButtons.forEach(function(btn) {
         btn.addEventListener('click', function() {
-            history.back();
+            var referrer = document.referrer || '';
+            var hasInAppHistory = referrer.indexOf(appOrigin) === 0;
+            if (hasInAppHistory) {
+                history.back();
+            } else {
+                window.location.href = btn.getAttribute('data-fallback') || '/';
+            }
         });
     });
 });
+
+// ============================================================
+// Styled confirmation modal (replaces the native browser dialog)
+// ============================================================
+
+/**
+ * Show a themed, promise-based confirmation dialog.
+ *
+ * The dialog is built dynamically (no template changes), traps focus between
+ * the two action buttons, and resolves with the user's choice so call sites
+ * can `await` it:
+ *
+ *   const ok = await showConfirm({
+ *       title: 'Delete Model',
+ *       message: 'Delete model "my-model"?',
+ *       confirmLabel: 'Delete',
+ *   });
+ *
+ * Keyboard behavior (consistent with the other app modals):
+ *   - Escape  -> cancel (resolves false)
+ *   - Enter   -> confirm (resolves true), unless a button already has focus
+ *   - Tab     -> toggle focus between the cancel and confirm buttons
+ * Clicking the overlay backdrop also cancels.
+ *
+ * @param {Object} [options]
+ * @param {string} [options.title='Confirm Action']  Dialog title.
+ * @param {string} [options.message='']              Dialog message (plain text,
+ *        set via textContent so untrusted item names cannot inject markup).
+ * @param {string} [options.confirmLabel='Confirm']  Confirm button label.
+ * @param {string} [options.cancelLabel='Cancel']    Cancel button label.
+ * @param {boolean} [options.danger=true]            Style the confirm button
+ *        as a destructive (red) action.
+ * @returns {Promise<boolean>} Resolves true when confirmed, false when cancelled.
+ */
+function showConfirm(options) {
+    const opts = options || {};
+    const title = opts.title || 'Confirm Action';
+    const message = opts.message || '';
+    const confirmLabel = opts.confirmLabel || 'Confirm';
+    const cancelLabel = opts.cancelLabel || 'Cancel';
+    const danger = opts.danger !== false;
+
+    return new Promise(function(resolve) {
+        const previouslyFocused = document.activeElement;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'confirm-modal-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'confirm-modal-title');
+
+        const modal = document.createElement('div');
+        modal.className = 'confirm-modal';
+
+        const heading = document.createElement('h2');
+        heading.className = 'confirm-modal-title';
+        heading.id = 'confirm-modal-title';
+        heading.textContent = title;
+
+        const body = document.createElement('p');
+        body.className = 'confirm-modal-message';
+        body.textContent = message;
+
+        const actions = document.createElement('div');
+        actions.className = 'confirm-modal-actions';
+
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.className = 'cyber-btn';
+        cancelButton.textContent = cancelLabel;
+
+        const confirmButton = document.createElement('button');
+        confirmButton.type = 'button';
+        confirmButton.className = 'cyber-btn' + (danger ? ' is-danger' : ' is-success');
+        confirmButton.textContent = confirmLabel;
+
+        actions.appendChild(cancelButton);
+        actions.appendChild(confirmButton);
+        modal.appendChild(heading);
+        modal.appendChild(body);
+        modal.appendChild(actions);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        overlay.classList.add('is-visible');
+
+        let settled = false;
+        const cleanup = function() {
+            document.removeEventListener('keydown', onKeydown, true);
+            overlay.removeEventListener('mousedown', onOverlayMouseDown);
+            overlay.remove();
+            if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                previouslyFocused.focus();
+            }
+        };
+        const settle = function(result) {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            resolve(result);
+        };
+
+        // Capture phase so we win against page-level (bubble) keydown handlers,
+        // e.g. the profile page's Escape-to-close-modal handler.
+        const onKeydown = function(e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                settle(false);
+                return;
+            }
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const next = document.activeElement === cancelButton ? confirmButton : cancelButton;
+                next.focus();
+                return;
+            }
+            if (e.key === 'Enter') {
+                const active = document.activeElement;
+                if (active === cancelButton || active === confirmButton) {
+                    return; // Let the focused button's native click handle it.
+                }
+                e.preventDefault();
+                settle(true);
+            }
+        };
+        document.addEventListener('keydown', onKeydown, true);
+
+        const onOverlayMouseDown = function(e) {
+            if (e.target === overlay) {
+                settle(false);
+            }
+        };
+        overlay.addEventListener('mousedown', onOverlayMouseDown);
+
+        cancelButton.addEventListener('click', function() { settle(false); });
+        confirmButton.addEventListener('click', function() { settle(true); });
+
+        confirmButton.focus();
+    });
+}

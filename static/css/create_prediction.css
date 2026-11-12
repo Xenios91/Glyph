@@ -86,6 +86,36 @@
     color: var(--green, #00ff88);
 }
 
+/* Task meta (name + elapsed time) */
+.task-meta {
+    text-align: center;
+    margin: 0.75rem 0;
+}
+
+.task-meta-name {
+    font-family: var(--font-code, 'Source Code Pro', monospace);
+    font-size: 1rem;
+    color: var(--cyan, #00f0ff);
+    margin: 0 0 0.25rem;
+    word-break: break-all;
+}
+
+.task-meta-elapsed {
+    font-family: var(--font-body, 'Rajdhani', sans-serif);
+    font-size: 0.9rem;
+    color: var(--text-muted, #8892b0);
+    margin: 0;
+}
+
+/* Task actions (run in background / cancel) */
+.task-actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .page-header .title {

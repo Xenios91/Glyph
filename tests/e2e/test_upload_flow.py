@@ -5,6 +5,7 @@ Tests the file upload functionality on the binary library page, including
 form validation, error handling, and UI feedback.
 """
 
+import re
 from typing import Any
 
 from playwright.sync_api import expect
@@ -115,3 +116,98 @@ class TestUploadInteraction:
         aria_label = drop_zone.get_attribute("aria-label")
         assert aria_label is not None
         assert "drag" in aria_label.lower() or "drop" in aria_label.lower()
+
+
+class TestUploadInlineErrors:
+    """Tests for inline field-error feedback on invalid files (R1 port)."""
+
+    def test_empty_file_shows_inline_error(self, page: Any, server: Any) -> None:
+        """An empty file must produce an inline error, not just a toast."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/binary-library")
+        page.wait_for_load_state("networkidle")
+
+        # Selecting an empty file fails validation before any upload starts.
+        page.locator("#upload-binary").set_input_files(
+            {"name": "empty.bin", "mimeType": "application/octet-stream", "buffer": b""}
+        )
+
+        error = page.locator("#upload-error")
+        expect(error).to_be_visible()
+        expect(error).to_contain_text("empty")
+
+        # The drop zone is marked with the inline error state and the file
+        # input is flagged for assistive technology.
+        drop_zone = page.locator("#drop-zone")
+        expect(drop_zone).to_have_class(re.compile(r"is-error"))
+        expect(page.locator("#upload-binary")).to_have_attribute("aria-invalid", "true")
+
+        # No upload was started: progress stays hidden.
+        assert not page.locator("#upload-progress").is_visible()
+
+    def test_valid_file_clears_inline_error(self, page: Any, server: Any) -> None:
+        """Selecting a valid file after an error clears the inline state."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/binary-library")
+        page.wait_for_load_state("networkidle")
+
+        # First, trigger the inline error with an empty file.
+        page.locator("#upload-binary").set_input_files(
+            {"name": "empty.bin", "mimeType": "application/octet-stream", "buffer": b""}
+        )
+        expect(page.locator("#upload-error")).to_be_visible()
+
+        # A valid file clears the error state; the upload then starts.
+        page.locator("#upload-binary").set_input_files(
+            {"name": "sample.bin", "mimeType": "application/octet-stream",
+             "buffer": b"\x7fELF" + b"\x00" * 64}
+        )
+
+        drop_zone = page.locator("#drop-zone")
+        expect(drop_zone).not_to_have_class(re.compile(r"is-error"))
+        expect(page.locator("#upload-error")).not_to_be_visible()
+        expect(page.locator("#upload-progress")).to_be_visible()
+
+
+class TestUploadUnloadGuard:
+    """Tests for the beforeunload guard during an in-flight upload (R1 port)."""
+
+    def test_beforeunload_guard_during_upload(self, page: Any, server: Any) -> None:
+        """The unload guard must be armed mid-transfer and released on cancel."""
+        register_and_login(page)
+
+        page.goto(f"{BASE_URL}/binary-library")
+        page.wait_for_load_state("networkidle")
+
+        # Hold the upload request open so the transfer never completes.
+        page.route("**/api/v1/binaries/uploadBinary", lambda route: None)
+
+        page.locator("#upload-binary").set_input_files(
+            {"name": "slow.bin", "mimeType": "application/octet-stream",
+             "buffer": b"\x7fELF" + b"\x00" * 64}
+        )
+        page.wait_for_selector("#upload-progress", state="visible")
+
+        # While the transfer is in flight, a beforeunload event must be
+        # cancelled by the guard (this is what makes the browser show the
+        # native "leave site?" confirmation in real usage).
+        prevented = page.evaluate(
+            "() => { const e = new Event('beforeunload', {cancelable: true});"
+            " window.dispatchEvent(e); return e.defaultPrevented; }"
+        )
+        assert prevented is True
+
+        # Cancelling the upload releases the guard: a subsequent
+        # beforeunload event must no longer be cancelled.
+        page.locator("#upload-cancel").click()
+        expect(page.locator("#upload-error")).to_contain_text("cancelled")
+
+        prevented_after = page.evaluate(
+            "() => { const e = new Event('beforeunload', {cancelable: true});"
+            " window.dispatchEvent(e); return e.defaultPrevented; }"
+        )
+        assert prevented_after is False
+
+        page.unroute("**/api/v1/binaries/uploadBinary")

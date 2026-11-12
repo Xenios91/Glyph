@@ -19,6 +19,7 @@
                     <th scope="col">Task Name</th>
                     <th scope="col">Model Name</th>
                     <th scope="col">Function Count</th>
+                    <th scope="col" class="chevron-cell" aria-hidden="true"></th>
                 </tr>
             </thead>
             <tbody>
@@ -30,12 +31,13 @@
                     tabindex="0"
                     role="row"
                     aria-label="Prediction: {{ prediction.task_name | e }}">
-                    <td class="checkbox-cell">
+                    <td class="checkbox-cell" data-label="Select">
                         <input type="checkbox" class="prediction-select-checkbox" data-task-name="{{ prediction.task_name | e }}" aria-label="Select {{ prediction.task_name | e }}">
                     </td>
-                    <td>{{ prediction.task_name | e }}</td>
-                    <td>{{ prediction.model_name | e }}</td>
-                    <td>{{ prediction.function_count }}</td>
+                    <td data-label="Task Name">{{ prediction.task_name | e }}</td>
+                    <td data-label="Model Name">{{ prediction.model_name | e }}</td>
+                    <td data-label="Function Count">{{ prediction.function_count }}</td>
+                    <td class="chevron-cell" data-label="VIEW" aria-hidden="true"><span class="row-chevron">&#8250;</span></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -43,9 +45,13 @@
     </div>
     <!-- Pagination Controls -->
     <div id="predictions-pagination" class="pagination-controls"></div>
-    <div class="btn-group" style="margin-top: 1.5rem;">
+    <div class="predictions-hint-banner" role="note">
+        <span>Select a prediction to view its results.</span>
+        <a href="/create-prediction" aria-label="Run a new prediction">RUN ANOTHER &rarr;</a>
+    </div>
+    <div class="btn-group predictions-actions-spacer">
         <button type="button" id="delete-selected-predictions-btn" class="cyber-btn is-danger delete-selected-btn" disabled aria-label="Delete selected predictions">Delete Selected</button>
-        <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
+        <button type="button" class="cyber-btn is-primary back-btn" data-fallback="/" aria-label="Go back">Go Back</button>
     </div>
     {% else %}
     {% include 'components/no_predictions_empty_state.html' %}

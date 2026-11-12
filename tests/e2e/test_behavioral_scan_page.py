@@ -181,18 +181,18 @@ class TestBehavioralScanPage:
         expect(page.locator("#taint-analyze-btn")).to_have_count(0)
 
     def test_behavioral_scan_navbar_link_present(self, page: Any, server: Any) -> None:
-        """Test that the behavioral scan link is present in the ANALYSIS navbar dropdown."""
+        """Test that the behavioral scan link is present in the SCANNING navbar dropdown."""
         register_and_login(page)
 
         page.goto(f"{BASE_URL}/")
         page.wait_for_load_state("networkidle")
 
-        # Open the ANALYSIS dropdown via JavaScript (hover is unreliable in headless)
+        # Open the SCANNING dropdown via JavaScript (hover is unreliable in headless)
         page.evaluate("""
-            const analysisMenu = document.getElementById('analysis-menu');
-            const toggle = analysisMenu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
-            if (analysisMenu && toggle) {
-                analysisMenu.classList.add('is-open');
+            const scanningMenu = document.getElementById('scanning-menu');
+            const toggle = scanningMenu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
+            if (scanningMenu && toggle) {
+                scanningMenu.classList.add('is-open');
                 toggle.setAttribute('aria-expanded', 'true');
             }
         """)

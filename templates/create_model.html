@@ -43,7 +43,7 @@
         </div>
 
         <!-- Error message container -->
-        <div id="create-model-error" class="field-error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+        <div id="create-model-error" class="field-error-message is-hidden" role="alert" aria-live="assertive"></div>
 
         <!-- Submit Button -->
         <div class="submit-section">
@@ -54,10 +54,18 @@
     </div>
 
     <!-- Status Message -->
-    <div id="create-model-status" class="cyber-container with-title is-centered" style="display: none;" role="status" aria-live="polite">
+    <div id="create-model-status" class="cyber-container with-title is-centered is-hidden" role="status" aria-live="polite">
         <p class="title">// TRAINING STATUS</p>
-        <div id="status-spinner" class="status-spinner" style="display: none;"></div>
+        <div id="status-spinner" class="status-spinner is-hidden"></div>
+        <div id="create-model-task-meta" class="task-meta is-hidden">
+            <p class="task-meta-name" id="create-model-task-name"></p>
+            <p class="task-meta-elapsed" id="create-model-elapsed">0s elapsed</p>
+        </div>
         <p id="create-model-status-text"></p>
+        <div class="task-actions">
+            <button type="button" id="create-model-background-btn" class="cyber-btn is-small" aria-label="Run training in background">RUN IN BACKGROUND</button>
+            <button type="button" id="create-model-cancel-btn" class="cyber-btn is-small is-danger" aria-label="Cancel training task">CANCEL TASK</button>
+        </div>
     </div>
 </div>
 

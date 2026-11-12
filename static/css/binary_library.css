@@ -65,6 +65,13 @@
     background-color: rgba(125, 216, 216, 0.05);
 }
 
+/* Inline validation error state (R1 port): red border when a selected file
+   fails validation (empty / over the size limit). */
+.drop-zone.is-error {
+    border-color: var(--red);
+    background-color: rgba(201, 84, 106, 0.05);
+}
+
 .drop-zone-text {
     display: block;
     font-family: var(--font-display);
@@ -116,6 +123,45 @@
     color: var(--text-dim);
     text-align: center;
     margin-top: var(--space-xs);
+    margin-bottom: 0;
+}
+
+.progress-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    margin-top: var(--space-xs);
+}
+
+.progress-row .progress-text {
+    margin-top: 0;
+    flex: 1;
+}
+
+/* Indeterminate (processing) state: animated fill, no false percentage */
+.progress-fill.is-indeterminate {
+    width: 40% !important;
+    animation: progress-indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-indeterminate {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(250%);
+    }
+}
+
+/* Upload limit hint in the drop zone (R18) */
+.upload-limit-hint {
+    display: block;
+    margin-top: var(--space-sm);
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-align: center;
 }
 
 /* ── Loading Indicator ─────────────────────────────────────── */
@@ -419,6 +465,21 @@
 .task-modal-close:hover {
     color: var(--cyan, #7dd8d8);
     border-color: var(--cyan, #7dd8d8);
+}
+
+/* ── Skeleton loading rows ──────────────────────────────────── */
+.skeleton-row td {
+    padding: var(--space-sm) var(--space-md);
+}
+
+.skeleton-cell {
+    height: 1rem;
+    width: 100%;
+    max-width: 80%;
+}
+
+.skeleton-cell.is-narrow {
+    max-width: 50%;
 }
 
 /* ── Responsive ─────────────────────────────────────────────── */

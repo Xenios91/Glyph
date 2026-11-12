@@ -36,7 +36,7 @@ class TestPredictionsPage:
         page.wait_for_load_state("networkidle")
 
         # Either empty state or predictions table should be visible
-        empty_state = page.locator(".no-predictions-empty-state")
+        empty_state = page.locator(".empty-state-page")
         predictions_table = page.locator(".cyber-table")
         assert empty_state.is_visible() or predictions_table.is_visible(), (
             "Predictions page should show either empty state or predictions table"
@@ -49,7 +49,7 @@ class TestPredictionsPage:
         page.goto(f"{BASE_URL}/getPredictions")
         page.wait_for_load_state("networkidle")
 
-        empty_state = page.locator(".no-predictions-empty-state")
+        empty_state = page.locator(".empty-state-page")
         if empty_state.is_visible():
             expect(page.locator(".empty-state-title")).to_be_visible()
             expect(page.locator(".empty-state-title")).to_contain_text("NO PREDICTIONS AVAILABLE")
@@ -61,7 +61,7 @@ class TestPredictionsPage:
         page.goto(f"{BASE_URL}/getPredictions")
         page.wait_for_load_state("networkidle")
 
-        empty_state = page.locator(".no-predictions-empty-state")
+        empty_state = page.locator(".empty-state-page")
         if empty_state.is_visible():
             # Check that at least one description paragraph exists within the empty state
             description = empty_state.locator(".empty-state-description")
@@ -79,7 +79,7 @@ class TestPredictionsPage:
         page.wait_for_load_state("networkidle")
 
         # Check if empty state is visible - it should have the create link
-        empty_state = page.locator(".no-predictions-empty-state")
+        empty_state = page.locator(".empty-state-page")
         if empty_state.is_visible():
             create_link = empty_state.locator('a[href="/create-prediction"]')
             assert create_link.count() > 0, "Empty state should have a link to create prediction"

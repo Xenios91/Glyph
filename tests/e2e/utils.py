@@ -175,50 +175,30 @@ def logout_user(page: Any, username: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def open_analysis_dropdown(page: Any) -> None:
-    """Force-open the ANALYSIS navigation dropdown via JavaScript.
+def open_nav_dropdown(page: Any, menu_id: str) -> None:
+    """Force-open a navigation dropdown via JavaScript.
+
+    Hover is unreliable in headless browsers, so tests open dropdowns by
+    adding the ``is-open`` class directly through the page's JS context.
 
     Args:
         page: Playwright page object.
+        menu_id: The id of the dropdown menu element (e.g. ``binaries-menu``).
 
     """
-    page.evaluate("""
-      const analysisMenu = document.getElementById('analysis-menu');
-      const analysisToggle = analysisMenu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
-      if (analysisMenu && analysisToggle) {
-        analysisMenu.classList.add('is-open');
-        analysisToggle.setAttribute('aria-expanded', 'true');
-      }
-    """)
-
-
-def open_code_reuse_submenu(page: Any) -> None:
-    """Force-open the CODE REUSE sub-menu within the ANALYSIS dropdown.
-
-    Args:
-        page: Playwright page object.
-
-    """
-    page.evaluate("""
-      const codeReuseMenu = document.getElementById('code-reuse-menu');
-      const codeReuseToggle = codeReuseMenu?.closest('.nav-dropdown-sub')?.querySelector('.nav-dropdown-sub-toggle');
-      if (codeReuseMenu && codeReuseToggle) {
-        codeReuseMenu.classList.add('is-open');
-        codeReuseToggle.setAttribute('aria-expanded', 'true');
-      }
-    """)
-
-
-def open_system_dropdown(page: Any) -> None:
-    """Open the SYSTEM navigation dropdown via hover.
-
-    Args:
-        page: Playwright page object.
-
-    """
-    system_toggle = page.locator('button:has-text("SYSTEM")')
-    system_toggle.hover()
-    page.wait_for_selector("#system-menu.is-open", state="visible", timeout=5000)
+    page.evaluate(
+        """
+        (menuId) => {
+          const menu = document.getElementById(menuId);
+          const toggle = menu?.closest('.nav-dropdown')?.querySelector('.nav-dropdown-toggle');
+          if (menu && toggle) {
+            menu.classList.add('is-open');
+            toggle.setAttribute('aria-expanded', 'true');
+          }
+        }
+        """,
+        menu_id,
+    )
 
 
 def open_user_dropdown(page: Any, username: str) -> None:

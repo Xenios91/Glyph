@@ -165,6 +165,40 @@ td[id$="-status"] {
     text-align: center;
 }
 
+/* ── Clickable row affordance ───────────────────────────────── */
+.cyber-table tbody tr.clickable-row {
+    cursor: pointer;
+}
+
+.cyber-table tbody tr.clickable-row:hover {
+    background: rgba(125, 216, 216, 0.08);
+}
+
+.cyber-table tbody tr.clickable-row:focus {
+    outline: 2px solid var(--cyan);
+    outline-offset: -2px;
+}
+
+/* Trailing chevron cell on clickable rows */
+.cyber-table .chevron-cell {
+    width: 40px;
+    text-align: center;
+}
+
+.cyber-table .row-chevron {
+    display: inline-block;
+    color: var(--cyan-dim);
+    font-size: var(--text-lg);
+    line-height: 1;
+    transition: color var(--duration-fast) ease, transform var(--duration-fast) ease;
+}
+
+.cyber-table tbody tr:hover .row-chevron,
+.cyber-table tbody tr:focus .row-chevron {
+    color: var(--cyan-bright);
+    transform: translateX(2px);
+}
+
 /* ── Pagination Controls ─────────────────────────────────────── */
 .pagination-controls {
     display: flex;

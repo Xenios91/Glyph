@@ -34,8 +34,8 @@
                 <span class="loading-spinner"></span>
                 <span>Loading binaries...</span>
             </div>
-            <div id="binaries-list" class="binaries-list" style="display: none;"></div>
-            <div id="no-binaries" class="empty-state" style="display: none;">
+            <div id="binaries-list" class="binaries-list is-hidden"></div>
+            <div id="no-binaries" class="empty-state is-hidden">
                 <p>No binaries found. Upload binaries first to run similarity analysis.</p>
                 <a href="/binary-library" class="cyber-btn is-primary">Go to Binary Library</a>
             </div>
@@ -50,11 +50,11 @@
     </div>
 
     <!-- Progress Indicator -->
-    <div id="progress-panel" class="cyber-container with-title is-centered" style="display: none;" role="status" aria-live="polite">
+    <div id="progress-panel" class="cyber-container with-title is-centered is-hidden" role="status" aria-live="polite">
         <h2>Computing Similarity Matrix</h2>
         <div class="progress-wrapper">
             <div class="progress-bar-track">
-                <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+                <div id="progress-bar-fill" class="progress-bar-fill"></div>
             </div>
             <p id="progress-text">Initializing...</p>
         </div>
@@ -67,14 +67,14 @@
             <span class="loading-spinner"></span>
             <span>Loading saved computations...</span>
         </div>
-        <div id="saved-list" class="saved-list" style="display: none;"></div>
-        <div id="no-saved" class="empty-state" style="display: none;">
+        <div id="saved-list" class="saved-list is-hidden"></div>
+        <div id="no-saved" class="empty-state is-hidden">
             <p>No saved computations yet. Run a similarity analysis to get started.</p>
         </div>
     </div>
 
     <!-- Results Panel -->
-    <div id="results-panel" class="cyber-container with-title is-centered" style="display: none;" role="region" aria-labelledby="results-title">
+    <div id="results-panel" class="cyber-container with-title is-centered is-hidden" role="region" aria-labelledby="results-title">
         <h2 id="results-title">Similarity Results</h2>
 
         <!-- Results Header -->
@@ -89,11 +89,11 @@
         <!-- Heatmap Container -->
         <div id="heatmap-container" class="heatmap-container">
             <canvas id="heatmap-canvas" aria-label="Similarity heatmap visualization"></canvas>
-            <div id="heatmap-tooltip" class="heatmap-tooltip" style="display: none;"></div>
+            <div id="heatmap-tooltip" class="heatmap-tooltip is-hidden"></div>
         </div>
 
         <!-- Table Container -->
-        <div id="table-container" class="table-container" style="display: none;">
+        <div id="table-container" class="table-container is-hidden">
             <div class="table-wrapper">
                 <table class="cyber-table" role="grid" aria-label="Similarity pairs">
                     <thead>
@@ -109,7 +109,7 @@
                 </table>
             </div>
             <!-- Pagination Controls -->
-            <div id="similarity-pagination" class="pagination-controls" style="display: none;"></div>
+            <div id="similarity-pagination" class="pagination-controls is-hidden"></div>
         </div>
     </div>
 

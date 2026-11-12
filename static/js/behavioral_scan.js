@@ -173,16 +173,10 @@ function setupEventListeners() {
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (contextModal && contextModal.style.display !== 'none') {
+            if (contextModal && !contextModal.classList.contains('is-hidden')) {
                 closeModal();
             }
         }
-    });
-
-    document.querySelectorAll('.back-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            window.location.href = '/';
-        });
     });
 
     document
@@ -452,8 +446,8 @@ function setScanLoading(loading) {
     const btnText = scanBtn.querySelector('.btn-text');
     const btnLoading = scanBtn.querySelector('.btn-loading');
     scanBtn.disabled = loading || !targetSelect.value;
-    if (btnText) btnText.style.display = loading ? 'none' : '';
-    if (btnLoading) btnLoading.style.display = loading ? '' : 'none';
+    if (btnText) btnText.classList.toggle('is-hidden', loading);
+    if (btnLoading) btnLoading.classList.toggle('is-hidden', !loading);
 }
 
 /* ── Results Display ──────────────────────────────────────────── */
@@ -478,15 +472,15 @@ function displayResults(data, targetName) {
     updateScanButtonState();
 
     if (!displayOrder.length) {
-        scanSummary.style.display = '';
-        noResultsMessage.style.display = '';
-        scanResultsContainer.style.display = 'none';
+        scanSummary.classList.remove('is-hidden');
+        noResultsMessage.classList.remove('is-hidden');
+        scanResultsContainer.classList.add('is-hidden');
         return;
     }
 
-    scanSummary.style.display = '';
-    scanResultsContainer.style.display = '';
-    noResultsMessage.style.display = 'none';
+    scanSummary.classList.remove('is-hidden');
+    scanResultsContainer.classList.remove('is-hidden');
+    noResultsMessage.classList.add('is-hidden');
     updateSortIndicators();
     renderResultsTable();
 
@@ -542,7 +536,7 @@ async function checkStoredResults() {
 
     const count = report.total_found || 0;
     storedResultsText.textContent = `Stored scan results available for this target (${count} finding${count === 1 ? '' : 's'}).`;
-    storedResultsBanner.style.display = '';
+    storedResultsBanner.classList.remove('is-hidden');
     updateViewStoredButtonState();
 
     if (!hasFindingsForCurrentTarget()) {
@@ -590,8 +584,8 @@ async function deleteStoredResults() {
     const btnText = deleteStoredBtn.querySelector('.btn-text');
     const btnLoading = deleteStoredBtn.querySelector('.btn-loading');
     deleteStoredBtn.disabled = true;
-    if (btnText) btnText.style.display = 'none';
-    if (btnLoading) btnLoading.style.display = '';
+    if (btnText) btnText.classList.add('is-hidden');
+    if (btnLoading) btnLoading.classList.remove('is-hidden');
 
     try {
         const response = await fetch(
@@ -612,8 +606,8 @@ async function deleteStoredResults() {
         showScanError('Failed to delete stored scan results.');
     } finally {
         deleteStoredBtn.disabled = false;
-        if (btnText) btnText.style.display = '';
-        if (btnLoading) btnLoading.style.display = 'none';
+        if (btnText) btnText.classList.remove('is-hidden');
+        if (btnLoading) btnLoading.classList.add('is-hidden');
     }
 }
 
@@ -622,7 +616,7 @@ async function deleteStoredResults() {
  */
 function hideStoredResultsBanner() {
     if (storedResultsBanner) {
-        storedResultsBanner.style.display = 'none';
+        storedResultsBanner.classList.add('is-hidden');
     }
     updateViewStoredButtonState();
 }
@@ -678,13 +672,13 @@ function openContextModal(result) {
     const code = result.containing_function_code;
     if (code) {
         modalContainingCodeEl.textContent = code;
-        containingCodeSection.style.display = '';
+        containingCodeSection.classList.remove('is-hidden');
     } else {
         modalContainingCodeEl.textContent = '';
-        containingCodeSection.style.display = 'none';
+        containingCodeSection.classList.add('is-hidden');
     }
 
-    contextModal.style.display = 'flex';
+    contextModal.classList.remove('is-hidden');
 }
 
 /**
@@ -692,7 +686,7 @@ function openContextModal(result) {
  */
 function closeModal() {
     if (contextModal) {
-        contextModal.style.display = 'none';
+        contextModal.classList.add('is-hidden');
     }
 }
 
@@ -702,9 +696,9 @@ function closeModal() {
  * Hide all results-related UI.
  */
 function hideResults() {
-    if (scanSummary) scanSummary.style.display = 'none';
-    if (scanResultsContainer) scanResultsContainer.style.display = 'none';
-    if (noResultsMessage) noResultsMessage.style.display = 'none';
+    if (scanSummary) scanSummary.classList.add('is-hidden');
+    if (scanResultsContainer) scanResultsContainer.classList.add('is-hidden');
+    if (noResultsMessage) noResultsMessage.classList.add('is-hidden');
     hideStoredResultsBanner();
     lastScanData = null;
     displayOrder = [];
@@ -721,7 +715,7 @@ function showScanError(message) {
         scanErrorMessage.textContent = message;
     }
     if (scanError) {
-        scanError.style.display = '';
+        scanError.classList.remove('is-hidden');
     }
 }
 
@@ -730,7 +724,7 @@ function showScanError(message) {
  */
 function hideError() {
     if (scanError) {
-        scanError.style.display = 'none';
+        scanError.classList.add('is-hidden');
     }
 }
 

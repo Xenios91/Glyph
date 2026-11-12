@@ -63,31 +63,28 @@ function initRegisterForm() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        // Validate before submission
+        // Validate before submission (inline field-level errors only;
+        // toasts are reserved for submission/async outcomes)
         if (usernameInput.value.length < 3) {
             usernameInput.classList.add('is-error');
-            Toast.error('Username must be at least 3 characters');
             usernameInput.focus();
             return;
         }
 
         if (!isValidEmail(emailInput.value)) {
             emailInput.classList.add('is-error');
-            Toast.error('Please enter a valid email address');
             emailInput.focus();
             return;
         }
 
         if (passwordInput.value.length < 8) {
             passwordInput.classList.add('is-error');
-            Toast.error('Password must be at least 8 characters');
             passwordInput.focus();
             return;
         }
 
         if (passwordInput.value !== confirmPasswordInput.value) {
             confirmPasswordInput.classList.add('is-error');
-            Toast.error('Passwords do not match');
             confirmPasswordInput.focus();
             return;
         }
@@ -122,12 +119,12 @@ function initRegisterForm() {
             } else {
                 const error = await response.json();
                 const errorMessage = error?.error?.message || error?.detail || 'Registration failed';
-                showError('register-error', errorMessage);
+                // Single error surface: submission outcomes go to the toast only
                 Toast.error(errorMessage);
             }
         } catch (err) {
             console.error('Registration error:', err);
-            showError('register-error', 'Network error. Please try again.');
+            // Single error surface: submission outcomes go to the toast only
             Toast.error('Network error. Please try again.');
         } finally {
             submitBtn.disabled = false;

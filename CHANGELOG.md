@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The navbar's single ANALYSIS dropdown was split into three category dropdowns — BINARIES (Library, Similarity), MACHINE LEARNING (Create Model, Models, Predictions), and SCANNING (Dangerous Functions, Behavioral Scan) — so each top-level menu is short and self-describing; CONFIG remains a top-level link
+
 ## [0.3.0] - 2026-10-14
 
 ### Added

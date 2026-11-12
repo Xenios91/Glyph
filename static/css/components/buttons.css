@@ -76,9 +76,8 @@ button.cyber-btn:disabled {
     box-shadow: 0 0 18px rgba(212, 200, 122, 0.4);
 }
 
-/* ── Variant: Danger/Delete/Error (red) ─────────────────────── */
+/* ── Variant: Danger/Error (red) ────────────────────────────── */
 .cyber-btn.is-danger,
-.cyber-btn.is-delete,
 .cyber-btn.is-error {
     border-color: var(--red);
     color: var(--red);
@@ -86,7 +85,6 @@ button.cyber-btn:disabled {
 }
 
 .cyber-btn.is-danger:hover:not(:disabled),
-.cyber-btn.is-delete:hover:not(:disabled),
 .cyber-btn.is-error:hover:not(:disabled) {
     background: var(--red);
     color: var(--bg);
@@ -179,6 +177,10 @@ button.cyber-btn::after {
 
 .btn-group .cyber-btn {
     flex: 0 1 auto;
+}
+
+.btn-group-spacer {
+    margin-top: 2%;
 }
 
 /* ── Auth button ────────────────────────────────────────────── */
@@ -302,7 +304,6 @@ button.cyber-btn.is-loading::after {
 /* Loading state color variants */
 .cyber-btn.is-primary.is-loading::before { border-top-color: var(--yellow); }
 .cyber-btn.is-danger.is-loading::before,
-.cyber-btn.is-delete.is-loading::before,
 .cyber-btn.is-error.is-loading::before { border-top-color: var(--red); }
 .cyber-btn.is-success.is-loading::before { border-top-color: var(--green); }
 .cyber-btn.is-warning.is-loading::before { border-top-color: var(--yellow); }

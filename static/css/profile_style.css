@@ -422,6 +422,12 @@
     border-bottom: 1px solid rgba(125, 216, 216, 0.12);
 }
 
+.api-keys-title {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
 .api-keys-list {
     display: flex;
     flex-direction: column;

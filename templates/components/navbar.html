@@ -1,4 +1,4 @@
-{# Navbar component with dropdown menus and mobile responsive support #}
+{# Navbar component with category dropdown menus and mobile responsive support #}
 <nav class="navbar" role="navigation" aria-label="Main navigation">
     <a href="/" class="nav-logo" aria-label="Glyph home">
         <h1>GLYPH</h1>
@@ -13,52 +13,53 @@
 
     <div class="nav-links" id="nav-links">
         {% if user and user.username %}
-        <!-- Authenticated user menu with dropdowns -->
+        <!-- Authenticated user menu, grouped into category dropdowns -->
 
-        <!-- HOME link -->
-        <a href="/" aria-label="Home">HOME</a>
-
-        <!-- ANALYSIS Dropdown -->
+        <!-- BINARIES Dropdown -->
         <div class="nav-dropdown">
-            <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="analysis-menu">
-                ANALYSIS
+            <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="binaries-menu">
+                BINARIES
                 <svg class="dropdown-arrow" aria-hidden="true" viewBox="0 0 10 6">
                     <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" stroke-width="1.5"/>
                 </svg>
             </button>
-            <ul class="nav-dropdown-menu" id="analysis-menu" role="menu">
+            <ul class="nav-dropdown-menu" id="binaries-menu" role="menu">
                 <li role="none"><a href="/binary-library" role="menuitem" aria-label="Binary Library">LIBRARY</a></li>
-                <li role="none" class="nav-dropdown-sub">
-                    <span class="nav-dropdown-sub-toggle" aria-haspopup="true" aria-controls="code-reuse-menu">
-                        CODE REUSE
-                        <svg class="dropdown-arrow" aria-hidden="true" viewBox="0 0 10 6">
-                            <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                        </svg>
-                    </span>
-                    <ul class="nav-dropdown-sub-menu" id="code-reuse-menu" role="menu">
-                        <li role="none"><a href="/create-model" role="menuitem" aria-label="Create Model">CREATE MODEL</a></li>
-                        <li role="none"><a href="/getModels" role="menuitem" aria-label="Models">MODELS</a></li>
-                        <li role="none"><a href="/getPredictions" role="menuitem" aria-label="View Predictions">PREDICTIONS</a></li>
-                    </ul>
-                </li>
-                <li role="none"><a href="/getDangerousFunctions" role="menuitem" aria-label="Scan for Dangerous Functions">DANGEROUS FUNCTIONS</a></li>
-                <li role="none"><a href="/getBehavioralScan" role="menuitem" aria-label="Behavioral Scan">BEHAVIORAL SCAN</a></li>
                 <li role="none"><a href="/similarity-dashboard" role="menuitem" aria-label="Binary Similarity Dashboard">SIMILARITY</a></li>
             </ul>
         </div>
 
-        <!-- SYSTEM Dropdown -->
+        <!-- MACHINE LEARNING Dropdown -->
         <div class="nav-dropdown">
-            <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="system-menu">
-                SYSTEM
+            <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="machine-learning-menu">
+                MACHINE LEARNING
                 <svg class="dropdown-arrow" aria-hidden="true" viewBox="0 0 10 6">
                     <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" stroke-width="1.5"/>
                 </svg>
             </button>
-            <ul class="nav-dropdown-menu" id="system-menu" role="menu">
-                <li role="none"><a href="/config" role="menuitem" aria-label="Configuration">CONFIG</a></li>
+            <ul class="nav-dropdown-menu" id="machine-learning-menu" role="menu">
+                <li role="none"><a href="/create-model" role="menuitem" aria-label="Create Model">CREATE MODEL</a></li>
+                <li role="none"><a href="/getModels" role="menuitem" aria-label="Models">MODELS</a></li>
+                <li role="none"><a href="/getPredictions" role="menuitem" aria-label="View Predictions">PREDICTIONS</a></li>
             </ul>
         </div>
+
+        <!-- SCANNING Dropdown -->
+        <div class="nav-dropdown">
+            <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="scanning-menu">
+                SCANNING
+                <svg class="dropdown-arrow" aria-hidden="true" viewBox="0 0 10 6">
+                    <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+            </button>
+            <ul class="nav-dropdown-menu" id="scanning-menu" role="menu">
+                <li role="none"><a href="/getDangerousFunctions" role="menuitem" aria-label="Scan for Dangerous Functions">DANGEROUS FUNCTIONS</a></li>
+                <li role="none"><a href="/getBehavioralScan" role="menuitem" aria-label="Behavioral Scan">BEHAVIORAL SCAN</a></li>
+            </ul>
+        </div>
+
+        <!-- CONFIG link (top-level, one click away) -->
+        <a href="/config" aria-label="Configuration">CONFIG</a>
 
         <!-- USER Dropdown -->
         <div class="nav-dropdown">

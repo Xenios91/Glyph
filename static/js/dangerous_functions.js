@@ -273,24 +273,16 @@ function setupEventListeners() {
     // Close modals on Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
-        if (contextModal && contextModal.style.display !== 'none') {
+        if (contextModal && !contextModal.classList.contains('is-hidden')) {
             closeModal();
         }
-        if (llmModal && llmModal.style.display !== 'none') {
+        if (llmModal && !llmModal.classList.contains('is-hidden')) {
             closeLlmModal();
         }
-        if (taintModal && taintModal.style.display !== 'none') {
+        if (taintModal && !taintModal.classList.contains('is-hidden')) {
             closeTaintModal();
         }
     });
-
-    // Back button
-    const backBtn = document.querySelector('.back-btn');
-    if (backBtn) {
-        backBtn.addEventListener('click', () => {
-            window.location.href = '/';
-        });
-    }
 
     // Column sorting: clicking a sortable table header sorts the results
     // table by that column (toggles direction on repeat clicks).
@@ -633,8 +625,8 @@ function setScanLoading(loading) {
     const btnText = scanBtn.querySelector('.btn-text');
     const btnLoading = scanBtn.querySelector('.btn-loading');
 
-    if (btnText) btnText.style.display = loading ? 'none' : '';
-    if (btnLoading) btnLoading.style.display = loading ? '' : 'none';
+    if (btnText) btnText.classList.toggle('is-hidden', loading);
+    if (btnLoading) btnLoading.classList.toggle('is-hidden', !loading);
 }
 
 // ── Results Display ───────────────────────────────────────────
@@ -671,17 +663,17 @@ function displayResults(data, targetName) {
 
     if (results.length === 0) {
         // No dangerous functions found
-        scanSummary.style.display = '';
-        scanResultsContainer.style.display = 'none';
-        noResultsMessage.style.display = '';
+        scanSummary.classList.remove('is-hidden');
+        scanResultsContainer.classList.add('is-hidden');
+        noResultsMessage.classList.remove('is-hidden');
         updateLlmButtonState();
         return;
     }
 
     // Show results
-    scanSummary.style.display = '';
-    scanResultsContainer.style.display = '';
-    noResultsMessage.style.display = 'none';
+    scanSummary.classList.remove('is-hidden');
+    scanResultsContainer.classList.remove('is-hidden');
+    noResultsMessage.classList.add('is-hidden');
 
     // Build results table (in the current display order; unsorted after a new scan)
     updateSortIndicators();
@@ -694,7 +686,7 @@ function displayResults(data, targetName) {
     // Initialize pagination
     const paginationEl = document.getElementById('scan-results-pagination');
     if (paginationEl) {
-        paginationEl.style.display = '';
+        paginationEl.classList.remove('is-hidden');
         scanPagination = new Pagination({
             tableSelector: '.scan-results-table',
             paginationSelector: '#scan-results-pagination',
@@ -761,7 +753,7 @@ async function checkStoredResults() {
             `Stored scan results available for this target ` +
             `(${report.total_found || 0} finding${(report.total_found || 0) === 1 ? '' : 's'}).`;
     }
-    if (storedResultsBanner) storedResultsBanner.style.display = '';
+    if (storedResultsBanner) storedResultsBanner.classList.remove('is-hidden');
 
     // Decide whether "Clear LLM Results" is actionable for this target.
     await refreshStoredLlmFlag(targetName);
@@ -833,8 +825,8 @@ async function clearStoredResults() {
     const btnText = clearStoredBtn.querySelector('.btn-text');
     const btnLoading = clearStoredBtn.querySelector('.btn-loading');
     clearStoredBtn.disabled = true;
-    if (btnText) btnText.style.display = 'none';
-    if (btnLoading) btnLoading.style.display = '';
+    if (btnText) btnText.classList.add('is-hidden');
+    if (btnLoading) btnLoading.classList.remove('is-hidden');
 
     try {
         const response = await fetch(
@@ -863,8 +855,8 @@ async function clearStoredResults() {
         // Re-derive the button state: disabled once the results are gone,
         // re-enabled if the clear request failed and results still exist.
         updateClearLlmButtonState();
-        if (btnText) btnText.style.display = '';
-        if (btnLoading) btnLoading.style.display = 'none';
+        if (btnText) btnText.classList.remove('is-hidden');
+        if (btnLoading) btnLoading.classList.add('is-hidden');
     }
 }
 
@@ -881,8 +873,8 @@ async function deleteStoredResults() {
     const btnText = deleteStoredBtn.querySelector('.btn-text');
     const btnLoading = deleteStoredBtn.querySelector('.btn-loading');
     deleteStoredBtn.disabled = true;
-    if (btnText) btnText.style.display = 'none';
-    if (btnLoading) btnLoading.style.display = '';
+    if (btnText) btnText.classList.add('is-hidden');
+    if (btnLoading) btnLoading.classList.remove('is-hidden');
 
     try {
         const response = await fetch(
@@ -914,8 +906,8 @@ async function deleteStoredResults() {
         showScanError('Failed to delete stored scan results. Please try again.');
     } finally {
         deleteStoredBtn.disabled = false;
-        if (btnText) btnText.style.display = '';
-        if (btnLoading) btnLoading.style.display = 'none';
+        if (btnText) btnText.classList.remove('is-hidden');
+        if (btnLoading) btnLoading.classList.add('is-hidden');
     }
 }
 
@@ -923,7 +915,7 @@ async function deleteStoredResults() {
  * Hide the stored results banner.
  */
 function hideStoredResultsBanner() {
-    if (storedResultsBanner) storedResultsBanner.style.display = 'none';
+    if (storedResultsBanner) storedResultsBanner.classList.add('is-hidden');
     updateViewStoredButtonState();
 }
 
@@ -1044,14 +1036,14 @@ function openContextModal(result) {
         const code = result.containing_function_code || '';
         if (code) {
             modalContainingCode.textContent = code;
-            containingCodeSection.style.display = '';
+            containingCodeSection.classList.remove('is-hidden');
         } else {
-            containingCodeSection.style.display = 'none';
+            containingCodeSection.classList.add('is-hidden');
         }
     }
 
     if (contextModal) {
-        contextModal.style.display = 'flex';
+        contextModal.classList.remove('is-hidden');
     }
 }
 
@@ -1060,7 +1052,7 @@ function openContextModal(result) {
  */
 function closeModal() {
     if (contextModal) {
-        contextModal.style.display = 'none';
+        contextModal.classList.add('is-hidden');
     }
     contextModalOpenIndex = null;
     updateTaintButtonState();
@@ -1117,8 +1109,8 @@ function setLlmLoading(loading) {
     const btnText = llmCheckBtn.querySelector('.btn-text');
     const btnLoading = llmCheckBtn.querySelector('.btn-loading');
 
-    if (btnText) btnText.style.display = loading ? 'none' : '';
-    if (btnLoading) btnLoading.style.display = loading ? '' : 'none';
+    if (btnText) btnText.classList.toggle('is-hidden', loading);
+    if (btnLoading) btnLoading.classList.toggle('is-hidden', !loading);
 
     if (loading) {
         llmCheckBtn.disabled = true;
@@ -1590,16 +1582,16 @@ function openLlmModal(index) {
             const confidenceLabel = entry.confidence ? ` (${entry.confidence} confidence)` : '';
             elVerdict.textContent = entry.is_vulnerability ? `Vulnerable${confidenceLabel}` : `Not vulnerable${confidenceLabel}`;
             elVerdict.className = `llm-verdict-pill ${entry.is_vulnerability ? 'llm-verdict-vulnerable' : 'llm-verdict-safe'}`;
-            elVerdict.style.display = '';
+            elVerdict.classList.remove('is-hidden');
         } else {
             elVerdict.textContent = '';
             elVerdict.className = 'llm-verdict-pill';
-            elVerdict.style.display = 'none';
+            elVerdict.classList.add('is-hidden');
         }
     }
 
     const isSuccess = entry.status === 'success';
-    if (errorSection) errorSection.style.display = isSuccess ? 'none' : '';
+    if (errorSection) errorSection.classList.toggle('is-hidden', isSuccess);
     if (analysisSection) analysisSection.style.display = isSuccess ? '' : 'none';
     if (!isSuccess && elErrorMessage) elErrorMessage.textContent = entry.error || 'Unknown error';
     if (isSuccess && elAnalysis) {
@@ -1611,7 +1603,7 @@ function openLlmModal(index) {
                 : escapeHtml(entry.analysis || '');
     }
 
-    llmModal.style.display = 'flex';
+    llmModal.classList.remove('is-hidden');
 }
 
 /**
@@ -1619,7 +1611,7 @@ function openLlmModal(index) {
  */
 function closeLlmModal() {
     if (llmModal) {
-        llmModal.style.display = 'none';
+        llmModal.classList.add('is-hidden');
     }
     llmModalOpenIndex = null;
 }
@@ -1660,8 +1652,8 @@ function setTaintLoading(loading) {
     if (!taintAnalyzeBtn) return;
     const btnText = taintAnalyzeBtn.querySelector('.btn-text');
     const btnLoading = taintAnalyzeBtn.querySelector('.btn-loading');
-    if (btnText) btnText.style.display = loading ? 'none' : '';
-    if (btnLoading) btnLoading.style.display = loading ? '' : 'none';
+    if (btnText) btnText.classList.toggle('is-hidden', loading);
+    if (btnLoading) btnLoading.classList.toggle('is-hidden', !loading);
     if (loading) {
         taintAnalyzeBtn.disabled = true;
     } else {
@@ -1760,7 +1752,7 @@ function openTaintModal(index) {
     }
 
     const isSuccess = entry.status === 'success';
-    if (taintModalErrorSection) taintModalErrorSection.style.display = isSuccess ? 'none' : '';
+    if (taintModalErrorSection) taintModalErrorSection.classList.toggle('is-hidden', isSuccess);
     if (!isSuccess && taintModalErrorMessage) taintModalErrorMessage.textContent = entry.error || 'Unknown error';
     if (taintRiskSection) taintRiskSection.style.display = isSuccess ? '' : 'none';
     if (taintCallersSection) taintCallersSection.style.display = isSuccess ? '' : 'none';
@@ -1769,7 +1761,7 @@ function openTaintModal(index) {
         renderTaintReport(report || {});
     }
 
-    taintModal.style.display = 'flex';
+    taintModal.classList.remove('is-hidden');
 }
 
 /**
@@ -1818,9 +1810,9 @@ function renderTaintReport(report) {
     if (taintPathsSection && taintPathsList) {
         const paths = report.paths || [];
         if (paths.length === 0) {
-            taintPathsSection.style.display = 'none';
+            taintPathsSection.classList.add('is-hidden');
         } else {
-            taintPathsSection.style.display = '';
+            taintPathsSection.classList.remove('is-hidden');
             taintPathsList.innerHTML = '';
             paths.forEach((path) => {
                 const li = document.createElement('li');
@@ -1837,7 +1829,7 @@ function renderTaintReport(report) {
  */
 function closeTaintModal() {
     if (taintModal) {
-        taintModal.style.display = 'none';
+        taintModal.classList.add('is-hidden');
     }
     taintModalOpenIndex = null;
 }
@@ -1848,9 +1840,9 @@ function closeTaintModal() {
  * Hide all results sections.
  */
 function hideResults() {
-    if (scanSummary) scanSummary.style.display = 'none';
-    if (scanResultsContainer) scanResultsContainer.style.display = 'none';
-    if (noResultsMessage) noResultsMessage.style.display = 'none';
+    if (scanSummary) scanSummary.classList.add('is-hidden');
+    if (scanResultsContainer) scanResultsContainer.classList.add('is-hidden');
+    if (noResultsMessage) noResultsMessage.classList.add('is-hidden');
     hideStoredResultsBanner();
 }
 
@@ -1861,7 +1853,7 @@ function hideResults() {
 function showScanError(message) {
     hideResults();
     if (scanErrorMessage) scanErrorMessage.textContent = message;
-    if (scanError) scanError.style.display = '';
+    if (scanError) scanError.classList.remove('is-hidden');
 }
 
 /**
@@ -1870,14 +1862,14 @@ function showScanError(message) {
  */
 function showErrorBanner(message) {
     if (scanErrorMessage) scanErrorMessage.textContent = message;
-    if (scanError) scanError.style.display = '';
+    if (scanError) scanError.classList.remove('is-hidden');
 }
 
 /**
  * Hide the scan error message.
  */
 function hideError() {
-    if (scanError) scanError.style.display = 'none';
+    if (scanError) scanError.classList.add('is-hidden');
 }
 
 /**

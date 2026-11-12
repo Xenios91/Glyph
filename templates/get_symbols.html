@@ -8,6 +8,13 @@
         {'label': 'File Name', 'value': bin_name, 'id': 'file-name'},
         {'label': 'Model Name', 'value': model_name, 'id': 'model-name'}
     ] %}
+    <nav aria-label="Breadcrumb" class="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item"><a href="/getModels">MODELS</a></li>
+            <li class="breadcrumb-item" aria-current="page"><span>{{ model_name }}</span></li>
+        </ol>
+    </nav>
+
     {% include 'components/page_header.html' %}
 
     <div class="table-wrapper">
@@ -17,17 +24,19 @@
                     <tr>
                         <th scope="col">Function Name</th>
                         <th scope="col">EntryPoint</th>
+                        <th scope="col" class="chevron-cell" aria-hidden="true"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for functionInfo in functions %}
                     <tr id="{{ functionInfo.function_name }}-id"
-                        class="hover-row"
+                        class="hover-row clickable-row"
                         tabindex="0"
                         role="row"
                         aria-label="Function: {{ functionInfo.function_name | e }}">
-                        <td>{{ functionInfo.function_name }}</td>
-                        <td>0x{{ functionInfo.entrypoint }}</td>
+                        <td data-label="Function Name">{{ functionInfo.function_name }}</td>
+                        <td data-label="EntryPoint">0x{{ functionInfo.entrypoint }}</td>
+                        <td class="chevron-cell" data-label="VIEW" aria-hidden="true"><span class="row-chevron">&#8250;</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -35,9 +44,9 @@
         </div>
         <!-- Pagination Controls -->
         <div id="symbols-pagination" class="pagination-controls"></div>
-        <div class="button-group">
-            <button type="button" class="cyber-btn is-primary is-delete" id="delete-model-btn" aria-label="Delete this model">Delete</button>
-            <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
+        <div class="btn-group">
+            <button type="button" class="cyber-btn is-danger" id="delete-model-btn" aria-label="Delete this model">Delete</button>
+            <button type="button" class="cyber-btn is-primary back-btn" data-fallback="/getModels" aria-label="Go back">Go Back</button>
         </div>
     </div>
 </div>

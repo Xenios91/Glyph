@@ -146,6 +146,36 @@
     color: var(--text-muted);
 }
 
+/* ── Task meta (name + elapsed time) ─────────────────────────── */
+.task-meta {
+    text-align: center;
+    margin: var(--space-md) 0;
+}
+
+.task-meta-name {
+    font-family: var(--font-code);
+    font-size: var(--text-sm);
+    color: var(--cyan);
+    margin: 0 0 var(--space-2xs);
+    word-break: break-all;
+}
+
+.task-meta-elapsed {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* ── Task actions (run in background / cancel) ───────────────── */
+.task-actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+    margin-top: var(--space-xl);
+}
+
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 768px) {
     .info-row {

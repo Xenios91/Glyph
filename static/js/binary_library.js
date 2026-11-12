@@ -14,17 +14,63 @@
     /** @type {boolean} */
     let isUploading = false;
 
-    /** @type {number|undefined} */
-    let uploadTimer = undefined;
+    /** @type {XMLHttpRequest|null} Active upload request (aborted by CANCEL). */
+    let activeUpload = null;
+
+    /** @type {number} Current page (server-side pagination). */
+    let currentPage = 1;
+
+    /** @type {number} Current page size (server-side pagination). */
+    let pageSize = 50;
+
+    /** @type {Pagination|null} Server-side pagination instance. */
+    let pagination = null;
+
+    /** @type {number} Configured maximum upload size in MB. */
+    let maxFileSizeMB = 512;
+
+    /**
+     * True while the in-flight upload transfer has not completed. Drives the
+     * beforeunload guard so users are warned before leaving mid-transfer
+     * (ported from the former standalone upload page).
+     * @type {boolean}
+     */
+    let isUploadInProgress = false;
+
+    /** @type {string|null} StatusBar client ID for the active upload. */
+    let statusBarClientId = null;
+
+    /** Page-size options, capped at the API maximum (200). */
+    const PAGE_SIZES = [10, 25, 50, 100, 200];
+    const PAGE_SIZE_STORAGE_KEY = 'glyph_binaries_page_size';
+
+    /**
+     * Determine the initial page size, honoring a previously saved choice so
+     * the first fetch matches the page size the Pagination control will show.
+     * @returns {number}
+     */
+    function getInitialPageSize() {
+        try {
+            var saved = sessionStorage.getItem(PAGE_SIZE_STORAGE_KEY);
+            if (saved) {
+                var size = parseInt(saved, 10);
+                if (PAGE_SIZES.indexOf(size) !== -1) return size;
+            }
+        } catch (e) { /* ignore storage errors */ }
+        return 50;
+    }
 
     // ============================================================
     // DOM Ready
     // ============================================================
 
     document.addEventListener('DOMContentLoaded', function () {
+        pageSize = getInitialPageSize();
+        initUploadConfig();
         initDragAndDrop();
         initFileInput();
         initEventDelegation();
+        initTaskModalOptions();
         loadBinaries();
     });
 
@@ -57,7 +103,10 @@
                 e.preventDefault();
                 e.stopPropagation();
                 var id = target.getAttribute('data-binary-id');
-                deleteBinary(id);
+                var row = target.closest('tr');
+                var nameEl = row ? row.querySelector('.binary-name') : null;
+                var binaryName = nameEl ? nameEl.textContent : '';
+                deleteBinary(id, binaryName);
                 return;
             }
         });
@@ -85,6 +134,36 @@
     // ============================================================
 
     /**
+     * Render the task modal options from the canonical BinaryActions list
+     * (static/js/binary_actions.js) so the modal stays a thin wrapper over
+     * the single source of truth.
+     */
+    function initTaskModalOptions() {
+        var container = document.getElementById('task-modal-options');
+        if (!container || typeof window.BinaryActions === 'undefined') return;
+
+        container.innerHTML = '';
+        window.BinaryActions.actions.forEach(function (action) {
+            var link = document.createElement('a');
+            link.href = '#';
+            link.className = 'task-option';
+            link.setAttribute('data-task-type', action.id);
+
+            var name = document.createElement('span');
+            name.className = 'task-option-name';
+            name.textContent = action.label;
+
+            var desc = document.createElement('span');
+            desc.className = 'task-option-desc';
+            desc.textContent = action.description;
+
+            link.appendChild(name);
+            link.appendChild(desc);
+            container.appendChild(link);
+        });
+    }
+
+    /**
      * Show the task selection modal
      * @param {string} binaryId
      * @param {string} binaryName
@@ -93,19 +172,16 @@
         var overlay = document.getElementById('task-modal-overlay');
         if (!overlay) return;
 
-        // Update links with the correct binary_id and binary_name
+        // Update each link with the deep link for this binary, derived from
+        // the canonical BinaryActions list (single source of truth).
         var links = overlay.querySelectorAll('a.task-option');
         links.forEach(function (link) {
             var taskType = link.getAttribute('data-task-type');
-            // Dangerous functions navigates to the dedicated scanner page
-            if (taskType === 'dangerous_functions') {
-                link.href = '/getDangerousFunctions?binary_id=' + binaryId;
-            } else if (taskType === 'ml_training') {
-                // ML Training navigates to the create model page with binary pre-selected
-                link.href = '/create-model?binary_id=' + binaryId;
-            } else if (taskType === 'ml_prediction') {
-                // ML Prediction navigates to the create prediction page with binary pre-selected
-                link.href = '/create-prediction?binary_id=' + binaryId;
+            var href = window.BinaryActions
+                ? window.BinaryActions.buildHref(taskType, binaryId, binaryName)
+                : null;
+            if (href) {
+                link.href = href;
             }
         });
 
@@ -161,9 +237,17 @@
     /**
      * Delete a binary
      * @param {string} binaryId
+     * @param {string} [binaryName]
      */
-    async function deleteBinary(binaryId) {
-        if (!confirm('Are you sure you want to delete this binary?')) return;
+    async function deleteBinary(binaryId, binaryName) {
+        var nameText = binaryName ? ' "' + binaryName + '"' : '';
+        var confirmed = await showConfirm({
+            title: 'Delete Binary',
+            message: 'Are you sure you want to delete binary' + nameText + '?',
+            confirmLabel: 'Delete',
+            cancelLabel: 'Cancel'
+        });
+        if (!confirmed) return;
 
         try {
             var response = await authenticatedFetch('/api/v1/binaries/binaries/' + binaryId, {
@@ -243,11 +327,19 @@
     // ============================================================
 
     /**
-     * Handle selected file and trigger upload
+     * Handle a selected file: validate it against the configured limits,
+     * then trigger the upload.
      * @param {File} file
      */
     function handleFileSelect(file) {
         if (isUploading) return;
+
+        var error = validateFile(file);
+        if (error) {
+            markUploadField(error);
+            return;
+        }
+        clearUploadFieldError();
 
         var nameInput = document.getElementById('binary-name');
         var binaryName = nameInput ? nameInput.value.trim() : '';
@@ -262,57 +354,163 @@
     }
 
     /**
-     * Upload binary to server
+     * Validate a file against the configured size limit before any upload
+     * starts. Binaries are not MIME-typed, so size is the meaningful check;
+     * an empty selection is rejected as well.
+     * @param {File} file
+     * @returns {string|null} An error message, or null if the file is valid.
+     */
+    function validateFile(file) {
+        if (!file || file.size === 0) {
+            return 'Selected file is empty.';
+        }
+        var maxBytes = maxFileSizeMB * 1024 * 1024;
+        if (file.size > maxBytes) {
+            return 'File is ' + formatFileSize(file.size) +
+                ', which exceeds the ' + maxFileSizeMB + ' MB upload limit.';
+        }
+        return null;
+    }
+
+    /**
+     * Upload a binary with real progress reporting.
+     *
+     * The transfer phase (0-100% of the file upload) is driven by
+     * XMLHttpRequest.upload.onprogress. Once the transfer completes, the bar
+     * switches to an indeterminate "Processing..." state while the server
+     * decompiles and saves the binary; 100% is only shown on a confirmed
+     * success response. CANCEL aborts the in-flight request.
      * @param {File} file
      * @param {string} name
      */
-    async function uploadBinary(file, name) {
+    function uploadBinary(file, name) {
         if (isUploading) return;
 
         isUploading = true;
         showUploadProgress(true);
-        setProgressText('Uploading ' + file.name + '...');
-        setProgressWidth(20);
+        setProgressIndeterminate(false);
+        setProgressWidth(0);
+        setProgressText('Uploading ' + file.name + '... 0%');
         hideUploadError();
+        clearUploadFieldError();
+
+        // Warn the user before leaving while the file transfer is in flight;
+        // the guard lifts once the transfer completes (see progress handler).
+        setUploadGuard(true);
+
+        // Register with the global status bar so the upload is tracked
+        // alongside model/prediction tasks (mirrors create_model.js).
+        statusBarClientId = null;
+        if (typeof StatusBar !== 'undefined') {
+            statusBarClientId = StatusBar.registerUpload(file.name);
+        }
 
         var formData = new FormData();
         formData.append('name', name);
         formData.append('binary_file', file);
 
-        try {
-            setProgressText('Decompiling binary...');
-            setProgressWidth(50);
+        var xhr = new XMLHttpRequest();
+        activeUpload = xhr;
 
-            var response = await authenticatedFetch('/api/v1/binaries/uploadBinary', {
-                method: 'POST',
-                body: formData
-            });
+        xhr.open('POST', '/api/v1/binaries/uploadBinary', true);
+        // Same-origin request: the auth cookie is sent automatically, matching
+        // how authenticatedFetch() handles FormData uploads (it relies on the
+        // cookie rather than an Authorization header for multipart bodies).
 
-            setProgressWidth(80);
-            setProgressText('Saving functions...');
+        xhr.upload.addEventListener('progress', function (e) {
+            if (!e.lengthComputable) return;
+            var pct = Math.round((e.loaded / e.total) * 100);
+            setProgressWidth(pct);
+            setProgressText('Uploading ' + file.name + '... ' + pct + '%');
+            if (statusBarClientId && typeof StatusBar !== 'undefined') {
+                StatusBar.updateUploadProgress(statusBarClientId, pct);
+            }
+            // The file is fully sent once the transfer hits 100%; leaving at
+            // that point no longer loses data, so the unload guard can lift.
+            if (pct >= 100) {
+                setUploadGuard(false);
+            }
+        });
 
-            var data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.detail || 'Upload failed');
+        xhr.addEventListener('load', function () {
+            var status = xhr.status;
+            var data = null;
+            try {
+                data = JSON.parse(xhr.responseText);
+            } catch (parseError) {
+                data = null;
             }
 
-            setProgressWidth(100);
-            setProgressText('Upload complete!');
+            setUploadGuard(false);
 
-            setTimeout(function () {
+            if (status >= 200 && status < 300 && data) {
+                // Confirmed success: only now show 100%.
+                setProgressIndeterminate(false);
+                setProgressWidth(100);
+                setProgressText('Upload complete!');
+                // Transition the status bar entry to the server-side task so
+                // processing is tracked and polled like other tasks.
+                var taskUuid = data.data && data.data.uuid;
+                if (statusBarClientId && taskUuid && typeof StatusBar !== 'undefined') {
+                    StatusBar.uploadComplete(statusBarClientId, taskUuid);
+                }
+                statusBarClientId = null;
+                setTimeout(function () {
+                    showUploadProgress(false);
+                    isUploading = false;
+                    activeUpload = null;
+                    Toast.success('Binary "' + name + '" uploaded successfully');
+                    // New uploads are listed first (created_at desc), so
+                    // refresh from page 1.
+                    currentPage = 1;
+                    loadBinaries();
+                    resetUploadForm();
+                }, 800);
+            } else {
+                var message = (data && data.detail) ? data.detail : ('Upload failed (HTTP ' + status + ')');
+                isUploading = false;
+                activeUpload = null;
                 showUploadProgress(false);
-                Toast.success('Binary "' + name + '" uploaded successfully');
-                loadBinaries();
-                resetUploadForm();
-            }, 800);
+                removeStatusBarEntry();
+                showUploadError(message);
+            }
+        });
 
-        } catch (error) {
-            console.error('Upload error:', error);
-            showUploadProgress(false);
-            showUploadError(error.message || 'Upload failed');
-        } finally {
+        xhr.addEventListener('error', function () {
             isUploading = false;
+            activeUpload = null;
+            showUploadProgress(false);
+            setUploadGuard(false);
+            removeStatusBarEntry();
+            showUploadError('Network error: could not reach the server.');
+        });
+
+        xhr.addEventListener('abort', function () {
+            isUploading = false;
+            activeUpload = null;
+            showUploadProgress(false);
+            setUploadGuard(false);
+            removeStatusBarEntry();
+            showUploadError('Upload cancelled.');
+        });
+
+        // Once the file has been fully sent (upload complete) but the response
+        // has not yet arrived, the server is processing (decompiling + saving) —
+        // show an indeterminate bar instead of a false percentage.
+        xhr.upload.addEventListener('load', function () {
+            setProgressIndeterminate(true);
+            setProgressText('Processing...');
+        });
+
+        xhr.send(formData);
+    }
+
+    /**
+     * Abort the active upload request (CANCEL affordance).
+     */
+    function cancelUpload() {
+        if (activeUpload && activeUpload.readyState !== 4) {
+            activeUpload.abort();
         }
     }
 
@@ -321,20 +519,28 @@
     // ============================================================
 
     /**
-     * Load and display binaries list
+     * Load and display a page of binaries using server-side pagination.
+     *
+     * The `page` and `page_size` query params are sent to the API and the
+     * server's total drives the pagination controls, so users with more
+     * binaries than one page can always reach every item.
      */
     async function loadBinaries() {
-        var loadingEl = document.getElementById('binaries-loading');
         var emptyEl = document.getElementById('binaries-empty');
         var tableWrapper = document.getElementById('binaries-table-wrapper');
+        var paginationEl = document.getElementById('binaries-pagination');
         var tbody = document.getElementById('binaries-tbody');
 
-        if (loadingEl) loadingEl.style.display = 'flex';
-        if (emptyEl) emptyEl.style.display = 'none';
-        if (tableWrapper) tableWrapper.style.display = 'none';
+        // Show skeleton rows in the table while the fetch is in flight.
+        if (emptyEl) emptyEl.classList.add('is-hidden');
+        if (tableWrapper) tableWrapper.classList.remove('is-hidden');
+        if (paginationEl) paginationEl.classList.add('is-hidden');
+        renderSkeletonRows(5);
 
         try {
-            var response = await authenticatedFetch('/api/v1/binaries/list', {
+            var queryParams = 'page=' + encodeURIComponent(currentPage) +
+                '&page_size=' + encodeURIComponent(pageSize);
+            var response = await authenticatedFetch('/api/v1/binaries/list?' + queryParams, {
                 headers: { 'Accept': 'application/json' }
             });
 
@@ -344,14 +550,10 @@
                 throw new Error(data.detail || 'Failed to load binaries');
             }
 
-            var binaries = data.data ? data.data.items : [];
-
-            if (loadingEl) loadingEl.style.display = 'none';
-
-            if (!binaries || binaries.length === 0) {
-                if (emptyEl) emptyEl.style.display = 'block';
-                return;
-            }
+            var payload = data.data || {};
+            var binaries = payload.items || [];
+            var total = payload.total || 0;
+            var totalPages = payload.total_pages || 0;
 
             if (tbody) {
                 tbody.innerHTML = '';
@@ -365,32 +567,75 @@
                 });
             }
 
-            if (tableWrapper) tableWrapper.style.display = 'block';
+            if (total === 0) {
+                if (tableWrapper) tableWrapper.classList.add('is-hidden');
+                if (emptyEl) emptyEl.classList.remove('is-hidden');
+                return;
+            }
 
-            // Initialize pagination
-            var paginationEl = document.getElementById('binaries-pagination');
-            if (paginationEl && binaries.length > 0) {
-                paginationEl.style.display = 'block';
-                var pagination = new Pagination({
-                    tableSelector: '#binaries-table-wrapper .cyber-table',
-                    paginationSelector: '#binaries-pagination',
-                    defaultPageSize: 10,
-                    pageSizes: [10, 25, 50, 100],
-                    storageKey: 'glyph_binaries_page_size'
-                });
-                pagination.init();
-            } else if (paginationEl) {
-                paginationEl.style.display = 'none';
+            if (tableWrapper) tableWrapper.classList.remove('is-hidden');
+
+            // Server-side pagination: the server total drives the controls.
+            if (paginationEl) {
+                paginationEl.classList.remove('is-hidden');
+                if (!pagination) {
+                    pagination = new Pagination({
+                        paginationSelector: '#binaries-pagination',
+                        defaultPageSize: pageSize,
+                        pageSizes: PAGE_SIZES,
+                        storageKey: PAGE_SIZE_STORAGE_KEY,
+                        totalRows: total,
+                        totalPages: totalPages,
+                        onPageChange: function (page, size) {
+                            currentPage = page;
+                            pageSize = size;
+                            loadBinaries();
+                        }
+                    });
+                    pagination.init();
+                }
+                // Keep the control's page size in sync with what we requested.
+                pagination.pageSize = pageSize;
+                pagination.currentPage = currentPage;
+                pagination.setTotals(total, totalPages);
             }
 
         } catch (error) {
             console.error('Load binaries error:', error);
-            if (loadingEl) loadingEl.style.display = 'none';
-            if (emptyEl) emptyEl.style.display = 'block';
-            var para = document.createElement('p');
-            para.textContent = 'Error loading binaries: ' + error.message;
-            emptyEl.innerHTML = '';
-            emptyEl.appendChild(para);
+            if (tbody) tbody.innerHTML = '';
+            if (tableWrapper) tableWrapper.classList.add('is-hidden');
+            if (paginationEl) paginationEl.classList.add('is-hidden');
+            if (emptyEl) {
+                emptyEl.classList.remove('is-hidden');
+                var para = document.createElement('p');
+                para.textContent = 'Error loading binaries: ' + error.message;
+                emptyEl.innerHTML = '';
+                emptyEl.appendChild(para);
+            }
+        }
+    }
+
+    /**
+     * Render placeholder skeleton rows in the binaries table while a fetch
+     * is in flight. The rows mirror the real columns (Name/Size/Functions/
+     * Uploaded/Actions) so the layout does not shift when data arrives.
+     * @param {number} count - Number of skeleton rows to render.
+     */
+    function renderSkeletonRows(count) {
+        var tbody = document.getElementById('binaries-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        for (var i = 0; i < count; i++) {
+            var row = document.createElement('tr');
+            row.className = 'skeleton-row';
+            row.setAttribute('aria-hidden', 'true');
+            row.innerHTML =
+                '<td data-label="Name"><div class="skeleton skeleton-cell"></div></td>' +
+                '<td data-label="Size"><div class="skeleton skeleton-cell is-narrow"></div></td>' +
+                '<td data-label="Functions"><div class="skeleton skeleton-cell is-narrow"></div></td>' +
+                '<td data-label="Uploaded"><div class="skeleton skeleton-cell"></div></td>' +
+                '<td data-label="Actions"><div class="skeleton is-button"></div></td>';
+            tbody.appendChild(row);
         }
     }
 
@@ -404,11 +649,11 @@
         var date = formatDate(binary.created_at);
         var funcCount = binary.function_count || 0;
 
-        return '<td><span class="binary-name">' + escapeHtml(binary.name) + '</span></td>' +
-            '<td>' + size + '</td>' +
-            '<td><span class="function-badge">' + funcCount + '</span></td>' +
-            '<td><span class="date-cell">' + date + '</span></td>' +
-            '<td>' +
+        return '<td data-label="Name"><span class="binary-name">' + escapeHtml(binary.name) + '</span></td>' +
+            '<td data-label="Size">' + size + '</td>' +
+            '<td data-label="Functions"><span class="function-badge">' + funcCount + '</span></td>' +
+            '<td data-label="Uploaded"><span class="date-cell">' + date + '</span></td>' +
+            '<td data-label="Actions">' +
                 '<div class="action-group">' +
                     '<button class="action-btn is-success btn-run-task" data-binary-id="' + binary.id + '" data-binary-name="' + escapeHtml(binary.name) + '" title="Run analysis task">RUN TASK</button>' +
                     '<a href="/binary/' + binary.id + '" class="action-btn btn-binary-details" data-binary-id="' + binary.id + '" title="View details">DETAILS</a>' +
@@ -441,10 +686,33 @@
     function showUploadProgress(show) {
         var progress = document.getElementById('upload-progress');
         var dropZone = document.getElementById('drop-zone');
-        if (progress) progress.style.display = show ? 'block' : 'none';
+        if (progress) progress.classList.toggle('is-hidden', !show);
         if (dropZone) {
             dropZone.style.pointerEvents = show ? 'none' : '';
             dropZone.style.opacity = show ? '0.5' : '';
+        }
+    }
+
+    /**
+     * Initialize upload configuration: read the configured max file size from
+     * the page (rendered server-side from settings) and wire up the CANCEL
+     * affordance.
+     */
+    function initUploadConfig() {
+        var hint = document.getElementById('upload-limit-hint');
+        if (hint) {
+            var mb = parseInt(hint.getAttribute('data-max-mb'), 10);
+            if (!isNaN(mb) && mb > 0) {
+                maxFileSizeMB = mb;
+            }
+        }
+
+        var cancelBtn = document.getElementById('upload-cancel');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                cancelUpload();
+            });
         }
     }
 
@@ -467,6 +735,16 @@
     }
 
     /**
+     * Toggle the indeterminate (animated) state of the progress bar, used
+     * while the server processes the upload after the transfer completes.
+     * @param {boolean} on
+     */
+    function setProgressIndeterminate(on) {
+        var el = document.getElementById('progress-fill');
+        if (el) el.classList.toggle('is-indeterminate', !!on);
+    }
+
+    /**
      * Show upload error
      * @param {string} message
      */
@@ -474,7 +752,7 @@
         var el = document.getElementById('upload-error');
         if (el) {
             el.textContent = message;
-            el.style.display = 'block';
+            el.classList.remove('is-hidden');
         }
     }
 
@@ -485,8 +763,74 @@
         var el = document.getElementById('upload-error');
         if (el) {
             el.textContent = '';
-            el.style.display = 'none';
+            el.classList.add('is-hidden');
         }
+    }
+
+    /**
+     * Mark the upload field with an inline validation error: red border on
+     * the drop zone, aria-invalid on the file input, and the message in the
+     * inline error region (ported from the standalone upload page's
+     * markField() pattern).
+     * @param {string} message
+     */
+    function markUploadField(message) {
+        var dropZone = document.getElementById('drop-zone');
+        var fileInput = document.getElementById('upload-binary');
+        if (dropZone) dropZone.classList.add('is-error');
+        if (fileInput) fileInput.setAttribute('aria-invalid', 'true');
+        showUploadError(message);
+    }
+
+    /**
+     * Clear the inline field-error state from the drop zone and file input.
+     */
+    function clearUploadFieldError() {
+        var dropZone = document.getElementById('drop-zone');
+        var fileInput = document.getElementById('upload-binary');
+        if (dropZone) dropZone.classList.remove('is-error');
+        if (fileInput) fileInput.removeAttribute('aria-invalid');
+        hideUploadError();
+    }
+
+    /**
+     * Warn the user before leaving the page while a file transfer is in
+     * flight (ported from the standalone upload page).
+     * @param {BeforeUnloadEvent} e
+     */
+    function handleBeforeUnload(e) {
+        if (isUploadInProgress) {
+            e.preventDefault();
+            e.returnValue = 'Upload is in progress. Are you sure you want to leave?';
+            return e.returnValue;
+        }
+    }
+
+    /**
+     * Arm or disarm the beforeunload guard. Armed when the upload starts;
+     * disarmed once the transfer completes or the request reaches any
+     * terminal state.
+     * @param {boolean} on
+     */
+    function setUploadGuard(on) {
+        if (on) {
+            isUploadInProgress = true;
+            window.addEventListener('beforeunload', handleBeforeUnload);
+        } else {
+            isUploadInProgress = false;
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        }
+    }
+
+    /**
+     * Remove the active upload from the status bar on terminal
+     * failure/cancel (success transitions to the server task instead).
+     */
+    function removeStatusBarEntry() {
+        if (statusBarClientId && typeof StatusBar !== 'undefined') {
+            StatusBar.removeEntry(statusBarClientId);
+        }
+        statusBarClientId = null;
     }
 
     /**
@@ -497,6 +841,7 @@
         var fileInput = document.getElementById('upload-binary');
         if (nameInput) nameInput.value = '';
         if (fileInput) fileInput.value = '';
+        setProgressIndeterminate(false);
         setProgressWidth(0);
     }
 

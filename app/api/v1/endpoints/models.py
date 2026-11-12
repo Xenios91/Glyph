@@ -46,7 +46,7 @@ async def delete_model(
         )
     assert_owned(model_row, current_user, "model")
     await ModelRepository.delete(model_name)
-    await PredictionService.delete_predictions_for_model(model_name)
+    await PredictionService.delete_predictions_for_model(model_name, current_user.id)
     return create_success_response(data={}, message="Model deleted successfully")
 
 
@@ -89,7 +89,7 @@ async def delete_models(
                 failed.append(name)
                 continue
             await ModelRepository.delete(name)
-            await PredictionService.delete_predictions_for_model(name)
+            await PredictionService.delete_predictions_for_model(name, current_user.id)
             deleted.append(name)
         except Exception as exc:
             logger.warning("Failed to delete model '{}': {}", name, exc)

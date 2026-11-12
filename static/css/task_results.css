@@ -337,6 +337,135 @@
     color: var(--text-primary);
 }
 
+/* ── Code Diff Modal (R12) ──────────────────────────────────── */
+.diff-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background-color: rgba(0, 0, 0, 0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-lg);
+}
+
+.diff-modal-overlay.is-visible {
+    display: flex;
+    animation: diffFadeIn 0.18s ease;
+}
+
+@keyframes diffFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.diff-modal {
+    width: min(1100px, 94vw);
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--cyan-dim);
+    border-radius: var(--card-corner-size);
+    box-shadow: 0 0 24px rgba(125, 216, 216, 0.15);
+}
+
+.diff-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--cyan-dim);
+}
+
+.diff-modal-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    color: var(--cyan);
+    margin: 0;
+}
+
+.diff-modal-close {
+    flex-shrink: 0;
+    font-family: var(--font-code);
+    font-size: var(--text-lg);
+    line-height: 1;
+    padding: 2px var(--space-sm);
+    background: transparent;
+    border: 1px solid var(--cyan-dim);
+    border-radius: 4px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.diff-modal-close:hover {
+    color: var(--cyan-bright);
+    border-color: var(--cyan);
+    background-color: rgba(125, 216, 216, 0.1);
+}
+
+.diff-modal-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    overflow: auto;
+}
+
+.diff-col {
+    min-width: 0;
+}
+
+.diff-col-label {
+    font-family: var(--font-display);
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    margin: 0 0 var(--space-xs);
+}
+
+.diff-lines {
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(125, 216, 216, 0.1);
+    border-radius: 4px;
+    overflow: auto;
+    max-height: 55vh;
+}
+
+.diff-line {
+    display: flex;
+    gap: var(--space-sm);
+    padding: 2px var(--space-sm);
+    font-family: var(--font-code);
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    color: var(--text-dim);
+}
+
+.diff-line .line-no {
+    flex-shrink: 0;
+    width: 2.5em;
+    text-align: right;
+    color: var(--text-muted);
+    user-select: none;
+}
+
+.diff-line .line-text {
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.diff-line.added {
+    background-color: rgba(110, 201, 122, 0.12);
+    color: var(--green);
+}
+
+.diff-line.removed {
+    background-color: rgba(201, 84, 106, 0.12);
+    color: var(--red);
+}
+
 /* ── Navigation ─────────────────────────────────────────────── */
 .nav-section {
     text-align: center;
@@ -358,4 +487,17 @@
     .match-table {
         font-size: var(--text-xs);
     }
+
+    .diff-modal-body {
+        grid-template-columns: 1fr;
+    }
+
+    .diff-lines {
+        max-height: 30vh;
+    }
+}
+
+/* ── Error title (moved from inline style) ──────────────────── */
+#results-error .title.error-title {
+    color: var(--red);
 }

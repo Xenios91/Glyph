@@ -392,3 +392,70 @@ button:disabled {
     border-radius: 50%;
     background: currentColor;
 }
+
+/* ------------------------------------------------------------------
+   Styled confirmation modal (JS: showConfirm in common.js)
+   ------------------------------------------------------------------ */
+
+.confirm-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.confirm-modal-overlay.is-visible {
+    display: flex !important;
+}
+
+.confirm-modal {
+    background: var(--bg-primary, #0a0e17);
+    border: 1px solid var(--cyan-dim);
+    border-radius: var(--card-corner-size, 10px);
+    padding: var(--space-2xl, 24px);
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 0 40px rgba(125, 216, 216, 0.15);
+    animation: confirm-modal-in var(--duration-slow, 0.3s) var(--easing-smooth, ease) both;
+}
+
+.confirm-modal-title {
+    margin: 0 0 var(--space-lg, 16px);
+    font-family: var(--font-display, 'Press Start 2P', monospace);
+    font-size: var(--text-sm, 14px);
+    line-height: var(--leading-normal, 1.5);
+    color: var(--cyan, #7dd8d8);
+    text-shadow: 0 0 8px rgba(125, 216, 216, 0.35);
+}
+
+.confirm-modal-message {
+    margin: 0 0 var(--space-xl, 20px);
+    font-size: var(--text-md, 16px);
+    line-height: var(--leading-normal, 1.5);
+    color: var(--text-primary, #e0e0e0);
+    word-break: break-word;
+}
+
+.confirm-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-md, 12px);
+}
+
+.confirm-modal .cyber-btn {
+    min-width: 110px;
+}
+
+@keyframes confirm-modal-in {
+    from {
+        opacity: 0;
+        transform: translateY(var(--space-sm, 8px));
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

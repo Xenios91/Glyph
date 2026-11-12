@@ -169,14 +169,20 @@ class PredictionService:
         logger.info("Prediction deleted: task_name={}, model_name={}", task_name, model_name)
 
     @staticmethod
-    async def delete_predictions_for_model(model_name: str) -> None:
-        """Delete all predictions for a given model.
+    async def delete_predictions_for_model(model_name: str, user_id: int | None = None) -> None:
+        """Delete predictions for a given model.
+
+        Scoped to the caller when ``user_id`` is provided so another user's
+        predictions for the same model are never touched. When ``user_id`` is
+        None the delete is unscoped (legacy/admin cleanup behavior).
 
         Args:
             model_name: The model whose predictions should be deleted.
+            user_id: The caller's user id (0 for anonymous). When provided, only
+                the caller's own rows and unowned/legacy rows are deleted.
 
         """
-        await PredictionRepository.delete_model_predictions(model_name)
+        await PredictionRepository.delete_model_predictions(model_name, user_id)
         logger.info("All predictions deleted for model: {}", model_name)
 
     # --- Prediction Persistence ---

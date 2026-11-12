@@ -8,6 +8,13 @@
         {'label': 'Task Name', 'value': task_name, 'id': 'task-name'},
         {'label': 'Model Name', 'value': model_name, 'id': 'model-name'}
     ] %}
+    <nav aria-label="Breadcrumb" class="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item"><a href="/getPredictions">PREDICTIONS</a></li>
+            <li class="breadcrumb-item" aria-current="page"><span>{{ task_name }}</span></li>
+        </ol>
+    </nav>
+
     {% include 'components/page_header.html' %}
 
     <div class="table-wrapper">
@@ -17,6 +24,7 @@
                     <tr>
                         <th scope="col">Predicted Function</th>
                         <th scope="col">EntryPoint</th>
+                        <th scope="col" class="chevron-cell" aria-hidden="true"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -26,12 +34,13 @@
                         data-function-name="{{ functionName | e }}"
                         data-model-name="{{ model_name | e }}"
                         data-task-name="{{ task_name | e }}"
-                        class="hover-row"
+                        class="hover-row clickable-row"
                         tabindex="0"
                         role="row"
                         aria-label="Function: {{ functionName | e }}">
-                        <td>{{ functionName | e }}</td>
-                        <td>0x{{ functionInfo["lowAddress"] }}</td>
+                        <td data-label="Predicted Function">{{ functionName | e }}</td>
+                        <td data-label="EntryPoint">0x{{ functionInfo["lowAddress"] }}</td>
+                        <td class="chevron-cell" data-label="VIEW" aria-hidden="true"><span class="row-chevron">&#8250;</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -39,9 +48,9 @@
         </div>
         <!-- Pagination Controls -->
         <div id="prediction-details-pagination" class="pagination-controls"></div>
-        <div class="button-group">
-            <button type="button" class="cyber-btn is-primary is-delete" id="delete-prediction-btn" aria-label="Delete this prediction">Delete</button>
-            <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
+        <div class="btn-group">
+            <button type="button" class="cyber-btn is-danger" id="delete-prediction-btn" aria-label="Delete this prediction">Delete</button>
+            <button type="button" class="cyber-btn is-primary back-btn" data-fallback="/getPredictions" aria-label="Go back">Go Back</button>
         </div>
     </div>
 </div>

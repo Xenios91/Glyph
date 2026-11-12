@@ -27,32 +27,32 @@
                 <span>SELECT FILE</span>
                 <input id="upload-binary" type="file" aria-label="Select binary file to upload">
             </label>
+            <span id="upload-limit-hint" class="upload-limit-hint" data-max-mb="{{ current_max_file_size | default(512) }}"
+                  aria-live="polite">Max {{ current_max_file_size | default(512) }} MB &middot; any file type (binary executable)</span>
         </div>
 
-        <div id="upload-progress" class="upload-progress" style="display: none;" role="status" aria-live="polite">
+        <div id="upload-progress" class="upload-progress is-hidden" role="status" aria-live="polite">
             <div class="progress-bar">
                 <div class="progress-fill" id="progress-fill"></div>
             </div>
-            <p class="progress-text" id="progress-text">Uploading...</p>
+            <div class="progress-row">
+                <p class="progress-text" id="progress-text">Uploading...</p>
+                <button type="button" class="cyber-btn is-secondary is-small" id="upload-cancel" title="Cancel upload">CANCEL</button>
+            </div>
         </div>
 
-        <div id="upload-error" class="field-error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+        <div id="upload-error" class="field-error-message is-hidden" role="alert" aria-live="assertive"></div>
     </div>
 
     <!-- Binaries List -->
     <div id="binaries-container" class="cyber-container with-title is-centered" role="region" aria-labelledby="binaries-title">
         <p class="title" id="binaries-title">// YOUR BINARIES</p>
 
-        <div id="binaries-loading" class="loading-indicator" role="status">
-            <span class="loading-spinner"></span>
-            <span>Loading binaries...</span>
-        </div>
-
-        <div id="binaries-empty" class="empty-state" style="display: none;" role="status">
+        <div id="binaries-empty" class="empty-state is-hidden" role="status">
             <p>No binaries uploaded yet. Upload your first binary above.</p>
         </div>
 
-        <div id="binaries-table-wrapper" class="table-wrapper" style="display: none;">
+        <div id="binaries-table-wrapper" class="table-wrapper is-hidden">
             <table class="cyber-table" role="grid" aria-label="Binary library">
                 <thead>
                     <tr>
@@ -68,7 +68,7 @@
             </table>
         </div>
         <!-- Pagination Controls -->
-        <div id="binaries-pagination" class="pagination-controls" style="display: none;"></div>
+        <div id="binaries-pagination" class="pagination-controls is-hidden"></div>
     </div>
 </div>
 {% endblock content %}
@@ -79,20 +79,8 @@
     <div class="task-modal">
         <p class="task-modal-title" id="task-modal-title">// SELECT TASK TYPE</p>
 
-        <a href="#" class="task-option" data-task-type="dangerous_functions">
-            <span class="task-option-name">Dangerous Functions Scan</span>
-            <span class="task-option-desc">Scan the binary for dangerous/insecure functions like strcpy, gets, sprintf, and others known to introduce vulnerabilities.</span>
-        </a>
-
-        <a href="#" class="task-option" data-task-type="ml_training">
-            <span class="task-option-name">ML Training</span>
-            <span class="task-option-desc">Train a new ML model using the functions extracted from this binary.</span>
-        </a>
-
-        <a href="#" class="task-option" data-task-type="ml_prediction">
-            <span class="task-option-name">ML Prediction</span>
-            <span class="task-option-desc">Run predictions using an existing ML model on the functions from this binary.</span>
-        </a>
+        <!-- Task options rendered from the canonical BinaryActions list (static/js/binary_actions.js) -->
+        <div id="task-modal-options" class="task-modal-options"></div>
 
         <button type="button" class="task-modal-close" id="task-modal-cancel">CANCEL</button>
     </div>
@@ -100,5 +88,6 @@
 {% endblock modals %}
 
 {% block scripts %}
+<script src="{{ static_url(request, 'js/binary_actions.js') }}" defer></script>
 <script src="{{ static_url(request, 'js/binary_library.js') }}" defer></script>
 {% endblock scripts %}

@@ -72,6 +72,15 @@ async function deletePrediction() {
 
     const taskToDelete = extractLabelValue(taskNameElement);
 
+    const confirmed = await showConfirm({
+        title: 'Delete Prediction',
+        message: 'Are you sure you want to delete prediction "' + taskToDelete + '"?',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel'
+    });
+
+    if (!confirmed) return;
+
     try {
         const response = await authenticatedFetch(`/api/v1/predictions/deletePrediction?task_name=${encodeURIComponent(taskToDelete)}`, {
             method: 'DELETE',
@@ -108,9 +117,13 @@ async function deleteSelectedPredictions() {
         return;
     }
 
-    const confirmed = confirm(
-        `Are you sure you want to delete ${taskNames.length} prediction(s)?`
-    );
+    const confirmed = await showConfirm({
+        title: 'Delete Predictions',
+        message: 'Are you sure you want to delete ' + taskNames.length +
+            ' prediction(s): ' + taskNames.join(', ') + '?',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel'
+    });
 
     if (!confirmed) return;
 

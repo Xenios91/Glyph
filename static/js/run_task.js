@@ -17,6 +17,15 @@
     /** @type {number|undefined} */
     var pollingInterval = undefined;
 
+    /** @type {number|undefined} */
+    var elapsedTimerId = undefined;
+
+    /** @type {number} */
+    var taskStartedAt = 0;
+
+    /** @type {string} */
+    var currentTaskName = '';
+
     /** @type {number} */
     var binaryId = parseInt(window.location.search.match(/binary_id=(\d+)/)?.[1] || '0', 10);
 
@@ -31,6 +40,33 @@
         loadFunctionCount();
         autoFillTaskName();
         preSelectTaskType();
+
+        // Wire the execute button and task-type select via addEventListener
+        // (inline onclick/onchange handlers are blocked by the strict CSP
+        // script-src 'self' policy).
+        var executeBtn = document.getElementById('execute-btn');
+        if (executeBtn) {
+            executeBtn.addEventListener('click', function () {
+                window.executeTask();
+            });
+        }
+
+        var taskTypeSelect = document.getElementById('task-type');
+        if (taskTypeSelect) {
+            taskTypeSelect.addEventListener('change', function () {
+                window.handleTaskTypeChange();
+            });
+        }
+
+        var bgBtn = document.getElementById('run-task-background-btn');
+        if (bgBtn) {
+            bgBtn.addEventListener('click', runInBackground);
+        }
+
+        var cancelBtn = document.getElementById('run-task-cancel-btn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', cancelTask);
+        }
     });
 
     // ============================================================
@@ -96,16 +132,20 @@
 
         var dangerousFunctionsOptions = document.getElementById('dangerous-functions-options');
         var mlTrainingOptions = document.getElementById('ml-training-options');
+        var mlPredictionOptions = document.getElementById('ml-prediction-options');
 
         // Hide all
-        if (dangerousFunctionsOptions) dangerousFunctionsOptions.style.display = 'none';
-        if (mlTrainingOptions) mlTrainingOptions.style.display = 'none';
+        if (dangerousFunctionsOptions) dangerousFunctionsOptions.classList.add('is-hidden');
+        if (mlTrainingOptions) mlTrainingOptions.classList.add('is-hidden');
+        if (mlPredictionOptions) mlPredictionOptions.classList.add('is-hidden');
 
         // Show selected
         if (taskType === 'dangerous_functions' && dangerousFunctionsOptions) {
-            dangerousFunctionsOptions.style.display = 'block';
+            dangerousFunctionsOptions.classList.remove('is-hidden');
         } else if (taskType === 'ml_training' && mlTrainingOptions) {
-            mlTrainingOptions.style.display = 'block';
+            mlTrainingOptions.classList.remove('is-hidden');
+        } else if (taskType === 'ml_prediction' && mlPredictionOptions) {
+            mlPredictionOptions.classList.remove('is-hidden');
         }
     };
 
@@ -136,6 +176,13 @@
             mlClassType = document.getElementById('ml-class-type').value;
             if (!modelName) {
                 showTaskError('Model name is required for ML training');
+                return;
+            }
+        } else if (taskType === 'ml_prediction') {
+            // ML prediction requires an existing model name (no class type).
+            modelName = document.getElementById('prediction-model-name').value.trim();
+            if (!modelName) {
+                showTaskError('Model name is required for ML prediction');
                 return;
             }
         }
@@ -174,12 +221,32 @@
             }
 
             currentTaskUuid = data.data.task_uuid;
+            currentTaskName = taskName;
 
-            // Show status
+            // Register with the global StatusBar so the task is tracked even
+            // if the user navigates away (run in background).
+            if (typeof StatusBar !== 'undefined') {
+                StatusBar.registerTask(currentTaskUuid, taskName, {
+                    resultLink: '/task-results?task_uuid=' + encodeURIComponent(currentTaskUuid),
+                    resultLabel: 'View results'
+                });
+            }
+
+            // Show status (with task name + ticking elapsed time)
             var configEl = document.getElementById('task-config');
             var statusEl = document.getElementById('task-status');
             if (configEl) configEl.style.display = 'none';
-            if (statusEl) statusEl.style.display = 'block';
+            if (statusEl) statusEl.classList.remove('is-hidden');
+
+            var taskNameEl = document.getElementById('run-task-task-name');
+            if (taskNameEl) {
+                taskNameEl.textContent = taskName;
+            }
+            var metaEl = document.getElementById('run-task-task-meta');
+            if (metaEl) {
+                metaEl.classList.remove('is-hidden');
+            }
+            startElapsedTimer();
 
             // Start polling
             startPolling(currentTaskUuid);
@@ -235,10 +302,12 @@
 
             if (status === 'completed') {
                 stopPolling();
+                stopElapsedTimer();
                 // Fetch and redirect to results
                 window.location.href = '/task-results?task_uuid=' + taskUuid;
             } else if (status === 'error') {
                 stopPolling();
+                stopElapsedTimer();
                 var statusSubtext = document.getElementById('status-subtext');
                 if (statusSubtext) {
                     statusSubtext.textContent = 'Task failed. Check server logs for details.';
@@ -262,6 +331,73 @@
             pollingInterval = undefined;
         }
     }
+
+    /**
+     * Start the ticking "Xs elapsed" counter.
+     */
+    function startElapsedTimer() {
+        taskStartedAt = Date.now();
+        var elapsedEl = document.getElementById('run-task-elapsed');
+        var tick = function () {
+            if (elapsedEl) {
+                var seconds = Math.floor((Date.now() - taskStartedAt) / 1000);
+                elapsedEl.textContent = seconds + 's elapsed';
+            }
+        };
+        tick();
+        elapsedTimerId = setInterval(tick, 1000);
+    }
+
+    /**
+     * Stop the elapsed counter and hide the task meta row.
+     */
+    function stopElapsedTimer() {
+        if (elapsedTimerId) {
+            clearInterval(elapsedTimerId);
+            elapsedTimerId = undefined;
+        }
+        var metaEl = document.getElementById('run-task-task-meta');
+        if (metaEl) {
+            metaEl.classList.add('is-hidden');
+        }
+    }
+
+    /**
+     * Dismiss the blocking status panel and let the StatusBar track the task.
+     * The task keeps running on the server; the completion toast (with a link
+     * to the results page) is surfaced by the StatusBar.
+     */
+    window.runInBackground = function () {
+        stopPolling();
+        stopElapsedTimer();
+        var statusEl = document.getElementById('task-status');
+        if (statusEl) {
+            statusEl.classList.add('is-hidden');
+        }
+        if (typeof Toast !== 'undefined') {
+            Toast.info('Task is now running in the background. Track it in the status panel.', 4000);
+        }
+    };
+
+    /**
+     * Cancel the task (client-side only: no server cancel endpoint exists).
+     * Stops local polling and removes the StatusBar entry.
+     */
+    window.cancelTask = function () {
+        stopPolling();
+        stopElapsedTimer();
+        if (currentTaskUuid && typeof StatusBar !== 'undefined') {
+            StatusBar.removeEntry(currentTaskUuid);
+        }
+        currentTaskUuid = null;
+        var statusEl = document.getElementById('task-status');
+        if (statusEl) {
+            statusEl.classList.add('is-hidden');
+        }
+        if (typeof Toast !== 'undefined') {
+            Toast.warning('Task tracking cancelled. The server may still finish the job.', 4000);
+        }
+    };
 
     /**
      * Show back button after task completes or fails
@@ -292,7 +428,7 @@
         var el = document.getElementById('task-error');
         if (el) {
             el.textContent = message;
-            el.style.display = 'block';
+            el.classList.remove('is-hidden');
         }
     }
 
@@ -303,7 +439,7 @@
         var el = document.getElementById('task-error');
         if (el) {
             el.textContent = '';
-            el.style.display = 'none';
+            el.classList.add('is-hidden');
         }
     }
 

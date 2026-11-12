@@ -44,7 +44,7 @@ class TestLoginFormValidation:
         expect(page).to_have_title("Glyph - Login")
 
     def test_login_form_shows_error_on_invalid_credentials(self, page: Any, server: Any) -> None:
-        """Test that login form shows error message on invalid credentials."""
+        """Test that login failure surfaces exactly one error toast."""
         page.goto(f"{BASE_URL}/login")
         wait_for_login_form(page)
 
@@ -52,10 +52,12 @@ class TestLoginFormValidation:
         page.locator("#password").fill("WrongPassword123!")
         page.locator("#login-submit-btn").click()
 
-        # Error message should be visible
-        error_locator = page.locator("#login-error")
-        expect(error_locator).to_be_visible()
-        expect(error_locator).to_contain_text("Incorrect username or password")
+        # Submission outcomes surface in the toast only (single error surface)
+        toast_locator = page.locator(".toast-error")
+        expect(toast_locator).to_be_visible()
+        expect(toast_locator).to_contain_text("Incorrect username or password")
+        # The inline error region must NOT also show the same message
+        expect(page.locator("#login-error")).not_to_be_visible()
 
     def test_login_form_inputs_have_correct_types(self, page: Any, server: Any) -> None:
         """Test that login form inputs have correct types."""

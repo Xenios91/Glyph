@@ -14,9 +14,13 @@
     {% include 'components/no_models_empty_state.html' %}
     {% endif %}
     {% if models is defined and models|length > 0 %}
-    <div class="btn-group" style="margin-top: 1.5rem;">
+    <div class="next-step-banner" role="note">
+        <span>Model ready? Run a prediction with it.</span>
+        <a href="/create-prediction" aria-label="Run a prediction">RUN A PREDICTION &rarr;</a>
+    </div>
+    <div class="btn-group models-actions-spacer">
         <button type="button" id="delete-selected-btn" class="cyber-btn is-danger delete-selected-btn" disabled aria-label="Delete selected models">Delete Selected</button>
-        <button type="button" class="cyber-btn is-primary back-btn" aria-label="Go back">Go Back</button>
+        <button type="button" class="cyber-btn is-primary back-btn" data-fallback="/" aria-label="Go back">Go Back</button>
     </div>
     {% endif %}
 </div>

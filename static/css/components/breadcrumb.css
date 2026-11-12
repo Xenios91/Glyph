@@ -1,0 +1,71 @@
+/* =============================================================
+   BREADCRUMB
+   Shared breadcrumb navigation for deep pages.
+   Markup:
+     <nav aria-label="Breadcrumb" class="breadcrumb">
+       <ol class="breadcrumb-list">
+         <li class="breadcrumb-item"><a href="...">PARENT</a></li>
+         <li class="breadcrumb-item" aria-current="page"><span>CURRENT</span></li>
+       </ol>
+     </nav>
+   ============================================================= */
+
+.breadcrumb {
+    margin: var(--space-md) 0;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 0;
+    background: var(--bg-panel);
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+}
+
+.breadcrumb-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.breadcrumb-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* Separator between crumbs (skip the first item) */
+.breadcrumb-item + .breadcrumb-item::before {
+    content: "\203A"; /* › */
+    color: var(--text-dim);
+    font-family: var(--font-body);
+    margin-right: var(--space-xs);
+}
+
+.breadcrumb-item a {
+    color: var(--cyan);
+    text-decoration: none;
+    transition: color var(--duration-fast) ease;
+}
+
+.breadcrumb-item a:hover {
+    color: var(--cyan-bright);
+    text-decoration: underline;
+}
+
+.breadcrumb-item a:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+}
+
+/* Current page crumb */
+.breadcrumb-item[aria-current="page"] span {
+    color: var(--text-primary);
+    font-weight: var(--font-weight-semibold);
+}

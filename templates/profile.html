@@ -82,8 +82,8 @@
                      aria-hidden="false">
                 <h3>Edit Profile</h3>
 
-                <div id="profile-error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
-                <div id="profile-success" class="success-message" role="status" aria-live="polite" style="display: none;"></div>
+                <div id="profile-error" class="error-message is-hidden" role="alert" aria-live="assertive"></div>
+                <div id="profile-success" class="success-message is-hidden" role="status" aria-live="polite"></div>
 
                 <form id="profileForm" novalidate>
                     <div class="form-group">
@@ -125,7 +125,7 @@
                      aria-hidden="true">
                 <h3>Change Password</h3>
 
-                <div id="password-error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+                <div id="password-error" class="error-message is-hidden" role="alert" aria-live="assertive"></div>
 
                 <form id="passwordForm" novalidate>
                     <div class="form-group">
@@ -177,7 +177,7 @@
                      aria-labelledby="tab-apikeys"
                      aria-hidden="true">
                 <div class="api-keys-header">
-                    <h3 style="margin: 0; padding: 0; border: none;">Your API Keys</h3>
+                    <h3 class="api-keys-title">Your API Keys</h3>
                     <button class="cyber-btn is-primary"
                             id="create-api-key-btn"
                             aria-label="Create a new API key">
@@ -198,8 +198,8 @@
                      aria-hidden="true">
                 <h3>LLM Analysis Settings</h3>
 
-                <div id="llm-error" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
-                <div id="llm-success" class="success-message" role="status" aria-live="polite" style="display: none;"></div>
+                <div id="llm-error" class="error-message is-hidden" role="alert" aria-live="assertive"></div>
+                <div id="llm-success" class="success-message is-hidden" role="status" aria-live="polite"></div>
 
                 <div class="config-setting">
                     <label class="checkbox-label">
@@ -339,11 +339,11 @@
 </div>
 
 <!-- Create API Key Modal -->
-<div id="createApiKeyModal" class="modal-overlay" role="dialog" aria-labelledby="modal-title" aria-modal="true" style="display: none;">
+<div id="createApiKeyModal" class="modal-overlay" role="dialog" aria-labelledby="modal-title" aria-modal="true">
     <div class="modal-content">
         <h3 class="modal-title" id="modal-title">Create API Key</h3>
 
-        <div id="apiKeySecret" class="" style="display: none;" role="status" aria-live="polite"></div>
+        <div id="apiKeySecret" class="is-hidden" role="status" aria-live="polite"></div>
 
         <form id="createApiKeyForm" novalidate>
             <div class="form-group">
@@ -386,7 +386,7 @@
                 <button type="submit" class="cyber-btn is-primary" id="create-key-submit-btn">
                     Create Key
                 </button>
-                <button type="button" class="cyber-btn is-delete" id="cancel-create-key-btn">
+                <button type="button" class="cyber-btn is-danger" id="cancel-create-key-btn">
                     Cancel
                 </button>
             </div>

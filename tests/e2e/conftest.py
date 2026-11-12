@@ -24,6 +24,11 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 # Base URL for the application
 BASE_URL = "http://127.0.0.1:8000"
 
+# Temp data directory for the session server. Populated by the `server`
+# fixture and exposed via the `data_dir` fixture so tests can seed or
+# inspect the SQLite databases directly.
+_e2e_data_dir: str | None = None
+
 # E2E tests drive full browser flows (registration, upload, scan) and are
 # much slower than unit tests; the global 30s pytest-timeout would abort the
 # whole session on the first slow test.
@@ -71,6 +76,7 @@ def _port_in_use(host: str, port: int) -> bool:
 @pytest.fixture(scope="session")
 def server() -> Any:
     """Start the FastAPI server for testing and stop it after all tests complete."""
+    global _e2e_data_dir
     # Fail fast if something else (e.g. a stale dev server or a previous
     # aborted run) already owns the port: wait_for_server would otherwise
     # succeed against the foreign server and every test would silently hit
@@ -86,6 +92,7 @@ def server() -> Any:
     # reports, LLM results) does not leak between test runs or pollute the
     # real data/ directory.
     data_dir = tempfile.mkdtemp(prefix="glyph_e2e_data_")
+    _e2e_data_dir = data_dir
     env = os.environ.copy()
     env["GLYPH_JWT_SECRET_KEY"] = "test-secret-key-for-playwright-testing"
     env["GLYPH_DATA_DIR"] = data_dir
@@ -122,6 +129,13 @@ def server() -> Any:
 def base_url() -> str:
     """Return the base URL for the application."""
     return BASE_URL
+
+
+@pytest.fixture(scope="session")
+def data_dir(server: Any) -> str:
+    """Return the temp data directory backing the e2e server's SQLite DBs."""
+    assert _e2e_data_dir is not None, "server fixture has not started yet"
+    return _e2e_data_dir
 
 
 @pytest.fixture()

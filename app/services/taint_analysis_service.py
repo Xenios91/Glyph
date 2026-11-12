@@ -173,7 +173,14 @@ class TaintAnalysisService:
             if name not in graph.nodes:
                 continue
             raw_code = f.raw_code or ""
-            for match in _INPUT_CALL_PATTERN.finditer(raw_code):
+            # Real Ghidra raw_code (getPlainC) includes the function's own
+            # signature line (e.g. ``undefined read(char *p) { ... }``). Scanning
+            # the full text would match the function's own name in its signature
+            # and flag a function merely *named* like an input function as an
+            # input receiver. Parse only the body, mirroring
+            # CallGraphService.build_graph_from_functions.
+            body = raw_code[raw_code.find("{") :] if "{" in raw_code else raw_code
+            for match in _INPUT_CALL_PATTERN.finditer(body):
                 if match.group(1) in INPUT_FUNCTIONS:
                     receivers.add(name)
                     break
@@ -205,6 +212,10 @@ class TaintAnalysisService:
         depths: dict[str, int] = {}
         queue: list[tuple[str, int]] = []
         for caller in sorted(set(node.callers)):
+            if caller == sink:
+                # A self-recursive sink must not be seeded as its own caller:
+                # the documented invariant is that the sink itself is excluded.
+                continue
             if caller not in depths:
                 depths[caller] = 1
                 queue.append((caller, 1))

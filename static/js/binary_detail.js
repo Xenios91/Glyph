@@ -14,6 +14,9 @@
     /** @type {number} */
     var binaryId = parseInt(window.location.pathname.split('/').pop(), 10);
 
+    /** @type {string} */
+    var binaryName = '';
+
     /** @type {number} */
     var currentPage = 1;
 
@@ -36,8 +39,38 @@
     document.addEventListener('DOMContentLoaded', function () {
         initTabs();
         initPagination();
+        initFunctionRowDelegation();
         loadBinaryDetail();
     });
+
+    // ============================================================
+    // Function Row Navigation
+    // ============================================================
+
+    /**
+     * Initialize row click delegation for the functions table.
+     * Rows carry data-function-name; clicking navigates to /getFunction
+     * with the binary context (binary_id) so the raw decompiled code
+     * is displayed.
+     */
+    function initFunctionRowDelegation() {
+        initTableDelegation('#functions-table-wrapper .cyber-table', ['goToBinaryFunction']);
+    }
+
+    /**
+     * Navigate to the /getFunction page for a function row.
+     * @param {HTMLTableRowElement} row - the clicked table row
+     */
+    window.goToBinaryFunction = function (row) {
+        var functionName = row.getAttribute('data-function-name');
+        if (!functionName) return;
+        var params = new URLSearchParams({
+            model_name: binaryName || String(binaryId),
+            function_name: functionName,
+            binary_id: String(binaryId)
+        });
+        window.location.href = '/getFunction?' + params.toString();
+    };
 
     /**
      * Initialize shared pagination instance (server-side mode)
@@ -141,8 +174,8 @@
         var contentEl = document.getElementById('detail-content');
 
         if (loadingEl) loadingEl.style.display = 'flex';
-        if (errorEl) errorEl.style.display = 'none';
-        if (contentEl) contentEl.style.display = 'none';
+        if (errorEl) errorEl.classList.add('is-hidden');
+        if (contentEl) contentEl.classList.add('is-hidden');
 
         try {
             // Load binary metadata
@@ -157,11 +190,12 @@
             }
 
             var binary = detailData.data;
+            binaryName = binary.name || '';
 
             if (loadingEl) loadingEl.style.display = 'none';
 
             // Show main content card
-            if (contentEl) contentEl.style.display = 'block';
+            if (contentEl) contentEl.classList.remove('is-hidden');
 
             // Update subtitle
             var subtitle = document.getElementById('binary-subtitle');
@@ -169,8 +203,17 @@
                 subtitle.textContent = binary.name + ' (ID: ' + binary.id + ')';
             }
 
+            // Update the breadcrumb binary-name crumb
+            var breadcrumbName = document.getElementById('breadcrumb-binary-name');
+            if (breadcrumbName) {
+                breadcrumbName.textContent = binary.name;
+            }
+
             // Display binary info
             displayBinaryInfo(binary);
+
+            // Populate the per-binary action row
+            renderBinaryActions(binary);
 
             // Load functions
             await loadBinaryFunctions(binaryId);
@@ -179,7 +222,7 @@
             console.error('Load binary detail error:', error);
             if (loadingEl) loadingEl.style.display = 'none';
             if (errorEl) {
-                errorEl.style.display = 'block';
+                errorEl.classList.remove('is-hidden');
                 var msgEl = document.getElementById('error-message');
                 if (msgEl) msgEl.textContent = error.message;
             }
@@ -234,6 +277,13 @@
         var functionsTable = document.getElementById('functions-table-wrapper');
         var tbody = document.getElementById('functions-tbody');
 
+        // Show skeleton rows in the functions table while the fetch is in
+        // flight. The rows mirror the real columns (Function Name/Entrypoint)
+        // so the layout does not shift when data arrives.
+        if (functionsEmpty) functionsEmpty.classList.add('is-hidden');
+        if (functionsTable) functionsTable.classList.remove('is-hidden');
+        renderFunctionSkeletonRows(5);
+
         try {
             var url = '/api/v1/binaries/functions/' + id + '?page=' + currentPage + '&page_size=' + currentPageSize;
             var response = await authenticatedFetch(url, {
@@ -252,8 +302,8 @@
             totalPages = paginated.total_pages || 0;
 
             if (!functions || functions.length === 0) {
-                if (functionsEmpty) functionsEmpty.style.display = 'block';
-                if (functionsTable) functionsTable.style.display = 'none';
+                if (functionsEmpty) functionsEmpty.classList.remove('is-hidden');
+                if (functionsTable) functionsTable.classList.add('is-hidden');
                 if (pagination) pagination.setVisible(false);
                 return;
             }
@@ -262,17 +312,18 @@
                 tbody.innerHTML = '';
                 functions.forEach(function (fn) {
                     var row = document.createElement('tr');
-                    row.classList.add('hover-row');
+                    row.classList.add('hover-row', 'clickable-row');
+                    row.setAttribute('data-function-name', fn.function_name);
                     var entrypoint = fn.entrypoint ? '0x' + fn.entrypoint : 'N/A';
                     row.innerHTML =
-                        '<td><span class="binary-name">' + escapeHtml(fn.function_name) + '</span></td>' +
-                        '<td>' + entrypoint + '</td>';
+                        '<td data-label="Function Name"><span class="binary-name">' + escapeHtml(fn.function_name) + '</span></td>' +
+                        '<td data-label="Entrypoint">' + entrypoint + '</td>';
                     tbody.appendChild(row);
                 });
             }
 
-            if (functionsEmpty) functionsEmpty.style.display = 'none';
-            if (functionsTable) functionsTable.style.display = 'block';
+            if (functionsEmpty) functionsEmpty.classList.add('is-hidden');
+            if (functionsTable) functionsTable.classList.remove('is-hidden');
 
             // Update shared pagination controls
             if (pagination) {
@@ -283,15 +334,67 @@
         } catch (error) {
             console.error('Load functions error:', error);
             if (functionsEmpty) {
-                functionsEmpty.style.display = 'block';
+                functionsEmpty.classList.remove('is-hidden');
                 var para = document.createElement('p');
                 para.textContent = 'Error loading functions: ' + error.message;
                 functionsEmpty.innerHTML = '';
                 functionsEmpty.appendChild(para);
             }
-            if (functionsTable) functionsTable.style.display = 'none';
+            if (functionsTable) functionsTable.classList.add('is-hidden');
             if (pagination) pagination.setVisible(false);
         }
+    }
+
+    /**
+     * Render placeholder skeleton rows in the functions table while a fetch
+     * is in flight. The rows mirror the real columns (Function Name/
+     * Entrypoint) so the layout does not shift when data arrives.
+     * @param {number} count - Number of skeleton rows to render.
+     */
+    function renderFunctionSkeletonRows(count) {
+        var tbody = document.getElementById('functions-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        for (var i = 0; i < count; i++) {
+            var row = document.createElement('tr');
+            row.className = 'skeleton-row';
+            row.setAttribute('aria-hidden', 'true');
+            row.innerHTML =
+                '<td data-label="Function Name"><div class="skeleton skeleton-cell"></div></td>' +
+                '<td data-label="Entrypoint"><div class="skeleton skeleton-cell is-narrow"></div></td>';
+            tbody.appendChild(row);
+        }
+    }
+
+    // ============================================================
+    // Per-Binary Action Row
+    // ============================================================
+
+    /**
+     * Populate the action row from the canonical BinaryActions list
+     * (single source of truth shared with the library task modal).
+     * @param {Object} binary
+     */
+    function renderBinaryActions(binary) {
+        var actionsEl = document.getElementById('binary-actions');
+        var listEl = document.getElementById('binary-actions-list');
+        if (!actionsEl || !listEl || typeof window.BinaryActions === 'undefined') return;
+
+        listEl.innerHTML = '';
+        window.BinaryActions.actions.forEach(function (action) {
+            var href = window.BinaryActions.buildHref(action.id, binary.id, binary.name);
+            if (!href) return;
+            var link = document.createElement('a');
+            link.href = href;
+            link.className = 'task-option';
+            link.setAttribute('data-task-type', action.id);
+            link.innerHTML =
+                '<span class="task-option-name">' + escapeHtml(action.label) + '</span>' +
+                '<span class="task-option-desc">' + escapeHtml(action.description) + '</span>';
+            listEl.appendChild(link);
+        });
+
+        actionsEl.classList.remove('is-hidden');
     }
 
     // ============================================================

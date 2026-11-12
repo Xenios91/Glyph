@@ -54,6 +54,7 @@
                     return { id: b.id, name: b.name };
                 });
                 renderBinaryCheckboxes();
+                applyBinaryPreselect();
             } else {
                 showElement('no-binaries');
                 hideElement('binaries-loading');
@@ -115,6 +116,21 @@
         var deselectAllBtn = document.getElementById('deselect-all-btn');
         if (selectAllBtn) selectAllBtn.disabled = false;
         if (deselectAllBtn) deselectAllBtn.disabled = false;
+    }
+
+    /**
+     * Preselect a binary from the ?binary_id= deep link (R4: every action
+     * deep-links with the binary pre-filled).
+     */
+    function applyBinaryPreselect() {
+        var match = window.location.search.match(/[?&]binary_id=(\d+)/);
+        if (!match) return;
+
+        var checkbox = document.getElementById('binary-' + match[1]);
+        if (checkbox && !checkbox.checked) {
+            checkbox.checked = true;
+            updateSelectionCount();
+        }
     }
 
     // ============================================================
@@ -462,14 +478,24 @@
      * @param {number} computationId
      */
     async function deleteComputation(computationId) {
-        if (!confirm('Are you sure you want to delete this computation?')) return;
+        var deleteBtn = document.querySelector(
+            '.saved-computation-item .btn-delete[data-id="' + computationId + '"]'
+        );
+        var listItem = deleteBtn ? deleteBtn.closest('.saved-computation-item') : null;
+        var nameSpan = listItem ? listItem.querySelector('.saved-computation-name') : null;
+        var taskName = nameSpan ? nameSpan.textContent : '';
+
+        var confirmed = await showConfirm({
+            title: 'Delete Computation',
+            message: 'Are you sure you want to delete computation' +
+                (taskName ? ' "' + taskName + '"' : '') + '?',
+            confirmLabel: 'Delete',
+            cancelLabel: 'Cancel'
+        });
+        if (!confirmed) return;
 
         // Remove the item from the DOM immediately so the UI updates
         // without waiting for the re-fetch to complete.
-        var item = document.querySelector(
-            '.saved-computation-item .btn-delete[data-id="' + computationId + '"]'
-        );
-        var listItem = item ? item.closest('.saved-computation-item') : null;
         if (listItem) {
             listItem.remove();
             if (!document.querySelector('.saved-computation-item')) {
@@ -732,16 +758,16 @@
                     '<strong>' + escapeHtml(data.binaryMap[idA]) + '</strong> vs ' +
                     '<strong>' + escapeHtml(data.binaryMap[idB]) + '</strong><br>' +
                     'Similarity: ' + similarity.toFixed(4);
-                tooltip.style.display = 'block';
+                tooltip.classList.remove('is-hidden');
                 tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
                 tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
             } else {
-                tooltip.style.display = 'none';
+                tooltip.classList.add('is-hidden');
             }
         });
 
         canvas.addEventListener('mouseleave', function () {
-            tooltip.style.display = 'none';
+            tooltip.classList.add('is-hidden');
         });
     }
 
@@ -791,7 +817,7 @@
 
         var rows = table.querySelectorAll('tbody tr');
         if (rows.length > 0) {
-            paginationEl.style.display = '';
+            paginationEl.classList.remove('is-hidden');
             var pagination = new Pagination({
                 tableSelector: '#table-container .cyber-table',
                 paginationSelector: '#similarity-pagination',
@@ -801,7 +827,7 @@
             });
             pagination.init();
         } else {
-            paginationEl.style.display = 'none';
+            paginationEl.classList.add('is-hidden');
         }
     }
 
@@ -883,7 +909,7 @@
      */
     function showElement(id) {
         var el = document.getElementById(id);
-        if (el) el.style.display = '';
+        if (el) el.classList.remove('is-hidden');
     }
 
     /**
@@ -892,7 +918,7 @@
      */
     function hideElement(id) {
         var el = document.getElementById(id);
-        if (el) el.style.display = 'none';
+        if (el) el.classList.add('is-hidden');
     }
 
     /**

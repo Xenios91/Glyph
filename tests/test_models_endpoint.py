@@ -37,7 +37,8 @@ class TestModelsRouter:
             assert data["success"] is True
             assert "Model deleted successfully" in data["message"]
             mock_model_repo.delete.assert_awaited_once_with("test_model")
-            mock_pred_service.delete_predictions_for_model.assert_awaited_once_with("test_model")
+            # The delete is ownership-scoped: the endpoint forwards the caller's id.
+            mock_pred_service.delete_predictions_for_model.assert_awaited_once_with("test_model", 1)
         finally:
             clear_dependency_overrides(models_client)
 

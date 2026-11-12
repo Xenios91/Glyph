@@ -177,8 +177,14 @@ async def get_function(
     current_user: Annotated[User, Depends(get_current_active_user)],
     model_name: Annotated[str, Query()],
     function_name: Annotated[str, Query()],
+    binary_id: Annotated[int | None, Query()] = None,
 ) -> dict[str, Any] | HTMLResponse:
-    """Display details for a single function from a model."""
+    """Display details for a single function from a model or binary.
+
+    When the function is not stored in the model ``functions`` table and a
+    ``binary_id`` is provided, falls back to the raw decompiled functions
+    stored in the ``binary_functions`` table.
+    """
     model_name = model_name.strip()
     function_name = function_name.strip()
 
@@ -187,13 +193,46 @@ async def get_function(
     if not function_name:
         raise HTTPException(status_code=400, detail="function_name must be a non-empty string")
 
+    binary_name: str | None = None
+
     function_info = await FunctionRepository.get(model_name, function_name)
-    if function_info is None:
+    if function_info is not None:
+        assert_owned(function_info, current_user, "function")
+        tokens = format_code(getattr(function_info, "tokens", ""))
+        source_label = "Model"
+        token_title = "Function Tokens"
+        back_href = "/getSymbols"
+        result_id = function_info.id
+        result_name = function_info.function_name
+        result_entrypoint = function_info.entrypoint
+        result_raw_tokens = function_info.tokens
+    elif binary_id is not None:
+        from app.database.binary_repository import BinaryRepository
+
+        binary = await BinaryRepository.get(binary_id)
+        if binary is None:
+            raise HTTPException(status_code=404, detail="Function not found")
+        # Binary uses `uploaded_by` (not `user_id`), so `assert_owned` cannot
+        # enforce ownership here; check it explicitly.
+        if binary.uploaded_by is not None and binary.uploaded_by != current_user.id:
+            raise HTTPException(status_code=404, detail="Function not found")
+
+        binary_functions = await BinaryRepository.get_functions(binary_id)
+        match = next((fn for fn in binary_functions if fn.function_name == function_name), None)
+        if match is None:
+            raise HTTPException(status_code=404, detail="Function not found")
+
+        tokens = format_code(match.raw_code or "")
+        source_label = "Binary"
+        token_title = "Decompiled Code"
+        back_href = f"/binary/{binary_id}"
+        binary_name = binary.name
+        result_id = match.id
+        result_name = match.function_name
+        result_entrypoint = match.entrypoint
+        result_raw_tokens = match.raw_code
+    else:
         raise HTTPException(status_code=404, detail="Function not found")
-
-    assert_owned(function_info, current_user, "function")
-
-    tokens = format_code(getattr(function_info, "tokens", ""))
 
     accept = request.headers.get("Accept", "")
     if ACCEPT_TYPE in accept:
@@ -205,15 +244,20 @@ async def get_function(
                 "model_name": model_name,
                 "function_name": function_name,
                 "tokens": tokens,
+                "source_label": source_label,
+                "token_title": token_title,
+                "back_href": back_href,
+                "binary_name": binary_name,
+                "binary_id": binary_id,
                 "user": current_user,
             },
         )
 
     return {
-        "id": function_info.id,
-        "function_name": function_info.function_name,
-        "entrypoint": function_info.entrypoint,
-        "tokens": function_info.tokens,
+        "id": result_id,
+        "function_name": result_name,
+        "entrypoint": result_entrypoint,
+        "tokens": result_raw_tokens,
     }
 
 
@@ -561,7 +605,11 @@ async def binary_library_page(
     return templates.TemplateResponse(
         request,
         "binary_library.html",
-        {"title": "Glyph - Binary Library", "user": current_user},
+        {
+            "title": "Glyph - Binary Library",
+            "user": current_user,
+            "current_max_file_size": get_settings().max_file_size_mb,
+        },
     )
 
 
