@@ -236,6 +236,15 @@ async def http_exception_handler(
 
     from app.utils.responses import create_error_response
 
+    # If the endpoint already raised with a structured ErrorResponse dict as
+    # the detail (the convention used across the API, e.g. INVALID_LLM_BASE_URL,
+    # ACCESS_DENIED), pass it through verbatim. Re-wrapping it would clobber the
+    # specific error code with the generic status-based code and stringify the
+    # dict into an unreadable message.
+    detail = exc.detail
+    if isinstance(detail, dict) and "error" in detail and "success" in detail:
+        return JSONResponse(status_code=exc.status_code, content=detail)
+
     error_code = _STATUS_ERROR_CODE.get(exc.status_code, "HTTP_ERROR")
     error_response = create_error_response(
         error_code=error_code,

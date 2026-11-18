@@ -14,15 +14,6 @@
     min-height: 100vh;
 }
 
-/* Profile page specific - center content vertically */
-.page-content.profile-content {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding-top: 60px;
-    padding-bottom: 60px;
-}
-
 /* ── Content wrapper (legacy) ───────────────────────────────── */
 .content {
     position: relative;
@@ -32,11 +23,6 @@
     padding-left: 1rem;
     padding-right: 1rem;
     min-height: 100vh;
-}
-
-/* ── Blue background modifier ───────────────────────────────── */
-.blue-bg {
-    background: transparent;
 }
 
 /* ── Page header ────────────────────────────────────────────── */

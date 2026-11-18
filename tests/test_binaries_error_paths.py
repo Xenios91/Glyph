@@ -13,6 +13,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from tests.conftest import create_app_client
 from tests.factories import make_user
 

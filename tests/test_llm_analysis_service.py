@@ -10,6 +10,7 @@ import pytest
 from app.config.settings import LLMConfig
 from app.services import llm_analysis_service as service
 from app.services.llm_analysis_service import (
+    FindingAnalysis,
     LLMNotConfiguredError,
     build_endpoint_url,
 )
@@ -760,3 +761,127 @@ class TestSsrfGuardMapping:
             await service.analyze_findings(_make_llm(), [{"function_name": "fn"}])
 
         assert client.calls == []
+
+
+class TestStreamFindings:
+    """Tests for the real (un-mocked) stream_findings async generator."""
+
+    def _findings(self, count: int) -> list[dict[str, Any]]:
+        return [
+            {
+                "function_name": f"fn{i}",
+                "containing_function": "main",
+                "entrypoint": "0x400000",
+                "category": "memory",
+                "severity": "high",
+                "cwe": "CWE-120",
+                "description": "",
+                "safe_alternative": "",
+                "usage_context": [],
+                "containing_function_code": "",
+            }
+            for i in range(count)
+        ]
+
+    async def test_stream_findings_yields_in_completion_order(self, monkeypatch: Any) -> None:
+        """Results are yielded as each request completes, not in input order."""
+
+        class StaggeredClient(FakeClient):
+            """Client whose response time depends on which finding is analyzed."""
+
+            async def post(
+                self, url: str, json: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+            ) -> FakeResponse:
+                self.calls.append((url, json, headers))
+                content = str(json["messages"][1]["content"]) if json is not None else ""
+                name = next(n for n in ("fn0", "fn1", "fn2") if n in content)
+                await asyncio.sleep({"fn0": 0.05, "fn1": 0.01, "fn2": 0.03}[name])
+                assert self._response is not None
+                return self._response
+
+        client = StaggeredClient(response=FakeResponse(200, OK_BODY))
+        _patch_client(monkeypatch, client)
+
+        received: list[int] = []
+        async for index, analysis in service.stream_findings(_make_llm(), self._findings(3)):
+            received.append(index)
+            assert analysis.status == "success"
+
+        # fn1 (10ms) completes first, then fn2 (30ms), then fn0 (50ms).
+        assert received == [1, 2, 0]
+        assert len(client.calls) == 3
+
+    async def test_stream_findings_error_does_not_kill_stream(self, monkeypatch: Any) -> None:
+        """A failing finding yields an error result without stopping the stream."""
+
+        class FlakyClient(FakeClient):
+            """Client that fails the request for fn1 with a connection error."""
+
+            async def post(
+                self, url: str, json: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+            ) -> FakeResponse:
+                self.calls.append((url, json, headers))
+                if json is not None and "fn1" in str(json["messages"][1]["content"]):
+                    raise httpx.ConnectError("boom")
+                return FakeResponse(200, OK_BODY)
+
+        client = FlakyClient(response=FakeResponse(200, OK_BODY))
+        _patch_client(monkeypatch, client)
+
+        results: dict[int, FindingAnalysis] = {}
+        async for index, analysis in service.stream_findings(_make_llm(), self._findings(3)):
+            results[index] = analysis
+
+        assert set(results) == {0, 1, 2}
+        assert results[1].status == "error"
+        assert "ConnectError" in results[1].error
+        assert results[0].status == "success"
+        assert results[2].status == "success"
+
+    async def test_stream_findings_cancels_on_consumer_break(self, monkeypatch: Any) -> None:
+        """Stopping consumption cancels the in-flight analysis tasks."""
+
+        started = asyncio.Event()
+        cancelled: list[str] = []
+
+        async def _fake_analyze(llm: LLMConfig, finding: dict[str, Any]) -> FindingAnalysis:
+            if finding["function_name"] == "fn0":
+                return FindingAnalysis(status="success", analysis="fast")
+            started.set()
+            release = asyncio.Event()  # never set: blocks until cancelled
+            try:
+                await release.wait()
+            except asyncio.CancelledError:
+                cancelled.append(finding["function_name"])
+                raise
+            return FindingAnalysis(status="success", analysis="slow")
+
+        monkeypatch.setattr(service, "analyze_finding", _fake_analyze)
+
+        gen = service.stream_findings(_make_llm(), self._findings(3))
+        try:
+            async for index, _ in gen:
+                assert index == 0  # only the fast finding completes
+                break
+            assert started.is_set()  # the other tasks were in flight
+        finally:
+            await gen.aclose()
+
+        # The finally block must have cancelled both in-flight tasks.
+        assert sorted(cancelled) == ["fn1", "fn2"]
+
+    async def test_stream_findings_empty_yields_nothing(self, monkeypatch: Any) -> None:
+        """An empty input yields nothing and opens no requests."""
+        client = FakeClient(response=FakeResponse(200, OK_BODY))
+        _patch_client(monkeypatch, client)
+
+        received = [index async for index, _ in service.stream_findings(_make_llm(), [])]
+
+        assert received == []
+        assert client.calls == []
+
+    async def test_stream_findings_disabled_raises(self) -> None:
+        """A disabled config raises before any request is scheduled."""
+        with pytest.raises(LLMNotConfiguredError):
+            async for _ in service.stream_findings(_make_llm(enabled=False), self._findings(1)):
+                pass

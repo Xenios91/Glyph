@@ -426,6 +426,30 @@ def _format_full_function_code(tokens: list[str]) -> str:
     return format_code(code_text)
 
 
+def _extract_tokens(func_info: dict[str, Any]) -> list[str]:
+    """Extract the decompiled token list from a function dict.
+
+    Supports both the ``tokenList`` key (a list of tokens, as produced by
+    ``binary_function_to_dict`` and model/pipeline function rows) and the
+    legacy ``tokens`` key (a whitespace-separated code string, as stored in
+    prediction payloads).
+
+    Args:
+        func_info: A function dictionary.
+
+    Returns:
+        The token list, or an empty list when the function has no code.
+
+    """
+    tokens = func_info.get("tokenList")
+    if isinstance(tokens, (list, tuple)):
+        return [str(t) for t in tokens]
+    tokens_text = func_info.get("tokens")
+    if isinstance(tokens_text, str) and tokens_text.strip():
+        return tokens_text.split()
+    return []
+
+
 def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[BehavioralScanResult]:
     """Scan function bodies for malware-associated behaviors.
 
@@ -447,7 +471,7 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[BehavioralSca
 
     for func_info in functions:
         func_name = func_info.get("functionName", "")
-        tokens = func_info.get("tokenList", [])
+        tokens = _extract_tokens(func_info)
         if not tokens:
             continue
         funcs_with_tokens += 1

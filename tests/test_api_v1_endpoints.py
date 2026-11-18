@@ -282,6 +282,37 @@ class TestConfigRouter:
         mock_upsert.assert_not_awaited()
 
     @patch("app.api.v1.endpoints.config.get_settings")
+    def test_save_config_llm_rejects_ip_literal_base_url(
+        self,
+        mock_get_settings: Any,
+        config_client: TestClient,
+        tmp_path: Path,
+        monkeypatch: Any,
+    ) -> None:
+        """A base_url that is a link-local IP literal (cloud metadata) is rejected.
+
+        IP literals are rejected by the SSRF guard without any DNS lookup, so
+        no DNS mock is needed: 169.254.169.254 is the AWS metadata endpoint.
+        """
+        settings = self._llm_settings()
+        mock_get_settings.return_value = settings
+        monkeypatch.setattr("app.api.v1.endpoints.config._CONFIG_FILE", tmp_path / "config.yml")
+
+        with patch(
+            "app.api.v1.endpoints.config.LLMUserConfigRepository.upsert",
+            new_callable=AsyncMock,
+        ) as mock_upsert:
+            response = config_client.post(
+                "/config/save",
+                json={"llm": {"base_url": "http://169.254.169.254/"}},
+            )
+
+        assert response.status_code == 400
+        detail = response.json().get("detail", response.json())
+        assert detail.get("error", {}).get("code", "") == "INVALID_LLM_BASE_URL"
+        mock_upsert.assert_not_awaited()
+
+    @patch("app.api.v1.endpoints.config.get_settings")
     def test_save_config_llm_partial_preserves_other_fields(
         self,
         mock_get_settings: Any,

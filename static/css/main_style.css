@@ -2,7 +2,7 @@
    GLYPH — MAIN PAGE (main_style.css)
    ============================================================= */
 
-.content {
+.home-content {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -32,26 +32,6 @@
     animation: title-glitch 9s step-end infinite;
     display: inline-block;
     margin: 0;
-}
-
-@keyframes title-glitch {
-    0%, 88%, 93%, 100% {
-        text-shadow: 0 0 20px rgba(125, 216, 216, 0.25), 3px 3px 0 var(--magenta-dim);
-        transform: translate(0, 0);
-    }
-    89% {
-        transform: translate(-3px, 0);
-        text-shadow: -3px 0 var(--magenta), 3px 0 var(--cyan);
-    }
-    90% {
-        transform: translate(3px, 1px);
-    }
-    91% {
-        transform: translate(0, 0);
-    }
-    92% {
-        transform: translate(-1px, -1px);
-    }
 }
 
 .hero-subtitle {

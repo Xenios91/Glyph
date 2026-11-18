@@ -54,24 +54,6 @@ async def home(
     return templates.TemplateResponse(request, "main.html", {"title": "Glyph", "user": current_user})
 
 
-@router.get("/stats", response_model=None)
-async def home_stats(request: Request, current_user: Annotated[User, Depends(get_current_active_user)]) -> JSONResponse:
-    """Returns homepage statistics for the current user."""
-    from app.database.binary_repository import BinaryRepository
-
-    binaries = await BinaryRepository.get_by_user(user_id=current_user.id)
-    models = await ModelRepository.get_models_list_for_user(current_user.id)
-    predictions = await PredictionRepository.count_for_user(current_user.id)
-
-    return JSONResponse(
-        content={
-            "binaries": len(binaries),
-            "models": len(models),
-            "predictions": predictions,
-        },
-    )
-
-
 @router.get("/config")
 async def config(request: Request, current_user: Annotated[User, Depends(get_current_active_user)]) -> HTMLResponse:
     """Loads the configuration page of Glyph"""

@@ -456,29 +456,6 @@ class TestWebEndpoints:
         )
         assert response.status_code == 200
 
-    @patch("app.database.binary_repository.BinaryRepository")
-    @patch("app.web.endpoints.web.ModelRepository")
-    @patch("app.web.endpoints.web.PredictionRepository")
-    def test_home_stats(
-        self,
-        mock_pred_repo: Any,
-        mock_ml_repo: Any,
-        mock_sql: Any,
-        web_client: TestClient,
-    ) -> None:
-        """Test home stats endpoint."""
-        mock_sql.get_by_user = AsyncMock(return_value=[1, 2, 3])
-        mock_ml_repo.get_models_list_for_user = AsyncMock(return_value=["model1", "model2"])
-        mock_pred_repo.count_for_user = AsyncMock(return_value=2)
-
-        response = web_client.get("/stats")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["binaries"] == 3
-        assert data["models"] == 2
-        assert data["predictions"] == 2
-        mock_pred_repo.count_for_user.assert_awaited_once_with(1)
-
     # Tests for login/register pages (need separate client without auth override)
     def test_login_page_shows_login_form(self) -> None:
         """Test login page shows form when not authenticated."""

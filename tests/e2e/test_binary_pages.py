@@ -394,7 +394,9 @@ def test_binary_library_server_side_pagination(page: Any, server: Any) -> None:
     # Page 2 renders the remaining 7 rows (57 - 50) from the server slice.
     expect(page.locator("#binaries-tbody tr")).to_have_count(7)
     expect(page.locator("#binaries-tbody tr").first).to_contain_text("mock_binary_051")
-    expect(page_info).to_contain_text("51–57 of 57")
+    # NB: the app renders an EN dash (–) in the pagination range, so the
+    # assertion must match it exactly.
+    expect(page_info).to_contain_text("51–57 of 57")  # noqa: RUF001
 
     # Page-size selector offers options capped at the API max (200), none above it.
     # The Pagination class derives element IDs from the container selector

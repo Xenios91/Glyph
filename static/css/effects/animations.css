@@ -122,15 +122,15 @@
 
 @keyframes title-glitch {
     0%, 88%, 93%, 100% {
-        text-shadow: 0 0 12px rgba(168, 236, 236, 0.30), 3px 3px 0 #4a2244;
+        text-shadow: 0 0 20px rgba(125, 216, 216, 0.25), 3px 3px 0 var(--magenta-dim);
         transform: translate(0, 0);
     }
     89% {
-        transform: translate(-2px, 0);
-        text-shadow: -2px 0 #c87ab8, 2px 0 #7dd8d8;
+        transform: translate(-3px, 0);
+        text-shadow: -3px 0 var(--magenta), 3px 0 var(--cyan);
     }
     90% {
-        transform: translate(2px, 1px);
+        transform: translate(3px, 1px);
     }
     91% {
         transform: translate(0, 0);

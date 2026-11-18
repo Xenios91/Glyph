@@ -58,10 +58,10 @@ def _make_function(
 class TestCatalog:
     """Tests for the behavioral signature catalog."""
 
-    def test_catalog_has_24_entries(self) -> None:
-        """The v1 catalog ships exactly 24 signatures."""
+    def test_catalog_has_31_entries(self) -> None:
+        """The v1 catalog ships exactly 31 signatures."""
         entries = get_all_entries()
-        assert len(entries) == 24
+        assert len(entries) == 31
 
     def test_signature_ids_unique(self) -> None:
         """All signature ids are unique."""
@@ -149,7 +149,7 @@ class TestCatalog:
                 assert entry.category == category
 
     def test_get_categories(self) -> None:
-        """get_categories returns the expected seven categories."""
+        """get_categories returns the expected eight categories."""
         categories = get_categories()
         assert "Anti-Debugging" in categories
         assert "Anti-Sandbox / Anti-VM" in categories
@@ -158,7 +158,8 @@ class TestCatalog:
         assert "Network C2" in categories
         assert "Persistence" in categories
         assert "Obfuscation / Anti-Analysis" in categories
-        assert len(categories) == 7
+        assert "Command Execution" in categories
+        assert len(categories) == 8
 
     def test_get_entries_by_category(self) -> None:
         """Filtering by category returns only that category's entries."""

@@ -360,6 +360,106 @@ _PERSISTENCE: list[BehavioralSignatureEntry] = [
     ),
 ]
 
+_COMMAND_EXECUTION: list[BehavioralSignatureEntry] = [
+    BehavioralSignatureEntry(
+        signature_id="BEHAV-025",
+        name="system",
+        category="Command Execution",
+        severity="High",
+        detection_method="api_call",
+        patterns=("system",),
+        description=(
+            "Invokes the shell to run a command via the system() API. A classic "
+            "code-execution primitive used by malware to run payloads, download "
+            "stages, or interact with the host."
+        ),
+        mitre_technique="T1059",
+    ),
+    BehavioralSignatureEntry(
+        signature_id="BEHAV-026",
+        name="execve",
+        category="Command Execution",
+        severity="High",
+        detection_method="api_call",
+        patterns=("execve", "execv", "execl", "execle", "execvp", "execlp", "execvpe"),
+        description=(
+            "Replaces the current process image with a new program via an "
+            "execve/exec* family call. Used to spawn child processes or pivot to "
+            "a second-stage payload."
+        ),
+        mitre_technique="T1059",
+    ),
+    BehavioralSignatureEntry(
+        signature_id="BEHAV-027",
+        name="password_file_access",
+        category="Credential Harvesting",
+        severity="High",
+        detection_method="string_pattern",
+        patterns=(r"/etc/passwd|/etc/shadow|\bSAM\b|ntuser\.dat|SYSTEM\.hive",),
+        description=(
+            "References well-known credential stores (the Unix password/shadow "
+            "files, the Windows SAM database, or the NTUSER/SYSTEM registry "
+            "hives). Indicates harvesting of stored credentials."
+        ),
+        mitre_technique="T1552",
+    ),
+    BehavioralSignatureEntry(
+        signature_id="BEHAV-028",
+        name="windows_memory_allocation",
+        category="Process Injection",
+        severity="High",
+        detection_method="api_call",
+        patterns=("VirtualAlloc",),
+        description=(
+            "Allocates memory in the current process via VirtualAlloc. A common "
+            "first step in process injection, where shellcode is staged before "
+            "execution."
+        ),
+        mitre_technique="T1055",
+    ),
+    BehavioralSignatureEntry(
+        signature_id="BEHAV-029",
+        name="in_place_decode",
+        category="Obfuscation / Anti-Analysis",
+        severity="Medium",
+        detection_method="code_heuristic",
+        patterns=(r"[\w\]]\s*\^\s*=",),
+        description=(
+            "Performs an in-place XOR operation (e.g. buf[i] ^= 0xNN), the "
+            "classic pattern for decoding an embedded payload at runtime to hide "
+            "it from static analysis."
+        ),
+        mitre_technique="T1027",
+    ),
+    BehavioralSignatureEntry(
+        signature_id="BEHAV-030",
+        name="thread_creation",
+        category="Process Injection",
+        severity="Medium",
+        detection_method="api_call",
+        patterns=("CreateThread",),
+        description=(
+            "Creates a new thread via CreateThread, often to execute decoded "
+            "shellcode or to run a secondary payload in parallel."
+        ),
+        mitre_technique="T1055",
+    ),
+    BehavioralSignatureEntry(
+        signature_id="BEHAV-031",
+        name="obfuscated_string",
+        category="Obfuscation / Anti-Analysis",
+        severity="Medium",
+        detection_method="code_heuristic",
+        patterns=(r"(?:\\x[0-9a-fA-F]{2}){4,}",),
+        description=(
+            "Contains a run of hex-escaped bytes (e.g. \"\\x41\\x42\\x43\\x44\"), "
+            "a common way to obfuscate strings such as C2 addresses or commands "
+            "from static analysis."
+        ),
+        mitre_technique="T1027",
+    ),
+]
+
 _OBFUSCATION_ANTI_ANALYSIS: list[BehavioralSignatureEntry] = [
     BehavioralSignatureEntry(
         signature_id="BEHAV-022",
@@ -419,6 +519,7 @@ _ALL_ENTRIES: Final[list[BehavioralSignatureEntry]] = (
     + _CREDENTIAL_HARVESTING
     + _NETWORK_C2
     + _PERSISTENCE
+    + _COMMAND_EXECUTION
     + _OBFUSCATION_ANTI_ANALYSIS
 )
 

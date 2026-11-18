@@ -574,7 +574,11 @@ async function saveLlmSettings() {
             clearLlmTestStatus();
         } else {
             const errorData = await response.json().catch(() => ({}));
-            const errorMessage = errorData.detail || errorData.message || 'Failed to save LLM settings';
+            // The error body is a top-level ErrorResponse envelope
+            // {success, error: {code, message}, metadata}. Extract the
+            // human-readable message (also handle a plain {detail: ...} body).
+            const errObj = errorData.error || (errorData.detail && errorData.detail.error) || {};
+            const errorMessage = errObj.message || errorData.message || 'Failed to save LLM settings';
             showError('llm-error', errorMessage);
             Toast.error(errorMessage);
         }

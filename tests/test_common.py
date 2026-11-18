@@ -1,6 +1,8 @@
 """Unit tests for common utility functions."""
 
-from app.utils.common import format_code
+from typing import Any
+
+from app.utils.common import binary_function_to_dict, build_prediction_details_response, format_code
 
 
 class TestFormatCode:
@@ -53,3 +55,78 @@ class TestFormatCode:
         result = format_code(code)
         assert "int add(int a, int b)" in result
         assert "return a + b" in result
+
+    def test_format_code_string_with_braces(self):
+        """Braces inside string literals must not affect brace-depth tracking."""
+        code = 'void f() { char *s = "{ not a brace }"; int x = 1; }'
+        result = format_code(code)
+        # The string literal is preserved verbatim.
+        assert '{ not a brace }' in result
+        # The function body is still well-formed and closed.
+        assert "int x = 1" in result
+        assert result.count("{") == result.count("}")
+
+    def test_format_code_escaped_quote_in_string(self):
+        """Escaped quotes inside string literals must not break string parsing."""
+        code = 'void f() { char *s = "say \\"hi\\""; return; }'
+        result = format_code(code)
+        assert 'say \\"hi\\"' in result
+        assert "return" in result
+
+    def test_format_code_missing_closing_brace(self):
+        """A missing closing brace must fall back and still balance the output."""
+        code = "void f() { int x = 1; if (x) { return; }"
+        result = format_code(code)
+        # The formatter must emit a balanced result.
+        assert result.count("{") == result.count("}")
+        assert "int x = 1" in result
+
+
+class TestBinaryFunctionToDict:
+    """Tests for binary_function_to_dict."""
+
+    def _make_bf(self, function_name: str, entrypoint: str, raw_code: str) -> Any:
+        class _BF:
+            def __init__(self, name: str, ep: str, code: str) -> None:
+                self.function_name = name
+                self.entrypoint = ep
+                self.raw_code = code
+
+        return _BF(function_name, entrypoint, raw_code)
+
+    def test_binary_function_to_dict_keys(self):
+        """The dict must expose the exact keys the pipeline expects."""
+        bf = self._make_bf("main", "0x401000", "int main() { return 0; }")
+        result = binary_function_to_dict(bf)
+        assert set(result.keys()) == {"functionName", "lowAddress", "tokenList", "raw_code"}
+        assert result["functionName"] == "main"
+        assert result["lowAddress"] == "0x401000"
+        assert result["raw_code"] == "int main() { return 0; }"
+
+    def test_binary_function_to_dict_token_list_split(self):
+        """tokenList must be the whitespace-split raw_code."""
+        bf = self._make_bf("main", "0x401000", "int  main() { return  0; }")
+        result = binary_function_to_dict(bf)
+        assert result["tokenList"] == ["int", "main()", "{", "return", "0;", "}"]
+
+
+class TestBuildPredictionDetailsResponse:
+    """Tests for build_prediction_details_response."""
+
+    def test_build_prediction_details_response_shape(self):
+        """The response must carry all five fields verbatim."""
+        result = build_prediction_details_response(
+            task_name="task-1",
+            model_name="model-a",
+            function_name="main",
+            model_tokens="tok1 tok2",
+            prediction_tokens="tok3 tok4",
+        )
+        assert result == {
+            "task_name": "task-1",
+            "model_name": "model-a",
+            "function_name": "main",
+            "model_tokens": "tok1 tok2",
+            "prediction_tokens": "tok3 tok4",
+        }
+        assert set(result.keys()) == {"task_name", "model_name", "function_name", "model_tokens", "prediction_tokens"}

@@ -290,3 +290,102 @@ class TestStepsHelpers:
 
         result = _filter_tokens(["local_10", "param_1"])
         assert "VARIABLE" in result
+
+
+class TestStepClasses:
+    """Tests for concrete PipelineStep implementations in app.processing.steps."""
+
+    async def test_validation_step_missing_file(self, tmp_path: Any) -> None:
+        """ValidationStep sets an error when the binary path does not exist."""
+        from app.processing.steps import ValidationStep
+
+        ctx = PipelineContext(uuid="u1", binary_path=str(tmp_path / "missing.bin"))
+        result = await ValidationStep().execute(ctx)
+        assert result.error is not None
+        assert "not found" in result.error
+
+    async def test_validation_step_oversized_file(self, tmp_path: Any) -> None:
+        """ValidationStep sets an error when the file exceeds max_size_mb."""
+        from app.processing.steps import ValidationStep
+
+        binary = tmp_path / "big.bin"
+        binary.write_bytes(b"\x00" * 2048)
+        ctx = PipelineContext(uuid="u2", binary_path=str(binary))
+        result = await ValidationStep(max_size_mb=0.001).execute(ctx)  # ~1KB limit
+        assert result.error is not None
+        assert "exceeds maximum size" in result.error
+
+    async def test_validation_step_empty_file(self, tmp_path: Any) -> None:
+        """ValidationStep sets an error for zero-byte files."""
+        from app.processing.steps import ValidationStep
+
+        binary = tmp_path / "empty.bin"
+        binary.write_bytes(b"")
+        ctx = PipelineContext(uuid="u3", binary_path=str(binary))
+        result = await ValidationStep().execute(ctx)
+        assert result.error is not None
+        assert "empty" in result.error
+
+    async def test_validation_step_success(self, tmp_path: Any) -> None:
+        """ValidationStep leaves error unset for a valid file."""
+        from app.processing.steps import ValidationStep
+
+        binary = tmp_path / "ok.bin"
+        binary.write_bytes(b"\x7fELF" + b"\x00" * 16)
+        ctx = PipelineContext(uuid="u4", binary_path=str(binary))
+        result = await ValidationStep().execute(ctx)
+        assert result.error is None
+
+    async def test_tokenize_step_transforms_functions(self) -> None:
+        """TokenizeStep joins tokenList into a 'tokens' string per function."""
+        from app.processing.steps import TokenizeStep
+
+        functions = [
+            {"name": "fun_a", "tokenList": ["int", "x", "=", "1;"]},
+            {"name": "fun_b", "tokenList": []},
+        ]
+        ctx = PipelineContext(uuid="u5", binary_path="/b", data={"functions": functions})
+        result = await TokenizeStep().execute(ctx)
+        assert result.error is None
+        tokenized = result.get("tokenized_functions")
+        assert len(tokenized) == 1
+        assert tokenized[0]["tokens"] == "int x = 1;"
+        assert tokenized[0]["name"] == "fun_a"
+
+    async def test_tokenize_step_no_functions_sets_error(self) -> None:
+        """TokenizeStep sets an error when no functions are in the context."""
+        from app.processing.steps import TokenizeStep
+
+        ctx = PipelineContext(uuid="u6", binary_path="/b")
+        result = await TokenizeStep().execute(ctx)
+        assert result.error is not None
+        assert "No functions" in result.error
+
+    async def test_filter_step_normalizes_tokens(self) -> None:
+        """FilterStep normalizes hex/FUN_/variable tokens and stores results."""
+        from app.processing.steps import FilterStep
+
+        tokenized = [
+            {"name": "fun_a", "tokenList": ["0xDEAD", "FUN_00401000", "local_10", "int"]},
+        ]
+        ctx = PipelineContext(uuid="u7", binary_path="/b", data={"tokenized_functions": tokenized})
+        result = await FilterStep().execute(ctx)
+        assert result.error is None
+        filtered = result.get("filtered_functions")
+        assert len(filtered) == 1
+        assert "0xDEAD" not in filtered[0]["tokenList"]
+        assert "FUN_00401000" not in filtered[0]["tokenList"]
+        assert "local_10" not in filtered[0]["tokenList"]
+        assert "HEX" in filtered[0]["tokenList"]
+        assert "FUNCTION" in filtered[0]["tokenList"]
+        assert "VARIABLE" in filtered[0]["tokenList"]
+        assert filtered[0]["tokens"] == " ".join(filtered[0]["tokenList"])
+
+    async def test_filter_step_no_tokenized_functions_sets_error(self) -> None:
+        """FilterStep sets an error when no tokenized functions are present."""
+        from app.processing.steps import FilterStep
+
+        ctx = PipelineContext(uuid="u8", binary_path="/b")
+        result = await FilterStep().execute(ctx)
+        assert result.error is not None
+        assert "No tokenized functions" in result.error

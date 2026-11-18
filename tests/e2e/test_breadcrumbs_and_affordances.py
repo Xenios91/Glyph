@@ -26,7 +26,6 @@ from playwright.sync_api import expect
 
 from tests.e2e.utils import BASE_URL, register_and_login
 
-
 # ---------------------------------------------------------------------------
 # Seeding helpers
 # ---------------------------------------------------------------------------

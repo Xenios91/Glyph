@@ -34,8 +34,8 @@ class TestGetCatalog:
         assert data["success"] is True
         assert "entries" in data["data"]
         assert "categories" in data["data"]
-        assert len(data["data"]["entries"]) == 24
-        assert len(data["data"]["categories"]) == 7
+        assert len(data["data"]["entries"]) == 31
+        assert len(data["data"]["categories"]) == 8
 
     def test_catalog_entry_structure(self, behavioral_scans_client: Any) -> None:
         """Test that catalog entries have the correct structure."""

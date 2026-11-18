@@ -11,6 +11,7 @@ factory in ``main.py``:
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from fastapi import HTTPException
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -125,14 +126,21 @@ class CSPMiddleware:
         await self.app(scope, receive, send_wrapper)
 
 
-class RequestBodyTooLarge(Exception):
-    """Custom exception for request body size limit violations.
+class RequestBodyTooLarge(HTTPException):
+    """Raised when a request body exceeds the configured maximum size.
 
-    Using a dedicated exception class prevents accidentally catching
-    unrelated ValueError exceptions from downstream code.
+    Subclasses ``HTTPException`` (rather than a plain ``Exception``) so that
+    FastAPI's body-parsing layer re-raises it instead of swallowing it into a
+    generic ``400 "There was an error parsing the body"`` (FastAPI converts any
+    non-``HTTPException`` raised while reading the body into a 400). Starlette's
+    ``ExceptionMiddleware`` then converts it into the intended ``413`` response.
+    If this were a plain exception, the middleware's own 413 handling would be
+    unreachable dead code.
     """
 
-    pass
+    def __init__(self, message: str) -> None:
+        super().__init__(status_code=413, detail="Request body too large")
+        self.message = message
 
 
 class RequestSizeMiddleware:
@@ -189,23 +197,11 @@ class RequestSizeMiddleware:
                     )
             return message
 
-        try:
-            await self.app(scope, receive_wrapper, send)
-        except RequestBodyTooLarge:
-            response = {
-                "type": "http.response.start",
-                "status": 413,
-                "headers": [
-                    (b"content-type", b"application/json"),
-                ],
-            }
-            await send(response)
-            await send(
-                {
-                    "type": "http.response.body",
-                    "body": b'{"detail": "Request body too large"}',
-                },
-            )
+        # ``RequestBodyTooLarge`` is an ``HTTPException`` (413), so it is
+        # re-raised through FastAPI's body-parsing layer and converted into a
+        # 413 response by Starlette's ``ExceptionMiddleware`` (which sits
+        # inside this middleware). No local handling is needed.
+        await self.app(scope, receive_wrapper, send)
 
 
 class CachedStaticFiles(StaticFiles):

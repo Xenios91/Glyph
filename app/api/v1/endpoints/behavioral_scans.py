@@ -14,8 +14,8 @@ from loguru import logger
 from pydantic import BaseModel
 
 from app.auth.dependencies import assert_owned, can_access, get_current_active_user
-from app.database.binary_repository import BinaryRepository
 from app.database.behavioral_scan_report_repository import BehavioralScanReportRepository
+from app.database.binary_repository import BinaryRepository
 from app.database.function_repository import FunctionRepository
 from app.database.model_repository import ModelRepository
 from app.database.models import User

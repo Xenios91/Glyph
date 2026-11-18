@@ -485,14 +485,18 @@ function displayResults(data, targetName) {
     renderResultsTable();
 
     if (typeof Pagination !== 'undefined') {
-        scanPagination = new Pagination({
-            tableSelector: '.scan-results-table',
-            paginationSelector: '#scan-results-pagination',
-            defaultPageSize: 10,
-            pageSizes: [10, 25, 50, 100],
-            storageKey: 'glyph_behavioral_scan_results_page_size'
-        });
-        scanPagination.init();
+        const paginationEl = document.getElementById('scan-results-pagination');
+        if (paginationEl) {
+            paginationEl.classList.remove('is-hidden');
+            scanPagination = new Pagination({
+                tableSelector: '.scan-results-table',
+                paginationSelector: '#scan-results-pagination',
+                defaultPageSize: 10,
+                pageSizes: [10, 25, 50, 100],
+                storageKey: 'glyph_behavioral_scan_results_page_size'
+            });
+            scanPagination.init();
+        }
     }
 }
 

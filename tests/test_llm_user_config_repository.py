@@ -18,6 +18,7 @@ from app.database.session_handler import (
     get_async_session,
     init_async_databases,
 )
+
 from tests.factories import make_user
 
 # ---------------------------------------------------------------------------
