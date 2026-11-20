@@ -14,6 +14,7 @@ not proven flows of attacker-controlled data.
 """
 
 import re
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -210,7 +211,7 @@ class TaintAnalysisService:
             return {}
 
         depths: dict[str, int] = {}
-        queue: list[tuple[str, int]] = []
+        queue: deque[tuple[str, int]] = deque()
         for caller in sorted(set(node.callers)):
             if caller == sink:
                 # A self-recursive sink must not be seeded as its own caller:
@@ -221,7 +222,7 @@ class TaintAnalysisService:
                 queue.append((caller, 1))
 
         while queue:
-            current, depth = queue.pop(0)
+            current, depth = queue.popleft()
             if depth >= max_depth:
                 continue
             current_node = graph.nodes.get(current)

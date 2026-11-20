@@ -585,6 +585,16 @@ def get_entries_by_category(category: str) -> list[BehavioralSignatureEntry]:
     return CATEGORY_INDEX.get(category, [])
 
 
+# Numeric sort order for severity levels (lower = more severe). Shared by
+# get_severity_order so the mapping is allocated once at import, not per call.
+_SEVERITY_ORDER: Final[dict[str, int]] = {
+    "Critical": 0,
+    "High": 1,
+    "Medium": 2,
+    "Low": 3,
+}
+
+
 def get_severity_order(severity: Severity) -> int:
     """Return numeric sort order for a severity level.
 
@@ -597,10 +607,4 @@ def get_severity_order(severity: Severity) -> int:
         Integer sort order (Critical=0, High=1, Medium=2, Low=3).
 
     """
-    order_map: dict[str, int] = {
-        "Critical": 0,
-        "High": 1,
-        "Medium": 2,
-        "Low": 3,
-    }
-    return order_map.get(severity, 99)
+    return _SEVERITY_ORDER.get(severity, 99)

@@ -137,3 +137,76 @@ class TestResolveAndPin:
 
         with pytest.raises(ValueError, match="does not resolve"):
             await ssrf_guard.resolve_and_pin("http://nope.invalid/v1")
+
+
+class TestAllowLocal:
+    """Tests for the opt-in ``allow_local`` carve-out (local LLM endpoints).
+
+    ``allow_local=True`` permits loopback and RFC1918 private-LAN addresses
+    (the "permit local always" policy for the LLM analysis feature) while
+    link-local (incl. the cloud metadata endpoint), unspecified, CGNAT, and
+    every other non-public address remain blocked. ``allow_local=False``
+    (the default) preserves the original strict behavior for all other
+    callers.
+    """
+
+    LOCAL_HOSTS = [
+        pytest.param("127.0.0.1", id="loopback-v4"),
+        pytest.param("::1", id="loopback-v6"),
+        pytest.param("10.0.0.1", id="rfc1918-10"),
+        pytest.param("172.16.0.1", id="rfc1918-172"),
+        pytest.param("192.168.1.1", id="rfc1918-192"),
+    ]
+
+    STILL_BLOCKED_HOSTS = [
+        pytest.param("169.254.169.254", id="cloud-metadata"),
+        pytest.param("169.254.10.10", id="link-local-other"),
+        pytest.param("0.0.0.0", id="unspecified"),
+        pytest.param("::", id="unspecified-v6"),
+        pytest.param("100.64.0.1", id="cgnat"),
+        pytest.param("fe80::1", id="link-local-v6"),
+    ]
+
+    @pytest.mark.parametrize("host", LOCAL_HOSTS)
+    async def test_allow_local_accepts_loopback_and_rfc1918(self, monkeypatch: Any, host: str) -> None:
+        """With allow_local=True, loopback and RFC1918 addresses are accepted."""
+        monkeypatch.setattr(ssrf_guard.socket, "getaddrinfo", _fake_getaddrinfo(host))
+
+        host_part = f"[{host}]" if ":" in host else host
+        await ssrf_guard.assert_public_url(f"http://{host_part}/v1/chat/completions", allow_local=True)
+
+    @pytest.mark.parametrize("host", LOCAL_HOSTS)
+    async def test_default_still_rejects_loopback_and_rfc1918(self, monkeypatch: Any, host: str) -> None:
+        """With the default allow_local=False, loopback/RFC1918 are rejected (old behavior)."""
+        monkeypatch.setattr(ssrf_guard.socket, "getaddrinfo", _fake_getaddrinfo(host))
+
+        host_part = f"[{host}]" if ":" in host else host
+        with pytest.raises(ValueError):
+            await ssrf_guard.assert_public_url(f"http://{host_part}/v1/chat/completions")
+
+    @pytest.mark.parametrize("host", STILL_BLOCKED_HOSTS)
+    async def test_allow_local_still_rejects_non_local(self, monkeypatch: Any, host: str) -> None:
+        """With allow_local=True, link-local/unspecified/CGNAT are still rejected."""
+        monkeypatch.setattr(ssrf_guard.socket, "getaddrinfo", _fake_getaddrinfo(host))
+
+        host_part = f"[{host}]" if ":" in host else host
+        with pytest.raises(ValueError):
+            await ssrf_guard.assert_public_url(f"http://{host_part}/v1/chat/completions", allow_local=True)
+
+    async def test_allow_local_pins_local_http(self, monkeypatch: Any) -> None:
+        """resolve_and_pin with allow_local=True pins a local endpoint to its IP."""
+        monkeypatch.setattr(ssrf_guard.socket, "getaddrinfo", _fake_getaddrinfo("127.0.0.1"))
+
+        pinned, host_header = await ssrf_guard.resolve_and_pin(
+            "http://localhost:11434/v1/chat/completions", allow_local=True
+        )
+
+        assert pinned == "http://127.0.0.1:11434/v1/chat/completions"
+        assert host_header == "localhost:11434"
+
+    async def test_allow_local_still_rejects_metadata_in_resolve_and_pin(self, monkeypatch: Any) -> None:
+        """resolve_and_pin with allow_local=True still rejects the metadata endpoint."""
+        monkeypatch.setattr(ssrf_guard.socket, "getaddrinfo", _fake_getaddrinfo("169.254.169.254"))
+
+        with pytest.raises(ValueError):
+            await ssrf_guard.resolve_and_pin("http://169.254.169.254/latest/meta-data/", allow_local=True)

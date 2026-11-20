@@ -31,6 +31,10 @@ class LLMRequestError(Exception):
     """Raised when a request to the LLM endpoint fails."""
 
 
+class LLMEndpointBlockedError(Exception):
+    """Raised when the LLM endpoint is rejected by the SSRF guard (non-public host)."""
+
+
 @dataclass
 class LLMTestResult:
     """Result of a connection test against the configured LLM endpoint."""
@@ -172,6 +176,12 @@ async def _resolve_llm_url(url: str) -> tuple[str, str | None]:
     private IP matching the public hostname), and pinning the IP would break
     certificate validation.
 
+    The LLM path permits *local* endpoints (loopback, ``localhost``, and RFC1918
+    private LAN) via the guard's ``allow_local`` carve-out, so a local LLM such
+    as Ollama on ``http://localhost:11434`` is usable. Link-local (incl. the
+    cloud metadata endpoint ``169.254.169.254``) and all other non-public
+    addresses remain blocked.
+
     Args:
         url: The fully qualified endpoint URL to validate.
 
@@ -185,10 +195,156 @@ async def _resolve_llm_url(url: str) -> tuple[str, str | None]:
 
     """
     if urlsplit(url).scheme == "http":
-        pinned, host_header = await resolve_and_pin(url)
+        pinned, host_header = await resolve_and_pin(url, allow_local=True)
         return pinned, host_header
-    await assert_public_url(url)
+    await assert_public_url(url, allow_local=True)
     return url, None
+
+
+async def validate_llm_endpoint(llm: LLMConfig) -> None:
+    """Validate the configured endpoint before any response has been started.
+
+    Builds the endpoint URL and runs it through the SSRF guard. This is the
+    fail-fast path used by the API layer so that a disabled or blocked endpoint
+    is reported as a proper HTTP error *before* the streaming response (and its
+    200 status) is created, rather than surfacing mid-stream as a broken, empty
+    SSE response.
+
+    Args:
+        llm: The LLM configuration to validate.
+
+    Raises:
+        LLMNotConfiguredError: If the LLM feature is disabled or the base URL
+            is missing or malformed.
+        LLMEndpointBlockedError: If the endpoint host does not resolve to a
+            public address (SSRF guard).
+
+    """
+    url = build_endpoint_url(llm)
+    try:
+        await _resolve_llm_url(url)
+    except ValueError:
+        # Generic message: do not reveal which address range matched.
+        raise LLMEndpointBlockedError("LLM endpoint host is not a public address") from None
+
+
+@dataclass
+class _ChatCompletionOutcome:
+    """Normalized result of a single chat completions HTTP exchange.
+
+    Attributes:
+        content: The model's response text, or None when the request failed.
+        error: Human-readable failure reason, or None on success.
+        model: The model that produced the response (falls back to config).
+        elapsed_ms: Wall-clock duration of the request in milliseconds.
+
+    """
+
+    content: str | None = None
+    error: str | None = None
+    model: str = ""
+    elapsed_ms: int = 0
+
+
+async def _post_chat_completion(
+    llm: LLMConfig,
+    messages: list[dict[str, str]],
+    log_context: str,
+) -> _ChatCompletionOutcome:
+    """Send one chat completions request and normalize the outcome.
+
+    Shared transport and error handling for the connection test and finding
+    analysis: URL resolution (with SSRF guard), auth headers, payload build,
+    the HTTP call with timeout/connection handling, status validation, and
+    response parsing.
+
+    Args:
+        llm: The LLM configuration to send the request with.
+        messages: The chat messages to send.
+        log_context: Identifier included in log lines (e.g. "connection test"
+            or the finding's function name).
+
+    Returns:
+        A _ChatCompletionOutcome. On success ``content`` is set and ``error``
+        is None; on failure ``error`` is set and ``content`` is None.
+
+    Raises:
+        LLMNotConfiguredError: If the endpoint URL cannot be built from config.
+
+    """
+    url = build_endpoint_url(llm)
+
+    try:
+        request_url, host_header = await _resolve_llm_url(url)
+    except ValueError:
+        # Generic message: do not reveal which address range matched.
+        logger.warning("LLM request rejected ({}): endpoint host is not a public address", log_context)
+        return _ChatCompletionOutcome(error="Endpoint host is not a public address")
+
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if llm.api_key:
+        headers["Authorization"] = f"Bearer {llm.api_key}"
+
+    payload: dict[str, Any] = {
+        "model": llm.model.strip(),
+        "temperature": llm.temperature,
+        "messages": messages,
+    }
+    if llm.max_tokens is not None:
+        payload["max_tokens"] = llm.max_tokens
+
+    if host_header is not None:
+        headers["Host"] = host_header
+
+    start = time.perf_counter()
+    async with httpx.AsyncClient(timeout=llm.timeout_seconds) as client:
+        try:
+            response = await client.post(request_url, json=payload, headers=headers)
+        except httpx.TimeoutException:
+            error = f"Request timed out after {llm.timeout_seconds:g}s"
+            logger.warning("LLM request failed ({}): {}", log_context, error)
+            return _ChatCompletionOutcome(error=error)
+        except httpx.HTTPError as exc:
+            error = f"Could not reach endpoint: {type(exc).__name__}"
+            logger.warning("LLM request failed ({}): {} ({})", log_context, error, exc)
+            return _ChatCompletionOutcome(error=error)
+
+    elapsed_ms = int((time.perf_counter() - start) * 1000)
+
+    if response.status_code != 200:
+        # Reflect only the status code to the caller. The upstream body may be
+        # sensitive (or, for an attacker-controlled endpoint, a reflected SSRF
+        # read), so it is kept server-side in the log only.
+        logger.warning(
+            "LLM request failed ({}): HTTP {} body={}",
+            log_context,
+            response.status_code,
+            response.text[:300],
+        )
+        return _ChatCompletionOutcome(error=f"Endpoint returned HTTP {response.status_code}")
+
+    try:
+        body = response.json()
+        content = body["choices"][0]["message"]["content"]
+    except (ValueError, KeyError, IndexError, TypeError) as exc:
+        error = f"Unexpected response format from endpoint ({type(exc).__name__})"
+        logger.warning("LLM request failed ({}): {}", log_context, error)
+        return _ChatCompletionOutcome(error=error)
+
+    if not isinstance(content, str) or not content.strip():
+        logger.warning("LLM request failed ({}): endpoint returned empty content", log_context)
+        return _ChatCompletionOutcome(error="Endpoint returned empty content")
+
+    model = str(body.get("model") or llm.model)
+    logger.info(
+        "LLM request succeeded: url={} context={} status={} model={} elapsed_ms={}",
+        url,
+        log_context,
+        response.status_code,
+        model,
+        elapsed_ms,
+    )
+    return _ChatCompletionOutcome(content=content, model=model, elapsed_ms=elapsed_ms)
 
 
 async def test_llm_connection(llm: LLMConfig) -> LLMTestResult:
@@ -204,78 +360,10 @@ async def test_llm_connection(llm: LLMConfig) -> LLMTestResult:
         LLMNotConfiguredError: If the endpoint URL cannot be built from config.
 
     """
-    url = build_endpoint_url(llm)
-
-    try:
-        request_url, host_header = await _resolve_llm_url(url)
-    except ValueError:
-        # Generic message: do not reveal which address range matched.
-        logger.warning("LLM connection test rejected: endpoint host is not a public address")
-        return LLMTestResult(ok=False, error="Endpoint host is not a public address")
-
-    headers: dict[str, str] = {"Content-Type": "application/json"}
-    if llm.api_key:
-        headers["Authorization"] = f"Bearer {llm.api_key}"
-
-    payload: dict[str, Any] = {
-        "model": llm.model.strip(),
-        "temperature": llm.temperature,
-        "messages": [{"role": "user", "content": TEST_PROMPT}],
-    }
-    if llm.max_tokens is not None:
-        payload["max_tokens"] = llm.max_tokens
-
-    if host_header is not None:
-        headers["Host"] = host_header
-
-    start = time.perf_counter()
-    async with httpx.AsyncClient(timeout=llm.timeout_seconds) as client:
-        try:
-            response = await client.post(request_url, json=payload, headers=headers)
-        except httpx.TimeoutException:
-            error = f"Request timed out after {llm.timeout_seconds:g}s"
-            logger.warning("LLM connection test failed: {}", error)
-            return LLMTestResult(ok=False, error=error)
-        except httpx.HTTPError as exc:
-            error = f"Could not reach endpoint: {type(exc).__name__}"
-            logger.warning("LLM connection test failed: {} ({})", error, exc)
-            return LLMTestResult(ok=False, error=error)
-
-    elapsed_ms = int((time.perf_counter() - start) * 1000)
-
-    if response.status_code != 200:
-        # Reflect only the status code to the caller. The upstream body may be
-        # sensitive (or, for an attacker-controlled endpoint, a reflected SSRF
-        # read), so it is kept server-side in the log only.
-        error = f"Endpoint returned HTTP {response.status_code}"
-        logger.warning(
-            "LLM connection test failed: HTTP {} body={}",
-            response.status_code,
-            response.text[:300],
-        )
-        return LLMTestResult(ok=False, error=error)
-
-    try:
-        body = response.json()
-        content = body["choices"][0]["message"]["content"]
-    except (ValueError, KeyError, IndexError, TypeError) as exc:
-        error = f"Unexpected response format from endpoint ({type(exc).__name__})"
-        logger.warning("LLM connection test failed: {}", error)
-        return LLMTestResult(ok=False, error=error)
-
-    if not isinstance(content, str) or not content.strip():
-        logger.warning("LLM connection test failed: endpoint returned empty content")
-        return LLMTestResult(ok=False, error="Endpoint returned empty content")
-
-    model = str(body.get("model") or llm.model)
-    logger.info(
-        "LLM connection test succeeded: url={} status={} model={} elapsed_ms={}",
-        url,
-        response.status_code,
-        model,
-        elapsed_ms,
-    )
-    return LLMTestResult(ok=True, model=model, elapsed_ms=elapsed_ms)
+    outcome = await _post_chat_completion(llm, [{"role": "user", "content": TEST_PROMPT}], "connection test")
+    if outcome.error is not None:
+        return LLMTestResult(ok=False, error=outcome.error)
+    return LLMTestResult(ok=True, model=outcome.model, elapsed_ms=outcome.elapsed_ms)
 
 
 def build_prompt(finding: dict[str, Any]) -> str:
@@ -331,90 +419,32 @@ async def analyze_finding(llm: LLMConfig, finding: dict[str, Any]) -> FindingAna
         LLMNotConfiguredError: If the endpoint URL cannot be built from config.
 
     """
-    url = build_endpoint_url(llm)
     function_name = str(finding.get("function_name") or "unknown")
 
-    try:
-        request_url, host_header = await _resolve_llm_url(url)
-    except ValueError:
-        # Generic message: do not reveal which address range matched.
-        logger.warning("LLM analysis rejected ({}): endpoint host is not a public address", function_name)
-        return FindingAnalysis(status="error", error="Endpoint host is not a public address")
-
-    headers: dict[str, str] = {"Content-Type": "application/json"}
-    if llm.api_key:
-        headers["Authorization"] = f"Bearer {llm.api_key}"
-
-    payload: dict[str, Any] = {
-        "model": llm.model.strip(),
-        "temperature": llm.temperature,
-        "messages": [
+    outcome = await _post_chat_completion(
+        llm,
+        [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": build_prompt(finding)},
         ],
-    }
-    if llm.max_tokens is not None:
-        payload["max_tokens"] = llm.max_tokens
-
-    if host_header is not None:
-        headers["Host"] = host_header
-
-    start = time.perf_counter()
-    async with httpx.AsyncClient(timeout=llm.timeout_seconds) as client:
-        try:
-            response = await client.post(request_url, json=payload, headers=headers)
-        except httpx.TimeoutException:
-            error = f"Request timed out after {llm.timeout_seconds:g}s"
-            logger.warning("LLM analysis failed ({}): {}", function_name, error)
-            return FindingAnalysis(status="error", error=error)
-        except httpx.HTTPError as exc:
-            error = f"Could not reach endpoint: {type(exc).__name__}"
-            logger.warning("LLM analysis failed ({}): {} ({})", function_name, error, exc)
-            return FindingAnalysis(status="error", error=error)
-
-    elapsed_ms = int((time.perf_counter() - start) * 1000)
-
-    if response.status_code != 200:
-        # Reflect only the status code to the caller. The upstream body may be
-        # sensitive (or, for an attacker-controlled endpoint, a reflected SSRF
-        # read), so it is kept server-side in the log only.
-        error = f"Endpoint returned HTTP {response.status_code}"
-        logger.warning(
-            "LLM analysis failed ({}): HTTP {} body={}",
-            function_name,
-            response.status_code,
-            response.text[:300],
-        )
-        return FindingAnalysis(status="error", error=error)
-
-    try:
-        body = response.json()
-        content = body["choices"][0]["message"]["content"]
-    except (ValueError, KeyError, IndexError, TypeError) as exc:
-        error = f"Unexpected response format from endpoint ({type(exc).__name__})"
-        logger.warning("LLM analysis failed ({}): {}", function_name, error)
-        return FindingAnalysis(status="error", error=error)
-
-    if not isinstance(content, str) or not content.strip():
-        logger.warning("LLM analysis failed ({}): endpoint returned empty content", function_name)
-        return FindingAnalysis(status="error", error="Endpoint returned empty content")
-
-    model = str(body.get("model") or llm.model)
-    is_vulnerability, confidence, verdict = parse_verdict(content)
-    logger.info(
-        "LLM analysis succeeded: url={} function={} status={} model={} elapsed_ms={} verdict={}",
-        url,
         function_name,
-        response.status_code,
-        model,
-        elapsed_ms,
+    )
+    if outcome.error is not None or outcome.content is None:
+        return FindingAnalysis(status="error", error=outcome.error or "Unexpected response format from endpoint")
+
+    is_vulnerability, confidence, verdict = parse_verdict(outcome.content)
+    logger.info(
+        "LLM analysis succeeded: function={} model={} elapsed_ms={} verdict={}",
+        function_name,
+        outcome.model,
+        outcome.elapsed_ms,
         verdict or "none",
     )
     return FindingAnalysis(
         status="success",
-        analysis=content,
-        model=model,
-        elapsed_ms=elapsed_ms,
+        analysis=outcome.content,
+        model=outcome.model,
+        elapsed_ms=outcome.elapsed_ms,
         is_vulnerability=is_vulnerability,
         confidence=confidence,
         verdict=verdict,

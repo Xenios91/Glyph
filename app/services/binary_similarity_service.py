@@ -72,7 +72,7 @@ class BinarySimilarityService:
         """
         from app.database.binary_repository import BinaryRepository
         from app.processing.pipeline import PipelineContext
-        from app.processing.steps import FilterStep, TokenizeStep
+        from app.services.code_reuse_detector import tokenize_and_filter
 
         raw_functions = await BinaryRepository.get_functions(binary_id=binary_id)
         if not raw_functions:
@@ -93,19 +93,14 @@ class BinarySimilarityService:
         )
         context.set("functions", function_dicts)
 
-        tokenize_step = TokenizeStep()
-        context = await tokenize_step.execute(context)
-        if context.error:
-            logger.error("Tokenization failed for binary {}: {}", binary_id, context.error)
+        filtered_functions = await tokenize_and_filter(
+            context,
+            "Tokenization failed for binary {}: {}",
+            "Filtering failed for binary {}: {}",
+            binary_id,
+        )
+        if filtered_functions is None:
             return None
-
-        filter_step = FilterStep()
-        context = await filter_step.execute(context)
-        if context.error:
-            logger.error("Filtering failed for binary {}: {}", binary_id, context.error)
-            return None
-
-        filtered_functions = context.get("filtered_functions", [])
         return BinaryFunctionEmbeddings(
             binary_id=binary_id,
             binary_name=binary_name or f"binary_{binary_id}",

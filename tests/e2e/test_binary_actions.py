@@ -412,7 +412,7 @@ class TestLibraryTaskModal:
     """R4: the library task modal derives its options from the canonical list."""
 
     def test_modal_options_deep_link_from_canonical_list(self, page: Any, server: Any) -> None:
-        """The modal offers all 6 canonical actions deep-linked to the binary."""
+        """The modal offers the 5 non-redundant canonical actions deep-linked to the binary."""
         register_and_login(page)
         _mock_binary_list(page)
 
@@ -423,10 +423,10 @@ class TestLibraryTaskModal:
         page.locator(".btn-run-task").click()
         expect(page.locator("#task-modal-overlay")).to_have_class(re.compile("is-visible"))
 
-        expect(page.locator("#task-modal-options a.task-option")).to_have_count(6)
-        expect(page.locator("#task-modal-options a[data-task-type='run_task']")).to_have_attribute(
-            "href", "/run-task?binary_id=7&binary_name=modal_test.bin"
-        )
+        # The run_task action is excluded: the modal itself is the run-task
+        # flow, so offering RUN TASK again would be redundant.
+        expect(page.locator("#task-modal-options a.task-option")).to_have_count(5)
+        expect(page.locator("#task-modal-options a[data-task-type='run_task']")).to_have_count(0)
         expect(page.locator("#task-modal-options a[data-task-type='dangerous_functions']")).to_have_attribute(
             "href", "/getDangerousFunctions?binary_id=7"
         )

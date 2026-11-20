@@ -540,6 +540,28 @@ class TestScanFunctionBodies:
         assert len(results) >= 1
         assert len(results[0].usage_context) > 0
 
+    def test_function_pointer_assignment_detected(self) -> None:
+        """A function-pointer reference (= strcpy) is detected via the fallback path.
+
+        Regression test: the pointer-fallback branch must use the precompiled
+        pattern (not a removed local) and still match assignments/address-of.
+        """
+        func = self._make_function(
+            "wrapper",
+            ["void", "wrapper()", "{", "func_ptr", "=", "strcpy;", "}"],
+        )
+        results = _scan_function_bodies([func])
+        assert any(r.function_name == "strcpy" and r.containing_function == "wrapper" for r in results)
+
+    def test_string_literal_reference_not_detected(self) -> None:
+        """A dangerous-function name inside a quoted string is not a match."""
+        func = self._make_function(
+            "wrapper",
+            ["void", "wrapper()", "{", "log", "=", "\"strcpy failed\";", "}"],
+        )
+        results = _scan_function_bodies([func])
+        assert not any(r.function_name == "strcpy" for r in results)
+
 
 # ---------------------------------------------------------------------------
 # generate_report tests

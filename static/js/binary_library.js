@@ -137,6 +137,11 @@
      * Render the task modal options from the canonical BinaryActions list
      * (static/js/binary_actions.js) so the modal stays a thin wrapper over
      * the single source of truth.
+     *
+     * The 'run_task' action is intentionally excluded: this modal IS the
+     * run-task flow (it is opened by the row's RUN TASK button), so offering
+     * RUN TASK again as an option would be redundant. The binary detail
+     * page still renders the full canonical list, where it is not redundant.
      */
     function initTaskModalOptions() {
         var container = document.getElementById('task-modal-options');
@@ -144,6 +149,8 @@
 
         container.innerHTML = '';
         window.BinaryActions.actions.forEach(function (action) {
+            if (action.id === 'run_task') return;
+
             var link = document.createElement('a');
             link.href = '#';
             link.className = 'task-option';

@@ -85,9 +85,10 @@ class TestLibraryRowsKeyboardReachable:
         # Assert: the task-selection modal opens from keyboard activation.
         overlay = page.locator("#task-modal-overlay")
         expect(overlay).to_have_class(re.compile(r"\bis-visible\b"))
-        # The modal renders its options from the canonical action list.
+        # The modal renders its options from the canonical action list,
+        # minus the run_task action (the modal itself is the run-task flow).
         expect(overlay.locator("a.task-option")).to_have_count(
-            page.evaluate("() => window.BinaryActions.actions.length")
+            page.evaluate("() => window.BinaryActions.actions.filter(a => a.id !== 'run_task').length")
         )
 
         # Act: close the modal with Escape (document-level keydown handler).

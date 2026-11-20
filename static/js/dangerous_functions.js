@@ -1285,8 +1285,9 @@ class LlmAnalysisRequestError extends Error {
  * @param {Array} findings - Findings to send.
  * @param {function} onResult - Called per finding with (index, entry).
  * @param {function} onDone - Called once with the summary object.
- * @throws {LlmAnalysisRequestError} On 503 (LLM not configured) or other
- *   non-2xx responses before streaming starts.
+ * @throws {LlmAnalysisRequestError} On any non-2xx response before streaming
+ *   starts (e.g. 503 LLM_NOT_CONFIGURED / LLM_ENDPOINT_BLOCKED), or when the
+ *   SSE stream ends without a `done` event (server closed the stream early).
  */
 async function streamLlmAnalysis(scanData, findings, onResult, onDone) {
     const response = await fetch('/api/v1/dangerous-functions/llm-analysis', {
@@ -1299,16 +1300,21 @@ async function streamLlmAnalysis(scanData, findings, onResult, onDone) {
         }),
     });
 
-    if (response.status === 503) {
-        throw new LlmAnalysisRequestError('LLM analysis is not configured or disabled.', 'LLM_NOT_CONFIGURED');
-    }
-
     if (!response.ok) {
+        // The server answered with a proper error body (e.g. 503
+        // LLM_NOT_CONFIGURED or LLM_ENDPOINT_BLOCKED). Surface the
+        // machine-readable code and the human-readable message so the caller
+        // can show a specific banner.
         const errorData = await response.json().catch(() => ({}));
+        const detail = (errorData && errorData.detail) || {};
+        const error = detail.error || {};
+        const code = error.code || (response.status === 503 ? 'LLM_NOT_CONFIGURED' : 'REQUEST_FAILED');
         const message =
-            (errorData.detail && errorData.detail.error && errorData.detail.error.message) ||
-            `LLM analysis failed (${response.status})`;
-        throw new LlmAnalysisRequestError(message);
+            error.message ||
+            (response.status === 503
+                ? 'LLM analysis is not configured or disabled.'
+                : `LLM analysis failed (${response.status})`);
+        throw new LlmAnalysisRequestError(message, code);
     }
 
     const contentType = response.headers.get('content-type') || '';
@@ -1328,6 +1334,7 @@ async function streamLlmAnalysis(scanData, findings, onResult, onDone) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let doneReceived = false;
 
     while (true) {
         const { done, value } = await reader.read();
@@ -1363,8 +1370,19 @@ async function streamLlmAnalysis(scanData, findings, onResult, onDone) {
                 onResult(data.index, data);
             } else if (eventType === 'done') {
                 onDone(data);
+                doneReceived = true;
             }
         }
+    }
+
+    if (!doneReceived) {
+        // The stream ended without a `done` event: the server closed the
+        // connection before the analysis completed (e.g. the request failed
+        // mid-stream). Surface it as an error instead of silently doing nothing.
+        throw new LlmAnalysisRequestError(
+            'LLM analysis ended unexpectedly without a completion event. Please try again.',
+            'STREAM_INCOMPLETE'
+        );
     }
 }
 

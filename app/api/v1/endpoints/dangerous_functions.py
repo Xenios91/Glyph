@@ -38,9 +38,10 @@ from app.services.dangerous_functions_catalog import (
     get_entry,
 )
 from app.services.llm_analysis_service import (
+    LLMEndpointBlockedError,
     LLMNotConfiguredError,
-    build_endpoint_url,
     stream_findings,
+    validate_llm_endpoint,
 )
 from app.services.taint_analysis_service import TaintAnalysisService, TaintSinkNotFoundError
 from app.utils.common import binary_function_to_dict
@@ -764,8 +765,9 @@ async def analyze_dangerous_functions(
     llm = await resolve_user_llm_config(current_user.id)
     try:
         # Fail fast before the response (and its headers) is created, so a
-        # disabled LLM is reported as a proper 503 instead of a broken stream.
-        build_endpoint_url(llm)
+        # disabled LLM or an SSRF-blocked endpoint is reported as a proper 503
+        # instead of a broken (empty) stream.
+        await validate_llm_endpoint(llm)
         stream = stream_findings(llm, [f.model_dump() for f in body.findings])
     except LLMNotConfiguredError as exc:
         logger.warning("LLM analysis rejected: {}", exc)
@@ -773,6 +775,15 @@ async def analyze_dangerous_functions(
             status_code=503,
             detail=create_error_response(
                 error_code="LLM_NOT_CONFIGURED",
+                error_message=str(exc),
+            ).model_dump(),
+        ) from exc
+    except LLMEndpointBlockedError as exc:
+        logger.warning("LLM analysis rejected (SSRF guard): {}", exc)
+        raise HTTPException(
+            status_code=503,
+            detail=create_error_response(
+                error_code="LLM_ENDPOINT_BLOCKED",
                 error_message=str(exc),
             ).model_dump(),
         ) from exc

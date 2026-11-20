@@ -7,11 +7,13 @@ from decompiled tokens to show how dangerous functions are called.
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Final
 
 from loguru import logger
 
 from app.services.dangerous_functions_catalog import (
+    FUNCTION_LOOKUP,
+    DangerousFunctionEntry,
     Severity,
     get_severity_order,
 )
@@ -46,6 +48,34 @@ class ScanResult:
     safe_alternative: str
     usage_context: list[str] = field(default_factory=lambda: list[str]())
     containing_function_code: str = ""
+
+
+@dataclass(frozen=True)
+class _CompiledEntry:
+    """A catalog entry with its matching patterns precompiled once at import.
+
+    Attributes:
+        entry: The catalog entry this was compiled from.
+        call_pattern: Compiled call pattern (``\\bname\\s*\\(``).
+        ptr_pattern: Compiled function-pointer fallback pattern.
+
+    """
+
+    entry: DangerousFunctionEntry
+    call_pattern: re.Pattern[str]
+    ptr_pattern: re.Pattern[str]
+
+
+# All catalog entries compiled once at module import, so scanning does not
+# recompile a regex for every (function, entry) pair.
+_COMPILED_ENTRIES: Final[tuple[_CompiledEntry, ...]] = tuple(
+    _CompiledEntry(
+        entry=entry,
+        call_pattern=re.compile(r"\b" + re.escape(entry.name) + r"\s*\(", re.IGNORECASE),
+        ptr_pattern=re.compile(r"(?:=\s*|&\s*)" + re.escape(entry.name) + r"(?![a-zA-Z0-9_])", re.IGNORECASE),
+    )
+    for entry in FUNCTION_LOOKUP.values()
+)
 
 
 @dataclass
@@ -236,8 +266,6 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
         Additional ScanResults for dangerous function calls found in bodies.
 
     """
-    from app.services.dangerous_functions_catalog import FUNCTION_LOOKUP
-
     results: list[ScanResult] = []
     total_funcs = len(functions)
     funcs_with_tokens = 0
@@ -254,7 +282,8 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
         code_text = re.sub(r"\s+", " ", code_text).strip()
 
         # Check for each dangerous function in the code text
-        for _, entry in FUNCTION_LOOKUP.items():
+        for compiled in _COMPILED_ENTRIES:
+            entry = compiled.entry
             # Skip if the containing function IS the dangerous function itself
             if func_name.lower() == entry.name.lower():
                 continue
@@ -264,26 +293,22 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
             # Primary: Match actual function calls - name followed by '(' with optional whitespace
             # This avoids false positives from string literals containing the function name
             # e.g., "The system is down" won't match system()
-            call_pattern = re.compile(r"\b" + re.escape(entry.name) + r"\s*\(", re.IGNORECASE)
-            if call_pattern.search(code_text):
+            if compiled.call_pattern.search(code_text):
                 found = True
 
             # Fallback: Check for function pointer assignments that might reference
             # the dangerous function, e.g., "func_ptr = system" or "&system"
-            if not found:
-                ptr_pattern = re.compile(r"(?:=\s*|&\s*)" + re.escape(entry.name) + r"(?![a-zA-Z0-9_])", re.IGNORECASE)
-                if ptr_pattern.search(code_text):
-                    # Only consider this a match if it looks like an assignment or address-of
-                    # and NOT inside a quoted string (basic heuristic: check for nearby quotes)
-                    matches = list(ptr_pattern.finditer(code_text))
-                    for m in matches:
-                        start = m.start()
-                        # Count quotes before this match to detect if inside a string
-                        preceding_text = code_text[:start]
-                        quote_count = preceding_text.count('"') - preceding_text.count('\\"')
-                        if quote_count % 2 == 0:  # Even quotes means we're outside a string
-                            found = True
-                            break
+            if not found and compiled.ptr_pattern.search(code_text):
+                # Only consider this a match if it looks like an assignment or address-of
+                # and NOT inside a quoted string (basic heuristic: check for nearby quotes)
+                for m in compiled.ptr_pattern.finditer(code_text):
+                    start = m.start()
+                    # Count quotes before this match to detect if inside a string
+                    preceding_text = code_text[:start]
+                    quote_count = preceding_text.count('"') - preceding_text.count('\\"')
+                    if quote_count % 2 == 0:  # Even quotes means we're outside a string
+                        found = True
+                        break
 
             if found:
                 funcs_with_match += 1

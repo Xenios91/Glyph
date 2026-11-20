@@ -120,6 +120,38 @@ def compute_similarity(source_tokens: list[str], target_tokens: list[str], thres
     return 0.4 * jaccard + 0.6 * lcs_ratio
 
 
+async def tokenize_and_filter(
+    context: Any,
+    tokenize_log: str,
+    filter_log: str,
+    *log_args: Any,
+) -> list[dict[str, Any]] | None:
+    """Run the TokenizeStep then FilterStep on ``context`` in-memory.
+
+    Args:
+        context: Pipeline context carrying the raw function dicts under "functions".
+        tokenize_log: loguru format string for a tokenization failure.
+        filter_log: loguru format string for a filtering failure.
+        *log_args: Positional arguments for the log format strings (before the error).
+
+    Returns:
+        The ``filtered_functions`` list, or ``None`` if either step errored
+        (the step error is logged).
+
+    """
+    from app.processing.steps import FilterStep, TokenizeStep
+
+    context = await TokenizeStep().execute(context)
+    if context.error:
+        logger.error(tokenize_log, *log_args, context.error)
+        return None
+    context = await FilterStep().execute(context)
+    if context.error:
+        logger.error(filter_log, *log_args, context.error)
+        return None
+    return context.get("filtered_functions", [])
+
+
 async def compare_binaries(
     source_functions: list[FunctionDict],
     target_binary_id: int,
@@ -144,7 +176,6 @@ async def compare_binaries(
     """
     from app.database.binary_repository import BinaryRepository
     from app.processing.pipeline import PipelineContext
-    from app.processing.steps import FilterStep, TokenizeStep
 
     # Load target binary functions
     target_functions = await BinaryRepository.get_functions(binary_id=target_binary_id)
@@ -164,19 +195,13 @@ async def compare_binaries(
     )
     target_context.set("functions", target_dicts)
 
-    tokenize_step = TokenizeStep()
-    target_context = await tokenize_step.execute(target_context)
-    if target_context.error:
-        logger.error("Target tokenization failed: {}", target_context.error)
+    filtered_target = await tokenize_and_filter(
+        target_context,
+        "Target tokenization failed: {}",
+        "Target filtering failed: {}",
+    )
+    if filtered_target is None:
         return None
-
-    filter_step = FilterStep()
-    target_context = await filter_step.execute(target_context)
-    if target_context.error:
-        logger.error("Target filtering failed: {}", target_context.error)
-        return None
-
-    filtered_target = target_context.get("filtered_functions", [])
 
     # Pairwise comparison
     matched_functions: list[dict[str, Any]] = []

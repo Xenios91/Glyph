@@ -11,6 +11,7 @@ from app.config.settings import LLMConfig
 from app.services import llm_analysis_service as service
 from app.services.llm_analysis_service import (
     FindingAnalysis,
+    LLMEndpointBlockedError,
     LLMNotConfiguredError,
     build_endpoint_url,
 )
@@ -88,8 +89,8 @@ def _bypass_ssrf_guard(monkeypatch: Any) -> Any:
 
     The guard performs real DNS resolution, which these tests do not want. It is
     exercised directly in ``tests/test_ssrf_guard.py`` and via dedicated tests
-    below; here it is stubbed so the default ``http://localhost`` base URL (a
-    loopback address that the guard would reject) is accepted.
+    below; here it is stubbed so the default ``http://localhost`` base URL is
+    accepted without any DNS lookup.
     """
 
     async def _passthrough(url: str) -> tuple[str, str | None]:
@@ -97,6 +98,54 @@ def _bypass_ssrf_guard(monkeypatch: Any) -> Any:
 
     monkeypatch.setattr(service, "_resolve_llm_url", _passthrough)
     return _passthrough
+
+
+class TestValidateLlmEndpoint:
+    """Tests for validate_llm_endpoint (the fail-fast endpoint validation).
+
+    These run the *real* SSRF guard (the module-level pass-through stub is
+    shadowed) so the "local" carve-out is exercised end-to-end: the LLM path
+    permits loopback, ``localhost``, and RFC1918 private-LAN endpoints, while
+    link-local (incl. the cloud metadata endpoint) and other non-public
+    addresses are still blocked.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _bypass_ssrf_guard(self) -> None:
+        """Shadow the module-level pass-through so the real guard runs here."""
+        return None
+
+    @pytest.mark.parametrize(
+        "base_url",
+        [
+            pytest.param("http://localhost:11434", id="localhost"),
+            pytest.param("http://127.0.0.1:11434", id="loopback-v4"),
+            pytest.param("http://[::1]:11434", id="loopback-v6"),
+            pytest.param("http://192.168.1.50:11434", id="rfc1918-192"),
+            pytest.param("http://10.0.0.5:11434", id="rfc1918-10"),
+        ],
+    )
+    async def test_local_endpoints_allowed(self, base_url: str) -> None:
+        """A local endpoint passes validation without raising (no 503)."""
+        await service.validate_llm_endpoint(_make_llm(base_url=base_url))
+
+    @pytest.mark.parametrize(
+        "base_url",
+        [
+            pytest.param("http://169.254.169.254:11434", id="cloud-metadata"),
+            pytest.param("http://0.0.0.0:11434", id="unspecified"),
+            pytest.param("http://100.64.0.1:11434", id="cgnat"),
+        ],
+    )
+    async def test_non_local_non_public_endpoints_blocked(self, base_url: str) -> None:
+        """A non-local non-public endpoint is still blocked (LLMEndpointBlockedError)."""
+        with pytest.raises(LLMEndpointBlockedError):
+            await service.validate_llm_endpoint(_make_llm(base_url=base_url))
+
+    async def test_disabled_config_still_raises_not_configured(self) -> None:
+        """A disabled LLM raises LLMNotConfiguredError (not a blocked error)."""
+        with pytest.raises(LLMNotConfiguredError):
+            await service.validate_llm_endpoint(_make_llm(enabled=False, base_url="http://localhost:11434"))
 
 
 class TestBuildEndpointUrl:

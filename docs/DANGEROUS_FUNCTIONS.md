@@ -171,6 +171,22 @@ llm:
   max_concurrent: 5
 ```
 
+### Endpoint Security (SSRF Guard)
+
+The LLM endpoint is validated against an SSRF guard **before** any request is made. The guard resolves the configured host and rejects any address that is not a public, routable address. Because the LLM analysis feature is commonly pointed at a *local* model (the default `base_url` is `http://localhost:11434` for Ollama), the LLM path opts into a **local carve-out** (`allow_local=True`):
+
+**Permitted for the LLM endpoint:**
+- Loopback: `127.0.0.0/8` and `::1`
+- The hostname `localhost` (any port)
+- RFC1918 private LAN: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
+
+**Still blocked (returns `503` with error code `LLM_ENDPOINT_BLOCKED`):**
+- Link-local `169.254.0.0/16` — including the cloud metadata endpoint `169.254.169.254` (kept blocked to prevent SSRF-to-metadata)
+- All other non-public / reserved / unspecified addresses (e.g. `0.0.0.0`, `::`)
+- Anything that would otherwise trip the guard
+
+The carve-out is opt-in and scoped to the LLM path only; every other caller of the shared guard (`app/utils/ssrf_guard.py`) remains strictly public-only.
+
 ### Running an Analysis
 
 Send the `results` array from a scan response:
@@ -225,7 +241,7 @@ curl -X POST http://localhost:8000/api/v1/dangerous-functions/llm-analysis \
 }
 ```
 
-`results` is keyed by the zero-based index of each finding in `findings`. Individual findings can fail (timeout, non-200 HTTP status, unexpected response format) while others succeed; failures are reported per result with `status: "error"` and an `error` message. When the LLM feature is disabled or its base URL is missing/malformed, the endpoint returns `503` with error code `LLM_NOT_CONFIGURED` before any request is made.
+`results` is keyed by the zero-based index of each finding in `findings`. Individual findings can fail (timeout, non-200 HTTP status, unexpected response format) while others succeed; failures are reported per result with `status: "error"` and an `error` message. When the LLM feature is disabled or its base URL is missing/malformed, the endpoint returns `503` with error code `LLM_NOT_CONFIGURED` before any request is made. When the endpoint host is rejected by the SSRF guard (a non-local, non-public address such as link-local `169.254.169.254`), the endpoint returns `503` with error code `LLM_ENDPOINT_BLOCKED` before any request is made (see [Endpoint Security](#endpoint-security-ssrf-guard)).
 
 ### Retrieving Stored Results
 

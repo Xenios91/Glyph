@@ -60,6 +60,34 @@ def _is_public(ip_str: str) -> bool:
     return not (isinstance(ip, ipaddress.IPv4Address) and ip in _CGNAT)
 
 
+# Network ranges considered "local" for the opt-in ``allow_local`` carve-out:
+# loopback (127.0.0.0/8, ::1) and RFC1918 private LAN. These are the addresses
+# a legitimate local LLM (e.g. Ollama on http://localhost:11434) binds to. The
+# hostname ``localhost`` resolves to loopback, so it is covered here too.
+_LOCAL_NETWORKS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+]
+
+
+def _is_local(ip_str: str) -> bool:
+    """Return True if ``ip_str`` is a loopback or RFC1918 private-LAN address.
+
+    This is the "local" carve-out applied when ``allow_local`` is enabled. It
+    deliberately excludes link-local (169.254.0.0/16, which includes the cloud
+    metadata endpoint 169.254.169.254), unspecified (0.0.0.0, ::), CGNAT, and
+    every other non-public range, so those remain blocked.
+    """
+    try:
+        ip = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return False
+    return any(ip in net for net in _LOCAL_NETWORKS)
+
+
 def _resolve_addresses(host: str, port: int) -> list[str]:
     """Blocking DNS resolution returning a de-duplicated list of IP strings.
 
@@ -108,11 +136,17 @@ def _parse_public(url: str) -> tuple[Any, str, int]:
     return parts, host, port
 
 
-async def assert_public_url(url: str) -> None:
+async def assert_public_url(url: str, allow_local: bool = False) -> None:
     """Resolve the URL's host and reject non-public destinations.
 
     Args:
         url: The fully qualified endpoint URL to validate.
+        allow_local: When True, additionally permit loopback and RFC1918
+            private-LAN addresses (the "local" carve-out for local LLM
+            endpoints). Link-local (incl. the cloud metadata endpoint),
+            unspecified, and all other non-public addresses are still
+            rejected. Default False keeps the guard strict for every existing
+            caller.
 
     Raises:
         ValueError: If the host is missing, does not resolve, or resolves to a
@@ -125,11 +159,11 @@ async def assert_public_url(url: str) -> None:
     if not addrs:
         raise ValueError("host does not resolve")
     for addr in addrs:
-        if not _is_public(addr):
+        if not _is_public(addr) and not (allow_local and _is_local(addr)):
             raise ValueError("host resolves to a non-public address")
 
 
-async def resolve_and_pin(url: str) -> tuple[str, str]:
+async def resolve_and_pin(url: str, allow_local: bool = False) -> tuple[str, str]:
     """Validate ``url`` and return ``(pinned_url, host_header)``.
 
     The hostname is resolved and every resolved address is validated as public.
@@ -144,6 +178,12 @@ async def resolve_and_pin(url: str) -> tuple[str, str]:
 
     Args:
         url: The fully qualified endpoint URL to pin.
+        allow_local: When True, additionally permit loopback and RFC1918
+            private-LAN addresses (the "local" carve-out for local LLM
+            endpoints). Link-local (incl. the cloud metadata endpoint),
+            unspecified, and all other non-public addresses are still
+            rejected. Default False keeps the guard strict for every existing
+            caller.
 
     Returns:
         A tuple of (pinned_url, host_header).
@@ -157,7 +197,7 @@ async def resolve_and_pin(url: str) -> tuple[str, str]:
     if not addrs:
         raise ValueError("host does not resolve")
     for addr in addrs:
-        if not _is_public(addr):
+        if not _is_public(addr) and not (allow_local and _is_local(addr)):
             raise ValueError("host resolves to a non-public address")
 
     ip = addrs[0]

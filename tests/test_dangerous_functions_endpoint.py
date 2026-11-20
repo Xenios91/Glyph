@@ -497,10 +497,13 @@ class TestLLMAnalysisEndpoint:
         }
 
     @staticmethod
-    def _make_llm(enabled: bool = True) -> Any:
+    def _make_llm(enabled: bool = True, base_url: str = "https://1.2.3.4") -> Any:
+        # A public IP literal: the real SSRF guard resolves it deterministically
+        # (no network lookup) and accepts it, so the success-path tests exercise
+        # the genuine fail-fast endpoint validation rather than a stub.
         return LLMConfig(
             enabled=enabled,
-            base_url="https://llm.example.com",
+            base_url=base_url,
             model="test-model",
             api_key="test-key",
         )
@@ -714,6 +717,76 @@ class TestLLMAnalysisEndpoint:
         data = response.json()
         detail = data.get("detail", data)
         assert detail.get("error", {}).get("code", "") == "LLM_NOT_CONFIGURED"
+
+    def test_llm_analysis_endpoint_blocked(self, dangerous_functions_client: Any) -> None:
+        """Test 503 LLM_ENDPOINT_BLOCKED when the endpoint host is non-local.
+
+        Uses the cloud-metadata link-local IP literal (169.254.169.254) so the
+        real SSRF guard runs deterministically without any network access.
+        Link-local is still blocked even for the LLM path (the "local" carve-out
+        covers only loopback and RFC1918), so the rejection is reported as a
+        proper pre-response HTTP error (not a broken stream).
+        """
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        with (
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.resolve_user_llm_config",
+                new=AsyncMock(return_value=self._make_llm(base_url="http://169.254.169.254:11434")),
+            ),
+            patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_scan_repo,
+        ):
+            mock_scan_repo.get_report = AsyncMock(return_value=self._make_report())
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/llm-analysis",
+                json={"target_name": "test_model", "findings": [self._make_finding("strcpy")]},
+            )
+
+        assert response.status_code == 503
+        data = response.json()
+        detail = data.get("detail", data)
+        assert detail.get("error", {}).get("code", "") == "LLM_ENDPOINT_BLOCKED"
+
+    def test_llm_analysis_endpoint_local_allowed(self, dangerous_functions_client: Any) -> None:
+        """A local endpoint (loopback) passes the fail-fast validation.
+
+        The LLM path permits local endpoints (loopback, ``localhost``, RFC1918)
+        via the guard's ``allow_local`` carve-out, so a local LLM such as Ollama
+        on ``http://127.0.0.1:11434`` is not rejected with 503. The real SSRF
+        guard runs (loopback is an IP literal, so no network access is needed)
+        and must accept the host; the request then proceeds to the (mocked)
+        analysis stream.
+        """
+        set_dependency_override(dangerous_functions_client, get_current_active_user, make_mock_user)
+
+        analyses = [FindingAnalysis(status="success", analysis="ok", model="test-model", elapsed_ms=5)]
+
+        with (
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.resolve_user_llm_config",
+                new=AsyncMock(return_value=self._make_llm(base_url="http://127.0.0.1:11434")),
+            ),
+            patch(
+                "app.api.v1.endpoints.dangerous_functions.stream_findings",
+                new=Mock(return_value=self._stream_items(analyses)),
+            ),
+            patch("app.api.v1.endpoints.dangerous_functions.LLMResultRepository") as mock_repo,
+            patch("app.api.v1.endpoints.dangerous_functions.ScanReportRepository") as mock_scan_repo,
+        ):
+            mock_repo.upsert_one = AsyncMock()
+            mock_scan_repo.get_report = AsyncMock(return_value=self._make_report())
+            response = dangerous_functions_client.post(
+                "/dangerous-functions/llm-analysis",
+                json={"target_name": "test_model", "findings": [self._make_finding("strcpy")]},
+            )
+
+        # The endpoint is NOT blocked: the request reaches the analysis stream
+        # and streams a 200 response (no 503 LLM_ENDPOINT_BLOCKED).
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
+        done_events = [data for event_type, data in self._parse_sse_events(response.text) if event_type == "done"]
+        assert len(done_events) == 1
+        assert done_events[0]["succeeded"] == 1
 
     def test_llm_analysis_requires_auth(self, dangerous_functions_client: Any) -> None:
         """Test that the endpoint requires authentication (mocked dependency raises)."""

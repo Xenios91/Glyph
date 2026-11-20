@@ -42,8 +42,7 @@ async def run_code_reuse_task(
     """
     from app.database.binary_repository import BinaryRepository
     from app.processing.pipeline import PipelineContext
-    from app.processing.steps import FilterStep, TokenizeStep
-    from app.services.code_reuse_detector import compare_binaries
+    from app.services.code_reuse_detector import compare_binaries, tokenize_and_filter
 
     try:
         if captured_ctx is not None:
@@ -71,21 +70,14 @@ async def run_code_reuse_task(
         source_dicts = [binary_function_to_dict(bf) for bf in source_functions]
         source_context.set("functions", source_dicts)
 
-        tokenize_step = TokenizeStep()
-        source_context = await tokenize_step.execute(source_context)
-        if source_context.error:
+        filtered_source = await tokenize_and_filter(
+            source_context,
+            "Tokenization failed: {}",
+            "Filtering failed: {}",
+        )
+        if filtered_source is None:
             TaskManager.set_status(task_uuid, "error")
-            logger.error("Tokenization failed: {}", source_context.error)
             return
-
-        filter_step = FilterStep()
-        source_context = await filter_step.execute(source_context)
-        if source_context.error:
-            TaskManager.set_status(task_uuid, "error")
-            logger.error("Filtering failed: {}", source_context.error)
-            return
-
-        filtered_source = source_context.get("filtered_functions", [])
 
         # Get all other binaries to compare against
         all_binary_ids = await BinaryRepository.get_all_ids()
@@ -158,7 +150,7 @@ async def run_dangerous_functions_task(
     """
     from app.database.binary_repository import BinaryRepository
     from app.processing.pipeline import PipelineContext
-    from app.processing.steps import FilterStep, TokenizeStep
+    from app.services.code_reuse_detector import tokenize_and_filter
     from app.services.dangerous_function_scanner import generate_report
 
     try:
@@ -188,21 +180,14 @@ async def run_dangerous_functions_task(
         )
         context.set("functions", function_dicts)
 
-        tokenize_step = TokenizeStep()
-        context = await tokenize_step.execute(context)
-        if context.error:
+        filtered_functions = await tokenize_and_filter(
+            context,
+            "Tokenization failed: {}",
+            "Filtering failed: {}",
+        )
+        if filtered_functions is None:
             TaskManager.set_status(task_uuid, "error")
-            logger.error("Tokenization failed: {}", context.error)
             return
-
-        filter_step = FilterStep()
-        context = await filter_step.execute(context)
-        if context.error:
-            TaskManager.set_status(task_uuid, "error")
-            logger.error("Filtering failed: {}", context.error)
-            return
-
-        filtered_functions = context.get("filtered_functions", [])
 
         # Scan for dangerous functions
         report = generate_report(binary_name or f"binary_{binary_id}", filtered_functions)
