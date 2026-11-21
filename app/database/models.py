@@ -548,8 +548,10 @@ class SimilarityPair(Base):
 class LLMAnalysisResult(Base):
     """Model representing a stored LLM analysis of a dangerous function finding.
 
-    One row per (target, dangerous function) — re-running the analysis
-    upserts the row so the latest result (and its timestamp) is kept.
+    One row per (target, dangerous function, user) — re-running the analysis
+    upserts the row so the latest result (and its timestamp) is kept. Scoping
+    the unique key by ``user_id`` keeps each user's stored results isolated
+    (multi-tenant), mirroring the Prediction model.
 
     Attributes:
         id: Primary key
@@ -610,6 +612,7 @@ class LLMAnalysisResult(Base):
             "function_name",
             "containing_function",
             "entrypoint",
+            "user_id",
             name="uq_llm_analysis_target_function",
         ),
     )

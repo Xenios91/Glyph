@@ -387,6 +387,14 @@ class TrainStep(PipelineStep):
 
         user_id = context.metadata.get("user_id")
 
+        # Restrict to functions with non-empty tokens, mirroring the filter in
+        # FeatureExtractStep, so that len(labels) == len(tokens) and scikit-learn
+        # never sees a sample-count mismatch.
+        filtered_functions = [f for f in filtered_functions if f.get("tokens")]
+        if not filtered_functions:
+            context.error = "No functions with non-empty tokens available for training"
+            return context
+
         labels = [f.get("functionName", "Unknown") for f in filtered_functions]
 
         label_encoder = preprocessing.LabelEncoder()

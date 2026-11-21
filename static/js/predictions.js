@@ -206,6 +206,11 @@ onDomReady(function() {
     // Add click handler directly to table rows for predictions list page
     const clickableRows = document.querySelectorAll('.clickable-row');
     clickableRows.forEach(row => {
+        // Skip rows owned by table delegation (their table declares a
+        // non-empty data-click-handler); the delegated listener handles them.
+        const table = row.closest('table[data-click-handler]');
+        if (table && table.dataset.clickHandler) return;
+
         row.addEventListener('click', function(e) {
             // Don't navigate if clicking a checkbox
             const checkbox = e.target.closest('.prediction-select-checkbox, .prediction-select-all');

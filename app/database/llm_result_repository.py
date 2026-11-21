@@ -54,6 +54,11 @@ class LLMResultRepository:
         """
         session: AsyncSession = await get_async_session("intelligence")
         try:
+            owner_clause = (
+                LLMAnalysisResult.user_id.is_(None)
+                if user_id is None
+                else LLMAnalysisResult.user_id == user_id
+            )
             seen: dict[tuple[str, str, str, str], LLMAnalysisResult] = {}
             for result in results:
                 key = (target_name, result.function_name, result.containing_function, result.entrypoint)
@@ -66,6 +71,7 @@ class LLMResultRepository:
                                 LLMAnalysisResult.function_name == result.function_name,
                                 LLMAnalysisResult.containing_function == result.containing_function,
                                 LLMAnalysisResult.entrypoint == result.entrypoint,
+                                owner_clause,
                             ),
                         )
                     ).scalar_one_or_none()
@@ -113,6 +119,11 @@ class LLMResultRepository:
         """
         session: AsyncSession = await get_async_session("intelligence")
         try:
+            owner_clause = (
+                LLMAnalysisResult.user_id.is_(None)
+                if user_id is None
+                else LLMAnalysisResult.user_id == user_id
+            )
             row = (
                 await session.execute(
                     select(LLMAnalysisResult).where(
@@ -120,6 +131,7 @@ class LLMResultRepository:
                         LLMAnalysisResult.function_name == result.function_name,
                         LLMAnalysisResult.containing_function == result.containing_function,
                         LLMAnalysisResult.entrypoint == result.entrypoint,
+                        owner_clause,
                     ),
                 )
             ).scalar_one_or_none()

@@ -56,9 +56,17 @@ class BehavioralScanReportRepository:
         results_json = json.dumps(report.get("results") or [], ensure_ascii=False)
         session: AsyncSession = await get_async_session("intelligence")
         try:
+            owner_clause = (
+                BehavioralScanReport.user_id.is_(None)
+                if user_id is None
+                else BehavioralScanReport.user_id == user_id
+            )
             row = (
                 await session.execute(
-                    select(BehavioralScanReport).where(BehavioralScanReport.target_name == target_name),
+                    select(BehavioralScanReport).where(
+                        BehavioralScanReport.target_name == target_name,
+                        owner_clause,
+                    ),
                 )
             ).scalar_one_or_none()
             if row is None:

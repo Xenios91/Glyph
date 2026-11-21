@@ -284,6 +284,108 @@ async def _ensure_prediction_per_user_constraint(engine: AsyncEngine) -> None:
         logger.info("Migrated predictions unique constraint to per-user scope")
 
 
+_LLM_RESULT_OLD_UNIQUE_COLS = ("target_name", "function_name", "containing_function", "entrypoint")
+_LLM_RESULT_NEW_UNIQUE_COLS = (
+    "target_name",
+    "function_name",
+    "containing_function",
+    "entrypoint",
+    "user_id",
+)
+
+
+def _llm_result_unique_columns(conn: Any) -> tuple[str, ...] | None:
+    """Return the column tuple of the llm_analysis_results unique index, or None.
+
+    Inspects the table's unique indexes via PRAGMA and returns the column
+    ordering of the one that covers the (old or new) unique key.
+    """
+    rows = conn.execute(text("PRAGMA index_list(llm_analysis_results)")).fetchall()
+    for row in rows:
+        # row: (seq, name, unique, origin, partial)
+        name, unique = row[1], row[2]
+        if not unique:
+            continue
+        cols = tuple(r[2] for r in conn.execute(text(f"PRAGMA index_info({name})")).fetchall())
+        if cols in (_LLM_RESULT_OLD_UNIQUE_COLS, _LLM_RESULT_NEW_UNIQUE_COLS):
+            return cols
+    return None
+
+
+async def _ensure_llm_result_per_user_constraint(engine: AsyncEngine) -> None:
+    """Migrate the llm_analysis_results unique constraint to per-user scope (idempotent).
+
+    Older deployments carry ``UNIQUE(target_name, function_name,
+    containing_function, entrypoint)``. The multi-tenant design scopes stored
+    LLM results per user, so the constraint becomes
+    ``UNIQUE(target_name, function_name, containing_function, entrypoint,
+    user_id)``. SQLite cannot ALTER a unique constraint, so the table is
+    rebuilt: rename, recreate with the new constraint, copy rows, drop the old
+    table, and recreate the secondary indexes. This is safe without
+    deduplication because the old (tighter) constraint guarantees at most one
+    row per (target_name, function_name, containing_function, entrypoint),
+    which trivially satisfies the new (looser) per-user constraint.
+    """
+    async with engine.begin() as conn:
+        if conn.dialect.name != "sqlite":
+            return
+        rows = (await conn.execute(text("PRAGMA table_info(llm_analysis_results)"))).fetchall()
+        if not rows:
+            # Table does not exist yet; create_all builds it with the new constraint.
+            return
+        cols = await conn.run_sync(lambda sync_conn: _llm_result_unique_columns(sync_conn))
+        if cols is None or cols == _LLM_RESULT_NEW_UNIQUE_COLS:
+            # Already on the per-user constraint (or no recognizable index).
+            return
+        # Rebuild the table with the per-user unique constraint.
+        await conn.execute(text("ALTER TABLE llm_analysis_results RENAME TO llm_analysis_results_old"))
+        await conn.execute(
+            text(
+                "CREATE TABLE llm_analysis_results ("
+                "id INTEGER NOT NULL, "
+                "target_name VARCHAR(256) NOT NULL, "
+                "user_id INTEGER, "
+                "function_name VARCHAR(256) NOT NULL, "
+                "containing_function VARCHAR(256) NOT NULL, "
+                "entrypoint VARCHAR(32) NOT NULL, "
+                "status VARCHAR(16) NOT NULL, "
+                "analysis TEXT NOT NULL DEFAULT '', "
+                "error TEXT NOT NULL DEFAULT '', "
+                "model_name VARCHAR(128) NOT NULL DEFAULT '', "
+                "elapsed_ms INTEGER NOT NULL DEFAULT 0, "
+                "is_vulnerability BOOLEAN, "
+                "confidence VARCHAR(16) NOT NULL DEFAULT '', "
+                "verdict VARCHAR(32) NOT NULL DEFAULT '', "
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
+                "modified_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
+                "PRIMARY KEY (id), "
+                "CONSTRAINT uq_llm_analysis_target_function "
+                "UNIQUE (target_name, function_name, containing_function, entrypoint, user_id)"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO llm_analysis_results "
+                "(id, target_name, user_id, function_name, containing_function, entrypoint, "
+                "status, analysis, error, model_name, elapsed_ms, is_vulnerability, confidence, "
+                "verdict, created_at, modified_at) "
+                "SELECT id, target_name, user_id, function_name, containing_function, entrypoint, "
+                "status, analysis, error, model_name, elapsed_ms, is_vulnerability, confidence, "
+                "verdict, created_at, modified_at FROM llm_analysis_results_old"
+            )
+        )
+        await conn.execute(text("DROP TABLE llm_analysis_results_old"))
+        # Recreate the secondary indexes the model declares on target_name and user_id.
+        await conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_llm_analysis_results_target_name ON llm_analysis_results (target_name)")
+        )
+        await conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_llm_analysis_results_user_id ON llm_analysis_results (user_id)")
+        )
+        logger.info("Migrated llm_analysis_results unique constraint to per-user scope")
+
+
 async def _backfill_prediction_function_count() -> None:
     """Backfill ``function_count`` on prediction rows where it is unset.
 
@@ -473,6 +575,9 @@ async def init_async_databases() -> None:
         # Per-user prediction unique constraint (table rebuild for SQLite).
         if name == "predictions":
             await _ensure_prediction_per_user_constraint(async_engines[name])
+        # Per-user LLM result unique constraint (table rebuild for SQLite).
+        if name == "intelligence":
+            await _ensure_llm_result_per_user_constraint(async_engines[name])
     try:
         await _backfill_owner_columns()
     except Exception as e:  # pragma: no cover - defensive: never block startup

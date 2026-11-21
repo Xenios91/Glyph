@@ -484,6 +484,19 @@ async def post_upload_bulk(
 
     # Parse names
     name_list = [n.strip() for n in names.split(",") if n.strip()]
+    if len(name_list) > len(files):
+        raise HTTPException(
+            status_code=400,
+            detail=create_error_response(
+                error_code="NAME_COUNT_MISMATCH",
+                error_message=(
+                    f"Expected at most {len(files)} names for {len(files)} file(s), "
+                    f"but got {len(name_list)} after splitting. Names must not "
+                    f"contain commas; use a different delimiter or one name per "
+                    f"file."
+                ),
+            ).model_dump(),
+        )
     results: list[BulkUploadItem] = []
 
     for idx, file in enumerate(files):
