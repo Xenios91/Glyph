@@ -19,6 +19,8 @@
 
     {% include 'components/page_header.html' %}
 
+    <div id="diff-summary" class="diff-summary" role="status" aria-live="polite"></div>
+
 <div class="mt-2 token-cards-row">
             <div class="token-card">
                 <div class="center-text">
@@ -46,5 +48,6 @@
 {% endblock content %}
 
 {% block scripts %}
+<script src="{{ static_url(request, 'js/diff.js') }}" defer></script>
 <script src="{{ static_url(request, 'js/predictions.js') }}" defer></script>
 {% endblock scripts %}

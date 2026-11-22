@@ -248,6 +248,11 @@ onDomReady(function() {
     // Initialize synchronized scrolling
     initSyncScroll();
 
+    // Initialize diff highlighting on the prediction details page
+    if (typeof initDiffHighlight === 'function') {
+        initDiffHighlight();
+    }
+
     // Attach delete selected button listener (avoids inline onclick which violates CSP)
     const deleteSelectedBtn = document.getElementById('delete-selected-predictions-btn');
     if (deleteSelectedBtn) {

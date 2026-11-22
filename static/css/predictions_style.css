@@ -416,3 +416,54 @@
     }
 }
 
+/* ── Diff highlighting (prediction details side-by-side) ─────── */
+.diff-summary {
+    margin: 0 2% 0.5rem;
+    padding: 0.5rem var(--space-md);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 4px;
+    font-size: var(--text-sm);
+    color: var(--text-dim);
+}
+.diff-summary.is-identical {
+    border-color: var(--green-dim);
+    color: var(--green);
+}
+
+.token-scroll .diff-lines {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    min-height: 100%;
+}
+.token-scroll .diff-line {
+    display: flex;
+    gap: var(--space-sm);
+    padding: 2px var(--space-sm);
+    font-family: var(--font-code);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    color: var(--text-primary);
+}
+.token-scroll .diff-line .line-no {
+    flex-shrink: 0;
+    width: 2.5em;
+    text-align: right;
+    color: var(--text-muted);
+    user-select: none;
+}
+.token-scroll .diff-line .line-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.token-scroll .diff-line.added {
+    background-color: rgba(110, 201, 122, 0.12);
+    color: var(--green);
+}
+.token-scroll .diff-line.removed {
+    background-color: rgba(201, 84, 106, 0.12);
+    color: var(--red);
+}
+.token-scroll .diff-line.placeholder {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+

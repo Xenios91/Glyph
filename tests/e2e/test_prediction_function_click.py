@@ -26,14 +26,19 @@ BASE_URL = "http://127.0.0.1:8000"
 # ---------------------------------------------------------------------------
 
 
-def _seed_function(data_dir: str, model_name: str, function_name: str) -> None:
+def _seed_function(
+    data_dir: str,
+    model_name: str,
+    function_name: str,
+    tokens: str = "int main() { return 0; }",
+) -> None:
     """Insert a legacy (unowned) function row visible to every user."""
     conn = sqlite3.connect(Path(data_dir) / "functions.db")
     try:
         conn.execute(
             "INSERT INTO functions (model_name, function_name, entrypoint, tokens) "
             "VALUES (?, ?, ?, ?)",
-            (model_name, function_name, "0x401000", "int main() { return 0; }"),
+            (model_name, function_name, "0x401000", tokens),
         )
         conn.commit()
     finally:
@@ -53,7 +58,13 @@ def _delete_function(data_dir: str, model_name: str, function_name: str) -> None
         conn.close()
 
 
-def _seed_prediction(data_dir: str, task_name: str, model_name: str, function_name: str) -> None:
+def _seed_prediction(
+    data_dir: str,
+    task_name: str,
+    model_name: str,
+    function_name: str,
+    tokens: str = "int main() { return 0; }",
+) -> None:
     """Insert a legacy (unowned) prediction whose data includes one function.
 
     The ``functions_data`` BLOB is a joblib-dumped list of plain dicts, which
@@ -61,7 +72,7 @@ def _seed_prediction(data_dir: str, task_name: str, model_name: str, function_na
     """
     buf = io.BytesIO()
     joblib.dump(
-        [{"functionName": function_name, "lowAddress": "0x401000", "tokens": "int main() { return 0; }"}],
+        [{"functionName": function_name, "lowAddress": "0x401000", "tokens": tokens}],
         buf,
     )
     conn = sqlite3.connect(Path(data_dir) / "predictions.db")
@@ -263,3 +274,100 @@ def test_prediction_list_row_click_still_navigates_to_details(
         assert "model_name=" in page.url, f"Details URL must carry model_name: {page.url}"
     finally:
         _delete_prediction(data_dir, task_name, model_name)
+
+
+# ---------------------------------------------------------------------------
+# Diff highlighting on the side-by-side details page
+# ---------------------------------------------------------------------------
+
+
+def test_prediction_details_diff_highlights_differing_bodies(
+    page: Any, server: Any, data_dir: str
+) -> None:
+    """When the predicted and original function bodies differ, the side-by-side
+    panes must highlight the changed lines and report the difference count.
+
+    The predicted pane (diff source) must show at least one added line, the
+    original pane (diff target) at least one removed line, and both panes must
+    keep equal ``.diff-line`` counts so synchronized scrolling stays aligned.
+    """
+    register_and_login(page)
+    task_name = f"diff-task-{uuid4().hex[:12]}"
+    model_name = f"diff-model-{uuid4().hex[:12]}"
+    function_name = f"diff_func_{uuid4().hex[:12]}"
+    try:
+        _seed_function(
+            data_dir, model_name, function_name, tokens="int main() { return 1; }"
+        )
+        _seed_prediction(
+            data_dir, task_name, model_name, function_name, tokens="int main() { return 0; }"
+        )
+
+        page.goto(
+            f"{BASE_URL}/getPredictionDetails?function_name={function_name}"
+            f"&task_name={task_name}&model_name={model_name}"
+        )
+        page.wait_for_load_state("domcontentloaded")
+
+        # The <pre> is replaced by a .diff-lines column once the diff renders.
+        expect(page.locator("#prediction_tokens_div .diff-lines")).to_be_visible()
+        expect(page.locator("#model_tokens_div .diff-lines")).to_be_visible()
+
+        # The predicted pane (source) must show at least one added line and the
+        # original pane (target) at least one removed line. These auto-retry.
+        expect(page.locator("#prediction_tokens_div .diff-line.added")).to_have_count(1)
+        expect(page.locator("#model_tokens_div .diff-line.removed")).to_have_count(1)
+
+        # Scroll-sync invariant: equal row counts in both panes.
+        pred_count = page.locator("#prediction_tokens_div .diff-line").count()
+        model_count = page.locator("#model_tokens_div .diff-line").count()
+        assert pred_count == model_count, (
+            f"Pane row counts must be equal for scroll sync: pred={pred_count} model={model_count}"
+        )
+
+        # The summary banner must report the difference count.
+        expect(page.locator("#diff-summary")).to_contain_text("difference")
+    finally:
+        _delete_prediction(data_dir, task_name, model_name)
+        _delete_function(data_dir, model_name, function_name)
+
+
+def test_prediction_details_diff_shows_identical(
+    page: Any, server: Any, data_dir: str
+) -> None:
+    """When the predicted and original function bodies are identical, no lines
+    are highlighted as added/removed and the summary banner reports identity.
+    """
+    register_and_login(page)
+    task_name = f"same-task-{uuid4().hex[:12]}"
+    model_name = f"same-model-{uuid4().hex[:12]}"
+    function_name = f"same_func_{uuid4().hex[:12]}"
+    try:
+        # Both seed helpers default to the same body: `int main() { return 0; }`.
+        _seed_function(data_dir, model_name, function_name)
+        _seed_prediction(data_dir, task_name, model_name, function_name)
+
+        page.goto(
+            f"{BASE_URL}/getPredictionDetails?function_name={function_name}"
+            f"&task_name={task_name}&model_name={model_name}"
+        )
+        page.wait_for_load_state("domcontentloaded")
+
+        # Wait for the diff to render (the <pre> is replaced by .diff-lines).
+        expect(page.locator("#prediction_tokens_div .diff-lines")).to_be_visible()
+        expect(page.locator("#model_tokens_div .diff-lines")).to_be_visible()
+
+        # No lines should be highlighted as added or removed anywhere.
+        assert page.locator(".diff-line.added").count() == 0, (
+            "Identical bodies must not produce any added lines"
+        )
+        assert page.locator(".diff-line.removed").count() == 0, (
+            "Identical bodies must not produce any removed lines"
+        )
+
+        # The summary banner must report identity.
+        expect(page.locator("#diff-summary.is-identical")).to_be_visible()
+        expect(page.locator("#diff-summary")).to_contain_text("identical")
+    finally:
+        _delete_prediction(data_dir, task_name, model_name)
+        _delete_function(data_dir, model_name, function_name)
