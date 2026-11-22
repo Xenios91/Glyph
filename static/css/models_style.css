@@ -331,7 +331,6 @@
 /* Go Back button styling */
 .content .cyber-btn.is-primary:not(.view-prediction-btn) {
     margin-top: 1.5rem;
-    display: inline-block;
 }
 
 /* ── Token Display Container ─────────────────────────────────── */
