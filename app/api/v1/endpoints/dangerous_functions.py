@@ -7,7 +7,6 @@ and usage context.
 
 import asyncio
 import json
-import types
 from collections.abc import AsyncIterator
 from typing import Annotated, Any
 
@@ -16,7 +15,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from app.auth.dependencies import assert_owned, can_access, get_current_active_user
+from app.auth.dependencies import assert_binary_owned, assert_owned, can_access, get_current_active_user
 from app.core.rate_limiter import LLM_ANALYSIS_LIMIT, limiter
 from app.database.binary_repository import BinaryRepository
 from app.database.function_repository import FunctionRepository
@@ -44,7 +43,7 @@ from app.services.llm_analysis_service import (
     validate_llm_endpoint,
 )
 from app.services.taint_analysis_service import TaintAnalysisService, TaintSinkNotFoundError
-from app.utils.common import binary_function_to_dict
+from app.utils.common import binary_function_to_dict, functions_to_dicts
 from app.utils.responses import (
     ErrorResponse,
     SuccessResponse,
@@ -239,28 +238,6 @@ def _scan_report_to_dict(report: ScanReport) -> ScanReportResponse:
     )
 
 
-def _functions_to_dicts(functions: list[Any]) -> list[dict[str, Any]]:
-    """Convert ORM Function objects to dictionaries for the scanner.
-
-    Args:
-        functions: List of Function ORM objects.
-
-    Returns:
-        List of function dictionaries compatible with scan_functions().
-
-    """
-    result: list[dict[str, Any]] = []
-    for func in functions:
-        # ORM objects have attributes; convert to dict format expected by scanner
-        func_dict: dict[str, Any] = {
-            "functionName": func.function_name,
-            "lowAddress": func.entrypoint,
-            "tokenList": func.tokens.split() if func.tokens else [],
-        }
-        result.append(func_dict)
-    return result
-
-
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -408,7 +385,7 @@ async def scan_dangerous_functions(
         # Get functions for this model (scoped to accessible rows)
         functions = await FunctionRepository.get_functions(target_name)
         functions = [f for f in functions if can_access(f, current_user)]
-        functions_data = _functions_to_dicts(functions)
+        functions_data = functions_to_dicts(functions)
 
     elif body.binaryId is not None:
         from app.database.binary_repository import BinaryRepository
@@ -421,11 +398,7 @@ async def scan_dangerous_functions(
                 detail=f"Binary {body.binaryId} not found",
             )
 
-        if binary.uploaded_by != current_user.id:
-            raise HTTPException(
-                status_code=403,
-                detail="Access denied",
-            )
+        assert_binary_owned(binary, current_user)
 
         target_name = binary.name
         report_owner_id = binary.uploaded_by
@@ -545,11 +518,7 @@ async def run_taint_analysis(
             detail=f"Binary {body.binaryId} not found",
         )
 
-    if binary.uploaded_by != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied",
-        )
+    assert_binary_owned(binary, current_user)
 
     try:
         report = await TaintAnalysisService.analyze(

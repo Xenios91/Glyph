@@ -32,6 +32,49 @@ def binary_function_to_dict(bf: _FunctionLike) -> dict[str, Any]:
     }
 
 
+def format_full_function_code(tokens: list[str]) -> str:
+    """Format the full decompiled function body from tokens into readable code.
+
+    Uses format_code from this module for proper indentation and formatting.
+
+    Args:
+        tokens: Token list from decompiled function.
+
+    Returns:
+        Formatted function code as a multi-line string.
+
+    """
+    if not tokens:
+        return ""
+
+    code_text = " ".join(str(t) for t in tokens)
+    code_text = re.sub(r"\s+", " ", code_text).strip()
+
+    return format_code(code_text)
+
+
+def functions_to_dicts(functions: list[Any]) -> list[dict[str, Any]]:
+    """Convert ORM Function objects to dictionaries for the scanner.
+
+    Args:
+        functions: List of Function ORM objects.
+
+    Returns:
+        List of function dictionaries compatible with scan_functions().
+
+    """
+    result: list[dict[str, Any]] = []
+    for func in functions:
+        # ORM objects have attributes; convert to dict format expected by scanner
+        func_dict: dict[str, Any] = {
+            "functionName": func.function_name,
+            "lowAddress": func.entrypoint,
+            "tokenList": func.tokens.split() if func.tokens else [],
+        }
+        result.append(func_dict)
+    return result
+
+
 def format_code(code: str) -> str:
     """Format Ghidra C code: removes comments and enforces proper indentation.
 

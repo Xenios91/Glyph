@@ -31,7 +31,25 @@ def get_utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-class Model(Base):
+class TimestampMixin:
+    """Mixin providing the standard ``created_at`` / ``modified_at`` columns."""
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=get_utc_now,
+        server_default=func.now(),
+        onupdate=get_utc_now,
+        nullable=False,
+    )
+
+
+class Model(Base, TimestampMixin):
     """Model representing a trained ML model in the database.
 
     Attributes:
@@ -52,22 +70,7 @@ class Model(Base):
     user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     model_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     label_encoder_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        nullable=False,
-    )
-    modified_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        onupdate=get_utc_now,
-        nullable=False,
-    )
-
-
-class Prediction(Base):
+class Prediction(Base, TimestampMixin):
     """Model representing a prediction task in the database.
 
     Attributes:
@@ -91,20 +94,6 @@ class Prediction(Base):
     user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     functions_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     function_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        nullable=False,
-    )
-    modified_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        onupdate=get_utc_now,
-        nullable=False,
-    )
-
     # Per-user uniqueness: two users may share a (task_name, model_name) pair,
     # but a single user cannot have two rows for the same pair. The nullable
     # user_id means unowned/legacy rows are not part of the unique index (SQLite
@@ -115,7 +104,7 @@ class Prediction(Base):
     )
 
 
-class Function(Base):
+class Function(Base, TimestampMixin):
     """Model representing a function extracted from a binary.
 
     Attributes:
@@ -138,24 +127,10 @@ class Function(Base):
     function_name: Mapped[str] = mapped_column(String(256), nullable=False)
     entrypoint: Mapped[str] = mapped_column(String(16), nullable=False)
     tokens: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        nullable=False,
-    )
-    modified_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        onupdate=get_utc_now,
-        nullable=False,
-    )
-
     __table_args__ = (UniqueConstraint("model_name", "function_name", name="uq_functions_model_function"),)
 
 
-class Binary(Base):
+class Binary(Base, TimestampMixin):
     """Model representing an uploaded binary in the database.
 
     Stores metadata about the binary file and links to its raw
@@ -181,27 +156,13 @@ class Binary(Base):
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     mime_type: Mapped[str] = mapped_column(String(64), nullable=False)
     uploaded_by: Mapped[int] = mapped_column(Integer, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        nullable=False,
-    )
-    modified_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        onupdate=get_utc_now,
-        nullable=False,
-    )
-
     functions: Mapped[list["BinaryFunction"]] = relationship(
         back_populates="binary",
         cascade="save-update, merge, delete, delete-orphan",
     )
 
 
-class BinaryFunction(Base):
+class BinaryFunction(Base, TimestampMixin):
     """Model representing a raw decompiled function from a binary.
 
     Stores the unmodified C code output from Ghidra. No tokenization,
@@ -226,26 +187,12 @@ class BinaryFunction(Base):
     function_name: Mapped[str] = mapped_column(String(256), nullable=False)
     entrypoint: Mapped[str] = mapped_column(String(16), nullable=False)
     raw_code: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        nullable=False,
-    )
-    modified_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        onupdate=get_utc_now,
-        nullable=False,
-    )
-
     binary: Mapped["Binary"] = relationship(back_populates="functions")
 
     __table_args__ = (UniqueConstraint("binary_id", "function_name", name="uq_binary_functions_binary_name"),)
 
 
-class User(Base):
+class User(Base, TimestampMixin):
     """Model representing a user in the database.
 
     Attributes:
@@ -270,20 +217,6 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(128), nullable=True)
     permissions: Mapped[str] = mapped_column(String(512), default="[]", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        nullable=False,
-    )
-    modified_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        onupdate=get_utc_now,
-        nullable=False,
-    )
-
     api_keys: Mapped[list["APIKey"]] = relationship(
         back_populates="user",
         cascade="save-update, merge, delete, delete-orphan",
@@ -295,7 +228,7 @@ class User(Base):
     )
 
 
-class APIKey(Base):
+class APIKey(Base, TimestampMixin):
     """Model representing an API key for programmatic access.
 
     Attributes:
@@ -328,23 +261,10 @@ class APIKey(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        nullable=False,
-    )
-    modified_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        onupdate=get_utc_now,
-        nullable=False,
-    )
     user: Mapped["User"] = relationship(back_populates="api_keys")
 
 
-class BehavioralScanReport(Base):
+class BehavioralScanReport(Base, TimestampMixin):
     """Stored behavioral scan report for a target.
 
     Attributes:
@@ -375,22 +295,7 @@ class BehavioralScanReport(Base):
     medium_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     low_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     results_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        nullable=False,
-    )
-    modified_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        onupdate=get_utc_now,
-        nullable=False,
-    )
-
-
-class LLMUserConfig(Base):
+class LLMUserConfig(Base, TimestampMixin):
     """Per-user LLM endpoint configuration.
 
     Stores an OpenAI-compatible LLM endpoint configuration for a single user.
@@ -435,24 +340,10 @@ class LLMUserConfig(Base):
     temperature: Mapped[float] = mapped_column(Float, default=0.1, nullable=False)
     max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_concurrent: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        nullable=False,
-    )
-    modified_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        onupdate=get_utc_now,
-        nullable=False,
-    )
-
     user: Mapped["User"] = relationship(back_populates="llm_config")
 
 
-class SimilarityComputation(Base):
+class SimilarityComputation(Base, TimestampMixin):
     """Model representing a saved similarity computation task.
 
     Stores the metadata and results of a pairwise similarity
@@ -478,20 +369,6 @@ class SimilarityComputation(Base):
     binary_count: Mapped[int] = mapped_column(Integer, nullable=False)
     total_comparisons: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        nullable=False,
-    )
-    modified_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        onupdate=get_utc_now,
-        nullable=False,
-    )
-
     pairs: Mapped[list["SimilarityPair"]] = relationship(
         back_populates="computation",
         cascade="save-update, merge, delete, delete-orphan",
@@ -545,7 +422,7 @@ class SimilarityPair(Base):
     )
 
 
-class LLMAnalysisResult(Base):
+class LLMAnalysisResult(Base, TimestampMixin):
     """Model representing a stored LLM analysis of a dangerous function finding.
 
     One row per (target, dangerous function, user) — re-running the analysis
@@ -592,20 +469,6 @@ class LLMAnalysisResult(Base):
     is_vulnerability: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=None)
     confidence: Mapped[str] = mapped_column(String(16), nullable=False, default="")
     verdict: Mapped[str] = mapped_column(String(32), nullable=False, default="")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        nullable=False,
-    )
-    modified_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        onupdate=get_utc_now,
-        nullable=False,
-    )
-
     __table_args__ = (
         UniqueConstraint(
             "target_name",
@@ -618,7 +481,7 @@ class LLMAnalysisResult(Base):
     )
 
 
-class ScanReport(Base):
+class ScanReport(Base, TimestampMixin):
     """Stored dangerous function scan report for a target.
 
     Attributes:
@@ -649,16 +512,3 @@ class ScanReport(Base):
     medium_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     low_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     results_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        nullable=False,
-    )
-    modified_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=get_utc_now,
-        server_default=func.now(),
-        onupdate=get_utc_now,
-        nullable=False,
-    )

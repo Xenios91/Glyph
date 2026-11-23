@@ -30,6 +30,7 @@ from app.services.behavioral_signatures_catalog import (
     get_all_entries,
     get_severity_order,
 )
+from app.utils.common import format_full_function_code
 
 # Evidence display limits: at most this many statements, each at most this
 # many characters (mirrors the dangerous function scanner).
@@ -403,29 +404,6 @@ def _extract_evidence(
     return []
 
 
-def _format_full_function_code(tokens: list[str]) -> str:
-    """Format the full decompiled function body from tokens into readable code.
-
-    Uses format_code from app.utils.common for proper indentation and formatting.
-
-    Args:
-        tokens: Token list from decompiled function.
-
-    Returns:
-        Formatted function code as a multi-line string.
-
-    """
-    if not tokens:
-        return ""
-
-    from app.utils.common import format_code
-
-    code_text = " ".join(str(t) for t in tokens)
-    code_text = re.sub(r"\s+", " ", code_text).strip()
-
-    return format_code(code_text)
-
-
 def _extract_tokens(func_info: dict[str, Any]) -> list[str]:
     """Extract the decompiled token list from a function dict.
 
@@ -511,7 +489,7 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[BehavioralSca
                         matched_evidence=_extract_evidence(
                             entry.detection_method, statements, literals, compiled
                         ),
-                        containing_function_code=_format_full_function_code(tokens),
+                        containing_function_code=format_full_function_code(tokens),
                     )
                 )
                 logger.debug(

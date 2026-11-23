@@ -4,6 +4,8 @@ Contains the pipeline execution functions invoked by the task endpoints
 in ``app.api.v1.endpoints.tasks`` via ``BackgroundTasks``.
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from loguru import logger
@@ -19,6 +21,41 @@ from app.utils.request_context import (
     clear_request_context,
     restore_request_context,
 )
+
+
+@asynccontextmanager
+async def _task_lifecycle(
+    task_uuid: str,
+    captured_ctx: CapturedContext | None,
+    error_log: str,
+) -> AsyncIterator[None]:
+    """Standard lifecycle shared by all background task runners.
+
+    Restores the captured request context, marks the task as ``processing``,
+    and on any failure marks it as ``error`` (logging the exception and
+    re-raising). In all cases schedules the delayed task cleanup and clears
+    the request context.
+
+    Args:
+        task_uuid: Task UUID for progress tracking.
+        captured_ctx: Captured request context, or None if none was captured.
+        error_log: Message logged (with the exception) when the body fails.
+
+    """
+    try:
+        if captured_ctx is not None:
+            restore_request_context(captured_ctx, override_task_id=task_uuid)
+
+        TaskManager.set_status(task_uuid, "processing")
+
+        yield
+    except Exception:
+        TaskManager.set_status(task_uuid, "error")
+        logger.exception(error_log)
+        raise
+    finally:
+        create_background_task(remove_task_delayed(task_uuid))
+        clear_request_context()
 
 
 async def run_code_reuse_task(
@@ -44,12 +81,7 @@ async def run_code_reuse_task(
     from app.processing.pipeline import PipelineContext
     from app.services.code_reuse_detector import compare_binaries, tokenize_and_filter
 
-    try:
-        if captured_ctx is not None:
-            restore_request_context(captured_ctx, override_task_id=task_uuid)
-
-        TaskManager.set_status(task_uuid, "processing")
-
+    async with _task_lifecycle(task_uuid, captured_ctx, "Code reuse task failed"):
         # Load source binary functions
         source_functions = await BinaryRepository.get_functions(binary_id)
         if not source_functions:
@@ -121,14 +153,6 @@ async def run_code_reuse_task(
             binary_id,
         )
 
-    except Exception:
-        TaskManager.set_status(task_uuid, "error")
-        logger.exception("Code reuse task failed")
-        raise
-    finally:
-        create_background_task(remove_task_delayed(task_uuid))
-        clear_request_context()
-
 
 async def run_dangerous_functions_task(
     binary_id: int,
@@ -153,12 +177,7 @@ async def run_dangerous_functions_task(
     from app.services.code_reuse_detector import tokenize_and_filter
     from app.services.dangerous_function_scanner import generate_report
 
-    try:
-        if captured_ctx is not None:
-            restore_request_context(captured_ctx, override_task_id=task_uuid)
-
-        TaskManager.set_status(task_uuid, "processing")
-
+    async with _task_lifecycle(task_uuid, captured_ctx, "Dangerous function scan task failed"):
         # Load binary functions
         binary_functions = await BinaryRepository.get_functions(binary_id)
         if not binary_functions:
@@ -230,14 +249,6 @@ async def run_dangerous_functions_task(
             binary_id,
         )
 
-    except Exception:
-        TaskManager.set_status(task_uuid, "error")
-        logger.exception("Dangerous function scan task failed")
-        raise
-    finally:
-        create_background_task(remove_task_delayed(task_uuid))
-        clear_request_context()
-
 
 async def run_ml_task(
     binary_id: int,
@@ -267,12 +278,7 @@ async def run_ml_task(
     """
     from app.processing.pipeline import PipelineContext
 
-    try:
-        if captured_ctx is not None:
-            restore_request_context(captured_ctx, override_task_id=task_uuid)
-
-        TaskManager.set_status(task_uuid, "processing")
-
+    async with _task_lifecycle(task_uuid, captured_ctx, "ML task failed"):
         pipeline_type = "ml_training" if task_type == TaskType.ML_TRAINING else "ml_prediction"
 
         context = PipelineContext(
@@ -368,14 +374,6 @@ async def run_ml_task(
             TaskManager.set_status(task_uuid, "completed")
             logger.info("ML {} pipeline completed for binary {}", task_type.value, binary_id)
 
-    except Exception:
-        TaskManager.set_status(task_uuid, "error")
-        logger.exception("ML task failed")
-        raise
-    finally:
-        create_background_task(remove_task_delayed(task_uuid))
-        clear_request_context()
-
 
 async def run_similarity_computation_task(
     binary_ids: list[int],
@@ -404,79 +402,69 @@ async def run_similarity_computation_task(
     from app.services.binary_similarity_service import BinarySimilarityService
 
     computation: Any | None = None
-    try:
-        if captured_ctx is not None:
-            restore_request_context(captured_ctx, override_task_id=task_uuid)
-
-        TaskManager.set_status(task_uuid, "processing")
-
-        # Create the computation record
-        computation = await SimilarityRepository.create(
-            task_name=task_name,
-            computed_by=user_id,
-            binary_count=len(binary_ids),
-        )
-
-        # Compute the similarity matrix
-        entries = await BinarySimilarityService.compute_similarity_matrix(
-            binary_ids=binary_ids,
-            match_threshold=match_threshold,
-        )
-
-        # Persist pair results
-        pairs = [
-            SimilarityPair(
-                binary_a_id=entry.binary_a_id,
-                binary_b_id=entry.binary_b_id,
-                overall_similarity=entry.overall_similarity,
-                matched_function_count=entry.matched_function_count,
-                total_function_comparisons=entry.total_function_comparisons,
+    async with _task_lifecycle(task_uuid, captured_ctx, "Similarity computation task failed"):
+        try:
+            # Create the computation record
+            computation = await SimilarityRepository.create(
+                task_name=task_name,
+                computed_by=user_id,
+                binary_count=len(binary_ids),
             )
-            for entry in entries
-        ]
-        await SimilarityRepository.save_pairs(
-            computation_id=computation.id,
-            pairs=pairs,
-        )
 
-        # Mark computation completed
-        await SimilarityRepository.update_status(
-            computation_id=computation.id,
-            status="completed",
-            total_comparisons=len(entries),
-        )
+            # Compute the similarity matrix
+            entries = await BinarySimilarityService.compute_similarity_matrix(
+                binary_ids=binary_ids,
+                match_threshold=match_threshold,
+            )
 
-        TaskManager.set_status(task_uuid, "completed")
-
-        # Store lightweight result reference
-        result = {
-            "task_uuid": task_uuid,
-            "computation_id": computation.id,
-            "binary_count": len(binary_ids),
-            "pairs_computed": len(entries),
-        }
-        TaskManager.set_task_result(task_uuid, result)
-
-        logger.info(
-            "Similarity computation completed: {} pairs from {} binaries (computation_id={})",
-            len(entries),
-            len(binary_ids),
-            computation.id,
-        )
-
-    except Exception:
-        TaskManager.set_status(task_uuid, "error")
-        logger.exception("Similarity computation task failed")
-        # Mark computation as errored if it was created
-        if computation is not None:
-            try:
-                await SimilarityRepository.update_status(
-                    computation_id=computation.id,
-                    status="error",
+            # Persist pair results
+            pairs = [
+                SimilarityPair(
+                    binary_a_id=entry.binary_a_id,
+                    binary_b_id=entry.binary_b_id,
+                    overall_similarity=entry.overall_similarity,
+                    matched_function_count=entry.matched_function_count,
+                    total_function_comparisons=entry.total_function_comparisons,
                 )
-            except Exception:
-                logger.exception("Failed to persist error state for similarity computation")
-        raise
-    finally:
-        create_background_task(remove_task_delayed(task_uuid))
-        clear_request_context()
+                for entry in entries
+            ]
+            await SimilarityRepository.save_pairs(
+                computation_id=computation.id,
+                pairs=pairs,
+            )
+
+            # Mark computation completed
+            await SimilarityRepository.update_status(
+                computation_id=computation.id,
+                status="completed",
+                total_comparisons=len(entries),
+            )
+
+            TaskManager.set_status(task_uuid, "completed")
+
+            # Store lightweight result reference
+            result = {
+                "task_uuid": task_uuid,
+                "computation_id": computation.id,
+                "binary_count": len(binary_ids),
+                "pairs_computed": len(entries),
+            }
+            TaskManager.set_task_result(task_uuid, result)
+
+            logger.info(
+                "Similarity computation completed: {} pairs from {} binaries (computation_id={})",
+                len(entries),
+                len(binary_ids),
+                computation.id,
+            )
+        except Exception:
+            # Mark computation as errored if it was created
+            if computation is not None:
+                try:
+                    await SimilarityRepository.update_status(
+                        computation_id=computation.id,
+                        status="error",
+                    )
+                except Exception:
+                    logger.exception("Failed to persist error state for similarity computation")
+            raise

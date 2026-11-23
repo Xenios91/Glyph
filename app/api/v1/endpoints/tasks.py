@@ -17,7 +17,7 @@ from app.api.v1.task_runners import (
     run_ml_task,
     run_similarity_computation_task,
 )
-from app.auth.dependencies import get_current_active_user
+from app.auth.dependencies import assert_binary_owned, get_current_active_user
 from app.database.models import User
 from app.processing.task_management import TaskManager
 from app.utils.request_context import capture_request_context
@@ -167,11 +167,7 @@ async def execute_task(
             detail=create_error_response(error_code="BINARY_NOT_FOUND", error_message="Binary not found").model_dump(),
         )
 
-    if binary.uploaded_by != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
-        )
+    assert_binary_owned(binary, current_user)
 
     # Validate task-specific parameters
     if request_values.task_type in (TaskType.ML_TRAINING, TaskType.ML_PREDICTION) and not request_values.model_name:
@@ -365,11 +361,7 @@ async def start_similarity_computation(
         binary = await BinaryRepository.get(bid)
         if binary is None:
             raise HTTPException(status_code=404, detail=f"Binary {bid} not found")
-        if binary.uploaded_by != current_user.id:
-            raise HTTPException(
-                status_code=403,
-                detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
-            )
+        assert_binary_owned(binary, current_user)
 
     task_uuid = TaskManager().get_uuid()
     TaskManager.register_task(task_uuid, "starting", owner_id=current_user.id)

@@ -166,9 +166,6 @@ class DecompileStep(PipelineStep):
     the binary, extracting function information.
     """
 
-    def __init__(self) -> None:
-        """Initialize the decompile step."""
-
     def get_name(self) -> str:
         """Return the name of this step."""
         return "DecompileStep"
@@ -213,9 +210,6 @@ class TokenizeStep(PipelineStep):
     joining them into strings for further processing.
     """
 
-    def __init__(self) -> None:
-        """Initialize the tokenize step."""
-
     def get_name(self) -> str:
         """Return the name of this step."""
         return "TokenizeStep"
@@ -257,9 +251,6 @@ class FilterStep(PipelineStep):
     This step applies token filtering to normalize addresses, function names,
     variable names, and remove comments.
     """
-
-    def __init__(self) -> None:
-        """Initialize the filter step."""
 
     def get_name(self) -> str:
         """Return the name of this step."""
@@ -307,9 +298,6 @@ class FeatureExtractStep(PipelineStep):
     TfidfVectorizer to avoid redundant transformations.
     """
 
-    def __init__(self) -> None:
-        """Initialize the feature extraction step."""
-
     def get_name(self) -> str:
         """Return the name of this step."""
         return "FeatureExtractStep"
@@ -348,9 +336,6 @@ class TrainStep(PipelineStep):
     This step trains an ML model using the extracted features and saves
     the trained model to persistence.
     """
-
-    def __init__(self) -> None:
-        """Initialize the train step."""
 
     def get_name(self) -> str:
         """Return the name of this step."""
@@ -451,9 +436,6 @@ class PredictStep(PipelineStep):
     features, applying a probability threshold to filter uncertain predictions.
     """
 
-    def __init__(self) -> None:
-        """Initialize the predict step."""
-
     def get_name(self) -> str:
         """Return the name of this step."""
         return "PredictStep"
@@ -532,9 +514,6 @@ class SaveRawFunctionsStep(PipelineStep):
     C code output from Ghidra without any tokenization or filtering.
     """
 
-    def __init__(self) -> None:
-        """Initialize the save raw functions step."""
-
     def get_name(self) -> str:
         """Return the name of this step."""
         return "SaveRawFunctionsStep"
@@ -595,9 +574,6 @@ class LoadBinaryFunctionsStep(PipelineStep):
     Used at the start of task pipelines (ML Training, ML Prediction,
     Code Reuse) to load stored raw functions instead of re-decompiling.
     """
-
-    def __init__(self) -> None:
-        """Initialize the load binary functions step."""
 
     def get_name(self) -> str:
         """Return the name of this step."""

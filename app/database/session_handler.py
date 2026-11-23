@@ -112,14 +112,42 @@ def _create_engine(url: str) -> AsyncEngine:
 
 
 # Tables that gained a ``user_id`` owner column (multi-tenancy).
-# (table_name, column_name) pairs for the idempotent startup migration.
-_OWNER_COLUMNS: tuple[tuple[str, str], ...] = (
-    ("models", "user_id"),
-    ("predictions", "user_id"),
-    ("functions", "user_id"),
-    ("scan_reports", "user_id"),
-    ("llm_analysis_results", "user_id"),
+# (table_name, column_name, sql_type) triples for the idempotent startup
+# migration.
+_OWNER_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("models", "user_id", "INTEGER"),
+    ("predictions", "user_id", "INTEGER"),
+    ("functions", "user_id", "INTEGER"),
+    ("scan_reports", "user_id", "INTEGER"),
+    ("llm_analysis_results", "user_id", "INTEGER"),
 )
+
+
+async def _ensure_columns(engine: AsyncEngine, columns: tuple[tuple[str, str, str], ...]) -> None:
+    """Add missing columns to pre-existing tables (idempotent).
+
+    ``create_all`` never alters existing tables, so deployments that already
+    have a table get the new columns here with a raw ``ALTER TABLE`` guarded
+    by a column-existence check.
+
+    Args:
+        engine: The async engine to migrate.
+        columns: (table_name, column_name, sql_type) triples to add.
+
+    """
+    async with engine.begin() as conn:
+        if conn.dialect.name != "sqlite":
+            return
+        for table_name, column_name, column_type in columns:
+            rows = (await conn.execute(text(f"PRAGMA table_info({table_name})"))).fetchall()
+            if not rows:
+                # Table does not exist yet; create_all will build it with the column.
+                continue
+            existing_cols = {row[1] for row in rows}
+            if column_name in existing_cols:
+                continue
+            await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))
+            logger.info(f"Added {column_name} column to {table_name} table")
 
 
 async def _ensure_owner_columns(engine: AsyncEngine) -> None:
@@ -129,19 +157,7 @@ async def _ensure_owner_columns(engine: AsyncEngine) -> None:
     ``create_all`` never alters existing tables, so the new columns are added
     here with a raw ``ALTER TABLE`` guarded by a column-existence check.
     """
-    async with engine.begin() as conn:
-        if conn.dialect.name != "sqlite":
-            return
-        for table_name, column_name in _OWNER_COLUMNS:
-            rows = (await conn.execute(text(f"PRAGMA table_info({table_name})"))).fetchall()
-            if not rows:
-                # Table does not exist yet; create_all will build it with the column.
-                continue
-            existing_cols = {row[1] for row in rows}
-            if column_name in existing_cols:
-                continue
-            await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} INTEGER"))
-            logger.info(f"Added {column_name} column to {table_name} table")
+    await _ensure_columns(engine, _OWNER_COLUMNS)
 
 
 # (table_name, column_name, sql_type) triples for the LLM verdict columns added
@@ -160,19 +176,7 @@ async def _ensure_llm_verdict_columns(engine: AsyncEngine) -> None:
     have the table (from before the verdict feature) get the new columns here
     with a raw ``ALTER TABLE`` guarded by a column-existence check.
     """
-    async with engine.begin() as conn:
-        if conn.dialect.name != "sqlite":
-            return
-        for table_name, column_name, column_type in _LLM_VERDICT_COLUMNS:
-            rows = (await conn.execute(text(f"PRAGMA table_info({table_name})"))).fetchall()
-            if not rows:
-                # Table does not exist yet; create_all will build it with the column.
-                continue
-            existing_cols = {row[1] for row in rows}
-            if column_name in existing_cols:
-                continue
-            await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))
-            logger.info(f"Added {column_name} column to {table_name} table")
+    await _ensure_columns(engine, _LLM_VERDICT_COLUMNS)
 
 
 # (table_name, column_name, sql_type) for the denormalized prediction function
@@ -189,19 +193,7 @@ async def _ensure_prediction_count_columns(engine: AsyncEngine) -> None:
     have the table (from before the lightweight-list feature) get the new
     column here with a raw ``ALTER TABLE`` guarded by a column-existence check.
     """
-    async with engine.begin() as conn:
-        if conn.dialect.name != "sqlite":
-            return
-        for table_name, column_name, column_type in _PREDICTION_COUNT_COLUMNS:
-            rows = (await conn.execute(text(f"PRAGMA table_info({table_name})"))).fetchall()
-            if not rows:
-                # Table does not exist yet; create_all will build it with the column.
-                continue
-            existing_cols = {row[1] for row in rows}
-            if column_name in existing_cols:
-                continue
-            await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))
-            logger.info(f"Added {column_name} column to {table_name} table")
+    await _ensure_columns(engine, _PREDICTION_COUNT_COLUMNS)
 
 
 # The per-user prediction unique constraint. Older schemas have
@@ -211,22 +203,37 @@ _PREDICTION_OLD_UNIQUE_COLS = ("task_name", "model_name")
 _PREDICTION_NEW_UNIQUE_COLS = ("task_name", "model_name", "user_id")
 
 
-def _prediction_unique_columns(conn: Any) -> tuple[str, ...] | None:
-    """Return the column tuple of the predictions unique index, or None.
+def _unique_columns_for(conn: Any, table: str, candidates: tuple[tuple[str, ...], ...]) -> tuple[str, ...] | None:
+    """Return the column tuple of a table's unique index, or None.
 
     Inspects the table's unique indexes via PRAGMA and returns the column
-    ordering of the one that covers (task_name, model_name[, user_id]).
+    ordering of the one whose columns match one of *candidates*.
+
+    Args:
+        conn: A synchronous connection.
+        table: The table name to inspect.
+        candidates: Column tuples identifying the expected unique index.
+
     """
-    rows = conn.execute(text("PRAGMA index_list(predictions)")).fetchall()
+    rows = conn.execute(text(f"PRAGMA index_list({table})")).fetchall()
     for row in rows:
         # row: (seq, name, unique, origin, partial)
         name, unique = row[1], row[2]
         if not unique:
             continue
         cols = tuple(r[2] for r in conn.execute(text(f"PRAGMA index_info({name})")).fetchall())
-        if cols in (_PREDICTION_OLD_UNIQUE_COLS, _PREDICTION_NEW_UNIQUE_COLS):
+        if cols in candidates:
             return cols
     return None
+
+
+def _prediction_unique_columns(conn: Any) -> tuple[str, ...] | None:
+    """Return the column tuple of the predictions unique index, or None.
+
+    Inspects the table's unique indexes via PRAGMA and returns the column
+    ordering of the one that covers (task_name, model_name[, user_id]).
+    """
+    return _unique_columns_for(conn, "predictions", (_PREDICTION_OLD_UNIQUE_COLS, _PREDICTION_NEW_UNIQUE_COLS))
 
 
 async def _ensure_prediction_per_user_constraint(engine: AsyncEngine) -> None:
@@ -300,16 +307,7 @@ def _llm_result_unique_columns(conn: Any) -> tuple[str, ...] | None:
     Inspects the table's unique indexes via PRAGMA and returns the column
     ordering of the one that covers the (old or new) unique key.
     """
-    rows = conn.execute(text("PRAGMA index_list(llm_analysis_results)")).fetchall()
-    for row in rows:
-        # row: (seq, name, unique, origin, partial)
-        name, unique = row[1], row[2]
-        if not unique:
-            continue
-        cols = tuple(r[2] for r in conn.execute(text(f"PRAGMA index_info({name})")).fetchall())
-        if cols in (_LLM_RESULT_OLD_UNIQUE_COLS, _LLM_RESULT_NEW_UNIQUE_COLS):
-            return cols
-    return None
+    return _unique_columns_for(conn, "llm_analysis_results", (_LLM_RESULT_OLD_UNIQUE_COLS, _LLM_RESULT_NEW_UNIQUE_COLS))
 
 
 async def _ensure_llm_result_per_user_constraint(engine: AsyncEngine) -> None:

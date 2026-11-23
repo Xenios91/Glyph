@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from app.auth.dependencies import get_current_active_user
+from app.auth.dependencies import assert_binary_owned, get_current_active_user
 from app.database.models import User
 from app.utils.responses import (
     SuccessResponse,
@@ -102,14 +102,7 @@ async def get_call_graph(
             ).model_dump(),
         )
 
-    if binary.uploaded_by != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail=create_error_response(
-                error_code="ACCESS_DENIED",
-                error_message="Access denied",
-            ).model_dump(),
-        )
+    assert_binary_owned(binary, current_user)
 
     # Generate call graph
     graph = await CallGraphService.generate_call_graph(binary_id)
@@ -199,14 +192,7 @@ async def get_function_callers(
             ).model_dump(),
         )
 
-    if binary.uploaded_by != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail=create_error_response(
-                error_code="ACCESS_DENIED",
-                error_message="Access denied",
-            ).model_dump(),
-        )
+    assert_binary_owned(binary, current_user)
 
     graph = await CallGraphService.generate_call_graph(binary_id)
     callers = CallGraphService.get_function_callers(graph, function_name)
@@ -273,14 +259,7 @@ async def get_function_callees(
             ).model_dump(),
         )
 
-    if binary.uploaded_by != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail=create_error_response(
-                error_code="ACCESS_DENIED",
-                error_message="Access denied",
-            ).model_dump(),
-        )
+    assert_binary_owned(binary, current_user)
 
     graph = await CallGraphService.generate_call_graph(binary_id)
     callees = CallGraphService.get_function_callees(graph, function_name)

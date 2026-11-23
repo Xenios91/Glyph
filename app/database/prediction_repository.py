@@ -16,6 +16,25 @@ from app.services.request_handler import Prediction as PredictionResult
 from app.utils.secure_deserializer import SecureDeserializationError, secure_dump, secure_load_bytes
 
 
+def _ownership_clause(user_id: int) -> ColumnElement[bool]:
+    """Build an ownership filter for a Prediction query.
+
+    A row whose ``user_id`` is ``None`` (legacy/unowned) is visible to any
+    authenticated user; otherwise only its owner sees it. The anonymous user
+    (auth disabled, id 0) may only see unowned rows.
+
+    Args:
+        user_id: The current user's id (0 for anonymous).
+
+    Returns:
+        A SQLAlchemy boolean clause to add to the query's ``where``.
+
+    """
+    if user_id == 0:
+        return Prediction.user_id.is_(None)
+    return or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+
+
 class PredictionRepository:
     """Repository for Prediction entity CRUD operations.
 
@@ -85,10 +104,7 @@ class PredictionRepository:
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
-            if user_id == 0:
-                where: ColumnElement[bool] = Prediction.user_id.is_(None)
-            else:
-                where = or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+            where: ColumnElement[bool] = _ownership_clause(user_id)
             result = await session.execute(select(func.count()).select_from(Prediction).where(where))
             return result.scalar_one()
         except sa_exc.SQLAlchemyError:
@@ -119,10 +135,7 @@ class PredictionRepository:
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
-            if user_id == 0:
-                where: ColumnElement[bool] = Prediction.user_id.is_(None)
-            else:
-                where = or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+            where: ColumnElement[bool] = _ownership_clause(user_id)
             result = await session.execute(select(Prediction.task_name).where(where).distinct())
             return list(result.scalars().all())
         except sa_exc.SQLAlchemyError:
@@ -163,11 +176,7 @@ class PredictionRepository:
         """
         session: AsyncSession = await get_async_session("predictions")
         try:
-            where: ColumnElement[bool] = (
-                Prediction.user_id.is_(None)
-                if user_id == 0
-                else or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
-            )
+            where: ColumnElement[bool] = _ownership_clause(user_id)
             stmt = (
                 select(
                     Prediction.task_name,
@@ -220,10 +229,7 @@ class PredictionRepository:
         try:
             where: ColumnElement[bool] = (Prediction.task_name == task_name) & (Prediction.model_name == model_name)
             if user_id is not None:
-                if user_id == 0:
-                    where = where & Prediction.user_id.is_(None)
-                else:
-                    where = where & or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+                where = where & _ownership_clause(user_id)
             result = await session.execute(select(Prediction).where(where))
             row = result.scalar_one_or_none()
             if row is None:
@@ -337,10 +343,7 @@ class PredictionRepository:
         try:
             where: ColumnElement[bool] = (Prediction.model_name == model_name) & (Prediction.task_name == task_name)
             if user_id is not None:
-                if user_id == 0:
-                    where = where & Prediction.user_id.is_(None)
-                else:
-                    where = where & or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+                where = where & _ownership_clause(user_id)
             result = await session.execute(select(Prediction).where(where))
             row = result.scalar_one_or_none()
             if row is None:
@@ -445,10 +448,7 @@ class PredictionRepository:
         try:
             stmt = delete(Prediction).where(Prediction.model_name == model_name)
             if user_id is not None:
-                if user_id == 0:
-                    stmt = stmt.where(Prediction.user_id.is_(None))
-                else:
-                    stmt = stmt.where(or_(Prediction.user_id == user_id, Prediction.user_id.is_(None)))
+                stmt = stmt.where(_ownership_clause(user_id))
             await session.execute(stmt)
             await session.commit()
             logger.info("Predictions for model '{}' deleted", model_name)
@@ -548,10 +548,7 @@ class PredictionRepository:
         try:
             where: ColumnElement[bool] = (Prediction.task_name == task_name) & (Prediction.model_name == model_name)
             if user_id is not None:
-                if user_id == 0:
-                    where = where & Prediction.user_id.is_(None)
-                else:
-                    where = where & or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+                where = where & _ownership_clause(user_id)
             result = await session.execute(select(Prediction.user_id).where(where))
             return result.scalar_one_or_none()
         except sa_exc.SQLAlchemyError:

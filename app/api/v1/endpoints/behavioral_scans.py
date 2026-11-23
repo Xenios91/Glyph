@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from loguru import logger
 from pydantic import BaseModel
 
-from app.auth.dependencies import assert_owned, can_access, get_current_active_user
+from app.auth.dependencies import assert_binary_owned, assert_owned, can_access, get_current_active_user
 from app.database.behavioral_scan_report_repository import BehavioralScanReportRepository
 from app.database.binary_repository import BinaryRepository
 from app.database.function_repository import FunctionRepository
@@ -31,7 +31,7 @@ from app.services.behavioral_signatures_catalog import (
     get_entries_by_category,
     get_entry,
 )
-from app.utils.common import binary_function_to_dict
+from app.utils.common import binary_function_to_dict, functions_to_dicts
 from app.utils.responses import (
     ErrorResponse,
     SuccessResponse,
@@ -199,28 +199,6 @@ def _scan_report_to_dict(report: BehavioralScanReport) -> BehavioralScanReportRe
     )
 
 
-def _functions_to_dicts(functions: list[Any]) -> list[dict[str, Any]]:
-    """Convert ORM Function objects to dictionaries for the scanner.
-
-    Args:
-        functions: List of Function ORM objects.
-
-    Returns:
-        List of function dictionaries compatible with scan_functions().
-
-    """
-    result: list[dict[str, Any]] = []
-    for func in functions:
-        # ORM objects have attributes; convert to dict format expected by scanner
-        func_dict: dict[str, Any] = {
-            "functionName": func.function_name,
-            "lowAddress": func.entrypoint,
-            "tokenList": func.tokens.split() if func.tokens else [],
-        }
-        result.append(func_dict)
-    return result
-
-
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -372,7 +350,7 @@ async def scan_behavioral(
         # Get functions for this model (scoped to accessible rows)
         functions = await FunctionRepository.get_functions(target_name)
         functions = [f for f in functions if can_access(f, current_user)]
-        functions_data = _functions_to_dicts(functions)
+        functions_data = functions_to_dicts(functions)
 
     elif body.binaryId is not None:
         # Load binary and check ownership
@@ -383,11 +361,7 @@ async def scan_behavioral(
                 detail=f"Binary {body.binaryId} not found",
             )
 
-        if binary.uploaded_by != current_user.id:
-            raise HTTPException(
-                status_code=403,
-                detail="Access denied",
-            )
+        assert_binary_owned(binary, current_user)
 
         target_name = binary.name
         report_owner_id = binary.uploaded_by

@@ -24,6 +24,7 @@ from app.database.models import User
 from app.database.repository import APIKeyRepository
 from app.database.session_handler import async_session
 from app.utils.request_context import set_request_context
+from app.utils.responses import create_error_response
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
@@ -308,6 +309,36 @@ def assert_owned(resource: object, current_user: User, resource_label: str) -> N
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail=f"{resource_label.capitalize()} not found",
+    )
+
+
+def assert_binary_owned(binary: object, current_user: User) -> None:
+    """Enforce that the caller owns the given binary row, raising on denial.
+
+    Binaries use ``uploaded_by`` (not the generic ``user_id``) as their owner
+    column, so :func:`assert_owned` does not apply. This helper raises a 403
+    with the standard ``ACCESS_DENIED`` error envelope when the caller is not
+    the uploader.
+
+    Args:
+        binary: The binary row. Must expose an ``uploaded_by`` attribute.
+        current_user: The authenticated user making the request.
+
+    Raises:
+        HTTPException: 403 with an ``ACCESS_DENIED`` error response when the
+            caller does not own the binary.
+
+    """
+    if getattr(binary, "uploaded_by", None) == current_user.id:
+        return
+    logger.warning(
+        "User %s denied access to binary owned by user %s",
+        current_user.id,
+        getattr(binary, "uploaded_by", None),
+    )
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=create_error_response(error_code="ACCESS_DENIED", error_message="Access denied").model_dump(),
     )
 
 
