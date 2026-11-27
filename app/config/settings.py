@@ -57,7 +57,7 @@ class LLMConfig(BaseModel):
     api_path: str = "/v1/chat/completions"
     model: str = "llama3"
     api_key: str = ""
-    timeout_seconds: float = Field(default=900.0, ge=60)
+    timeout_seconds: float = Field(default=600.0, ge=60)
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
     max_tokens: int | None = Field(default=None, ge=1)
     max_concurrent: int = Field(default=5, ge=1, le=20)

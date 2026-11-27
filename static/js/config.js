@@ -122,10 +122,11 @@ async function saveConfig() {
         return;
     }
 
-    const config = {
-        max_file_size_mb: parseInt(maxFileSizeSlider.value),
-        cpu_cores: parseInt(cpuCoresSlider.value),
-    };
+    // Global fields (max_file_size_mb, cpu_cores) are read-only: the API
+    // rejects them with 403 GLOBAL_CONFIG_READONLY. Per-user LLM settings are
+    // managed on the profile page. Post an empty payload so the Save button
+    // re-persists the current (unchanged) settings and returns 200.
+    const config = {};
 
     try {
         const response = await fetch('/api/v1/config/save', {

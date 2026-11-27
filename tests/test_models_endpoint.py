@@ -8,10 +8,10 @@ from tests.factories import make_mock_user
 
 
 def _make_model(name: str) -> Mock:
-    """Create a mock Model ORM object (unowned/legacy row)."""
+    """Create a mock Model ORM object owned by the caller (user id 1)."""
     model = Mock()
     model.model_name = name
-    model.user_id = None
+    model.user_id = 1
     return model
 
 
@@ -73,7 +73,7 @@ class TestModelsRouter:
         mock_func.function_name = "test_func"
         mock_func.entrypoint = "0x1000"
         mock_func.tokens = "test tokens"
-        mock_func.user_id = None
+        mock_func.user_id = 1
         mock_func_repo.get = AsyncMock(return_value=mock_func)
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
@@ -169,13 +169,13 @@ class TestModelsRouter:
         mock_func1.function_name = "func1"
         mock_func1.entrypoint = "0x1000"
         mock_func1.tokens = "tokens1"
-        mock_func1.user_id = None
+        mock_func1.user_id = 1
         mock_func2 = Mock()
         mock_func2.id = 2
         mock_func2.function_name = "func2"
         mock_func2.entrypoint = "0x2000"
         mock_func2.tokens = "tokens2"
-        mock_func2.user_id = None
+        mock_func2.user_id = 1
         mock_func_repo.get_functions = AsyncMock(return_value=[mock_func1, mock_func2])
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
@@ -234,7 +234,7 @@ class TestModelsRouter:
         mock_model_info.tokens = "model tokens"
         mock_model_info.user_id = None
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
-        mock_pred_repo.get_owner = AsyncMock(return_value=None)
+        mock_pred_repo.get_owner = AsyncMock(return_value=1)
         # prediction_data uses .get("tokens")
         mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
@@ -282,7 +282,7 @@ class TestModelsRouter:
         from app.auth.dependencies import get_current_active_user
 
         mock_func_repo.get = AsyncMock(return_value=None)
-        mock_pred_repo.get_owner = AsyncMock(return_value=None)
+        mock_pred_repo.get_owner = AsyncMock(return_value=1)
         mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
@@ -331,7 +331,7 @@ class TestModelsRouter:
                 "tokens": "model tokens",
             },
         )
-        mock_pred_repo.get_owner = AsyncMock(return_value=None)
+        mock_pred_repo.get_owner = AsyncMock(return_value=1)
         mock_service_pred_repo.get_prediction_function = AsyncMock(return_value=None)
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
@@ -366,7 +366,7 @@ class TestModelsRouter:
         from app.auth.dependencies import get_current_active_user
 
         mock_func_repo.get = AsyncMock(side_effect=TypeError("Invalid data type"))
-        mock_pred_repo.get_owner = AsyncMock(return_value=None)
+        mock_pred_repo.get_owner = AsyncMock(return_value=1)
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
         try:
@@ -398,7 +398,7 @@ class TestModelsRouter:
         mock_func.function_name = "test_func"
         mock_func.entrypoint = "0x1000"
         mock_func.tokens = "test tokens"
-        mock_func.user_id = None
+        mock_func.user_id = 1
         mock_func_repo.get = AsyncMock(return_value=mock_func)
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
@@ -426,7 +426,7 @@ class TestModelsRouter:
         mock_func1.function_name = "func1"
         mock_func1.entrypoint = "0x1000"
         mock_func1.tokens = "tokens1"
-        mock_func1.user_id = None
+        mock_func1.user_id = 1
         mock_func_repo.get_functions = AsyncMock(return_value=[mock_func1])
         set_dependency_override(models_client, get_current_active_user, make_mock_user)
 
@@ -461,7 +461,7 @@ class TestModelsRouter:
         mock_model_info.tokens = "model tokens"
         mock_model_info.user_id = None
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
-        mock_pred_repo.get_owner = AsyncMock(return_value=None)
+        mock_pred_repo.get_owner = AsyncMock(return_value=1)
         mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",

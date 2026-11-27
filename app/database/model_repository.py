@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import delete, exists, or_, select
+from sqlalchemy import delete, exists, select
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -89,8 +89,10 @@ class ModelRepository:
     async def get_models_list_for_user(user_id: int) -> set[str]:
         """Get model names the given user may access.
 
-        Includes the user's own models plus legacy/unowned models
-        (``user_id`` is NULL), matching the :func:`can_access` rule.
+        Deny-by-default: only the user's own models are listed. Unowned/
+        legacy models (``user_id`` is NULL) are excluded, matching the
+        :func:`can_access` rule. The anonymous user (auth disabled, id 0)
+        sees models created with ``user_id`` 0.
 
         Args:
             user_id: The current user's id (0 for anonymous).
@@ -102,7 +104,7 @@ class ModelRepository:
         models_set: set[str] = set()
         session: AsyncSession = await get_async_session("models")
         try:
-            clause = Model.user_id.is_(None) if user_id == 0 else or_(Model.user_id == user_id, Model.user_id.is_(None))
+            clause = Model.user_id == user_id
             result = await session.execute(select(Model.model_name).where(clause))
             models_set = set(result.scalars().all())
         except sa_exc.SQLAlchemyError:

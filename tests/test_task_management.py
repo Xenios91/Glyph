@@ -226,10 +226,10 @@ def test_verify_task_owner_wrong_owner(task_manager: TaskManager) -> None:
 
 
 def test_verify_task_owner_no_owner_set(task_manager: TaskManager) -> None:
-    """Test that tasks without owner are accessible by anyone."""
+    """Regression: tasks without a registered owner are denied (deny-by-default)."""
     task_manager.register_task("test-uuid", "starting")
 
-    assert task_manager.verify_task_owner("test-uuid", 42) is True
+    assert task_manager.verify_task_owner("test-uuid", 42) is False
 
 
 def test_set_status_ownership_check_fails(task_manager: TaskManager) -> None:

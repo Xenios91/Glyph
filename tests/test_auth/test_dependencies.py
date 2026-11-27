@@ -1,9 +1,12 @@
 """Comprehensive tests for authentication dependencies."""
 
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
 from app.auth.dependencies import (
+    assert_owned,
+    can_access,
     get_current_active_user,
     get_current_user,
     get_db,
@@ -848,3 +851,91 @@ class TestGetOptionalUser:
         )
 
         assert user is None
+
+
+# ---------------------------------------------------------------------------
+# Tests for can_access / assert_owned (ownership, deny-by-default)
+# ---------------------------------------------------------------------------
+
+
+class TestCanAccess:
+    """Tests for the row-level ownership rule (deny-by-default)."""
+
+    def test_owned_by_caller_is_accessible(self) -> None:
+        """A row owned by the caller is accessible."""
+        user = User(id=1, username="u1", email="u1@example.com", hashed_password="x")
+        resource = SimpleNamespace(user_id=1)
+
+        assert can_access(resource, user) is True
+
+    def test_owned_by_other_user_is_denied(self) -> None:
+        """A row owned by another user is denied."""
+        user = User(id=1, username="u1", email="u1@example.com", hashed_password="x")
+        resource = SimpleNamespace(user_id=2)
+
+        assert can_access(resource, user) is False
+
+    def test_unowned_row_is_denied(self) -> None:
+        """Regression: a row with no owner (user_id is None) is denied.
+
+        Previously unowned rows were accessible to every authenticated user;
+        ownership is now deny-by-default.
+        """
+        user = User(id=1, username="u1", email="u1@example.com", hashed_password="x")
+        resource = SimpleNamespace(user_id=None)
+
+        assert can_access(resource, user) is False
+
+    def test_row_without_user_id_attribute_is_denied(self) -> None:
+        """A row lacking the user_id attribute entirely is denied."""
+        user = User(id=1, username="u1", email="u1@example.com", hashed_password="x")
+
+        assert can_access(object(), user) is False
+
+    def test_anonymous_user_cannot_access_owned_row(self) -> None:
+        """The anonymous user (id 0, auth disabled) cannot access owned rows."""
+        user = User(id=0, username="anonymous", email="anon@example.com", hashed_password="x")
+        resource = SimpleNamespace(user_id=1)
+
+        assert can_access(resource, user) is False
+
+
+class TestAssertOwned:
+    """Tests for assert_owned denial behavior."""
+
+    def test_unowned_row_raises_404_for_authenticated_user(self) -> None:
+        """Regression: an unowned row is denied (404) for any authenticated user."""
+        user = User(id=1, username="u1", email="u1@example.com", hashed_password="x")
+        resource = SimpleNamespace(user_id=None)
+
+        with pytest.raises(HTTPException) as exc_info:
+            assert_owned(resource, user, "model")
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_owned_row_raises_404_for_other_user(self) -> None:
+        """A row owned by another user is denied with 404 (no existence leak)."""
+        user = User(id=1, username="u1", email="u1@example.com", hashed_password="x")
+        resource = SimpleNamespace(user_id=2)
+
+        with pytest.raises(HTTPException) as exc_info:
+            assert_owned(resource, user, "model")
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_unowned_row_raises_403_for_anonymous_user(self) -> None:
+        """An unowned row is denied with 403 for the anonymous user."""
+        user = User(id=0, username="anonymous", email="anon@example.com", hashed_password="x")
+        resource = SimpleNamespace(user_id=None)
+
+        with pytest.raises(HTTPException) as exc_info:
+            assert_owned(resource, user, "model")
+
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_owned_row_passes_for_owner(self) -> None:
+        """The owner of a row passes the check without raising."""
+        user = User(id=1, username="u1", email="u1@example.com", hashed_password="x")
+        resource = SimpleNamespace(user_id=1)
+
+        assert_owned(resource, user, "model")  # must not raise

@@ -7,7 +7,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import OAuth2PasswordBearer
 from loguru import logger
-from sqlalchemy import Column, or_
+from sqlalchemy import Column
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
@@ -247,12 +247,12 @@ async def get_optional_user(
 def can_access(resource: object, current_user: User) -> bool:
     """Return True if the current user may access the resource row.
 
-    The rule:
+    The rule (deny-by-default):
 
     - A row whose ``user_id`` is ``None`` (legacy / unowned) is accessible to
-      any authenticated user. This keeps pre-existing data usable while the
-      backfill attributes ownership, and matches the historical global-access
-      behavior for rows that could not be attributed to a user.
+      no user. Ownership is backfilled from the owning binary at startup
+      (see ``_backfill_owner_columns``), so unowned rows are denied rather
+      than exposed to every authenticated user.
     - A row whose ``user_id`` is set is accessible only to that owner.
 
     Args:
@@ -262,7 +262,8 @@ def can_access(resource: object, current_user: User) -> bool:
     """
     owner_id = getattr(resource, "user_id", None)
     if owner_id is None:
-        return True
+        # Deny-by-default: unowned rows are not exposed to any user.
+        return False
     return current_user.id == owner_id
 
 
@@ -345,9 +346,10 @@ def assert_binary_owned(binary: object, current_user: User) -> None:
 def owned_or_unowned_filter(user_id_column: Column, current_user: User) -> ColumnElement[bool]:
     """Build a SQLAlchemy filter scoping a list query to the current user.
 
-    Returns ``user_id == current_user.id OR user_id IS NULL`` so that the
-    caller sees their own rows plus any legacy/unowned rows, but never rows
-    owned by other users.
+    Deny-by-default: only rows owned by the caller are returned. Unowned/
+    legacy rows (``user_id`` IS NULL) are excluded, matching the
+    :func:`can_access` rule. The anonymous user (auth disabled, id 0) sees
+    rows created with ``user_id`` 0.
 
     Args:
         user_id_column: The mapped ``user_id`` column of the model being
@@ -358,7 +360,4 @@ def owned_or_unowned_filter(user_id_column: Column, current_user: User) -> Colum
         A SQLAlchemy boolean clause to add to the query's ``where``.
 
     """
-    if current_user.id == 0:
-        # Anonymous (auth disabled): only unowned rows are visible.
-        return user_id_column.is_(None)
-    return or_(user_id_column == current_user.id, user_id_column.is_(None))
+    return user_id_column == current_user.id

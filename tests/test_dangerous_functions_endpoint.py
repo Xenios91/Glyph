@@ -185,20 +185,20 @@ class TestScanEndpoint:
     """Tests for POST /scan endpoint."""
 
     def _make_mock_function(self, name: str, entrypoint: str = "0x401000", tokens: str = "") -> Mock:
-        """Create a mock Function ORM object."""
+        """Create a mock Function ORM object owned by the caller (user id 1)."""
         func = Mock()
         func.function_name = name
         func.entrypoint = entrypoint
         func.tokens = tokens
-        # Unowned (legacy) row: accessible to any authenticated user.
-        func.user_id = None
+        # Owned by the caller: deny-by-default means unowned rows are inaccessible.
+        func.user_id = 1
         return func
 
     def _make_mock_model(self, name: str) -> Mock:
-        """Create a mock Model ORM object (unowned/legacy)."""
+        """Create a mock Model ORM object owned by the caller (user id 1)."""
         model = Mock()
         model.model_name = name
-        model.user_id = None
+        model.user_id = 1
         return model
 
     def test_scan_missing_target(self, dangerous_functions_client: Any) -> None:
@@ -427,7 +427,7 @@ class TestScanEndpoint:
         # Create mock prediction with pickled function data
         mock_prediction = Mock()
         mock_prediction.task_name = "test_task"
-        mock_prediction.user_id = None
+        mock_prediction.user_id = 1
 
         # Create pickled function data
         import pickle
@@ -1041,11 +1041,11 @@ class TestScanReportPersistence:
         mock_func.function_name = "my_func"
         mock_func.entrypoint = "0x401000"
         mock_func.tokens = "strcpy(dst, src); return 0;"
-        mock_func.user_id = None
+        mock_func.user_id = 1
 
         mock_model = Mock()
         mock_model.model_name = "test_model"
-        mock_model.user_id = None
+        mock_model.user_id = 1
 
         with (
             patch("app.api.v1.endpoints.dangerous_functions.ModelRepository") as mock_ml,

@@ -184,7 +184,7 @@ curl -X DELETE http://localhost:8000/auth/api-keys/1 \
      - **Name** — A human-readable name for this analysis task
      - **Select Model** — A previously trained model to run predictions with
      - **ML Class Type** — The classification label for this binary
-3. Select or drag-and-drop an ELF binary file (32-bit or 64-bit)
+3. Select or drag-and-drop a binary file (ELF or Windows PE)
 4. Submit the form to upload the binary
 
 The upload initiates a background task that validates, decompiles (Ghidra), and stores the raw functions of the binary. You can monitor its status from the dashboard.
@@ -273,7 +273,7 @@ POST /api/v1/binaries/uploadBinary
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `binary_file` | File | Yes | The binary file (ELF format) |
+| `binary_file` | File | Yes | The binary file (ELF or Windows PE format) |
 | `name` | String | Yes | Human-readable name for this analysis |
 
 **Example:**
@@ -604,21 +604,23 @@ curl -N -H "Authorization: Bearer $ACCESS_TOKEN" \
 POST /api/v1/config/save
 ```
 
-All fields are optional; only provided fields are updated. Changes are persisted to `config.yml`.
+Only the per-user `llm` block can be saved from the API. The global fields `max_file_size_mb` and `cpu_cores` are **read-only** for all users (there is no admin role) and are rejected with `403` `GLOBAL_CONFIG_READONLY` if present; operators change them by editing `config.yml` directly. Only the provided `llm` fields are updated.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `max_file_size_mb` | int | Maximum upload file size in MB (1–2048) |
-| `cpu_cores` | int | Number of CPU cores for processing (1 up to the machine's core count) |
-| `llm` | object | Optional per-user LLM endpoint configuration (`enabled`, `base_url`, `port`, `api_path`, `model`, `api_key`, `timeout_seconds`, `temperature`, `max_tokens`, `max_concurrent`) |
+| `llm` | object | Per-user LLM endpoint configuration (`enabled`, `base_url`, `port`, `api_path`, `model`, `api_key`, `timeout_seconds`, `temperature`, `max_tokens`, `max_concurrent`). Only provided fields are updated. |
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/config/save \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "max_file_size_mb": 1024,
-    "cpu_cores": 4
+    "llm": {
+      "enabled": true,
+      "base_url": "https://api.openai.com",
+      "model": "gpt-4o-mini",
+      "api_key": "sk-..."
+    }
   }'
 ```
 
@@ -650,7 +652,7 @@ Upload → Validate → Decompile (Ghidra) → Save Raw Functions
 | Step | Description |
 |------|-------------|
 | **ValidationStep** | Validates file existence, readability, and size limits |
-| **DecompileStep** | Uses Ghidra headless mode to decompile the binary |
+| **DecompileStep** | Uses Ghidra (via PyGhidra) to decompile the binary |
 | **SaveRawFunctionsStep** | Persists raw decompiled functions to the database |
 
 ### Training Pipeline
@@ -662,7 +664,7 @@ Upload → Validate → Decompile (Ghidra) → Tokenize → Filter → Extract F
 | Step | Description |
 |------|-------------|
 | **ValidationStep** | Validates file existence, readability, and size limits |
-| **DecompileStep** | Uses Ghidra headless mode to decompile the binary |
+| **DecompileStep** | Uses Ghidra (via PyGhidra) to decompile the binary |
 | **TokenizeStep** | Extracts code tokens from decompiled functions |
 | **FilterStep** | Normalizes addresses, function names, and variable names; removes comments |
 | **FeatureExtractStep** | Extracts token sequences from filtered functions and stores them in the context for the ML pipeline |
@@ -684,7 +686,7 @@ Glyph is configured via [`config.yml`](../config.yml). The following settings ar
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `cpu_cores` | int | `2` | Number of CPU cores for processing (1–32) |
+| `cpu_cores` | int | `2` | Number of CPU cores for processing (1–32; the `/save` endpoint additionally caps at the machine's core count) |
 | `max_file_size_mb` | int | `512` | Maximum upload file size in MB (1–2048) |
 | `prediction_probability_threshold` | float | `50.0` | Minimum confidence threshold for predictions (0–100) |
 | `jwt_secret_key` | string | `change-me-in-production` | Secret key for JWT token signing |
@@ -718,10 +720,10 @@ llm:
 | Field | Default | Description |
 |-------|---------|-------------|
 | `enabled` | `false` | Enable LLM-assisted analysis |
-| `base_url` | `https://your.model.url` | Base URL of the endpoint (scheme + host) |
+| `base_url` | `http://localhost:11434` | Base URL of the endpoint (scheme + host) |
 | `port` | *(scheme default)* | Explicit port; 443 for HTTPS and 80 for HTTP are omitted from the URL |
 | `api_path` | `/v1/chat/completions` | Path of the chat completions endpoint |
-| `model` | `your model here` | Model name sent in each request |
+| `model` | `llama3` | Model name sent in each request |
 | `api_key` | *(empty)* | Sent as `Authorization: Bearer <key>` |
 | `timeout_seconds` | `900.0` | Per-request timeout (seconds) |
 | `temperature` | `0.1` | Sampling temperature, 0.0–2.0 |
@@ -836,7 +838,7 @@ Or log in again to obtain fresh tokens.
 
 **Error:** `File type 'application/...' not allowed`
 
-**Solution:** Glyph only accepts binary/ELF formats. Ensure the uploaded file is a valid ELF binary (32-bit or 64-bit). Supported MIME types include:
+**Solution:** Glyph only accepts binary formats (ELF and Windows PE). Ensure the uploaded file is a valid ELF or PE binary. Supported MIME types include:
 
 - `application/x-executable`
 - `application/x-elf`
@@ -903,7 +905,8 @@ Glyph applies strict Content Security Policy (CSP) headers. If custom scripts or
 ```
 default-src 'self';
 script-src 'self';
-style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+style-src-elem 'self' https://fonts.googleapis.com;
+style-src-attr 'self' 'unsafe-inline';
 img-src 'self' data:;
 font-src 'self' https://fonts.gstatic.com;
 object-src 'none';

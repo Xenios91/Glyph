@@ -121,7 +121,7 @@ def get_secret_cipher() -> SecretCipher:
         A cipher instance backed by the configured ``secret_cipher_key``.
 
     Raises:
-        ValueError: If the configured key is not a valid Fernet key.
+        ValueError: If the configured key is empty.
 
     """
     from app.config.settings import get_settings

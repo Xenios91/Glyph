@@ -5,7 +5,6 @@ behaviors and retrieving scan results with severity, behavior categories,
 and matched evidence.
 """
 
-import asyncio
 import json
 from typing import Annotated, Any
 
@@ -13,7 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from loguru import logger
 from pydantic import BaseModel
 
-from app.auth.dependencies import assert_binary_owned, assert_owned, can_access, get_current_active_user
+from app.api.v1.endpoints.scan_targets import resolve_scan_target
+from app.auth.dependencies import get_current_active_user
 from app.database.behavioral_scan_report_repository import BehavioralScanReportRepository
 from app.database.binary_repository import BinaryRepository
 from app.database.function_repository import FunctionRepository
@@ -31,14 +31,12 @@ from app.services.behavioral_signatures_catalog import (
     get_entries_by_category,
     get_entry,
 )
-from app.utils.common import binary_function_to_dict, functions_to_dicts
 from app.utils.responses import (
     ErrorResponse,
     SuccessResponse,
     create_error_response,
     create_success_response,
 )
-from app.utils.secure_deserializer import SecureDeserializationError, secure_load_bytes
 
 router = APIRouter()
 
@@ -331,91 +329,22 @@ async def scan_behavioral(
             or if the specified target does not exist.
 
     """
-    target_name: str | None = None
-    functions_data: list[dict[str, Any]] = []
-    report_owner_id: int | None = None
-
-    if body.modelName:
-        target_name = body.modelName
-        # Check model exists and is accessible by the current user
-        model_row = await ModelRepository.get(target_name)
-        if model_row is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Model '{target_name}' not found",
-            )
-        assert_owned(model_row, current_user, "model")
-        report_owner_id = model_row.user_id
-
-        # Get functions for this model (scoped to accessible rows)
-        functions = await FunctionRepository.get_functions(target_name)
-        functions = [f for f in functions if can_access(f, current_user)]
-        functions_data = functions_to_dicts(functions)
-
-    elif body.binaryId is not None:
-        # Load binary and check ownership
-        binary = await BinaryRepository.get(binary_id=body.binaryId)
-        if binary is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Binary {body.binaryId} not found",
-            )
-
-        assert_binary_owned(binary, current_user)
-
-        target_name = binary.name
-        report_owner_id = binary.uploaded_by
-
-        # Load binary functions and convert to dict format
-        binary_functions = await BinaryRepository.get_functions(binary_id=body.binaryId)
-        functions_data = [binary_function_to_dict(bf) for bf in binary_functions]
-
-    elif body.taskName:
-        target_name = body.taskName
-        # Get the caller's own prediction with this task name. Scoped to the
-        # caller so a same-named row owned by another user is never matched.
-        prediction = await PredictionRepository.get_for_user(target_name, current_user.id)
-        if prediction is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Prediction task '{target_name}' not found",
-            )
-
-        # Enforce prediction ownership before exposing any prediction data.
-        assert_owned(prediction, current_user, "prediction")
-        report_owner_id = prediction.user_id
-
-        # Deserialize prediction functions (off the event loop; handles both
-        # compressed and legacy uncompressed payloads).
-        try:
-            raw_data = await asyncio.to_thread(secure_load_bytes, prediction.functions_data)
-            if isinstance(raw_data, list):
-                functions_data = raw_data
-            else:
-                raise HTTPException(
-                    status_code=500,
-                    detail="Prediction data is not in expected format",
-                )
-        except SecureDeserializationError:
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to load prediction data: security validation failed",
-            )
-        except Exception:
-            logger.exception("Failed to deserialize prediction data for task '{}'", target_name)
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to load prediction data",
-            )
-
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="One of 'modelName', 'taskName', or 'binaryId' must be provided",
-        )
+    target = await resolve_scan_target(
+        model_name=body.modelName,
+        task_name=body.taskName,
+        binary_id=body.binaryId,
+        current_user=current_user,
+        model_repository=ModelRepository,
+        prediction_repository=PredictionRepository,
+        function_repository=FunctionRepository,
+        binary_repository=BinaryRepository,
+    )
+    target_name = target.target_name
+    functions_data = target.functions_data
+    report_owner_id = target.report_owner_id
 
     # Perform scan (empty function lists produce an empty report)
-    report = generate_report(target_name or "unknown", functions_data)
+    report = generate_report(target_name, functions_data)
     report_dict = _scan_report_to_dict(report).model_dump()
 
     # Persist the report so it can be restored when the target is re-selected.

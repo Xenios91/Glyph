@@ -1,6 +1,6 @@
 """Authentication module for Glyph.
 
-This module provides authentication functionality using authlib for JWT tokens
+This module provides authentication functionality using joserfc for JWT tokens
 and Argon2id for password hashing.
 
 Components:

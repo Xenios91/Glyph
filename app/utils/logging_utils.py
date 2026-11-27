@@ -1,7 +1,7 @@
 """Logging utilities for Glyph application.
 
-This module provides decorators built on top of loguru's logger.catch()
-for consistent error handling across the codebase.
+This module provides decorators using explicit try/except with loguru's
+logger.exception() for consistent error handling across the codebase.
 
 Key features:
 - catch_http_exception: Decorator that logs exceptions and raises HTTPException

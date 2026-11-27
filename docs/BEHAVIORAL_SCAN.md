@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Behavioral Scan feature performs on-demand, malware-behavior analysis of decompiled binary functions against a curated catalog of 24 behavioral signatures (`BEHAV-001`…`BEHAV-024`). Unlike the [Dangerous Functions](DANGEROUS_FUNCTIONS.md) scanner — which flags individual unsafe API calls — the behavioral scanner looks for *behavioral patterns* that malware exhibits: anti-debugging, anti-sandbox / anti-VM evasion, process injection, credential harvesting, network C2, persistence, and obfuscation / anti-analysis.
+The Behavioral Scan feature performs on-demand, malware-behavior analysis of decompiled binary functions against a curated catalog of 31 behavioral signatures (`BEHAV-001`…`BEHAV-031`). Unlike the [Dangerous Functions](DANGEROUS_FUNCTIONS.md) scanner — which flags individual unsafe API calls — the behavioral scanner looks for *behavioral patterns* that malware exhibits: anti-debugging, anti-sandbox / anti-VM evasion, process injection, credential harvesting, network C2, persistence, command execution, and obfuscation / anti-analysis.
 
 Each match is reported with a severity rating, the behavior category, the detection method that fired, the containing function, and the matched evidence (the decompiled statements that triggered the signature).
 
@@ -19,7 +19,7 @@ Each match is reported with a severity rating, the behavior category, the detect
 
 ## Behavioral Signature Catalog
 
-The catalog ([`app/services/behavioral_signatures_catalog.py`](../app/services/behavioral_signatures_catalog.py)) contains 24 signatures across 7 categories.
+The catalog ([`app/services/behavioral_signatures_catalog.py`](../app/services/behavioral_signatures_catalog.py)) contains 31 signatures across 8 categories.
 
 ### Anti-Debugging
 
@@ -46,6 +46,8 @@ The catalog ([`app/services/behavioral_signatures_catalog.py`](../app/services/b
 | BEHAV-009 | Remote process memory write | Critical | `api_call` — `WriteProcessMemory` | T1055 |
 | BEHAV-010 | Remote thread creation | Critical | `api_call` — `CreateRemoteThread` | T1055 |
 | BEHAV-011 | Cross-process memory allocation | High | `api_call` — `VirtualAllocEx` | T1055 |
+| BEHAV-028 | windows_memory_allocation | High | `api_call` — `VirtualAlloc` | T1055 |
+| BEHAV-030 | thread_creation | Medium | `api_call` — `CreateThread` | T1055 |
 
 ### Credential Harvesting
 
@@ -54,6 +56,7 @@ The catalog ([`app/services/behavioral_signatures_catalog.py`](../app/services/b
 | BEHAV-012 | Credential store access | High | `string_pattern` — `Login Data\|cookies\|keychain\|wallet\|id_rsa\|.ssh\|Credentials` | T1555 |
 | BEHAV-013 | Secret string probing | Medium | `string_pattern` — `password\|api_key\|token\|AWS_SECRET` | T1552 |
 | BEHAV-014 | Identity enumeration | Medium | `api_call` — `GetUserName`, `GetComputerName`, `GetDomainName` | T1033 |
+| BEHAV-027 | password_file_access | High | `string_pattern` — `/etc/passwd\|/etc/shadow\|\bSAM\b\|ntuser\.dat\|SYSTEM\.hive` | T1552 |
 
 ### Network C2
 
@@ -72,6 +75,13 @@ The catalog ([`app/services/behavioral_signatures_catalog.py`](../app/services/b
 | BEHAV-020 | Windows service installation | High | `api_call` — `CreateService`, `OpenSCManager`, `StartService` | T1543.003 |
 | BEHAV-021 | Scheduled task / WMI subscription | High | `string_pattern` — `schtasks\|__EventFilter\|__EventConsumer` | T1053.005 |
 
+### Command Execution
+
+| ID | Behavior | Severity | Method | MITRE ATT&CK |
+|----|----------|----------|--------|--------------|
+| BEHAV-025 | system | High | `api_call` — `system` | T1059 |
+| BEHAV-026 | execve | High | `api_call` — `execve`, `execv`, `execl`, `execle`, `execvp`, `execlp`, `execvpe` | T1059 |
+
 ### Obfuscation / Anti-Analysis
 
 | ID | Behavior | Severity | Method | MITRE ATT&CK |
@@ -79,10 +89,12 @@ The catalog ([`app/services/behavioral_signatures_catalog.py`](../app/services/b
 | BEHAV-022 | Dynamic API resolution | High | `api_call` — `GetProcAddress` | T1027 |
 | BEHAV-023 | Runtime code protection/modification | Medium | `api_call` — `VirtualProtect` | T1027 |
 | BEHAV-024 | Encoded/indirect command execution | Critical | `string_pattern` — `powershell -enc\|cmd /c\|rundll32\|regsvr32 /s /u /i\|certutil -decode` | T1059.001 |
+| BEHAV-029 | in_place_decode | Medium | `code_heuristic` — in-place XOR (`buf[i] ^= 0xNN`) | T1027 |
+| BEHAV-031 | obfuscated_string | Medium | `code_heuristic` — run of hex-escaped bytes | T1027 |
 
 Each catalog entry includes:
 
-- **Signature ID** — Stable identifier (`BEHAV-001`…`BEHAV-024`)
+- **Signature ID** — Stable identifier (`BEHAV-001`…`BEHAV-031`)
 - **Behavior Name** — Human-readable behavior name
 - **Category** — Behavior category
 - **Severity** — Risk level (`Critical`, `High`, `Medium`, `Low`)
@@ -259,7 +271,7 @@ curl -X DELETE "http://localhost:8000/api/v1/behavioral-scans/scan-results?targe
 
 ## UI Usage
 
-The scanner page (`/getBehavioralScan`, reachable from the **ANALYSIS** navbar dropdown) provides:
+The scanner page (`/getBehavioralScan`, reachable from the **SCANNING** navbar dropdown) provides:
 
 - **Target Type** selector — choose **Model (Training Data)**, **Prediction Task**, or **Binary (Library)**.
 - **Target** selector — populated with the available targets of the chosen type.
@@ -272,7 +284,7 @@ Unlike the dangerous-functions page, the behavioral scan page has **no LLM analy
 
 ## Limitations
 
-- **ELF-only uploads** — The binary library (and therefore binary-target scans) only accepts ELF binaries. The catalog's signatures are largely Windows-API oriented, so a Windows PE sample cannot be uploaded and scanned directly; model and prediction targets (built from previously analyzed ELF functions) are the primary scan path.
+- **Upload format** — The binary library accepts both ELF and Windows PE binaries (the MIME allow-list includes `application/x-dosexec`), so a Windows PE sample can be uploaded and scanned directly. The catalog's signatures are largely Windows-API oriented, so PE samples are the best fit for behavioral scanning; model and prediction targets (built from previously analyzed functions) are also supported.
 - **No import-table checks in v1** — The `import_check` detection method is reserved for a future version; no v1 signature uses it. Behavior that is only visible in a binary's import table (and not in decompiled function bodies) is not detected.
 - **String and heuristic signatures are heuristic** — `string_pattern` and `code_heuristic` signatures are inherently false-positive prone. A benign binary that references a string like `Mozilla/` (BEHAV-018) or contains an IP literal (BEHAV-015) will be flagged even without malicious intent. Treat these findings as indicators to investigate, not verdicts.
 - **Decompiled-code fidelity** — Detection operates on decompiled C-like code. Obfuscated or heavily inlined code may evade `api_call` and `code_heuristic` matches that depend on recognizable call syntax.
@@ -283,7 +295,7 @@ Unlike the dangerous-functions page, the behavioral scan page has **no LLM analy
 | Aspect | Dangerous Function Scan | Behavioral Scan |
 |--------|------------------------|-----------------|
 | **Unit of analysis** | Individual unsafe API calls (`strcpy`, `system`, …) | Behavioral patterns across a function (anti-debug, injection, C2, …) |
-| **Catalog** | Unsafe functions with CWE + safe alternatives | 24 behavioral signatures across 7 categories with MITRE ATT&CK |
+| **Catalog** | Unsafe functions with CWE + safe alternatives | 31 behavioral signatures across 8 categories with MITRE ATT&CK |
 | **Detection** | Token matching on function names | `api_call`, `string_pattern`, `code_heuristic` (co-occurrence) |
 | **Follow-up tools** | LLM-assisted analysis + taint analysis | None (pure signature scan) |
 | **Report persistence** | `scan_reports` table | `behavioral_scan_reports` table |

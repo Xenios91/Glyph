@@ -65,6 +65,18 @@ class TestLLMConfigPayload:
         assert "api_key" not in payload.model_fields_set
 
 
+def test_default_llm_timeout_within_validated_range() -> None:
+    """The default LLM timeout must be within the API's validated 5-600 range.
+
+    Regression test: the settings default was 900.0, which exceeded the
+    documented 5-600 second API contract, so a default deployment loaded
+    timeout=900 and a Save failed validation (the config page was
+    effectively unsaveable). The default is now 600.0, which is within range.
+    """
+    default_timeout = LLMConfig().timeout_seconds
+    assert 5 <= default_timeout <= 600
+
+
 class TestStatusUpdatePayload:
     """Tests for StatusUpdatePayload model."""
 
@@ -109,8 +121,17 @@ class TestConfigRouter:
     """Tests for config router endpoints."""
 
     @patch("app.api.v1.endpoints.config.get_settings")
-    def test_save_config_success(self, mock_get_settings: Any, config_client: TestClient) -> None:
-        """Test saving config successfully."""
+    def test_save_config_global_fields_read_only(
+        self, mock_get_settings: Any, config_client: TestClient
+    ) -> None:
+        """Global (non-LLM) fields are read-only: a regular user gets 403.
+
+        Regression test for the v0.4.0 security fix: there is no admin role,
+        so letting any authenticated user mutate system-wide limits (max
+        upload size, CPU core budget) and persist them to config.yml was a
+        privilege-escalation vector. The endpoint now rejects global fields
+        with 403 GLOBAL_CONFIG_READONLY.
+        """
         from unittest.mock import Mock
 
         mock_settings = Mock()
@@ -121,14 +142,16 @@ class TestConfigRouter:
             json={"max_file_size_mb": 100, "cpu_cores": 4},
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 403
         data = response.json()
-        assert data["success"] is True
-        assert "Configuration saved successfully" in data["message"]
+        # HTTPException wraps detail in {"detail": ...}
+        detail = data.get("detail", data)
+        assert detail["success"] is False
+        assert "GLOBAL_CONFIG_READONLY" in detail.get("error", {}).get("code", "")
 
     @patch("app.api.v1.endpoints.config.get_settings")
-    def test_save_config_invalid_cpu_cores(self, mock_get_settings: Any, config_client: TestClient) -> None:
-        """Test saving config with invalid CPU cores."""
+    def test_save_config_cpu_cores_read_only(self, mock_get_settings: Any, config_client: TestClient) -> None:
+        """cpu_cores is read-only: any value (even out-of-range) is rejected with 403."""
         from unittest.mock import Mock
 
         mock_settings = Mock()
@@ -136,40 +159,77 @@ class TestConfigRouter:
 
         response = config_client.post(
             "/config/save",
-            json={"cpu_cores": 100},  # Invalid: exceeds MAX_CPU_CORES
+            json={"cpu_cores": 100},
         )
 
-        assert response.status_code == 400
+        assert response.status_code == 403
         data = response.json()
-        # HTTPException wraps detail in {"detail": ...}
         detail = data.get("detail", data)
         assert detail["success"] is False
-        assert "INVALID_CPU_CORES" in detail.get("error", {}).get("code", "")
+        assert "GLOBAL_CONFIG_READONLY" in detail.get("error", {}).get("code", "")
 
     @patch("app.api.v1.endpoints.config.get_settings")
-    @patch("app.api.v1.endpoints.config._persist_config_changes")
-    def test_save_config_partial_update(
+    def test_save_config_partial_update_global_read_only(
         self,
-        mock_persist: Any,
         mock_get_settings: Any,
         config_client: TestClient,
     ) -> None:
-        """Test saving config with partial update."""
+        """A partial update touching a global field is rejected with 403."""
         from unittest.mock import Mock
 
         mock_settings = Mock()
         mock_settings.max_file_size_mb = 100
         mock_get_settings.return_value = mock_settings
-        mock_persist.return_value = None
 
         response = config_client.post(
             "/config/save",
             json={"max_file_size_mb": 50},
         )
 
+        assert response.status_code == 403
+        data = response.json()
+        detail = data.get("detail", data)
+        assert detail["success"] is False
+        assert "GLOBAL_CONFIG_READONLY" in detail.get("error", {}).get("code", "")
+
+    @patch("app.api.v1.endpoints.config.get_settings")
+    def test_save_config_global_rejected_llm_still_saves(
+        self,
+        mock_get_settings: Any,
+        config_client: TestClient,
+        tmp_path: Path,
+        monkeypatch: Any,
+    ) -> None:
+        """Regression: global fields 403, but a pure LLM update still saves (200).
+
+        Verifies the per-user LLM block remains writable for all
+        authenticated users while the global (non-LLM) fields are locked.
+        """
+        settings = self._llm_settings()
+        mock_get_settings.return_value = settings
+        monkeypatch.setattr("app.api.v1.endpoints.config._CONFIG_FILE", tmp_path / "config.yml")
+
+        # 1) A payload mixing a global field with an LLM block is rejected
+        #    (the global check runs before the LLM block is processed).
+        response = config_client.post(
+            "/config/save",
+            json={"max_file_size_mb": 100, "llm": {"model": "llama-3"}},
+        )
+        assert response.status_code == 403
+        detail = response.json().get("detail", response.json())
+        assert "GLOBAL_CONFIG_READONLY" in detail.get("error", {}).get("code", "")
+
+        # 2) A pure LLM update still succeeds and upserts the per-user row.
+        with patch(
+            "app.api.v1.endpoints.config.LLMUserConfigRepository.upsert",
+            new_callable=AsyncMock,
+        ) as mock_upsert:
+            response = config_client.post("/config/save", json={"llm": {"model": "llama-3"}})
+
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
+        mock_upsert.assert_awaited_once_with(1, {"model": "llama-3"})
 
     @staticmethod
     def _llm_settings() -> Any:
@@ -246,26 +306,32 @@ class TestConfigRouter:
         assert persisted == {"max_file_size_mb": 512, "cpu_cores": 4}
 
     @patch("app.api.v1.endpoints.config.get_settings")
-    def test_save_config_llm_rejects_private_base_url(
+    def test_save_config_llm_rejects_non_public_base_url(
         self,
         mock_get_settings: Any,
         config_client: TestClient,
         tmp_path: Path,
         monkeypatch: Any,
     ) -> None:
-        """Saving a base_url that resolves to a private IP is rejected with 400."""
+        """Saving a base_url that resolves to a non-public IP is rejected with 400.
+
+        The save-time SSRF guard runs with ``allow_local=True`` (the same
+        Ollama/local carve-out as the analysis path), so loopback and RFC1918
+        addresses are accepted. A reserved address (TEST-NET-1, 192.0.2.1) is
+        still rejected with 400 INVALID_LLM_BASE_URL.
+        """
         import socket
 
         settings = self._llm_settings()
         mock_get_settings.return_value = settings
         monkeypatch.setattr("app.api.v1.endpoints.config._CONFIG_FILE", tmp_path / "config.yml")
 
-        def _private_dns(host: str, port: int, *args: Any, **kwargs: Any) -> list[tuple]:
+        def _reserved_dns(host: str, port: int, *args: Any, **kwargs: Any) -> list[tuple]:
             return [
-                (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, (), ("10.0.0.1", port))
+                (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, (), ("192.0.2.1", port))
             ]
 
-        monkeypatch.setattr("app.utils.ssrf_guard.socket.getaddrinfo", _private_dns)
+        monkeypatch.setattr("app.utils.ssrf_guard.socket.getaddrinfo", _reserved_dns)
 
         with patch(
             "app.api.v1.endpoints.config.LLMUserConfigRepository.upsert",
@@ -280,6 +346,47 @@ class TestConfigRouter:
         detail = response.json().get("detail", response.json())
         assert detail.get("error", {}).get("code", "") == "INVALID_LLM_BASE_URL"
         mock_upsert.assert_not_awaited()
+
+    @patch("app.api.v1.endpoints.config.get_settings")
+    def test_save_config_llm_accepts_local_base_url(
+        self,
+        mock_get_settings: Any,
+        config_client: TestClient,
+        tmp_path: Path,
+        monkeypatch: Any,
+    ) -> None:
+        """Saving an LLM config with a local base_url (localhost) succeeds.
+
+        Regression test for the save-time SSRF guard: the guard must run with
+        the same local carve-out as the analysis path, so a local LLM
+        (e.g. Ollama on http://localhost:11434) is accepted at save time.
+        """
+        import socket
+
+        settings = self._llm_settings()
+        mock_get_settings.return_value = settings
+        monkeypatch.setattr("app.api.v1.endpoints.config._CONFIG_FILE", tmp_path / "config.yml")
+
+        def _loopback_dns(host: str, port: int, *args: Any, **kwargs: Any) -> list[tuple]:
+            return [
+                (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, (), ("127.0.0.1", port))
+            ]
+
+        monkeypatch.setattr("app.utils.ssrf_guard.socket.getaddrinfo", _loopback_dns)
+
+        with patch(
+            "app.api.v1.endpoints.config.LLMUserConfigRepository.upsert",
+            new_callable=AsyncMock,
+        ) as mock_upsert:
+            response = config_client.post(
+                "/config/save",
+                json={"llm": {"base_url": "http://localhost:11434"}},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        mock_upsert.assert_awaited_once_with(1, {"base_url": "http://localhost:11434"})
 
     @patch("app.api.v1.endpoints.config.get_settings")
     def test_save_config_llm_rejects_ip_literal_base_url(
@@ -381,7 +488,7 @@ class TestConfigRouter:
         tmp_path: Path,
         monkeypatch: Any,
     ) -> None:
-        """Test that saving without llm fields leaves a pre-seeded llm section untouched."""
+        """Test that saving only global fields is rejected and leaves config.yml untouched."""
         settings = self._llm_settings()
         mock_get_settings.return_value = settings
         config_file = tmp_path / "config.yml"
@@ -393,9 +500,14 @@ class TestConfigRouter:
 
         response = config_client.post("/config/save", json={"cpu_cores": 4})
 
-        assert response.status_code == 200
+        # Global fields are read-only: the request is rejected before any
+        # persistence happens, so the pre-seeded llm section is untouched.
+        assert response.status_code == 403
+        detail = response.json().get("detail", response.json())
+        assert detail.get("error", {}).get("code", "") == "GLOBAL_CONFIG_READONLY"
         persisted = yaml.safe_load(config_file.read_text(encoding="utf-8"))
         assert persisted["llm"] == {"model": "keep-me"}
+        assert persisted["cpu_cores"] == 1
 
     @pytest.mark.parametrize(
         ("llm_payload", "expected_code"),

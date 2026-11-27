@@ -9,5 +9,7 @@ Submodules:
     logging_utils: Logging decorators and utilities.
     request_context: Async-safe request context management.
     responses: Standardized API response models.
+    secret_cipher: Fernet-based encryption for secrets at rest.
     secure_deserializer: Secure pickle/joblib deserialization.
+    ssrf_guard: SSRF protection for outbound server-side requests.
 """

@@ -145,12 +145,12 @@ The LLM endpoint is configured on the **Profile** page (LLM tab, with a one-clic
 | Field | Default | Description |
 |-------|---------|-------------|
 | `enabled` | `false` | Enable LLM-assisted analysis |
-| `base_url` | `https://api.openai.com` | Base URL of the endpoint (scheme + host) |
+| `base_url` | `http://localhost:11434` | Base URL of the endpoint (scheme + host) |
 | `port` | *(scheme default)* | Explicit port; 443 for HTTPS and 80 for HTTP are omitted from the URL |
 | `api_path` | `/v1/chat/completions` | Path of the chat completions endpoint |
-| `model` | `gpt-4o-mini` | Model name sent in each request |
+| `model` | `llama3` | Model name sent in each request |
 | `api_key` | *(empty)* | Sent as `Authorization: Bearer <key>` |
-| `timeout_seconds` | `120` | Per-request timeout, 5-600 |
+| `timeout_seconds` | `900.0` | Per-request timeout (settings minimum is 60; the `/save` endpoint validates 5–600) |
 | `temperature` | `0.1` | Sampling temperature, 0.0-2.0 |
 | `max_tokens` | *(none)* | Maximum tokens to generate per completion |
 | `max_concurrent` | `5` | Maximum parallel analysis requests, 1-20 |
@@ -164,7 +164,7 @@ llm:
   enabled: true
   base_url: "https://api.openai.com"
   api_path: "/v1/chat/completions"
-  model: "gpt-4o-mini"
+  model: "llama3"
   api_key: "sk-..."
   timeout_seconds: 120
   temperature: 0.1
@@ -411,9 +411,9 @@ curl -X POST http://localhost:8000/api/v1/tasks/execute \
 - **LLM Result Repository**: [`app/database/llm_result_repository.py`](../app/database/llm_result_repository.py)
 - **LLM Configuration**: [`LLMConfig`](../app/config/settings.py) — OpenAI-compatible endpoint settings (the `llm` block in `config.yml`)
 - **Key Classes**:
-  - [`ScanResult`](../app/services/dangerous_function_scanner.py:21) — Individual finding
-  - [`ScanReport`](../app/services/dangerous_function_scanner.py:52) — Aggregated report
-  - [`scan_functions()`](../app/services/dangerous_function_scanner.py:136) — Core scanning function
-  - [`generate_report()`](../app/services/dangerous_function_scanner.py:325) — Report aggregation
-  - [`analyze_findings()`](../app/services/llm_analysis_service.py:424) — LLM analysis fan-out for a batch of findings
-  - [`test_llm_connection()`](../app/services/llm_analysis_service.py:194) — LLM endpoint connectivity test
+  - [`ScanResult`](../app/services/dangerous_function_scanner.py:24) — Individual finding
+  - [`ScanReport`](../app/services/dangerous_function_scanner.py:83) — Aggregated report
+  - [`scan_functions()`](../app/services/dangerous_function_scanner.py:167) — Core scanning function
+  - [`generate_report()`](../app/services/dangerous_function_scanner.py:328) — Report aggregation
+  - [`analyze_findings()`](../app/services/llm_analysis_service.py:454) — LLM analysis fan-out for a batch of findings
+  - [`test_llm_connection()`](../app/services/llm_analysis_service.py:350) — LLM endpoint connectivity test

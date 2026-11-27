@@ -17,6 +17,12 @@ from app.services.dangerous_functions_catalog import (
     Severity,
     get_severity_order,
 )
+from app.services.decompiled_code import (
+    _dedupe_cap,
+    _normalize_code_text,
+    _split_statements,
+    _truncate_statement,
+)
 from app.utils.common import format_full_function_code
 
 
@@ -110,8 +116,7 @@ def _extract_usage_context(tokens: list[str], dangerous_function_name: str) -> l
 
     Joins the token list into a readable string, splits into lines,
     and returns lines that contain a call to the dangerous function.
-    Only matches actual function calls (name followed by '('), not
-    occurrences inside string literals or comments.
+    Only matches actual function calls (name followed by '(').
 
     Args:
         tokens: List of tokens from the decompiled function.
@@ -124,12 +129,8 @@ def _extract_usage_context(tokens: list[str], dangerous_function_name: str) -> l
     if not tokens:
         return []
 
-    code_text = " ".join(str(t) for t in tokens)
-    # Normalize whitespace
-    code_text = re.sub(r"\s+", " ", code_text).strip()
-
-    # Split by semicolons to get statement-level granularity
-    statements = [s.strip() for s in code_text.split(";") if s.strip()]
+    code_text = _normalize_code_text(tokens)
+    statements = _split_statements(code_text)
 
     # Match actual function calls: function name followed by '(' with optional whitespace
     # Uses word boundary before the name to avoid matching partial identifiers
@@ -139,29 +140,17 @@ def _extract_usage_context(tokens: list[str], dangerous_function_name: str) -> l
 
     for stmt in statements:
         if pattern.search(stmt):
-            # Limit each line to 300 chars for display
-            if len(stmt) > 300:
-                stmt = stmt[:300] + "..."
-            matching_lines.append(stmt)
+            matching_lines.append(_truncate_statement(stmt))
 
     # Also check for function calls with pointer/variable references
     # e.g., if the dangerous function was assigned to a function pointer
     for stmt in statements:
         # Match patterns like: (*func_ptr)(args) where func_ptr might point to dangerous func
         if "(*" in stmt and pattern.search(stmt) and stmt not in matching_lines and len(matching_lines) < 10:
-            truncated = stmt[:300] + "..." if len(stmt) > 300 else stmt
-            matching_lines.append(truncated)
+            matching_lines.append(_truncate_statement(stmt))
 
-    # Deduplicate while preserving order
-    seen: set[str] = set()
-    unique_lines: list[str] = []
-    for line in matching_lines:
-        if line not in seen:
-            seen.add(line)
-            unique_lines.append(line)
-
-    # Limit to 10 lines max for display
-    return unique_lines[:10]
+    # Deduplicate (preserving order) and cap at the display limit
+    return _dedupe_cap(matching_lines)
 
 
 def scan_functions(functions: list[dict[str, Any]]) -> list[ScanResult]:
@@ -210,19 +199,11 @@ def _get_function_body_context(tokens: list[str], max_lines: int | None = None) 
     if not tokens:
         return []
 
-    code_text = " ".join(str(t) for t in tokens)
-    # Normalize whitespace
-    code_text = re.sub(r"\s+", " ", code_text).strip()
-
-    # Split by semicolons to get statement-level granularity
-    statements = [s.strip() for s in code_text.split(";") if s.strip()]
+    code_text = _normalize_code_text(tokens)
+    statements = _split_statements(code_text)
 
     # Truncate long lines
-    lines: list[str] = []
-    for stmt in statements:
-        if len(stmt) > 300:
-            stmt = stmt[:300] + "..."
-        lines.append(stmt)
+    lines: list[str] = [_truncate_statement(stmt) for stmt in statements]
 
     if max_lines is not None:
         lines = lines[:max_lines]
@@ -256,8 +237,7 @@ def _scan_function_bodies(functions: list[dict[str, Any]]) -> list[ScanResult]:
             continue
         funcs_with_tokens += 1
 
-        code_text = " ".join(str(t) for t in tokens)
-        code_text = re.sub(r"\s+", " ", code_text).strip()
+        code_text = _normalize_code_text(tokens)
 
         # Check for each dangerous function in the code text
         for compiled in _COMPILED_ENTRIES:

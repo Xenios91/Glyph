@@ -17,9 +17,8 @@ from app.utils.common import format_code
 class PredictionService:
     """Service for prediction workflow management.
 
-    Encapsulates business logic for creating prediction tasks, executing
-    the ML prediction pipeline, retrieving results, and managing
-    prediction lifecycle.
+    Encapsulates business logic for creating prediction tasks, retrieving
+    results, and managing stored predictions.
     """
 
     # --- Task Creation ---
@@ -134,7 +133,7 @@ class PredictionService:
 
         Returns:
             Tuple of (raw prediction data, formatted prediction tokens). The
-            data dict is empty when no prediction exists for the function, and
+            data value is None when no prediction exists for the function, and
             the tokens string is empty in that case as well.
 
         """

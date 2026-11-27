@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import delete, exists, func, or_, select
+from sqlalchemy import delete, exists, func, select
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,9 +19,10 @@ from app.utils.secure_deserializer import SecureDeserializationError, secure_dum
 def _ownership_clause(user_id: int) -> ColumnElement[bool]:
     """Build an ownership filter for a Prediction query.
 
-    A row whose ``user_id`` is ``None`` (legacy/unowned) is visible to any
-    authenticated user; otherwise only its owner sees it. The anonymous user
-    (auth disabled, id 0) may only see unowned rows.
+    Deny-by-default: only rows owned by the given user are visible.
+    Unowned/legacy rows (``user_id`` IS NULL) are excluded from results,
+    matching the :func:`can_access` rule. The anonymous user (auth disabled,
+    id 0) sees rows created with ``user_id`` 0.
 
     Args:
         user_id: The current user's id (0 for anonymous).
@@ -30,9 +31,7 @@ def _ownership_clause(user_id: int) -> ColumnElement[bool]:
         A SQLAlchemy boolean clause to add to the query's ``where``.
 
     """
-    if user_id == 0:
-        return Prediction.user_id.is_(None)
-    return or_(Prediction.user_id == user_id, Prediction.user_id.is_(None))
+    return Prediction.user_id == user_id
 
 
 class PredictionRepository:
@@ -56,14 +55,9 @@ class PredictionRepository:
             predictions = result.scalars().all()
             for pred in predictions:
                 try:
-                    raw_preds = await asyncio.to_thread(secure_load_bytes, pred.functions_data)
-                    if not isinstance(raw_preds, list):
-                        logger.warning(
-                            "Prediction data for '{}' is not a list, skipping",
-                            pred.task_name,
-                        )
+                    preds = await _load_prediction_functions(pred.functions_data)
+                    if preds is None:
                         continue
-                    preds: list[dict[str, Any]] = _cast_list(raw_preds)
                     prediction_results.append(
                         PredictionResult(
                             task_name=pred.task_name,
@@ -86,10 +80,10 @@ class PredictionRepository:
     async def count_for_user(user_id: int) -> int:
         """Count the predictions the given user may access.
 
-        Mirrors the ownership rule used by ``can_access``: unowned rows
-        (``user_id IS NULL``) are visible to everyone, while owned rows are
-        visible only to their owner. The anonymous user (auth disabled,
-        id 0) sees only unowned rows.
+        Deny-by-default, matching the ``can_access`` rule: only the user's
+        own rows (``user_id == user_id``) are counted. Unowned/legacy rows
+        (``user_id IS NULL``) are excluded. The anonymous user (auth
+        disabled, id 0) counts rows created with ``user_id`` 0.
 
         This is a single ``COUNT(*)`` query and, unlike
         :meth:`get_predictions_list`, does not load or deserialize the
@@ -117,10 +111,10 @@ class PredictionRepository:
     async def get_task_names_for_user(user_id: int) -> list[str]:
         """Get distinct prediction task names the given user may access.
 
-        Mirrors the ownership rule used by ``can_access``: unowned rows
-        (``user_id IS NULL``) are visible to everyone, while owned rows are
-        visible only to their owner. The anonymous user (auth disabled,
-        id 0) sees only unowned rows.
+        Deny-by-default, matching the ``can_access`` rule: only the user's
+        own rows (``user_id == user_id``) are listed. Unowned/legacy rows
+        (``user_id IS NULL``) are excluded. The anonymous user (auth
+        disabled, id 0) sees rows created with ``user_id`` 0.
 
         This is a single query selecting only ``task_name`` and, unlike
         :meth:`get_predictions_list`, does not load or deserialize the
@@ -155,10 +149,10 @@ class PredictionRepository:
 
         Selects only the plain columns ``task_name``, ``model_name``,
         ``function_count`` and ``user_id`` for the rows the given user may
-        access. Mirrors the ownership rule used by ``can_access``: unowned
-        rows (``user_id IS NULL``) are visible to everyone, owned rows only
-        to their owner, and the anonymous user (auth disabled, id 0) sees
-        only unowned rows.
+        access. Deny-by-default, matching the ``can_access`` rule: only the
+        user's own rows (``user_id == user_id``) are returned; unowned/
+        legacy rows (``user_id IS NULL``) are excluded. The anonymous user
+        (auth disabled, id 0) sees rows created with ``user_id`` 0.
 
         Unlike :meth:`get_predictions_list`, this never loads or
         deserializes the ``functions_data`` BLOBs, so it stays fast and
@@ -219,7 +213,8 @@ class PredictionRepository:
             task_name: Name of the task.
             model_name: Name of the model.
             user_id: The caller's user id (0 for anonymous). When provided, only
-                the caller's own row and unowned/legacy rows are considered.
+                the caller's own row is considered (unowned/legacy rows are
+                excluded, matching the deny-by-default ``can_access`` rule).
 
         Returns:
             PredictionResult object if found, otherwise None.
@@ -236,20 +231,14 @@ class PredictionRepository:
                 return None
 
             try:
-                raw_prediction_data = await asyncio.to_thread(secure_load_bytes, row.functions_data)
-                if not isinstance(raw_prediction_data, list):
-                    logger.warning(
-                        "Prediction data for task '{}' is not a list, expected list got {}",
-                        task_name,
-                        type(raw_prediction_data).__name__,
-                    )
-                    return None
-                prediction_data: list[dict[str, Any]] = _cast_list(raw_prediction_data)
+                prediction_data = await _load_prediction_functions(row.functions_data)
             except SecureDeserializationError:
                 logger.exception("Secure deserialization blocked prediction for task '{}'", task_name)
                 return None
             except Exception:
                 logger.exception("Failed to deserialize prediction for task '{}'", task_name)
+                return None
+            if prediction_data is None:
                 return None
 
             return PredictionResult(
@@ -350,23 +339,18 @@ class PredictionRepository:
                 return {}
 
             try:
-                raw_predictions = await asyncio.to_thread(secure_load_bytes, row.functions_data)
-                if not isinstance(raw_predictions, list):
-                    logger.warning(
-                        "Predictions data is not a list, expected list got {}",
-                        type(raw_predictions).__name__,
-                    )
-                    return {}
-                predictions: list[dict[str, Any]] = _cast_list(raw_predictions)
-                for function in predictions:
-                    if function.get("functionName") == function_name:
-                        return function
+                predictions = await _load_prediction_functions(row.functions_data)
             except SecureDeserializationError:
                 logger.exception("Secure deserialization blocked predictions")
                 return {}
             except Exception:
                 logger.exception("Failed to deserialize predictions")
                 return {}
+            if predictions is None:
+                return {}
+            for function in predictions:
+                if function.get("functionName") == function_name:
+                    return function
         except sa_exc.SQLAlchemyError:
             logger.exception(
                 "Failed to retrieve prediction function '{}' from task '{}'",
@@ -432,16 +416,16 @@ class PredictionRepository:
         Scoped to the caller when ``user_id`` is provided so a same-named model
         cannot cause another user's rows to be deleted (the per-user unique key
         allows several users to hold predictions for the same model_name, e.g.
-        via a legacy/unowned model). Mirrors the ownership filter used by
-        ``get``/``get_prediction_function``/``get_owner``: the caller's own rows
-        and unowned/legacy rows are deleted, rows owned by another user are
-        left untouched. When ``user_id`` is None the delete is unscoped
-        (legacy/admin cleanup behavior).
+        via a legacy/unowned model). Deny-by-default, matching the
+        ``can_access`` rule: only the caller's own rows are deleted; unowned/
+        legacy rows and rows owned by another user are left untouched. When
+        ``user_id`` is None the delete is unscoped (legacy/admin cleanup
+        behavior).
 
         Args:
             model_name: Name of the model.
             user_id: The caller's user id (0 for anonymous). When provided, only
-                the caller's own rows and unowned/legacy rows are deleted.
+                the caller's own rows are deleted.
 
         """
         session: AsyncSession = await get_async_session("predictions")
@@ -537,7 +521,8 @@ class PredictionRepository:
             task_name: Name of the task.
             model_name: Name of the model.
             user_id: The caller's user id (0 for anonymous). When provided, only
-                the caller's own row and unowned/legacy rows are considered.
+                the caller's own row is considered (unowned/legacy rows are
+                excluded, matching the deny-by-default ``can_access`` rule).
 
         Returns:
             The owning user_id, or None if the prediction does not exist
@@ -606,3 +591,28 @@ def _cast_list(data: Any) -> list[dict[str, Any]]:
     from typing import cast
 
     return cast(list[dict[str, Any]], data)
+
+
+async def _load_prediction_functions(functions_data: Any) -> list[dict[str, Any]] | None:
+    """Deserialize a prediction's ``functions_data`` BLOB into a list of dicts.
+
+    Runs the secure deserializer off the event loop and validates the result is
+    a list. Returns ``None`` when the payload is not a list; the caller decides
+    how to treat that (skip, return None, return {}).
+
+    Args:
+        functions_data: The raw ``functions_data`` BLOB.
+
+    Returns:
+        The deserialized function list, or ``None`` if it is not a list.
+
+    Raises:
+        SecureDeserializationError: If the secure deserializer blocks the payload.
+        Exception: If deserialization fails for any other reason.
+
+    """
+    raw = await asyncio.to_thread(secure_load_bytes, functions_data)
+    if not isinstance(raw, list):
+        logger.warning("Prediction data is not a list; expected list, got {}", type(raw).__name__)
+        return None
+    return _cast_list(raw)

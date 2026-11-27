@@ -193,8 +193,8 @@ def secure_load(file_like: io.BytesIO, allowed_classes: set[str] | None = None) 
         The deserialized object.
 
     Raises:
-        SecureDeserializationError: If the data contains disallowed classes.
-        joblib.NumpyUnpicklingError: If the data is not valid joblib format.
+        SecureDeserializationError: If the data contains disallowed classes or
+            is not valid joblib format (any other failure is wrapped in this error).
 
     """
     try:

@@ -326,14 +326,16 @@ class TaskManager:
             user_id: The user ID to check ownership for.
 
         Returns:
-            True if the user owns the task or no owner is registered,
-            False otherwise.
+            True if the user owns the task, False otherwise. Tasks with no
+            registered owner are denied (deny-by-default).
 
         """
         with cls._lock:
             owner = cls._task_owners.get(job_uuid)
         if owner is None:
-            return True
+            # Deny-by-default: tasks with no registered owner are not
+            # accessible to any user.
+            return False
         return owner == user_id
 
     @classmethod

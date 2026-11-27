@@ -8,7 +8,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        GLYPH_VERSION: "0.3.0"
+        GLYPH_VERSION: "0.4.0"
     container_name: glyph
     restart: unless-stopped
     ports:

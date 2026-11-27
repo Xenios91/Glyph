@@ -5,10 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - 2026-11-25
+
+### Added
+- Behavioral scanning: a new scanner (`app/services/behavioral_scanner.py`) with a curated signature catalog (`app/services/behavioral_signatures_catalog.py`) that detects malware-associated behaviors (anti-debugging, anti-sandbox/anti-VM, process injection, credential harvesting, network C2, persistence, obfuscation/anti-analysis) using `api_call`, `string_pattern`, and `code_heuristic` detection methods, with per-finding evidence extraction from decompiled code
+- Behavioral scan API endpoints (`/api/v1/behavioral_scans`) and a web UI page, with scan reports persisted in a new `behavioral_scan_reports` table
+- Taint analysis for dangerous function findings: a call-graph-based reachability service (`app/services/taint_analysis_service.py`) that identifies which functions (especially entry points) can reach a dangerous call site, with enumerated taint paths
+- SSRF guard (`app/utils/ssrf_guard.py`) for user-configured LLM `base_url` values: outbound server-side requests are resolved and validated against loopback, RFC1918, link-local (cloud metadata), reserved, and multicast ranges, with DNS-rebinding mitigation via address pinning
+- Secret-at-rest encryption (`app/utils/secret_cipher.py`): per-user LLM API keys are now stored Fernet-encrypted using a new `secret_cipher_key` setting (`GLYPH_SECRET_CIPHER_KEY`), with legacy plaintext values re-encrypted on next upsert
+- Diff highlighting for prediction function details (`static/js/diff.js`)
+- Binary ownership enforcement helper (`assert_binary_owned`) for binary endpoints, returning the standard 403 `ACCESS_DENIED` envelope
+- Behavioral scan documentation (`docs/BEHAVIORAL_SCAN.md`)
 
 ### Changed
 - The navbar's single ANALYSIS dropdown was split into three category dropdowns — BINARIES (Library, Similarity), MACHINE LEARNING (Create Model, Models, Predictions), and SCANNING (Dangerous Functions, Behavioral Scan) — so each top-level menu is short and self-describing; CONFIG remains a top-level link
+- Content-Security-Policy `style-src` was split into `style-src-elem` (strict: `'self'` + Google Fonts) and `style-src-attr` (`'unsafe-inline'` for the few JS-driven inline style attributes), blocking style-element injection while preserving dynamic styles
+- `RequestBodyTooLarge` is now an `HTTPException` (413) so FastAPI's body-parsing layer re-raises it and Starlette's `ExceptionMiddleware` converts it into the intended 413 response; the manual 413 handling in `RequestSizeMiddleware` (previously unreachable dead code) was removed
+- Task execution and ownership validation were refactored in `app/api/v1/task_runners.py`
+- `app/database/session_handler.py` and `app/database/prediction_repository.py` were reworked to support the new behavioral scan and taint analysis flows
+
+### Fixed
+- The oversized request body limit now correctly returns a 413 response (previously FastAPI swallowed the exception into a generic 400 "error parsing the body")
+- Click event conflicts in `predictions.js` that broke prediction function detail navigation
+
+### Security
+- `POST /api/v1/config/save` now rejects mutation of the global fields `max_file_size_mb` and `cpu_cores` with `403` and error code `GLOBAL_CONFIG_READONLY`; those system-wide limits are read-only for all users (there is no admin role) and operators change them by editing `config.yml` directly. Only the per-user LLM block can be saved from the API
+- Single-resource ownership checks are now deny-by-default: a row with no registered owner (legacy `user_id` of `NULL`) is denied to every user (returning `404`) rather than being exposed to every authenticated user; ownership is backfilled from the owning binary at startup (`_backfill_owner_columns`)
+- LLM API keys are now stored Fernet-encrypted at rest; run the one-time, idempotent migration `python -m scripts.migrate_llm_keys` after deploying to re-encrypt any legacy plaintext keys
 
 ## [0.3.0] - 2026-10-14
 
@@ -110,6 +133,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - E2E testing with Playwright
 - Comprehensive unit test suite
 
+[0.4.0]: https://github.com/Xenios91/Glyph/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Xenios91/Glyph/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Xenios91/Glyph/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Xenios91/Glyph/releases/tag/v0.1.0

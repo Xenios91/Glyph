@@ -905,13 +905,11 @@ Base path: `/api/v1/config`
 
 #### POST `/save`
 
-Save application configuration. All fields are optional; only provided fields are updated.
+Save the caller's per-user LLM endpoint configuration. The global fields `max_file_size_mb` and `cpu_cores` are **read-only** for all users (there is no admin role) and are rejected with `403` if present; operators change them by editing `config.yml` directly. Only the `llm` block may be saved, and only the provided `llm` fields are updated.
 
 **Request Body:**
 ```json
 {
-  "max_file_size_mb": 100,
-  "cpu_cores": 4,
   "llm": {
     "enabled": true,
     "base_url": "https://api.openai.com",
@@ -927,9 +925,7 @@ Save application configuration. All fields are optional; only provided fields ar
 }
 ```
 
-- `max_file_size_mb` (optional): Maximum upload size in megabytes (1–2048).
-- `cpu_cores` (optional): Number of CPU cores to use (1–`MAX_CPU_CORES`).
-- `llm` (optional): Partial LLM endpoint configuration. `base_url` must be a host-only http(s) URL; the path goes in `api_path`. Explicit `null` clears `port` and `max_tokens`; an empty string clears `api_key`.
+- `llm` (optional): Partial LLM endpoint configuration. `base_url` must be a host-only http(s) URL; the path goes in `api_path`. Explicit `null` clears `port` and `max_tokens`; an empty string clears `api_key`. The `base_url` host must resolve to a public address, otherwise the save is rejected with `INVALID_LLM_BASE_URL`.
 
 LLM field ranges: `port` 1–65535, `timeout_seconds` 5–600, `temperature` 0–2, `max_tokens` ≥ 1, `max_concurrent` 1–20.
 
@@ -944,7 +940,8 @@ LLM field ranges: `port` 1–65535, `timeout_seconds` 5–600, `temperature` 0�
 ```
 
 **Errors:**
-- `400` — Invalid value: `INVALID_FILE_SIZE`, `INVALID_CPU_CORES`, or an LLM field (`INVALID_LLM_BASE_URL`, `INVALID_LLM_PORT`, `INVALID_LLM_API_PATH`, `INVALID_LLM_MODEL`, `INVALID_LLM_TIMEOUT`, `INVALID_LLM_TEMPERATURE`, `INVALID_LLM_MAX_TOKENS`, `INVALID_LLM_MAX_CONCURRENT`)
+- `403` — `GLOBAL_CONFIG_READONLY` (the payload includes the read-only `max_file_size_mb` or `cpu_cores`)
+- `400` — Invalid LLM field: `INVALID_LLM_BASE_URL`, `INVALID_LLM_PORT`, `INVALID_LLM_API_PATH`, `INVALID_LLM_MODEL`, `INVALID_LLM_TIMEOUT`, `INVALID_LLM_TEMPERATURE`, `INVALID_LLM_MAX_TOKENS`, or `INVALID_LLM_MAX_CONCURRENT`
 
 ---
 
@@ -1398,6 +1395,231 @@ A sink with no callers is a valid (empty) report: `total_tainted_callers` is `0`
 - `403` — The binary is owned by a different user
 - `404` — The binary does not exist, or the resolved sink is not a function of the binary
 - `422` — Missing `binaryId` or `function_name`, or an unexpected field is present
+
+---
+
+### Behavioral Scans
+
+Base path: `/api/v1/behavioral-scans`
+
+Scans a model, prediction task, or binary for malware-associated behaviors using a catalog of 31 signatures across 8 categories (anti-debugging, anti-sandbox, process injection, credential harvesting, network C2, persistence, command execution, and obfuscation/anti-analysis). The catalog endpoints are **public** (no authentication); the scan and result endpoints require a valid bearer token or API key.
+
+#### GET `/catalog`
+
+List all behavioral signatures, or filter by category. **No authentication required.**
+
+**Query Parameters:**
+- `category` (optional): Filter by category (e.g., `Anti-Debugging`).
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "categories": ["Anti-Debugging", "Process Injection", "Persistence"],
+    "entries": [
+      {
+        "signature_id": "BEHAV-001",
+        "name": "Debugger presence check",
+        "category": "Anti-Debugging",
+        "severity": "Critical",
+        "detection_method": "api_call",
+        "patterns": ["IsDebuggerPresent"],
+        "description": "Checks whether a debugger is attached to the current process.",
+        "mitre_technique": ""
+      }
+    ]
+  },
+  "message": "Catalog retrieved successfully"
+}
+```
+
+---
+
+#### GET `/catalog/{signature_id}`
+
+Get details for a specific behavioral signature. Accepts the stable signature id (e.g., `BEHAV-001`) or the behavior name. **No authentication required.**
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "signature_id": "BEHAV-009",
+    "name": "Remote process memory write",
+    "category": "Process Injection",
+    "severity": "Critical",
+    "detection_method": "api_call",
+    "patterns": ["WriteProcessMemory"],
+    "description": "Writes data into the memory of another process.",
+    "mitre_technique": "T1055"
+  },
+  "message": "Catalog entry for 'BEHAV-009' retrieved"
+}
+```
+
+If the signature is not in the catalog, the response is a `200 OK` with the standard error body and code `CATALOG_NOT_FOUND` (no HTTP error status is raised):
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "CATALOG_NOT_FOUND",
+    "message": "Signature 'BEHAV-999' not found in catalog"
+  },
+  "metadata": {
+    "timestamp": "2024-01-01T00:00:00+00:00",
+    "request_id": null
+  }
+}
+```
+
+---
+
+#### GET `/available-models`
+
+List models and prediction tasks available for behavioral scanning (scoped to targets the current user can access).
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "models": ["trojan_detector"],
+    "prediction_tasks": ["predict_001"]
+  },
+  "message": "Available targets retrieved"
+}
+```
+
+---
+
+#### POST `/scan`
+
+Scan a model, prediction task, or binary for malware-associated behaviors. At least one of `modelName`, `taskName`, or `binaryId` must be provided. The report is persisted so it can be restored via `GET /scan-results`.
+
+**Request Body:**
+```json
+{
+  "modelName": "trojan_detector",
+  "taskName": null,
+  "binaryId": null
+}
+```
+
+- `modelName` (optional): Model name to scan.
+- `taskName` (optional): Prediction task name to scan instead.
+- `binaryId` (optional): Binary ID to scan directly from the library.
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "model_name": "trojan_detector",
+    "total_functions_scanned": 150,
+    "total_found": 3,
+    "critical_count": 2,
+    "high_count": 1,
+    "medium_count": 0,
+    "low_count": 0,
+    "results": [
+      {
+        "signature_id": "BEHAV-009",
+        "behavior_name": "Remote process memory write",
+        "category": "Process Injection",
+        "severity": "Critical",
+        "detection_method": "api_call",
+        "containing_function": "func_401000",
+        "entrypoint": "0x401000",
+        "mitre_technique": "T1055",
+        "description": "Writes data into the memory of another process.",
+        "matched_evidence": ["WriteProcessMemory(hProc, addr, buf, size, &written);"],
+        "containing_function_code": "..."
+      }
+    ]
+  },
+  "message": "Scan complete: 3 behaviors found"
+}
+```
+
+The `message` is `"Scan complete: N behaviors found"` when matches exist, or `"No functions found for '<target>'"` when the target has no functions.
+
+**Errors:**
+- `400` — None of `modelName`, `taskName`, or `binaryId` provided
+- `404` — Model, prediction task, or binary not found
+- `403` — Access denied (binary target owned by another user); `404` — model/prediction target not found or owned by another user
+- `500` — Prediction data could not be deserialized (corrupt or failed security validation)
+
+---
+
+#### GET `/scan-results`
+
+Retrieve the last stored behavioral scan report for a target. The `data` payload is `null` when the target has never been scanned.
+
+**Query Parameters:**
+- `target_name` (required): Name of the scanned target (1–256 characters).
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "model_name": "trojan_detector",
+    "total_functions_scanned": 150,
+    "total_found": 3,
+    "critical_count": 2,
+    "high_count": 1,
+    "medium_count": 0,
+    "low_count": 0,
+    "results": [
+      {
+        "signature_id": "BEHAV-009",
+        "behavior_name": "Remote process memory write",
+        "category": "Process Injection",
+        "severity": "Critical",
+        "detection_method": "api_call",
+        "containing_function": "func_401000",
+        "entrypoint": "0x401000",
+        "mitre_technique": "T1055",
+        "description": "Writes data into the memory of another process.",
+        "matched_evidence": ["WriteProcessMemory(hProc, addr, buf, size, &written);"],
+        "containing_function_code": "..."
+      }
+    ],
+    "modified_at": "2024-01-01T00:00:00+00:00"
+  },
+  "message": "Stored behavioral scan results retrieved for 'trojan_detector'"
+}
+```
+
+When no report is stored, `data` is `null` and the message is `"No stored behavioral scan results for '<target>'"`.
+
+---
+
+#### DELETE `/scan-results`
+
+Delete the stored behavioral scan report for a target.
+
+**Query Parameters:**
+- `target_name` (required): Name of the scanned target (1–256 characters).
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": "deleted",
+  "message": "Stored behavioral scan results deleted for 'trojan_detector'"
+}
+```
+
+When nothing was stored, `data` is `"not_found"` and the message is `"No stored behavioral scan results for '<target>'"`.
 
 ---
 

@@ -236,17 +236,84 @@ def _prediction_unique_columns(conn: Any) -> tuple[str, ...] | None:
     return _unique_columns_for(conn, "predictions", (_PREDICTION_OLD_UNIQUE_COLS, _PREDICTION_NEW_UNIQUE_COLS))
 
 
+_PREDICTION_COLUMNS: tuple[str, ...] = (
+    "id",
+    "task_name",
+    "model_name",
+    "functions_data",
+    "created_at",
+    "modified_at",
+    "user_id",
+    "function_count",
+)
+
+_PREDICTION_NEW_DDL = (
+    "CREATE TABLE predictions ("
+    "id INTEGER NOT NULL, "
+    "task_name VARCHAR(64) NOT NULL, "
+    "model_name VARCHAR(64) NOT NULL, "
+    "functions_data BLOB NOT NULL, "
+    "created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
+    "modified_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
+    "user_id INTEGER, "
+    "function_count INTEGER NOT NULL DEFAULT 0, "
+    "PRIMARY KEY (id), "
+    "CONSTRAINT uq_predictions_task_model_user UNIQUE (task_name, model_name, user_id)"
+    ")"
+)
+
+
+async def _rebuild_with_per_user_constraint(
+    conn: Any,
+    *,
+    table: str,
+    columns: tuple[str, ...],
+    new_ddl: str,
+    old_unique: tuple[str, ...],
+    new_unique: tuple[str, ...],
+    secondary_indexes: tuple[str, ...] = (),
+) -> None:
+    """Rebuild *table* to add ``user_id`` to its unique constraint (SQLite).
+
+    SQLite cannot ALTER a unique constraint, so the table is rebuilt: rename,
+    recreate with the new constraint, copy rows, drop the old table, and
+    recreate the secondary indexes. This is safe without deduplication because
+    the old (tighter) constraint guarantees at most one row per old key, which
+    trivially satisfies the new (looser) per-user constraint.
+
+    Args:
+        conn: An open async connection (caller manages the transaction).
+        table: The table to rebuild.
+        columns: All columns of the table, in order (used for the row copy).
+        new_ddl: The ``CREATE TABLE`` statement for the rebuilt table.
+        old_unique: The old unique-constraint columns (already detected).
+        new_unique: The new (per-user) unique-constraint columns.
+        secondary_indexes: Optional ``CREATE INDEX`` statements to re-run.
+
+    """
+    await conn.execute(text(f"ALTER TABLE {table} RENAME TO {table}_old"))
+    await conn.execute(text(new_ddl))
+    col_list = ", ".join(columns)
+    await conn.execute(text(f"INSERT INTO {table} ({col_list}) SELECT {col_list} FROM {table}_old"))
+    await conn.execute(text(f"DROP TABLE {table}_old"))
+    for index_sql in secondary_indexes:
+        await conn.execute(text(index_sql))
+    logger.info(
+        "Migrated {} unique constraint to per-user scope ({} -> {})",
+        table,
+        ", ".join(old_unique),
+        ", ".join(new_unique),
+    )
+
+
 async def _ensure_prediction_per_user_constraint(engine: AsyncEngine) -> None:
     """Migrate the predictions unique constraint to per-user scope (idempotent).
 
     Older deployments carry ``UNIQUE(task_name, model_name)``. The multi-tenant
     design scopes task-name uniqueness per user, so the constraint becomes
     ``UNIQUE(task_name, model_name, user_id)``. SQLite cannot ALTER a unique
-    constraint, so the table is rebuilt: rename, recreate with the new
-    constraint, copy rows, drop the old table, and recreate the secondary
-    index. This is safe without deduplication because the old (tighter)
-    constraint guarantees at most one row per (task_name, model_name), which
-    trivially satisfies the new (looser) per-user constraint.
+    constraint, so the table is rebuilt (see
+    :func:`_rebuild_with_per_user_constraint`).
     """
     async with engine.begin() as conn:
         if conn.dialect.name != "sqlite":
@@ -259,36 +326,15 @@ async def _ensure_prediction_per_user_constraint(engine: AsyncEngine) -> None:
         if cols is None or cols == _PREDICTION_NEW_UNIQUE_COLS:
             # Already on the per-user constraint (or no recognizable index).
             return
-        # Rebuild the table with the per-user unique constraint.
-        await conn.execute(text("ALTER TABLE predictions RENAME TO predictions_old"))
-        await conn.execute(
-            text(
-                "CREATE TABLE predictions ("
-                "id INTEGER NOT NULL, "
-                "task_name VARCHAR(64) NOT NULL, "
-                "model_name VARCHAR(64) NOT NULL, "
-                "functions_data BLOB NOT NULL, "
-                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
-                "modified_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
-                "user_id INTEGER, "
-                "function_count INTEGER NOT NULL DEFAULT 0, "
-                "PRIMARY KEY (id), "
-                "CONSTRAINT uq_predictions_task_model_user UNIQUE (task_name, model_name, user_id)"
-                ")"
-            )
+        await _rebuild_with_per_user_constraint(
+            conn,
+            table="predictions",
+            columns=_PREDICTION_COLUMNS,
+            new_ddl=_PREDICTION_NEW_DDL,
+            old_unique=cols,
+            new_unique=_PREDICTION_NEW_UNIQUE_COLS,
+            secondary_indexes=("CREATE INDEX IF NOT EXISTS ix_predictions_user_id ON predictions (user_id)",),
         )
-        await conn.execute(
-            text(
-                "INSERT INTO predictions "
-                "(id, task_name, model_name, functions_data, created_at, modified_at, user_id, function_count) "
-                "SELECT id, task_name, model_name, functions_data, created_at, modified_at, user_id, function_count "
-                "FROM predictions_old"
-            )
-        )
-        await conn.execute(text("DROP TABLE predictions_old"))
-        # Recreate the secondary index that the model declares on user_id.
-        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_predictions_user_id ON predictions (user_id)"))
-        logger.info("Migrated predictions unique constraint to per-user scope")
 
 
 _LLM_RESULT_OLD_UNIQUE_COLS = ("target_name", "function_name", "containing_function", "entrypoint")
@@ -298,6 +344,52 @@ _LLM_RESULT_NEW_UNIQUE_COLS = (
     "containing_function",
     "entrypoint",
     "user_id",
+)
+
+# All llm_analysis_results columns, in order (used for the row copy during the
+# per-user-constraint rebuild). The verdict columns are guaranteed present by
+# the time the rebuild runs (see the init ordering).
+_LLM_RESULT_COLUMNS: tuple[str, ...] = (
+    "id",
+    "target_name",
+    "user_id",
+    "function_name",
+    "containing_function",
+    "entrypoint",
+    "status",
+    "analysis",
+    "error",
+    "model_name",
+    "elapsed_ms",
+    "is_vulnerability",
+    "confidence",
+    "verdict",
+    "created_at",
+    "modified_at",
+)
+
+_LLM_RESULT_NEW_DDL = (
+    "CREATE TABLE llm_analysis_results ("
+    "id INTEGER NOT NULL, "
+    "target_name VARCHAR(256) NOT NULL, "
+    "user_id INTEGER, "
+    "function_name VARCHAR(256) NOT NULL, "
+    "containing_function VARCHAR(256) NOT NULL, "
+    "entrypoint VARCHAR(32) NOT NULL, "
+    "status VARCHAR(16) NOT NULL, "
+    "analysis TEXT NOT NULL DEFAULT '', "
+    "error TEXT NOT NULL DEFAULT '', "
+    "model_name VARCHAR(128) NOT NULL DEFAULT '', "
+    "elapsed_ms INTEGER NOT NULL DEFAULT 0, "
+    "is_vulnerability BOOLEAN, "
+    "confidence VARCHAR(16) NOT NULL DEFAULT '', "
+    "verdict VARCHAR(32) NOT NULL DEFAULT '', "
+    "created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
+    "modified_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
+    "PRIMARY KEY (id), "
+    "CONSTRAINT uq_llm_analysis_target_function "
+    "UNIQUE (target_name, function_name, containing_function, entrypoint, user_id)"
+    ")"
 )
 
 
@@ -318,11 +410,7 @@ async def _ensure_llm_result_per_user_constraint(engine: AsyncEngine) -> None:
     LLM results per user, so the constraint becomes
     ``UNIQUE(target_name, function_name, containing_function, entrypoint,
     user_id)``. SQLite cannot ALTER a unique constraint, so the table is
-    rebuilt: rename, recreate with the new constraint, copy rows, drop the old
-    table, and recreate the secondary indexes. This is safe without
-    deduplication because the old (tighter) constraint guarantees at most one
-    row per (target_name, function_name, containing_function, entrypoint),
-    which trivially satisfies the new (looser) per-user constraint.
+    rebuilt (see :func:`_rebuild_with_per_user_constraint`).
     """
     async with engine.begin() as conn:
         if conn.dialect.name != "sqlite":
@@ -335,53 +423,18 @@ async def _ensure_llm_result_per_user_constraint(engine: AsyncEngine) -> None:
         if cols is None or cols == _LLM_RESULT_NEW_UNIQUE_COLS:
             # Already on the per-user constraint (or no recognizable index).
             return
-        # Rebuild the table with the per-user unique constraint.
-        await conn.execute(text("ALTER TABLE llm_analysis_results RENAME TO llm_analysis_results_old"))
-        await conn.execute(
-            text(
-                "CREATE TABLE llm_analysis_results ("
-                "id INTEGER NOT NULL, "
-                "target_name VARCHAR(256) NOT NULL, "
-                "user_id INTEGER, "
-                "function_name VARCHAR(256) NOT NULL, "
-                "containing_function VARCHAR(256) NOT NULL, "
-                "entrypoint VARCHAR(32) NOT NULL, "
-                "status VARCHAR(16) NOT NULL, "
-                "analysis TEXT NOT NULL DEFAULT '', "
-                "error TEXT NOT NULL DEFAULT '', "
-                "model_name VARCHAR(128) NOT NULL DEFAULT '', "
-                "elapsed_ms INTEGER NOT NULL DEFAULT 0, "
-                "is_vulnerability BOOLEAN, "
-                "confidence VARCHAR(16) NOT NULL DEFAULT '', "
-                "verdict VARCHAR(32) NOT NULL DEFAULT '', "
-                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
-                "modified_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, "
-                "PRIMARY KEY (id), "
-                "CONSTRAINT uq_llm_analysis_target_function "
-                "UNIQUE (target_name, function_name, containing_function, entrypoint, user_id)"
-                ")"
-            )
+        await _rebuild_with_per_user_constraint(
+            conn,
+            table="llm_analysis_results",
+            columns=_LLM_RESULT_COLUMNS,
+            new_ddl=_LLM_RESULT_NEW_DDL,
+            old_unique=cols,
+            new_unique=_LLM_RESULT_NEW_UNIQUE_COLS,
+            secondary_indexes=(
+                "CREATE INDEX IF NOT EXISTS ix_llm_analysis_results_target_name ON llm_analysis_results (target_name)",
+                "CREATE INDEX IF NOT EXISTS ix_llm_analysis_results_user_id ON llm_analysis_results (user_id)",
+            ),
         )
-        await conn.execute(
-            text(
-                "INSERT INTO llm_analysis_results "
-                "(id, target_name, user_id, function_name, containing_function, entrypoint, "
-                "status, analysis, error, model_name, elapsed_ms, is_vulnerability, confidence, "
-                "verdict, created_at, modified_at) "
-                "SELECT id, target_name, user_id, function_name, containing_function, entrypoint, "
-                "status, analysis, error, model_name, elapsed_ms, is_vulnerability, confidence, "
-                "verdict, created_at, modified_at FROM llm_analysis_results_old"
-            )
-        )
-        await conn.execute(text("DROP TABLE llm_analysis_results_old"))
-        # Recreate the secondary indexes the model declares on target_name and user_id.
-        await conn.execute(
-            text("CREATE INDEX IF NOT EXISTS ix_llm_analysis_results_target_name ON llm_analysis_results (target_name)")
-        )
-        await conn.execute(
-            text("CREATE INDEX IF NOT EXISTS ix_llm_analysis_results_user_id ON llm_analysis_results (user_id)")
-        )
-        logger.info("Migrated llm_analysis_results unique constraint to per-user scope")
 
 
 async def _backfill_prediction_function_count() -> None:

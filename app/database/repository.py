@@ -363,6 +363,7 @@ class APIKeyRepository:
         return api_key_record
 
     async def get_user_api_keys(self, user_id: int) -> list[APIKey]:
+        """Retrieve all API keys for a user, ordered by creation date (newest first)."""
         result = await self.db.execute(
             select(APIKey).where(APIKey.user_id == user_id).order_by(APIKey.created_at.desc()),
         )

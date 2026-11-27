@@ -1,5 +1,5 @@
 {
-    "name": "Python 3 with Ghidra 12.0.4",
+    "name": "Python 3 with Ghidra 12.1.4",
     "build": {
         "dockerfile": "Dockerfile",
         "context": "..",

@@ -115,14 +115,18 @@ class TestSharedTaskNameLookup:
         owner = await PredictionRepository.get_owner("task_b", "model_b", user_id=1)
         assert owner == 1
 
-    async def test_unowned_row_visible_to_all(self, fresh_predictions_table: Any) -> None:
-        """A legacy/unowned row must remain readable by any user."""
+    async def test_unowned_row_not_visible_to_any_user(self, fresh_predictions_table: Any) -> None:
+        """A legacy/unowned row must NOT be readable by any user (deny-by-default).
+
+        Regression test for the ownership-model fix: list and single-resource
+        reads are now consistent -- unowned rows (``user_id IS NULL``) are
+        excluded, matching the ``can_access`` deny-by-default rule.
+        """
         await _insert_prediction("task_c", "model_c", user_id=None, functions=[{"functionName": "f1"}])
 
         for uid in (0, 1, 2):
             result = await PredictionRepository.get("task_c", "model_c", user_id=uid)
-            assert result is not None
-            assert result.user_id is None
+            assert result is None, f"user {uid} must not see an unowned row"
 
         owner = await PredictionRepository.get_owner("task_c", "model_c", user_id=1)
         assert owner is None  # unowned rows report no owner

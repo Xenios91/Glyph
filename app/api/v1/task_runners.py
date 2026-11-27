@@ -6,7 +6,7 @@ in ``app.api.v1.endpoints.tasks`` via ``BackgroundTasks``.
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, cast
 
 from loguru import logger
 
@@ -79,7 +79,7 @@ async def run_code_reuse_task(
     """
     from app.database.binary_repository import BinaryRepository
     from app.processing.pipeline import PipelineContext
-    from app.services.code_reuse_detector import compare_binaries, tokenize_and_filter
+    from app.services.code_reuse_detector import FunctionDict, compare_binaries, tokenize_and_filter
 
     async with _task_lifecycle(task_uuid, captured_ctx, "Code reuse task failed"):
         # Load source binary functions
@@ -133,7 +133,7 @@ async def run_code_reuse_task(
         # Compare against each target binary
         comparisons: list[dict[str, Any]] = []
         for target_id in target_ids:
-            result = await compare_binaries(filtered_source, target_id)
+            result = await compare_binaries(cast("list[FunctionDict]", filtered_source), target_id)
             if result:
                 comparisons.append(result)  # type: ignore[arg-type]
 

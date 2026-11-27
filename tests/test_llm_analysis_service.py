@@ -514,7 +514,8 @@ class TestAnalyzeFinding:
         assert "strcpy(dst, src);" in messages[1]["content"]
         assert headers is not None
         assert headers["Authorization"] == "Bearer sk-abc"
-        assert client.timeout == 900.0
+        # The default timeout is 600.0 (within the documented 5-600 API range).
+        assert client.timeout == 600.0
 
     async def test_model_fallback_to_configured(self, monkeypatch: Any) -> None:
         """Test that the configured model is reported when the body lacks one."""

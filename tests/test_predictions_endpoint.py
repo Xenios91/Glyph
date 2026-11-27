@@ -231,6 +231,7 @@ class TestPredictionsRouter:
                 self.task_name = "test_task"
                 self.model_name = "test_model"
                 self.predictions = [{"functionName": "test_func", "predictedLabel": "test_label"}]
+                self.user_id = 1
 
         mock_prediction = SimplePrediction()
         mock_pred_repo.get_prediction = AsyncMock(return_value=mock_prediction)
@@ -328,7 +329,7 @@ class TestPredictionsRouter:
         """Test getting prediction details successfully with JSON response."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
-        mock_model_info.user_id = None
+        mock_model_info.user_id = 1
         mock_pred_repo.get_owner_by_task = AsyncMock(return_value=1)
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
         mock_service_pred_repo.get_prediction_function = AsyncMock(
@@ -390,7 +391,7 @@ class TestPredictionsRouter:
         """Test getting prediction details returns JSON (no HTML content negotiation)."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
-        mock_model_info.user_id = None
+        mock_model_info.user_id = 1
         mock_pred_repo.get_owner_by_task = AsyncMock(return_value=1)
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
         mock_service_pred_repo.get_prediction_function = AsyncMock(
@@ -428,7 +429,7 @@ class TestPredictionsRouter:
         """Test getting prediction details returns correct JSON data."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
-        mock_model_info.user_id = None
+        mock_model_info.user_id = 1
         mock_pred_repo.get_owner_by_task = AsyncMock(return_value=1)
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
         mock_service_pred_repo.get_prediction_function = AsyncMock(
@@ -516,6 +517,7 @@ class TestPredictionsRouter:
                 self.task_name = "test_task"
                 self.model_name = "test_model"
                 self.predictions = [{"functionName": "test_func", "predictedLabel": "test_label"}]
+                self.user_id = 1
 
         mock_prediction = SimplePrediction()
         mock_pred_repo.get_prediction = AsyncMock(return_value=mock_prediction)
@@ -647,7 +649,7 @@ class TestPredictionsRouter:
         predictions_client: Any,
     ) -> None:
         """Test getting prediction details with TypeError."""
-        mock_func_repo.get = AsyncMock(return_value=Mock(tokens="tokens", user_id=None))
+        mock_func_repo.get = AsyncMock(return_value=Mock(tokens="tokens", user_id=1))
         # The caller owns the task so the request reaches the (failing) service call.
         mock_pred_repo.get_owner_by_task = AsyncMock(return_value=1)
         mock_service_pred_repo.get_prediction_function = AsyncMock(side_effect=TypeError("bad data"))

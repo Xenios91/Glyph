@@ -58,7 +58,7 @@ Glyph is an architecture-independent binary analysis tool that uses NLP techniqu
 
 ### API Layer (`app/api/`)
 
-- **`router.py`** - Centralized API router; mounts the v1 sub-routers (`/binaries`, `/predictions`, `/models`, `/status`, `/config`, `/dangerous-functions`, `/call-graph`, `/tasks`)
+- **`router.py`** - Centralized API router; mounts the v1 sub-routers (`/binaries`, `/predictions`, `/models`, `/status`, `/config`, `/dangerous-functions`, `/behavioral-scans`, `/call-graph`, `/tasks`)
 - **`types.py`** - Shared API type definitions
 - **`v1/endpoints/`** - Version 1 API endpoints:
   - `binaries.py` - Binary upload, bulk upload, listing, detail, functions, and deletion
@@ -160,7 +160,7 @@ Glyph is an architecture-independent binary analysis tool that uses NLP techniqu
 
 - **`settings.py`** - Pydantic-based configuration management (YAML + environment variables):
   - `GlyphSettings` - Main settings class with YAML config source (`config.yml`), exposed via the `get_settings()` singleton
-- **`pipeline_configs.py`** - ML pipeline factory (`MLTask.get_multi_class_pipeline`): `TfidfVectorizer` (n-grams 2–4, sublinear TF) + `MultinomialNB`
+- **`ml_pipeline.py`** - ML pipeline factory (`MLTask.get_multi_class_pipeline`): `TfidfVectorizer` (n-grams 2–4, sublinear TF) + `MultinomialNB`
 
 ## Data Flow
 
@@ -278,7 +278,7 @@ Six per-purpose SQLite databases (under `data/`, overridable via `GLYPH_DATA_DIR
 | `functions.db` | `functions` | Stores extracted functions per model |
 | `auth.db` | `users`, `api_keys`, `llm_user_configs` | Authentication, API key management, per-user LLM configuration |
 | `binaries.db` | `binaries`, `binary_functions` | Uploaded binaries and raw decompiled functions |
-| `intelligence.db` | `similarity_computations`, `similarity_pairs`, `llm_analysis_results`, `scan_reports` | Similarity computations, LLM analysis results, and scan reports |
+| `intelligence.db` | `similarity_computations`, `similarity_pairs`, `llm_analysis_results`, `scan_reports`, `behavioral_scan_reports` | Similarity computations, LLM analysis results, and scan reports (dangerous-function + behavioral) |
 
 ## Technology Stack
 

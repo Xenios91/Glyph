@@ -13,7 +13,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_active_user
-from app.config.settings import MAX_CPU_CORES, get_settings, reload_settings
+from app.config.settings import get_settings, reload_settings
 from app.core.rate_limiter import LLM_ANALYSIS_LIMIT, limiter
 from app.database.llm_user_config_repository import LLMUserConfigRepository, resolve_user_llm_config
 from app.database.models import User
@@ -214,37 +214,29 @@ async def save_config(
         Success response with updated configuration.
 
     Raises:
-        HTTPException: If CPU cores value is invalid.
+        HTTPException: If global (non-LLM) settings are included in the payload.
 
     """
     settings = get_settings()
 
-    if payload.max_file_size_mb is not None:
-        if not (1 <= payload.max_file_size_mb <= 2048):
-            logger.warning("Configuration update rejected: invalid max_file_size_mb={}", payload.max_file_size_mb)
-            raise HTTPException(
-                status_code=400,
-                detail=create_error_response(
-                    error_code="INVALID_FILE_SIZE",
-                    error_message="max_file_size_mb must be between 1 and 2048",
-                ).model_dump(),
-            )
-        logger.info("Configuration updated: max_file_size_mb={}", payload.max_file_size_mb)
-        settings.max_file_size_mb = payload.max_file_size_mb
-
-    if payload.cpu_cores is not None:
-        if 1 <= payload.cpu_cores <= MAX_CPU_CORES:
-            logger.info("Configuration updated: cpu_cores={}", payload.cpu_cores)
-            settings.cpu_cores = payload.cpu_cores
-        else:
-            logger.warning("Configuration update rejected: invalid cpu_cores={}", payload.cpu_cores)
-            raise HTTPException(
-                status_code=400,
-                detail=create_error_response(
-                    error_code="INVALID_CPU_CORES",
-                    error_message=f"CPU cores must be between 1 and {MAX_CPU_CORES}",
-                ).model_dump(),
-            )
+    # Global (non-LLM) settings are read-only for all users. There is no admin
+    # role in the schema, so allowing any authenticated user to mutate them
+    # would let them change system-wide limits (max upload size, CPU core
+    # budget) and persist them to config.yml. Only the per-user LLM block
+    # below may be updated from the API; operators change global values by
+    # editing config.yml directly.
+    if payload.max_file_size_mb is not None or payload.cpu_cores is not None:
+        logger.warning(
+            "Global configuration update rejected for user {}: max_file_size_mb/cpu_cores are read-only",
+            current_user.id,
+        )
+        raise HTTPException(
+            status_code=403,
+            detail=create_error_response(
+                error_code="GLOBAL_CONFIG_READONLY",
+                error_message="max_file_size_mb and cpu_cores are read-only; only the per-user LLM block can be updated",
+            ).model_dump(),
+        )
 
     if payload.llm is not None:
         llm_updates = _validate_llm_payload(payload.llm)
@@ -253,10 +245,12 @@ async def save_config(
             logger.info("Configuration updated: llm.{}={}", name, log_value)
         if "base_url" in llm_updates:
             # Defense in depth: reject a base_url whose host resolves to a
-            # non-public address (loopback / private / link-local / reserved /
-            # multicast) so users get immediate feedback at save time.
+            # non-public address, mirroring the analysis path. Local endpoints
+            # (loopback / RFC1918, e.g. Ollama on localhost) are permitted via
+            # allow_local=True; link-local (cloud metadata) and other reserved
+            # ranges are still rejected so users get immediate feedback.
             try:
-                await assert_public_url(llm_updates["base_url"])
+                await assert_public_url(llm_updates["base_url"], allow_local=True)
             except ValueError:
                 logger.warning("LLM configuration update rejected: base_url host is not a public address")
                 raise HTTPException(

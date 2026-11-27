@@ -49,14 +49,18 @@ async def _insert_prediction(task_name: str, model_name: str, user_id: int | Non
 class TestCountForUser:
     """Ownership-scoped counting of predictions for a user."""
 
-    async def test_counts_own_and_unowned_rows(self, fresh_predictions_table: Any) -> None:
-        """A user sees their own rows plus unowned (legacy) rows."""
+    async def test_counts_only_own_rows(self, fresh_predictions_table: Any) -> None:
+        """A user sees only their own rows; unowned and foreign rows are excluded.
+
+        Deny-by-default, matching ``can_access``: unowned (legacy) rows
+        (``user_id IS NULL``) and rows owned by another user are not counted.
+        """
         await _insert_prediction("task_a", "model_a", user_id=1)
         await _insert_prediction("task_b", "model_a", user_id=1)
         await _insert_prediction("task_c", "model_a", user_id=None)
         await _insert_prediction("task_d", "model_a", user_id=2)
 
-        assert await PredictionRepository.count_for_user(1) == 3
+        assert await PredictionRepository.count_for_user(1) == 2
 
     async def test_excludes_rows_owned_by_other_users(self, fresh_predictions_table: Any) -> None:
         """Rows owned by another user are not counted."""
@@ -65,13 +69,17 @@ class TestCountForUser:
 
         assert await PredictionRepository.count_for_user(1) == 0
 
-    async def test_anonymous_user_counts_only_unowned(self, fresh_predictions_table: Any) -> None:
-        """The anonymous user (id 0) sees only unowned rows."""
+    async def test_anonymous_user_counts_only_own_rows(self, fresh_predictions_table: Any) -> None:
+        """The anonymous user (id 0) sees only rows created with user_id 0.
+
+        Deny-by-default: unowned rows (``user_id IS NULL``) are not counted
+        for the anonymous user either.
+        """
         await _insert_prediction("task_a", "model_a", user_id=1)
         await _insert_prediction("task_b", "model_a", user_id=None)
-        await _insert_prediction("task_c", "model_a", user_id=None)
+        await _insert_prediction("task_c", "model_a", user_id=0)
 
-        assert await PredictionRepository.count_for_user(0) == 2
+        assert await PredictionRepository.count_for_user(0) == 1
 
     async def test_returns_zero_when_no_rows(self, fresh_predictions_table: Any) -> None:
         """An empty table yields a count of zero."""
@@ -82,8 +90,12 @@ class TestCountForUser:
 class TestGetTaskNamesForUser:
     """Ownership-scoped retrieval of prediction task names (no BLOB load)."""
 
-    async def test_returns_own_and_unowned_task_names(self, fresh_predictions_table: Any) -> None:
-        """A user sees their own tasks plus unowned (legacy) tasks."""
+    async def test_returns_only_own_task_names(self, fresh_predictions_table: Any) -> None:
+        """A user sees only their own tasks; unowned and foreign tasks are excluded.
+
+        Deny-by-default, matching ``can_access``: unowned (legacy) tasks
+        (``user_id IS NULL``) and tasks owned by another user are not returned.
+        """
         await _insert_prediction("task_a", "model_a", user_id=1)
         await _insert_prediction("task_b", "model_a", user_id=1)
         await _insert_prediction("task_c", "model_a", user_id=None)
@@ -92,7 +104,6 @@ class TestGetTaskNamesForUser:
         assert sorted(await PredictionRepository.get_task_names_for_user(1)) == [
             "task_a",
             "task_b",
-            "task_c",
         ]
 
     async def test_excludes_tasks_owned_by_other_users(self, fresh_predictions_table: Any) -> None:
@@ -102,14 +113,17 @@ class TestGetTaskNamesForUser:
 
         assert await PredictionRepository.get_task_names_for_user(1) == []
 
-    async def test_anonymous_user_sees_only_unowned(self, fresh_predictions_table: Any) -> None:
-        """The anonymous user (id 0) sees only unowned tasks."""
+    async def test_anonymous_user_sees_only_own_tasks(self, fresh_predictions_table: Any) -> None:
+        """The anonymous user (id 0) sees only tasks created with user_id 0.
+
+        Deny-by-default: unowned tasks (``user_id IS NULL``) are not returned
+        to the anonymous user.
+        """
         await _insert_prediction("task_a", "model_a", user_id=1)
         await _insert_prediction("task_b", "model_a", user_id=None)
-        await _insert_prediction("task_c", "model_a", user_id=None)
+        await _insert_prediction("task_c", "model_a", user_id=0)
 
         assert sorted(await PredictionRepository.get_task_names_for_user(0)) == [
-            "task_b",
             "task_c",
         ]
 
@@ -158,3 +172,31 @@ class TestGetPredictionsMetadataPagination:
         rows = await PredictionRepository.get_predictions_metadata_for_user(1)
 
         assert [r["task_name"] for r in rows] == ["task_00", "task_01", "task_02"]
+
+    async def test_list_excludes_unowned_rows_for_all_users(self, fresh_predictions_table: Any) -> None:
+        """The list query must NOT return unowned rows to any user (deny-by-default).
+
+        Regression test for the ownership-model fix: list filters previously
+        returned ``user_id == caller OR user_id IS NULL``, exposing unowned
+        (legacy) rows to every authenticated user -- inconsistent with the
+        single-resource 404. Unowned rows are now excluded from list results.
+        """
+        await _insert_prediction("task_unowned", "model_a", user_id=None)
+
+        for uid in (0, 1, 2):
+            rows = await PredictionRepository.get_predictions_metadata_for_user(uid)
+            assert [r["task_name"] for r in rows] == [], (
+                f"user {uid} must not see unowned rows in the list"
+            )
+
+    async def test_list_returns_only_own_rows(self, fresh_predictions_table: Any) -> None:
+        """The list query SHOULD return the owner's own rows (and only those)."""
+        await _insert_prediction("task_own_1", "model_a", user_id=1)
+        await _insert_prediction("task_own_2", "model_a", user_id=1)
+        await _insert_prediction("task_unowned", "model_a", user_id=None)
+        await _insert_prediction("task_foreign", "model_a", user_id=2)
+
+        rows = await PredictionRepository.get_predictions_metadata_for_user(1)
+
+        assert [r["task_name"] for r in rows] == ["task_own_1", "task_own_2"]
+        assert all(r["user_id"] == 1 for r in rows)

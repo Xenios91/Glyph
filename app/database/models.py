@@ -336,7 +336,7 @@ class LLMUserConfig(Base, TimestampMixin):
     model: Mapped[str] = mapped_column(String(256), default="", nullable=False)
     # Stored encrypted at rest (enc1:<Fernet token>); see app.utils.secret_cipher.
     api_key: Mapped[str] = mapped_column(String(1024), default="", nullable=False)
-    timeout_seconds: Mapped[float] = mapped_column(Float, default=900.0, nullable=False)
+    timeout_seconds: Mapped[float] = mapped_column(Float, default=600.0, nullable=False)
     temperature: Mapped[float] = mapped_column(Float, default=0.1, nullable=False)
     max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_concurrent: Mapped[int] = mapped_column(Integer, default=5, nullable=False)

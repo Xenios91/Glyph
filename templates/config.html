@@ -34,7 +34,7 @@
 
                         <div class="control-group">
                             <div class="slider-wrapper">
-                                <input id="max-file-size" type="range" class="cyber-range is-cyan"
+                                <input id="max-file-size" type="range" class="cyber-range is-cyan" disabled
                                     min="1" max="2048" value="{{ max_file_size }}" step="1"
                                     aria-describedby="max-file-size-val"
                                     aria-label="Maximum file upload size in megabytes">
@@ -46,11 +46,14 @@
 
                         <div class="precision-input-group">
                             <label for="max-file-size-input" class="sr-only">Exact file size value</label>
-                            <input type="number" id="max-file-size-input" class="cyber-input precision-input"
+                            <input type="number" id="max-file-size-input" class="cyber-input precision-input" disabled
                                 min="1" max="2048" value="{{ max_file_size }}"
                                 aria-label="Exact maximum file upload size in megabytes">
                             <span class="unit-label">MB</span>
                         </div>
+                        <p class="field-hint">
+                            Read-only: global settings can only be changed by editing config.yml.
+                        </p>
                     </div>
                 </div>
             </article>
@@ -72,7 +75,7 @@
 
                         <div class="control-group">
                             <div class="slider-wrapper">
-                                <input id="cpu-cores" type="range" class="cyber-range is-yellow"
+                                <input id="cpu-cores" type="range" class="cyber-range is-yellow" disabled
                                     min="1" max="{{ max_cores }}" value="{{ cpu_cores }}" step="1"
                                     aria-describedby="cpu-cores-val"
                                     aria-label="Number of CPU cores for analysis workers">
@@ -84,11 +87,14 @@
 
                         <div class="precision-input-group">
                             <label for="cpu-cores-input" class="sr-only">Exact CPU cores value</label>
-                            <input type="number" id="cpu-cores-input" class="cyber-input precision-input"
+                            <input type="number" id="cpu-cores-input" class="cyber-input precision-input" disabled
                                 min="1" max="{{ max_cores }}" value="{{ cpu_cores }}"
                                 aria-label="Exact number of CPU cores for analysis workers">
                             <span class="unit-label">cores</span>
                             </div>
+                        <p class="field-hint">
+                            Read-only: global settings can only be changed by editing config.yml.
+                        </p>
                         </div>
                 </div>
             </article>
@@ -98,7 +104,7 @@
             <button type="button" class="cyber-btn is-primary" id="save-config-btn" aria-label="Save configuration settings">
                 <span aria-hidden="true">[ SAVE CONFIGURATION ]</span>
             </button>
-            <button type="button" class="cyber-btn is-magenta" id="reset-defaults-btn" aria-label="Reset to default settings">
+            <button type="button" class="cyber-btn is-magenta" id="reset-defaults-btn" aria-label="Reset to default settings" disabled title="Global settings are read-only">
                 <span aria-hidden="true">RESET DEFAULTS</span>
             </button>
         </div>

@@ -184,15 +184,14 @@ class TestWebEndpoints:
         web_client: TestClient,
     ) -> None:
         """Test get prediction details returns JSON on success."""
-        mock_func_repo.get = AsyncMock(
-            return_value={
-                "model_name": "test_model",
-                "function_name": "test_func",
-                "entrypoint": "0x1000",
-                "tokens": "test tokens",
-            },
-        )
-        mock_pred_repo.get_owner = AsyncMock(return_value=None)
+        mock_model_info = Mock()
+        mock_model_info.model_name = "test_model"
+        mock_model_info.function_name = "test_func"
+        mock_model_info.entrypoint = "0x1000"
+        mock_model_info.tokens = "test tokens"
+        mock_model_info.user_id = 1
+        mock_func_repo.get = AsyncMock(return_value=mock_model_info)
+        mock_pred_repo.get_owner = AsyncMock(return_value=1)
         mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",
@@ -279,7 +278,7 @@ class TestWebEndpoints:
         mock_prediction.task_name = "test_task"
         mock_prediction.model_name = "test_model"
         mock_prediction.predictions = []
-        mock_prediction.user_id = None
+        mock_prediction.user_id = 1
         mock_pred_repo.get = AsyncMock(return_value=mock_prediction)
 
         response = web_client.get(
@@ -300,7 +299,7 @@ class TestWebEndpoints:
         mock_prediction.task_name = "test_task"
         mock_prediction.model_name = "test_model"
         mock_prediction.predictions = []
-        mock_prediction.user_id = None
+        mock_prediction.user_id = 1
         mock_pred_repo.get = AsyncMock(return_value=mock_prediction)
 
         response = web_client.get(
@@ -337,9 +336,9 @@ class TestWebEndpoints:
         """Test get prediction details returns HTML for browsers."""
         mock_model_info = Mock()
         mock_model_info.tokens = "test tokens"
-        mock_model_info.user_id = None
+        mock_model_info.user_id = 1
         mock_func_repo.get = AsyncMock(return_value=mock_model_info)
-        mock_pred_repo.get_owner = AsyncMock(return_value=None)
+        mock_pred_repo.get_owner = AsyncMock(return_value=1)
         mock_service_pred_repo.get_prediction_function = AsyncMock(
             return_value={
                 "tokens": "prediction tokens",

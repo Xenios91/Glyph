@@ -13,10 +13,15 @@ Glyph decompiles 32- and 64-bit ELF binaries with Ghidra and applies machine lea
 
 All capabilities are available through a modern web UI and a fully authenticated REST API (JWT tokens or API keys), with long-running work executed as background tasks.
 
-## Version 0.3.0
+## Version 0.4.0
 
 ### Features
 
+- Behavioral scanning: detect malware-associated behaviors (anti-debugging, anti-sandbox/anti-VM, process injection, credential harvesting, network C2, persistence, obfuscation/anti-analysis) against a curated signature catalog, with per-finding evidence from decompiled code
+- Taint analysis for dangerous function findings: call-graph-based reachability showing which functions (especially entry points) can reach a dangerous call site
+- SSRF protection for user-configured LLM endpoints: outbound requests are resolved and validated against internal/reserved address ranges, with DNS-rebinding mitigation
+- Per-user LLM API keys are stored encrypted at rest (Fernet)
+- Diff highlighting in prediction function details
 - Structured LLM verdicts: analysis now ends with a parsed `VERDICT: VULNERABLE|NOT_VULNERABLE|UNCERTAIN (confidence: …)` line, surfaced as verdict-aware badges, sorting, and a verdict pill in the analysis modal
 - LLM-assisted analysis of dangerous function findings via any OpenAI-compatible chat completions endpoint (OpenAI, Ollama, vLLM, and more)
 - Per-user LLM endpoint configuration with built-in connectivity testing from the Profile page
@@ -68,7 +73,7 @@ Glyph was also featured in **Black Hat Arsenal 2023** and **Defcon Demo Labs**.
 ## Requirements
 
 - Python version 3.11+
-- [Ghidra](https://ghidra-sre.org/) 12.0 or later (required for binary analysis via PyGhidra)
+- [Ghidra](https://ghidra-sre.org/) 12.0 or later (required for binary analysis via PyGhidra; the devcontainer ships 12.1.4)
 
 ## Getting Started
 
@@ -91,13 +96,13 @@ Glyph uses PyGhidra for binary decompilation and analysis. You must install Ghid
 
 ```bash
 # Linux/macOS
-export GHIDRA_INSTALL_DIR=/opt/ghidra/ghidra_12.0_PUBLIC
+export GHIDRA_INSTALL_DIR=/opt/ghidra/ghidra_12.1.4_PUBLIC
 
 # Windows (Command Prompt)
-set GHIDRA_INSTALL_DIR=C:\Ghidra\ghidra_12.0_PUBLIC
+set GHIDRA_INSTALL_DIR=C:\Ghidra\ghidra_12.1.4_PUBLIC
 
 # Windows (PowerShell)
-$env:GHIDRA_INSTALL_DIR="C:\Ghidra\ghidra_12.0_PUBLIC"
+$env:GHIDRA_INSTALL_DIR="C:\Ghidra\ghidra_12.1.4_PUBLIC"
 ```
 
 > **Note:** Replace the path above with your actual Ghidra installation directory. The directory should contain `support/`, `GhidraRun`, and other Ghidra runtime files.
